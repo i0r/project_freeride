@@ -1,0 +1,237 @@
+lib AutoExposure {
+    properties {
+        float	DeltaTime = 0.00f;
+        float	WhiteLevel = 1.00f;
+        float	ClipShadows = 0.00f;
+        float	ClipHighlights = 1.00f;
+        float	EV = 0.0f;
+        float	FstopBias = 0.0f;
+        float	ReferenceCameraFPS = 60.0f;
+        float	AdaptMinLuminance = 0.03f;
+        float	AdaptMaxLuminance = 100.0f;
+        float	AdaptSpeedUp = 0.99f;
+        float	AdaptSpeedDown = 0.99f;
+    }
+    
+    resources {
+        Texture2D InputRenderTarget {
+            swizzle = float4;
+        }
+
+        RWBuffer HistogramBuffer {
+            swizzle = uint;
+        }
+        
+        Buffer Histogram {
+            swizzle = uint;
+        }
+        
+        RWBuffer FinalHistogram {
+            swizzle = uint;
+        }
+        
+        StructuredBuffer RAutoExposureBuffer {
+            swizzle = AutoExposureInfos;
+        }
+        
+        RWStructuredBuffer WAutoExposureBuffer {
+            swizzle = AutoExposureInfos;
+        }
+    }
+    
+    shared {
+        #include <AutoExposure/Shared.hlsli>
+        #include <Photometry.hlsli>
+        #include <ColorSpaces.hlsli>
+        
+        static const int BIN_COMPUTE_NUMTHREADX	= 32;
+        static const int BIN_COMPUTE_NUMTHREADY	= 4;
+        
+        static const uint	PASSES_COUNT = HISTOGRAM_BUCKETS_COUNT / BIN_COMPUTE_NUMTHREADX;
+        groupshared uint	HistogramLCS[BIN_COMPUTE_NUMTHREADY][HISTOGRAM_BUCKETS_COUNT];
+        
+        static const int HISTOGRAM_MERGE_NUMTHREADY = 512;
+        groupshared uint	Rows[HISTOGRAM_MERGE_NUMTHREADY];
+    }
+    
+    shader BinComputeCS {           
+        [unroll]
+        for ( uint i = 0; i < PASSES_COUNT; i++ ) {
+            uint BucketIndex = BIN_COMPUTE_NUMTHREADX * i + $Sv_GroupThreadId.x;
+            HistogramLCS[$Sv_GroupThreadId.y][BucketIndex] = 0;
+        }
+        GroupMemoryBarrierWithGroupSync();
+
+        uint2 PixelIndex;
+        PixelIndex.y = BIN_COMPUTE_NUMTHREADY * $Sv_GroupID.y + $Sv_GroupThreadId.y;
+
+        uint2 ScreenSize = (uint2)g_ScreenSize;
+        for ( uint X = 0; X < ScreenSize.x; X += BIN_COMPUTE_NUMTHREADX ) {
+            PixelIndex.x = X + $Sv_GroupThreadId.x;
+            
+            if ( PixelIndex.x >= ScreenSize.x || PixelIndex.y >= ScreenSize.y ) {
+                continue;
+            }
+            
+            float Luminance = RGBToLuminance( InputRenderTarget[PixelIndex].xyz ) * BISOU_TO_WORLD_LUMINANCE;
+            
+            if ( Luminance < MIN_ADAPTABLE_SCENE_LUMINANCE ) {
+                continue;
+            }
+
+            float Luminance_BucketIndex = Luminance2HistogramBucketIndex( Luminance );
+            
+            uint BucketIndex = uint( floor( Luminance_BucketIndex ) );
+            BucketIndex = clamp( BucketIndex, 0, HISTOGRAM_BUCKETS_COUNT - 1 );
+
+            uint old;
+            InterlockedAdd( HistogramLCS[$Sv_GroupThreadId.y][BucketIndex], 1, old );
+        }
+        GroupMemoryBarrierWithGroupSync();
+
+        if ( $Sv_GroupThreadId.y < 2 ) {
+            [unroll]
+            for ( uint i = 0; i < PASSES_COUNT; i++ ) {
+                uint BucketIndex = BIN_COMPUTE_NUMTHREADX * i + $Sv_GroupThreadId.x;
+                HistogramLCS[$Sv_GroupThreadId.y][BucketIndex] += HistogramLCS[2 + $Sv_GroupThreadId.y][BucketIndex];
+            }
+        }
+        GroupMemoryBarrierWithGroupSync();
+
+        if ( $Sv_GroupThreadId.y == 0 ) {
+            [unroll]
+            for ( uint i = 0; i < PASSES_COUNT; i++ ) {
+                uint BucketIndex = BIN_COMPUTE_NUMTHREADX * i + $Sv_GroupThreadId.x;
+                HistogramBuffer[BucketIndex + ( $Sv_GroupID.y * HISTOGRAM_BUCKETS_COUNT )] = HistogramLCS[0][BucketIndex] + HistogramLCS[1][BucketIndex];
+            }
+        }
+    }
+    
+    shader HistogramMergeCS {
+        uint2	Dimensions = uint2( ( ( (uint)( g_ScreenSize.y ) + 3 ) >> 2 ), 128 );
+
+        uint	RowIndex = HISTOGRAM_MERGE_NUMTHREADY * $Sv_GroupID.y + $Sv_GroupThreadID.y;
+        Rows[$Sv_GroupThreadID.y] = ( RowIndex < Dimensions.y ) ? Histogram[$Sv_GroupID.x + ( RowIndex * HISTOGRAM_BUCKETS_COUNT )] : 0;
+        GroupMemoryBarrierWithGroupSync();
+
+        if ( $Sv_GroupThreadID.y < 64 ) {
+            Rows[$Sv_GroupThreadID.y] += Rows[$Sv_GroupThreadID.y + 64];
+        }
+        GroupMemoryBarrierWithGroupSync();
+
+        if ( $Sv_GroupThreadID.y < 32 ) {
+            Rows[$Sv_GroupThreadID.y] += Rows[$Sv_GroupThreadID.y + 32];
+        }
+        GroupMemoryBarrierWithGroupSync();
+
+        if ( $Sv_GroupThreadID.y < 16 ) {
+            Rows[$Sv_GroupThreadID.y] += Rows[$Sv_GroupThreadID.y + 16];
+        }
+        GroupMemoryBarrierWithGroupSync();
+
+        if ( $Sv_GroupThreadID.y < 8 ) {
+            Rows[$Sv_GroupThreadID.y] += Rows[$Sv_GroupThreadID.y + 8];
+        }
+        GroupMemoryBarrierWithGroupSync();
+
+        if ( $Sv_GroupThreadID.y < 4 ) {
+            Rows[$Sv_GroupThreadID.y] += Rows[$Sv_GroupThreadID.y + 4];
+        }
+        GroupMemoryBarrierWithGroupSync();
+
+        if ( $Sv_GroupThreadID.y == 0 ) {
+            FinalHistogram[$Sv_GroupID.x] = Rows[0] + Rows[1] + Rows[2] + Rows[3];
+        }
+    }
+
+    shader TileHistogramCS {
+        AutoExposureInfos	Result;
+
+        AutoExposureInfos	LastFrameResult = RAutoExposureBuffer[0];
+
+        float	MonitorLuminanceRange_dB = Luminance2dB( 255.0 * WhiteLevel );
+        float	MonitorBucketsCount = MonitorLuminanceRange_dB / HISTOGRAM_BUCKET_RANGE_DB;
+
+        uint2	ClippedBucketIndex = uint2( ClipShadows * MonitorBucketsCount, ClipHighlights * MonitorBucketsCount );
+
+        Result.PeakHistogramValue = 0;
+        uint	TailBucketPosition = ClippedBucketIndex.x;
+        uint	HeadBucketPosition = TailBucketPosition;
+        uint	Integral = 0U;
+        for ( ; HeadBucketPosition.x < ClippedBucketIndex.y; HeadBucketPosition.x++ ) {
+            uint	HistoValue = Histogram[HeadBucketPosition].x;
+            Integral += HistoValue;
+            Result.PeakHistogramValue = max( Result.PeakHistogramValue, HistoValue );
+        }
+
+        uint	LastBucketIndex = HISTOGRAM_BUCKETS_COUNT - uint( MonitorBucketsCount - ClippedBucketIndex.y );
+        uint	MaxIntegralTailBucketPosition = TailBucketPosition.x;
+        uint	MaxIntegral = Integral;
+
+        while ( HeadBucketPosition.x < LastBucketIndex ) {
+            uint	HistoValueTail = Histogram[TailBucketPosition].x; TailBucketPosition.x++;
+            Integral -= HistoValueTail;
+
+            uint	HistoValueHead = Histogram[HeadBucketPosition].x; HeadBucketPosition.x++;
+            Integral += HistoValueHead;
+
+            if ( Integral >= MaxIntegral ) {
+                MaxIntegral = Integral;
+                MaxIntegralTailBucketPosition = TailBucketPosition.x;
+            }
+
+            Result.PeakHistogramValue = max( Result.PeakHistogramValue, HistoValueHead );
+        }
+        
+        if ( MaxIntegral == 0U ) {
+            MaxIntegralTailBucketPosition = ( HISTOGRAM_BUCKETS_COUNT - MonitorBucketsCount ) / 2;
+        }
+
+        float	MinAdaptableLuminance_Bucket = Luminance2HistogramBucketIndex( AdaptMinLuminance );
+        float	MaxAdaptableLuminance_Bucket = Luminance2HistogramBucketIndex( AdaptMaxLuminance );
+
+        float	TargetTailBucketPosition = clamp( MaxIntegralTailBucketPosition, MinAdaptableLuminance_Bucket, MaxAdaptableLuminance_Bucket - MonitorBucketsCount );
+
+        float	TargetLuminance_dB = MIN_ADAPTABLE_SCENE_LUMINANCE_DB + TargetTailBucketPosition * HISTOGRAM_BUCKET_RANGE_DB;
+        float	TargetLuminance = dB2Luminance( TargetLuminance_dB );
+        TargetLuminance *= exp2( -EV );
+        
+        if ( LastFrameResult.TargetLuminance < TargetLuminance ) {
+            Result.TargetLuminance = lerp( TargetLuminance, LastFrameResult.TargetLuminance, pow( abs( 1.0 - AdaptSpeedUp ), DeltaTime ) );
+        } else {
+            float	InvTargetLuminanceFactor = 1.0 / max( 1e-4, TargetLuminance );
+            float	InvLastFrameLuminanceFactor = 1.0 / max( 1e-4, LastFrameResult.TargetLuminance );
+            Result.TargetLuminance = 1.0 / lerp( InvTargetLuminanceFactor, InvLastFrameLuminanceFactor, pow( abs( 1.0 - AdaptSpeedDown ), DeltaTime ) );
+        }
+
+        Result.MinLuminanceLDR = Result.TargetLuminance;
+        Result.MaxLuminanceLDR = Result.MinLuminanceLDR * WhiteLevel * TARGET_MONITOR_LUMINANCE_RANGE;
+        Result.MiddleGreyLuminanceLDR = Result.MinLuminanceLDR * 55.497598410127913869937213614334;
+        
+        float PowEV = Result.MiddleGreyLuminanceLDR / ABSOLUTE_EV_REFERENCE_LUMINANCE;
+        Result.EV = log2( PowEV );
+        Result.Fstop = sqrt( PowEV / ReferenceCameraFPS );
+        Result.Fstop += FstopBias;
+        
+        float	WhiteLevelLuminance = Result.MinLuminanceLDR * 1.0 * TARGET_MONITOR_LUMINANCE_RANGE;
+        float	WhiteLevelEngineLuminance = WhiteLevelLuminance * WORLD_TO_BISOU_LUMINANCE;
+        Result.EngineLuminanceFactor = 1.0 / WhiteLevelEngineLuminance;
+        
+        WAutoExposureBuffer[0] = Result;
+    }
+    
+    pass BinCompute {
+        compute       = BinComputeCS;        
+        dispatch      = { 32, 4, 1 };
+    }
+    
+    pass HistogramMerge {
+        compute       = HistogramMergeCS;        
+        dispatch      = { 1, 512, 1 };
+    }
+    
+    pass TileHistogramCompute {
+        compute       = TileHistogramCS;        
+        dispatch      = { 1, 1, 1 };
+    }
+}

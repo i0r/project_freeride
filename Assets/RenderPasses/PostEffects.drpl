@@ -1,0 +1,79 @@
+lib PostEffects { 
+    properties {
+        float BloomStrength = 0.0;
+        cflag ApplyDither = true;
+        cflag EnableBloom = true;    
+    }
+    
+    resources {
+        Texture2D InputRenderTarget {
+            swizzle = float4;
+        }
+
+        Texture2D BloomRenderTarget {
+            swizzle = float4;
+        }
+
+        RWTexture2D OutputRenderTarget {
+            swizzle = float4;
+        }
+
+        StructuredBuffer AutoExposureBuffer {
+            swizzle = AutoExposureInfos;
+        }
+    }
+    
+    shared {
+        #include <AutoExposure/Shared.hlsli>
+        #include <Photometry.hlsli>
+        #include <ColorSpaces.hlsli>
+        
+        float3 InterleavedGradientNoise( float2 uv ) {
+            const float3 magic = float3( 0.06711056, 0.00583715, 52.9829189 );
+            return frac( magic.z * frac( dot( uv, magic.xy ) ) );
+        }
+
+        float3 computeBloomLuminance( float3 bloomColor, float bloomEC, float currentEV ) {
+            // currentEV is the value calculated at the previous frame
+            float bloomEV = currentEV + bloomEC;
+
+            // convert to luminance
+            // See equation (12) for explanation about converting EV to luminance
+            return bloomColor * pow( 2, bloomEV - 3 );
+        }
+    }
+    
+    shader FinalPass {
+        AutoExposureInfos currentExposure = AutoExposureBuffer[0];
+        float currentEV = computeEV100FromAvgLuminance( currentExposure.EngineLuminanceFactor );       
+        float exposure = exp2( ( convertEV100ToExposure( currentEV ) ) );
+        
+        float4 finalColor = InputRenderTarget.Load( $SV_DispatchThreadId );
+        
+        if ( $EnableBloom ) {
+            float3 bloomColor = BloomRenderTarget.Load( $SV_DispatchThreadId ).rgb;
+            
+            float3 bloomLuminance = computeBloomLuminance( bloomColor, 0.0f, currentEV );
+            finalColor.rgb = lerp( finalColor.rgb, bloomLuminance, BloomStrength );
+        }
+    
+        // float3 glareColor = GlareRenderTarget.Load( $SV_DispatchThreadId );
+        // finalColor.rgb += ( finalColor.rgb * glareColor );
+        
+        float3 color = ACESFilmic( finalColor.rgb * exposure );    
+        color = accurateLinearToSRGB( color );
+
+        if ( $ApplyDither ) {
+            // Add a dithering pattern to attenuate color banding
+            float3 rnd = InterleavedGradientNoise( float2( $SV_DispatchThreadId.xy ) ) / 255.0f;
+            color.rgb += rnd;
+        }
+    
+        OutputRenderTarget[$SV_DispatchThreadId.xy] = float4( color, 1.0f );
+    }
+    
+    pass Default {
+        compute       = FinalPass;        
+        dispatch      = { 16, 16, 1 };
+    }
+}

@@ -1,0 +1,285 @@
+lib AntiAliasing {
+    properties {
+        cflag   UseTemporalAA = false;
+        cint    SamplerCount = 2; // MSAA Sampler Count (required to select the good LUT)
+        float2  InputTargetDimension;
+        float   FilterSize = 1.0f;     
+        int     SampleRadius = 1;
+        float   VarianceClipGamma = 1.50f;
+        float   TemporalAABlendFactor = 0.9000f;
+    }
+
+    resources {
+        Texture2D TextureInput {
+            swizzle = float4;
+            isMultisampled = true;
+        }
+        
+        Texture2D VelocityTexture {
+            swizzle = float4;
+            isMultisampled = true;
+        }
+        
+        Texture2D DepthBuffer {
+            swizzle = float4;
+            isMultisampled = true;
+        }
+        
+        Texture2D LastFrameInputTexture {
+            swizzle = float4;
+        }
+        
+        RWTexture2D ResolvedTarget {
+            swizzle = float4;
+        }
+        
+        StructuredBuffer AutoExposureBuffer {
+            swizzle = AutoExposureInfos;
+        }
+    }
+    
+    shared {
+        #include <AutoExposure/Shared.hlsli>
+        #include <Photometry.hlsli>
+        #include <ColorSpaces.hlsli>
+        
+        // MSAA x8
+        static const float2 g_SampleOffsets8[8] = {
+            float2(0.580f, 0.298f),
+            float2(0.419f, 0.698f),
+            float2(0.819f, 0.580f),
+            float2(0.298f, 0.180f),
+            float2(0.180f, 0.819f),
+            float2(0.058f, 0.419f),
+            float2(0.698f, 0.941f),
+            float2(0.941f, 0.058f),
+        };
+        
+        // MSAA x4
+        static const float2 g_SampleOffsets4[4] = {
+            float2( 0.380f, 0.141f ),
+            float2( 0.859f, 0.380f ),
+            float2( 0.141f, 0.620f ),
+            float2( 0.619f, 0.859f ),
+        };
+        
+        // MSAA x2
+        static const float2 g_SampleOffsets2[2] = {
+            float2( 0.741f, 0.741f ),
+            float2( 0.258f, 0.258f ),
+        };
+        
+        float2 GetSampleOffset( in uint subSampleIdx )
+        {
+            if ( $SamplerCount == 8 ) {
+                return g_SampleOffsets8[subSampleIdx];
+            } else if ( $SamplerCount == 4 ) {
+                return g_SampleOffsets4[subSampleIdx];
+            } else if ( $SamplerCount == 2 ) {
+                return g_SampleOffsets2[subSampleIdx];
+            }
+        }
+        
+        float3 ReprojectMSAA( in float2 pixelPos, in float exposure, in Texture2DMS<float4> velocityTex, in Texture2DMS<float4> depthTex, in Texture2D lastFrameTex ) {       
+            // Find closest depth pixel (assuming input depth buffer is reversed)
+            float2 velocity = 0.0f;
+            float closestDepth = 0.0f;
+            
+            for(int vy = -1; vy <= 1; ++vy) {
+                for(int vx = -1; vx <= 1; ++vx) {
+                    [unroll]
+                    for(uint vsIdx = 0; vsIdx < $SamplerCount; ++vsIdx) {
+                        int2 samplePos = pixelPos + int2( vx, vy );
+                        
+                        float2 neighborVelocity = velocityTex.Load( samplePos, vsIdx ).rg;
+                        float neighborDepth = depthTex.Load( samplePos, vsIdx ).r;
+                        
+                        if ( neighborDepth > closestDepth ) {
+                            velocity = neighborVelocity;
+                            closestDepth = neighborDepth;
+                        }
+                    }
+                }
+            }
+          
+            velocity *= InputTargetDimension;
+            float2 reprojectedPos = pixelPos - velocity;
+            
+            float3 sum = 0.0f;
+            float totalWeight = 0.0f;
+            for(int ty = -1; ty <= 2; ++ty) {
+                for(int tx = -1; tx <= 2; ++tx) {
+                    float2 samplePos = floor(reprojectedPos + float2(tx, ty)) + 0.5f;
+                    float3 reprojectedSample = lastFrameTex[int2(samplePos)].xyz;
+
+                    float2 sampleDist = abs(samplePos - reprojectedPos);
+                    float filterWeight = ( 1.0f - smoothstep( 0.0f, 1.0f, sampleDist.x ) ) * ( 1.0f - smoothstep( 0.0f, 1.0f, sampleDist.y ) );
+
+                    float sampleLum = RGBToLuminance( reprojectedSample ) * exposure;
+                    filterWeight *= 1.0f / (1.0f + sampleLum);
+
+                    sum += reprojectedSample * filterWeight;
+                    totalWeight += filterWeight;
+                }
+            }
+
+            return max(sum / totalWeight, 0.0f);
+        }
+
+        // From "Temporal Reprojection Anti-Aliasing"
+        // https://github.com/playdeadgames/temporal
+        float3 ClipAABB(float3 aabbMin, float3 aabbMax, float3 prevSample, float3 avg) {
+            // note: only clips towards aabb center (but fast!)
+            float3 p_clip = 0.5 * (aabbMax + aabbMin);
+            float3 e_clip = 0.5 * (aabbMax - aabbMin);
+
+            float3 v_clip = prevSample - p_clip;
+            float3 v_unit = v_clip.xyz / e_clip;
+            float3 a_unit = abs(v_unit);
+            float ma_unit = max(a_unit.x, max(a_unit.y, a_unit.z));
+            
+            return (ma_unit > 1.0) ? ( p_clip + v_clip / ma_unit ) : prevSample;
+        }
+    
+        float3 SampleInputMSAA( Texture2DMS<float4> textureInput, float2 samplePos, uint subSampleIdx )
+        {
+            return textureInput.Load( samplePos, subSampleIdx ).xyz;
+        }
+    }
+    
+    shader ResolveMSAACS {
+        float2 pixelPos = float2( $SV_DispatchThreadID.xy );
+        float3 output = float3( 0, 0, 0 );
+        
+        AutoExposureInfos currentExposure = AutoExposureBuffer[0];
+        float currentEV = computeEV100FromAvgLuminance( currentExposure.EngineLuminanceFactor );
+        float exposure = exp2( convertEV100ToExposure( currentEV ) );
+    
+        float3 m1 = 0.0f;
+        float3 m2 = 0.0f;
+        float mWeight = 0.0f;
+            
+        if ( $SamplerCount >= 2 ) {
+            float3 sum = 0.0f;
+            float totalWeight = 0.0f;
+
+            float3 clrMin = float3( asfloat( 0x7fffffff ), asfloat( 0x7fffffff ), asfloat( 0x7fffffff ) );
+            float3 clrMax =  float3( -asfloat( 0x7fffffff ), -asfloat( 0x7fffffff ), -asfloat( 0x7fffffff ) );
+
+            [loop]
+            for ( int y = -SampleRadius; y <= SampleRadius; ++y ) {
+                for ( int x = -SampleRadius; x <= SampleRadius; ++x ) {
+                    float2 sampleOffset = float2( x, y );
+                    float2 samplePos = pixelPos + sampleOffset;
+                    samplePos = clamp( samplePos, 0, InputTargetDimension - 1.0f );
+
+                    [unroll]
+                    for ( uint subSampleIdx = 0; subSampleIdx < $SamplerCount; ++subSampleIdx ) {
+                        sampleOffset += GetSampleOffset( subSampleIdx ) - float2( 0.5f, 0.5f );
+                        float sampleDist = length( sampleOffset ) / ( FilterSize / 2.0f );
+
+                        [branch]
+                        if ( sampleDist <= 1.0f ) {
+                            float3 sample = SampleInputMSAA( TextureInput, samplePos, subSampleIdx );
+                            sample = max( sample, 0.0f );
+
+                            float weight = 1.0f - smoothstep( 0.0f, 1.0f, sampleDist );
+                            clrMin = min( clrMin, sample );
+                            clrMax = max( clrMax, sample );
+
+                            float sampleLum = RGBToLuminance( sample ) * exposure;
+
+                            weight *= 1.0f / ( 1.0f + sampleLum );
+
+                            sum += sample * weight;
+                            totalWeight += weight;
+                            
+                            m1 += sample;
+                            m2 += sample * sample;
+                            mWeight += 1.0f;
+                        }
+                    }
+                }
+            }
+
+            output = sum / max( totalWeight, 0.00001f );
+            output = max( output, 0.0f );
+        } else {
+            output = TextureInput.Load( pixelPos, 0 ).xyz;
+            
+            m1 = output;
+            m2 = ( m1 * m1 );
+            mWeight = 1.0f;
+        }
+        
+        if ( $UseTemporalAA ) {
+            float3 currColor = output;         
+            float3 prevColor = ReprojectMSAA( pixelPos, exposure, VelocityTexture, DepthBuffer, LastFrameInputTexture );
+            
+            float3 mu = m1 / mWeight;
+            float3 sigma = sqrt(abs(m2 / mWeight - mu * mu));
+            float3 minc = mu - VarianceClipGamma * sigma;
+            float3 maxc = mu + VarianceClipGamma * sigma;
+            prevColor = ClipAABB(minc, maxc, prevColor, mu);
+
+            float3 weightA = saturate( 1.0f - TemporalAABlendFactor );
+            float3 weightB = saturate( TemporalAABlendFactor );
+
+            weightA *= 1.0f / ( 1.0f + RGBToLuminance( currColor ) );
+            weightB *= 1.0f / ( 1.0f + RGBToLuminance( prevColor ) );
+
+            output = ( currColor * weightA + prevColor * weightB ) / ( weightA + weightB );
+        }
+        
+        ResolvedTarget[$SV_DispatchThreadID.xy] = float4( output, 1.0f );
+    }
+    
+    pass ResolveTAA {
+        compute         = ResolveMSAACS;
+        dispatch        = { 16, 16, 1 };
+        SamplerCount    = 1;
+        UseTemporalAA   = true;
+    }
+    
+    pass ResolveMSAAx2 {
+        compute         = ResolveMSAACS;
+        dispatch        = { 16, 16, 1 };
+        SamplerCount    = 2;
+        UseTemporalAA   = false;
+    }
+    
+    pass ResolveMSAAx2WithTAA {
+        compute         = ResolveMSAACS;
+        dispatch        = { 16, 16, 1 };
+        SamplerCount    = 2;
+        UseTemporalAA   = true;
+    }
+    
+    pass ResolveMSAAx4 {
+        compute         = ResolveMSAACS;
+        dispatch        = { 16, 16, 1 };
+        SamplerCount    = 4;
+        UseTemporalAA   = false;
+    }
+    
+    pass ResolveMSAAx4WithTAA {
+        compute         = ResolveMSAACS;
+        dispatch        = { 16, 16, 1 };
+        SamplerCount    = 4;
+        UseTemporalAA   = true;
+    }
+    
+    pass ResolveMSAAx8 {
+        compute         = ResolveMSAACS;
+        dispatch        = { 16, 16, 1 };
+        SamplerCount    = 8;
+        UseTemporalAA   = false;
+    }
+    
+    pass ResolveMSAAx8WithTAA {
+        compute         = ResolveMSAACS;
+        dispatch        = { 16, 16, 1 };
+        SamplerCount    = 8;
+        UseTemporalAA   = true;
+    }
+}

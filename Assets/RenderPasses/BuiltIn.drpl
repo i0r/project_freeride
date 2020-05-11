@@ -1,0 +1,46 @@
+lib BuiltIn {
+    resources {
+        Texture2D OutputRenderTarget {
+            swizzle = float4;
+        }
+        
+        Texture2D InputRenderTarget {
+            swizzle = float4;
+        }
+        
+        sampler BilinearSampler {
+            format = BilinearClampEdge;
+        }
+    }
+    
+    shader FullscreenTriangle {
+        float2 uvCoords = float2( ( $SV_VertexId << 1 ) & 2, $SV_VertexId & 2 );
+        
+        $TEXCOORD0 = uvCoords;
+        $SV_Position = float4( uvCoords * float2( 2.0f, -2.0f ) + float2( -1.0f, 1.0f ), 0.0f, 1.0f );
+    }
+    
+    shader CopyImage {
+        $SV_TARGET0 = InputRenderTarget.SampleLevel( BilinearSampler, $TEXCOORD0, 0 );
+    }
+    
+    shader ErrorVS {
+        $SV_Position = float4( float2( ( $SV_VertexID << 1 ) & 2, $SV_VertexID & 2 ) * float2( 2.0f, -2.0f ) + float2( -1.0f, 1.0f ), 0.0f, 1.0f );
+    }
+    
+    shader ErrorPS {
+        $SV_TARGET0 = float4( 1.00f, 0.00f, 1.00f, 1.00f );
+    }
+    
+    pass PresentPass {
+        vertex        = FullscreenTriangle;    
+        pixel         = CopyImage;
+        rendertargets = { OutputRenderTarget };
+    }
+    
+    pass Error {
+        vertex        = ErrorVS;    
+        pixel         = ErrorPS;
+        rendertargets = { OutputRenderTarget };
+    }
+}

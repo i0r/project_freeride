@@ -1,0 +1,90 @@
+lib HUD {
+    properties {
+        float4x4 ProjectionMatrix;
+    }
+    
+    resources {
+        Texture2D OutputRenderTarget {
+            swizzle = float4;
+        }
+        
+        Texture2D FontAtlasTexture {
+            swizzle = float4;
+        }
+        
+        sampler LinearSampler {
+            format = BilinearClampEdge;
+        }
+    }
+    
+    shared {
+        float Contour( in float f, in float d, in float w )
+        {
+            return smoothstep( f - w, f + w, d );
+        }
+
+        float SampleDistance( in float2 uv, float w, in Texture2D Atlas, in sampler AtlasS )
+        {
+            return Contour( 0.5f, Atlas.SampleLevel( AtlasS, uv, 0 ).a, w );
+        }
+    }
+    
+    shader TextRenderingVertex {
+        float2 projectedPoint = ( $POSITION.xy * ( 1.0f / ( g_ScreenSize * 0.5f ) ) + float2( -1.0f, 1.0f ) );
+        
+        $POSITION0 = float4( $TEXCOORD.xy, $POSITION.w, 0.0f );
+        $COLOR0 = $COLOR;
+        $SV_Position = float4( projectedPoint, $POSITION.z, 1.0f );
+    }
+    
+    shader TextRenderingPixel {
+        float dist = FontAtlasTexture.SampleLevel( LinearSampler, $POSITION0.xy, 0 ).a;
+        
+        float width = fwidth( dist );
+        float alpha = Contour( 0.5f, dist, width );
+
+        static const float dscale = 0.354f;
+        float2 duv = dscale * ( ddx( $POSITION0.xy ) + ddy( $POSITION0.xy ) );
+        float4 box = float4( $POSITION0.xy - duv, $POSITION0.xy + duv );
+
+        float asum = SampleDistance( box.xy, width, FontAtlasTexture, LinearSampler ) 
+                    + SampleDistance( box.zw, width, FontAtlasTexture, LinearSampler ) 
+                    + SampleDistance( box.xw, width, FontAtlasTexture, LinearSampler ) 
+                    + SampleDistance( box.zy, width, FontAtlasTexture, LinearSampler );
+
+        alpha = ( alpha + 0.5f * asum ) / 3.0f;
+
+        // Convert Thickness to distance and remap its range from 0..1 to 0..0.5
+        float outlineDistance = ( 1.0f - $POSITION0.z ) * 0.5f;
+        
+        float4 color =  lerp( float4( 0, 0, 0, 1 ), $COLOR, alpha );
+      
+
+        // Recompute Alpha
+        alpha = Contour( outlineDistance, dist, width );
+
+        $SV_TARGET0 = float4( color.rgb, color.a * alpha );
+    }
+
+    shader ImguiVertex {
+        $COLOR0 = $COLOR;
+        $TEXCOORD0 = $TEXCOORD;
+        $SV_Position = mul( float4( $POSITION.xy, 0.0f, 1.0f), ProjectionMatrix );
+    }
+    
+    shader ImguiPixel {
+        $SV_TARGET0 = $COLOR0 * FontAtlasTexture.Sample( LinearSampler, $TEXCOORD0 );
+    }
+    
+    pass RenderText {
+        vertex        = TextRenderingVertex;    
+        pixel         = TextRenderingPixel;
+        rendertargets = { OutputRenderTarget };
+    }
+    
+    pass ImGui {
+        vertex        = ImguiVertex;    
+        pixel         = ImguiPixel;
+        rendertargets = { OutputRenderTarget };
+    }
+}

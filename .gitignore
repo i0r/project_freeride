@@ -1,0 +1,17 @@
+project/*
+build/*
+Tools/AssetBaker/build/*
+Tools/ShaderCache/cache/*
+Tools/ShaderCache/tmp/*
+Tools/ShaderCache/__pycache__/*
+DuskCore/UnityBuild/*
+DuskRenderer/UnityBuild/*
+DuskEd/UnityBuild/*
+DuskEd/ThirdParty/*
+DuskBaker/UnityBuild/*
+*.autosave
+*.user
+DuskRenderer/Graphics/RenderModules/*.generated.h
+DuskEd/Graphics/RenderModules/*.generated.h
+DuskEd/Graphics/RenderModules/*.reflected.h
+DuskEd/ThirdParty/FBX_SDK/*

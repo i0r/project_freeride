@@ -1,0 +1,141 @@
+lib BlurPyramid {
+    properties {
+        cflag   UseKarisAverage = false;
+        float2  InverseTextureDimensions;
+        float   FilterRadius = 2;
+    }
+
+    resources {
+        Texture2D TextureInput {
+            swizzle = float4;
+        }
+        
+        RWTexture2D OutputRenderTarget {
+            swizzle = float4;
+        }
+        
+        sampler BilinearSampler {
+            format = BilinearClampEdge;
+        }
+    }
+    
+    shared {        
+        #include <Photometry.hlsli>
+    }
+    
+    shader DownsampleCS {    
+        float textureWidth, textureHeight;
+        TextureInput.GetDimensions( textureWidth, textureHeight );
+
+        float2 textureDimensions = float2( textureWidth, textureHeight );
+        float2 inverseTextureDimensions = 1 / textureDimensions;
+        
+        float2 UV = ( $SV_DispatchThreadID.xy + 0.5 ) * inverseTextureDimensions;
+
+        // Custom hand-crafted 36-texel downsample (13 bilinear fetches)
+        float4 Fetch01 = TextureInput.SampleLevel( BilinearSampler, UV, 0, int2( -1, -1 ) );
+        float4 Fetch02 = TextureInput.SampleLevel( BilinearSampler, UV, 0, int2( +1, -1 ) );
+        float4 Fetch03 = TextureInput.SampleLevel( BilinearSampler, UV, 0, int2( +1, +1 ) );
+        float4 Fetch04 = TextureInput.SampleLevel( BilinearSampler, UV, 0, int2( -1, +1 ) );
+
+        float4 Fetch05 = TextureInput.SampleLevel( BilinearSampler, UV, 0, int2( -2, -2 ) );
+        float4 Fetch06 = TextureInput.SampleLevel( BilinearSampler, UV, 0, int2( +0, -2 ) );
+        float4 Fetch07 = TextureInput.SampleLevel( BilinearSampler, UV, 0, int2( +0, +0 ) );
+        float4 Fetch08 = TextureInput.SampleLevel( BilinearSampler, UV, 0, int2( -2, +0 ) );
+
+        float4 Fetch09 = TextureInput.SampleLevel( BilinearSampler, UV, 0, int2( +2, -2 ) );
+        float4 Fetch10 = TextureInput.SampleLevel( BilinearSampler, UV, 0, int2( +2, +0 ) );
+        float4 Fetch11 = TextureInput.SampleLevel( BilinearSampler, UV, 0, int2( +2, +2 ) );
+        float4 Fetch12 = TextureInput.SampleLevel( BilinearSampler, UV, 0, int2( +0, +2 ) );
+        float4 Fetch13 = TextureInput.SampleLevel( BilinearSampler, UV, 0, int2( -2, +2 ) );
+
+        float InvWeightSum = 1.0f;
+        float4 OutputPixel = float4( 0, 0, 0, 0 );
+        if ( $UseKarisAverage ) {
+            // Partial Karis Average (apply the Karis average in blocks of 4 samples)
+            float4 BlockFetch01 = ( Fetch01 + Fetch02 + Fetch03 + Fetch04 );
+            float Weight01 = 1.0 / ( RGBToLuminance( BlockFetch01.rgb ) + 1 );
+
+            float4 BlockFetch02 = ( Fetch05 + Fetch06 + Fetch07 + Fetch08 );
+            float Weight02 = 1.0 / ( RGBToLuminance( BlockFetch02.rgb ) + 1 );
+
+            float4 BlockFetch03 = ( Fetch06 + Fetch09 + Fetch10 + Fetch07 );
+            float Weight03 = 1.0 / ( RGBToLuminance( BlockFetch03.rgb ) + 1 );
+
+            float4 BlockFetch04 = ( Fetch07 + Fetch10 + Fetch11 + Fetch12 );
+            float Weight04 = 1.0 / ( RGBToLuminance( BlockFetch04.rgb ) + 1 );
+
+            float4 BlockFetch05 = ( Fetch08 + Fetch07 + Fetch12 + Fetch13 );
+            float Weight05 = 1.0 / ( RGBToLuminance( BlockFetch05.rgb ) + 1 );
+            
+            // Weighting fetches
+            float4 Weighted1 = BlockFetch01 * Weight01;
+            float4 Weighted2 = BlockFetch02 * Weight02;
+            float4 Weighted3 = BlockFetch03 * Weight03;
+            float4 Weighted4 = BlockFetch04 * Weight04;
+            float4 Weighted5 = BlockFetch05 * Weight05;
+
+            // Compute the weight sum (for normalization)
+            float WeightSum = ( Weight01 + Weight02 + Weight03 + Weight04 + Weight05 );
+            float InvWeightSum = ( 1 / WeightSum );
+            
+            OutputPixel = ( Weighted1 + Weighted2 + Weighted3 + Weighted4 + Weighted5 ) * InvWeightSum;
+        } else {
+            // Weighting fetches
+            float4 Weighted1 = ( Fetch01 + Fetch02 + Fetch03 + Fetch04 ) * 0.500f;
+            float4 Weighted2 = ( Fetch05 + Fetch06 + Fetch07 + Fetch08 ) * 0.125f;
+            float4 Weighted3 = ( Fetch06 + Fetch09 + Fetch10 + Fetch07 ) * 0.125f;
+            float4 Weighted4 = ( Fetch07 + Fetch10 + Fetch11 + Fetch12 ) * 0.125f;
+            float4 Weighted5 = ( Fetch08 + Fetch07 + Fetch12 + Fetch13 ) * 0.125f;
+            
+            OutputPixel = ( Weighted1 + Weighted2 + Weighted3 + Weighted4 + Weighted5 );
+        }
+
+        // Sum them' up
+        OutputRenderTarget[$SV_DispatchThreadID.xy * 0.5] = OutputPixel;
+    }
+    
+    shader UpsampleCS {
+        float4 d = float4( InverseTextureDimensions, InverseTextureDimensions ) * float4( 1, 1, -1, 0 ) * FilterRadius;
+        float2 uv = $SV_DispatchThreadID.xy * InverseTextureDimensions;
+        
+        // 3x3 Tent Filter
+        //             -------  
+        //            | 1 2 1 |
+        // ( 1 / 16 ) | 2 4 2 |
+        //            | 1 2 1 |
+        //             -------
+        float4 Fetch01 = TextureInput.SampleLevel( BilinearSampler, uv - d.xy, 0 );
+        float4 Fetch02 = TextureInput.SampleLevel( BilinearSampler, uv - d.wy, 0 ) * 2;
+        float4 Fetch03 = TextureInput.SampleLevel( BilinearSampler, uv - d.zy, 0 );
+
+        float4 Fetch04 = TextureInput.SampleLevel( BilinearSampler, uv + d.zw, 0 ) * 2;
+        float4 Fetch05 = TextureInput.SampleLevel( BilinearSampler, uv, 0 ) * 4;
+        float4 Fetch06 = TextureInput.SampleLevel( BilinearSampler, uv + d.xw, 0 ) * 2;
+
+        float4 Fetch07 = TextureInput.SampleLevel( BilinearSampler, uv + d.zy, 0 );
+        float4 Fetch08 = TextureInput.SampleLevel( BilinearSampler, uv + d.wy, 0 ) * 2;
+        float4 Fetch09 = TextureInput.SampleLevel( BilinearSampler, uv + d.xy, 0 );
+        
+        float4 CurrentMip = ( Fetch01 + Fetch02 + Fetch03 + Fetch04 + Fetch05 + Fetch06 + Fetch07 + Fetch08 + Fetch09 ) * ( 1.0 / 16 );
+
+        // Clamp upsampled result into safe ranges for R11G11B10 storage
+        OutputRenderTarget[$SV_DispatchThreadID.xy] = min( float4( 65519, 65519, 65519, 65519 ), CurrentMip );
+    }
+    
+    pass Downsample {
+        compute         = DownsampleCS;
+        dispatch        = { 16, 16, 1 };
+    }
+    
+    pass DownsampleKarisAverage {
+        compute         = DownsampleCS;
+        dispatch        = { 16, 16, 1 };
+        UseKarisAverage = true;
+    }
+    
+    pass Upsample {
+        compute         = UpsampleCS;
+        dispatch        = { 16, 16, 1 };
+    }
+}

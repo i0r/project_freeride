@@ -1,0 +1,100 @@
+lib PrimitiveLighting {
+    properties {
+        cflag       UseInstancing = false;
+        float4x4    PerModelMatrix; // Only relevant if instancing is disabled.
+    }
+    
+    resources {   
+        Texture2D OutputRenderTarget {
+            swizzle = float4;
+        }
+        
+        Texture2D OutputDepthTarget {
+            swizzle = float4;
+        }
+    }
+    
+    shared {
+        #include <Material.hlsli>
+        
+        float4x4 GetInstanceModelMatrix( uint InstanceId )
+        {
+            return float4x4( 
+                float4( 1, 0, 0, 0 ),
+                float4( 0, 1, 0, 0 ),
+                float4( 0, 0, 1, 0 ),
+                float4( 0, 0, 0, 1 )
+            );
+        }
+        
+        float3 GetDirectionalLightIlluminance( in DirectionalLightGPU light, in float3 R, in float3 N, inout float3 L )
+        {
+            float r = sin( light.AngularRadius );
+            float d = cos( light.AngularRadius );
+
+            float DoR = dot( light.NormalizedDirection, R );
+            float3 S = R - DoR * light.NormalizedDirection;
+
+            L = ( DoR < d ) ? normalize( d * light.NormalizedDirection + normalize( S ) * r ) : R;
+
+            float illuminance = light.IlluminanceInLux * saturate( dot( N, light.NormalizedDirection ) );
+
+            // Add shadow
+            // We assume the surface is lit if not covered by the shadow map
+            float3 shadowVisibility = 1.0f;
+            float3 surfaceTransmittance = float3( 0, 0, 0 );
+
+            // Get Sun Irradiance
+            float3 lightIlluminance = ( light.ColorLinearSpace * illuminance * shadowVisibility.rgb );
+            
+            return illuminance + ( lightIlluminance * surfaceTransmittance );
+        }
+    }
+    
+    shader PrimitiveVS {
+        float4x4 ModelMatrix;
+        if ( $UseInstancing ) {
+            ModelMatrix = GetInstanceModelMatrix( 0 );
+        } else {
+            ModelMatrix = PerModelMatrix;
+        }
+        
+        $POSITION0 = mul( ModelMatrix, float4( $POSITION.xyz, 1.0f ) );
+        $NORMAL0 = normalize( mul( ModelMatrix, float4( $NORMAL.xyz, 0.0f ) ) );
+        $TEXCOORD0 = $TEXCOORD;
+        $SV_POSITION =  mul( g_ViewProjectionMatrix, float4( $POSITION0.xyz, 1.0f ) );
+    }
+    
+    shader PrimitivePS {
+        Material testMaterial;
+        testMaterial.BaseColor = float3( 0.5, 0.5, 0.5 );
+        testMaterial.Reflectance = 0.50f;
+        testMaterial.Roughness = 0.50f;
+        testMaterial.Metalness = 0.0f;
+        testMaterial.AmbientOcclusion = 0.0f;
+        testMaterial.Emissivity = 0.0f;
+        testMaterial.Opacity = 1.0f;
+        testMaterial.ClearCoat = 0.0f;
+        testMaterial.ClearCoatGlossiness = 0.0f;
+        
+        float3 V = normalize( g_WorldPosition - $POSITION0.xyz );
+        float3 N = normalize( $NORMAL0.xyz );
+        float3 R = reflect( -V, N );
+        
+        float4 LightContribution = float4( 0, 0, 0, 1 );
+        
+        // Add explicit sun/moon light contribution
+        float3 L;
+        float3 dirLightIlluminance = GetDirectionalLightIlluminance( g_DirectionalLight, R, N, L );        
+        LightContribution.rgb = BRDF_Default( L, V, N, testMaterial ) * dirLightIlluminance;
+        
+        $SV_TARGET0 = LightContribution;
+    }
+    
+    pass PrimitiveLighting_Generic {
+        vertex = PrimitiveVS;
+        pixel = PrimitivePS;
+        rendertargets = { OutputRenderTarget };
+        depthStencil = OutputDepthTarget;
+    }
+}
