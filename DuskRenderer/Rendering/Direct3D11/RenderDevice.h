@@ -8,6 +8,8 @@
 #include <d3d11.h>
 #include <d3d11_1.h>
 
+#include <Rendering/CommandList.h>
+
 struct RenderContext
 {
                                 RenderContext();

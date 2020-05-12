@@ -60,12 +60,12 @@ PipelineState* PipelineStateCache::getOrCreatePipelineState( const PipelineState
         if ( shaderBinding.VertexShader != 0 ) {
             filledDescriptor.vertexShader = shaderCache->getOrUploadStage<eShaderStage::SHADER_STAGE_VERTEX>( shaderBinding.VertexShader );
         }
-        if ( shaderBinding.TesselationControlShader != 0 ) {
+       /* if ( shaderBinding.TesselationControlShader != 0 ) {
             filledDescriptor.tesselationControlShader = shaderCache->getOrUploadStage<eShaderStage::SHADER_STAGE_TESSELATION_CONTROL>( shaderBinding.TesselationControlShader );
         }
         if ( shaderBinding.TesselationEvaluationShader != 0 ) {
             filledDescriptor.tesselationEvalShader = shaderCache->getOrUploadStage<eShaderStage::SHADER_STAGE_TESSELATION_EVALUATION>( shaderBinding.TesselationEvaluationShader );
-        }
+        }*/
         if ( shaderBinding.PixelShader != 0 ) {
             filledDescriptor.pixelShader = shaderCache->getOrUploadStage<eShaderStage::SHADER_STAGE_PIXEL>( shaderBinding.PixelShader );
         }

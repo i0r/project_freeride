@@ -59,5 +59,5 @@ struct Image
     }
 };
 
-DUSK_INLINE void SetupFramebuffer_Replay( RenderContext* renderContext, Image** renderTargetViews, Image* depthStencilView );
+void SetupFramebuffer_Replay( RenderContext* renderContext, Image** renderTargetViews, Image* depthStencilView );
 #endif

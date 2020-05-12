@@ -44,44 +44,13 @@ BuiltPrimitive dk::graphics::BuildPrimitive( RenderDevice* renderDevice, const P
         texCoords.push_back( parsedMesh.TexCoordsVertices[j][1] );
     }
 
-    //for ( i32 i = 0; i < parsedMesh.TriangleCount; i++ ) {
-    //    const dkTriangle& tri = parsedMesh.TriangleList[i];
-    //    
-    //    for ( i32 j = 0; j < 3; j++ ) {
-    //        u32 vertHash = HashVertex( tri.Position[j] );
-
-    //        //// Holy shit this is bad
-    //        //auto uniqueVertIt = uniqueVertexArray.find( vertHash );
-    //        //if ( uniqueVertIt != uniqueVertexArray.end() ) {
-    //        //    indices.push_back( uniqueVertIt->second );
-    //        //    continue;
-    //        //}
-
-    //        i32 indice = static_cast<i32>( uniqueVertexArray.size() );
-    //        uniqueVertexArray[vertHash] = indice;
-
-    //        position.push_back( tri.Position[j][0] );
-    //        position.push_back( tri.Position[j][1] );
-    //        position.push_back( tri.Position[j][2] );
-
-    //        normals.push_back( tri.Normal[0] );
-    //        normals.push_back( tri.Normal[1] );
-    //        normals.push_back( tri.Normal[2] );
-
-    //        texCoords.push_back( tri.TextureCoordinates[j][0] );
-    //        texCoords.push_back( tri.TextureCoordinates[j][1] );
-
-    //        indices.push_back( indice );
-    //    }
-    //}
-
     BufferDesc posBufferDesc;
     posBufferDesc.BindFlags = RESOURCE_BIND_VERTEX_BUFFER;
     posBufferDesc.Usage = RESOURCE_USAGE_STATIC;
     posBufferDesc.SizeInBytes = static_cast<u32>( position.size() * sizeof( f32 ) );
     posBufferDesc.StrideInBytes = static_cast< u32 >( 3 * sizeof( f32 ) );
 
-    Buffer* pos = g_RenderDevice->createBuffer( posBufferDesc, position.data() );
+    Buffer* pos = renderDevice->createBuffer( posBufferDesc, position.data() );
 
     BufferDesc uvBufferDesc;
     uvBufferDesc.BindFlags = RESOURCE_BIND_VERTEX_BUFFER;
@@ -89,7 +58,7 @@ BuiltPrimitive dk::graphics::BuildPrimitive( RenderDevice* renderDevice, const P
     uvBufferDesc.SizeInBytes = static_cast< u32 >( texCoords.size() * sizeof( f32 ) );
     uvBufferDesc.StrideInBytes = static_cast< u32 >( 2 * sizeof( f32 ) );
 
-    Buffer* uv = g_RenderDevice->createBuffer( uvBufferDesc, texCoords.data() );
+    Buffer* uv = renderDevice->createBuffer( uvBufferDesc, texCoords.data() );
 
     BufferDesc normalBufferDesc;
     normalBufferDesc.BindFlags = RESOURCE_BIND_VERTEX_BUFFER;
@@ -97,7 +66,7 @@ BuiltPrimitive dk::graphics::BuildPrimitive( RenderDevice* renderDevice, const P
     normalBufferDesc.SizeInBytes = static_cast< u32 >( normals.size() * sizeof( f32 ) );
     normalBufferDesc.StrideInBytes = static_cast< u32 >( 3 * sizeof( f32 ) );
 
-    Buffer* normal = g_RenderDevice->createBuffer( normalBufferDesc, normals.data() );
+    Buffer* normal = renderDevice->createBuffer( normalBufferDesc, normals.data() );
 
     BufferDesc indiceBufferDesc;
     indiceBufferDesc.BindFlags = RESOURCE_BIND_INDICE_BUFFER;
@@ -105,7 +74,7 @@ BuiltPrimitive dk::graphics::BuildPrimitive( RenderDevice* renderDevice, const P
     indiceBufferDesc.SizeInBytes = static_cast< u32 >( parsedMesh.IndexCount * sizeof( i32 ) );
     indiceBufferDesc.StrideInBytes = sizeof( i32 );
 
-    Buffer* indice = g_RenderDevice->createBuffer( indiceBufferDesc, parsedMesh.IndexList );
+    Buffer* indice = renderDevice->createBuffer( indiceBufferDesc, parsedMesh.IndexList );
 
     BuiltPrimitive builtPrimitive;
     builtPrimitive.VertexAttributeBuffer[0] = pos;

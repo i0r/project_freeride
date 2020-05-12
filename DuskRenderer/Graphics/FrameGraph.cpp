@@ -6,6 +6,7 @@
 #include "FrameGraph.h"
 
 #include "WorldRenderer.h"
+#include "PipelineStateCache.h"
 
 #include <Rendering/RenderDevice.h>
 

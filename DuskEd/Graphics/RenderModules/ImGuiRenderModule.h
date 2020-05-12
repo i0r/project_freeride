@@ -21,6 +21,7 @@ using ResHandle_t = u32;
 using MutableResHandle_t = u32;
 
 #include <Maths/Matrix.h>
+#include <atomic>
 
 class ImGuiRenderModule
 {

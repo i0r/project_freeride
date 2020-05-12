@@ -14,6 +14,7 @@
 #include "Sampler.h"
 #include "Buffer.h"
 #include "Image.h"
+#include "PipelineState.h"
 #include "ResourceAllocationHelpers.h"
 
 #include "PipelineState.h"

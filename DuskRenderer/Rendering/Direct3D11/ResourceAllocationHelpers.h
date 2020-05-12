@@ -8,6 +8,7 @@
 #include <Rendering/RenderDevice.h>
 #include <d3d11.h>
 
+#include "Buffer.h"
 #include "Image.h"
 
 static UINT GetNativeBindFlags( const u32 bindFlags )

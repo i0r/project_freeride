@@ -11,6 +11,8 @@
 #include "RenderDevice.h"
 #include "CommandList.h"
 #include "Image.h"
+#include "PipelineState.h"
+#include "ResourceAllocationHelpers.h"
 
 #include "Core/Display/DisplaySurface.h"
 #include "Core/Display/DisplaySurfaceWin32.h"
