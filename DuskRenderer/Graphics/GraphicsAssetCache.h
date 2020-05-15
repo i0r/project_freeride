@@ -10,7 +10,7 @@ class ShaderCache;
 class VirtualFileSystem;
 
 class Material;
-class Mesh;
+struct Mesh;
 
 struct Image;
 struct FontDescriptor;

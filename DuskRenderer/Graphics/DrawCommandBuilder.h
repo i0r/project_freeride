@@ -6,7 +6,7 @@
 
 class RenderDevice;
 class WorldRenderer;
-class Mesh;
+struct Mesh;
 class VertexArrayObject;
 class LightGrid;
 class LinearAllocator;
