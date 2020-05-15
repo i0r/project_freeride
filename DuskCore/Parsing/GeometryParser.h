@@ -5,6 +5,7 @@
 #pragma once
 
 #include <Core/Polygon.h>
+#include <Maths/AABB.h>
 
 // TODO It should be a class (we shouldnt expose the memory allocators nor the flags...).
 
@@ -59,6 +60,15 @@ struct ParsedMesh
     // Array holding this mesh indexes.
     i32*                IndexList;
 
+    // Index of the lod of this mesh (0 if the geometry being parsed has no LOD).
+    u32                 LodIndex;
+
+    // Name of the lod group of this mesh (empty if the mesh does not belong to a lod group).
+    std::string         LodGroup;
+
+    // Mesh Bounding box. Only include vertices for this mesh.
+    AABB                MeshAABB;
+
     ParsedMesh()
         : MemoryAllocator( nullptr )
         , Name( "" )
@@ -71,7 +81,30 @@ struct ParsedMesh
         , ColorVertices( nullptr )
         , TexCoordsVertices( nullptr )
         , IndexList( nullptr )
+        , LodIndex( 0 )
+        , LodGroup( "LOD0" )
+        , MeshAABB{}
     {
 
+    }
+};
+
+struct ParsedModel 
+{
+    // Meshes of the parsed mesh.
+    // TODO In the future, it could use a linear allocator.
+    // Right now; a crappy vector relying on the standard lib is not that great...
+    std::vector<ParsedMesh> ModelMeshes;
+
+    // Number of LOD level. If ModelMeshes is not empty, a model should at least have one LOD.
+    u32 LodCount;
+
+    // Name of the model (usually the filename of the asset).
+    dkString_t ModelName;
+
+    ParsedModel()
+        : LodCount( 1 )
+        , ModelName( DUSK_STRING( "ParsedModel" ) )
+    {
     }
 };

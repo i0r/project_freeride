@@ -4,7 +4,7 @@
 */
 #pragma once
 
-#include "GeometryParser.h"
+#include <Parsing/GeometryParser.h>
 
 #if DUSK_USE_FBXSDK
 #include <fbxsdk.h>
@@ -27,11 +27,8 @@ public:
     // This function should only be used in an editor context.
     void                    load( const char* filePath );
 
-    // Return the number of mesh parsed.
-    i32                     getMeshCount() const;
-    
-    // Return the mesh at the specified index (meshIndex must be between 0 and getMeshCount() - 1).
-    const ParsedMesh*       getMesh( const i32 meshIndex ) const;
+    // Return a pointer to the last model parsed. Return null if no model has been parsed/the parsing failed.
+    ParsedModel*            getParsedModel() const;
 
 public:
     // FBX SDK Manager.
@@ -46,9 +43,7 @@ public:
     // The memory allocator used for triangle allocation.
     BaseAllocator*          memoryAllocator;
 
-    // Parsed mesh array.
-    // TODO In the future, it could use a linear allocator which would be flushed everytime the load function is called.
-    // Right now; a crappy vector relying on the standard lib is not that great...
-    std::vector<ParsedMesh> parsedMeshes;
+    // The model parsed/being parsed.
+    ParsedModel*            parsedModel;
 };
 #endif

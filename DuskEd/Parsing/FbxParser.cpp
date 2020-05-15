@@ -21,16 +21,36 @@ static i32 GetArrayIndexByReferenceMode(
     }
 }
 
+static FbxNode* FindParentWithAttributesRecurse( FbxNode* node, const FbxNodeAttribute::EType attribute )
+{
+    if ( node == nullptr ) {
+        return nullptr;
+    }
+
+    const FbxNodeAttribute* nodeAttribute = node->GetNodeAttribute();
+    if ( nodeAttribute != nullptr && nodeAttribute->GetAttributeType() == attribute ) {
+        return node;
+    }
+
+    return FindParentWithAttributesRecurse( node->GetParent(), attribute );
+}
+
 FbxParser::FbxParser()
     : fbxManager( nullptr )
     , fbxScene( nullptr )
     , memoryAllocator( nullptr )
     , importer( nullptr )
+    , parsedModel( nullptr )
 {
 }
 
 FbxParser::~FbxParser()
 {
+    if ( parsedModel != nullptr ) {
+        dk::core::free( memoryAllocator, parsedModel );
+        parsedModel = nullptr;
+    }
+
     fbxScene = nullptr;
     importer = nullptr;
 
@@ -68,7 +88,10 @@ void FbxParser::create( BaseAllocator* allocator )
 
 void FbxParser::load( const char* filePath )
 {
-    parsedMeshes.clear();
+    if ( parsedModel != nullptr ) {
+        dk::core::free( memoryAllocator, parsedModel );
+        parsedModel = nullptr;
+    }
 
     const bool operationResult = importer->Initialize( filePath, -1, fbxManager->GetIOSettings() );
     if ( !operationResult ) {
@@ -100,6 +123,10 @@ void FbxParser::load( const char* filePath )
         DUSK_LOG_WARN( "Imported FBX '%s' with one or several errors : %s\n", filePath, importer->GetStatus().GetErrorString() );
     }
 
+    parsedModel = dk::core::allocate<ParsedModel>( memoryAllocator );
+    //parsedModel->ModelName = filePath;
+    parsedModel->LodCount = 1;
+    
     // Iterate over geometry nodes
     i32 geometryNodeCount = fbxScene->GetGeometryCount();
     for ( i32 n = 0; n < geometryNodeCount; n++ ) {
@@ -127,7 +154,45 @@ void FbxParser::load( const char* filePath )
                 parsedMesh.Name = "ImportedMesh_" + std::to_string( n );
             }
 
-            i32* indexList = mesh->GetPolygonVertices();
+            FbxNode* lodGroupNode = FindParentWithAttributesRecurse( node, FbxNodeAttribute::eLODGroup );
+            if ( lodGroupNode != nullptr ) {
+                parsedMesh.LodGroup = lodGroupNode->GetName();
+            
+                for ( i32 i = 0; i < lodGroupNode->GetChildCount(); i++ ) {
+                    if ( lodGroupNode->GetChild( i ) == node ) {
+                        parsedMesh.LodIndex = i;
+                        break;
+                    }
+                }
+            } else {
+                // If the mesh does not have any lod, assume it is the LOD0 geometry.
+                parsedMesh.LodGroup = "LOD0";
+                parsedMesh.LodIndex = 0;
+            }
+
+            // Update the total lod count (we start with at least one lod).
+            if ( parsedMesh.LodIndex > ( parsedModel->LodCount - 1 ) ) {
+                parsedModel->LodCount++;
+            }
+
+            // Compute Mesh AABB
+            mesh->ComputeBBox();
+
+            FbxDouble3 aabbMin = mesh->BBoxMin.Get();
+            dkVec3f aabbMinPoint = dkVec3f( 
+                static_cast< f32 >( aabbMin.mData[0] ), 
+                static_cast< f32 >( aabbMin.mData[1] ), 
+                static_cast< f32 >( aabbMin.mData[2] ) 
+            );
+
+            FbxDouble3 aabbMax = mesh->BBoxMax.Get();
+            dkVec3f aabbMaxPoint = dkVec3f( 
+                static_cast< f32 >( aabbMax.mData[0] ), 
+                static_cast< f32 >( aabbMax.mData[1] ), 
+                static_cast< f32 >( aabbMax.mData[2] ) 
+            );
+
+            dk::maths::CreateAABBFromMinMaxPoints( parsedMesh.MeshAABB, aabbMinPoint, aabbMaxPoint );
 
             parsedMesh.IndexCount = mesh->GetPolygonVertexCount();
             parsedMesh.VertexCount = mesh->GetControlPointsCount();
@@ -136,15 +201,17 @@ void FbxParser::load( const char* filePath )
             DUSK_LOG_INFO( "'%hs' : started parsing Mesh '%hs' (vertex count: %i triangle count: %i index count: %i)\n", 
                            filePath, parsedMesh.Name.c_str(), parsedMesh.VertexCount, parsedMesh.TriangleCount, parsedMesh.IndexCount );
 
-            // Copy index buffer.
-            parsedMesh.IndexList = dk::core::allocateArray<i32>( memoryAllocator, mesh->GetPolygonVertexCount() );
-            memcpy( parsedMesh.IndexList, indexList, mesh->GetPolygonVertexCount() * sizeof( i32 ) );
-
             // Assign mesh attributes flags
             parsedMesh.Flags.HasPositionAttribute = ( mesh->GetControlPointsCount() != 0 );
             parsedMesh.Flags.HasNormals = ( mesh->GetElementNormal() != nullptr );
             parsedMesh.Flags.HasUvmap0 = ( mesh->GetElementUV() != nullptr );
             parsedMesh.Flags.HasVertexColor0 = ( mesh->GetElementVertexColor() != nullptr );
+            parsedMesh.Flags.IsIndexed = ( mesh->GetPolygonVertices() != nullptr );
+
+            // Copy index buffer.
+            i32* indexList = mesh->GetPolygonVertices();
+            parsedMesh.IndexList = dk::core::allocateArray<i32>( memoryAllocator, mesh->GetPolygonVertexCount() );
+            memcpy( parsedMesh.IndexList, indexList, mesh->GetPolygonVertexCount() * sizeof( i32 ) );
 
             // Copy vertex position. We don't iterate per polygon since we have to keep the vertices order for primitive
             // indexing.
@@ -263,22 +330,16 @@ void FbxParser::load( const char* filePath )
                 }
             }
 
-            parsedMeshes.push_back( parsedMesh );
+            parsedModel->ModelMeshes.push_back( parsedMesh );
         } break;
         }
     }
 
-    DUSK_LOG_INFO( "'%hs' : parsed %i meshes\n", filePath, parsedMeshes.size() );
+    DUSK_LOG_INFO( "'%hs' : parsed %i meshes\n", filePath, parsedModel->ModelMeshes.size() );
 }
 
-i32 FbxParser::getMeshCount() const
+ParsedModel* FbxParser::getParsedModel() const
 {
-    return static_cast<i32>( parsedMeshes.size() );
-}
-
-const ParsedMesh* FbxParser::getMesh( const i32 meshIndex ) const
-{
-    DUSK_ASSERT( meshIndex < parsedMeshes.size() && meshIndex >= 0, "Mesh Index out of bounds!" );
-    return &parsedMeshes.at( meshIndex );
+    return parsedModel;
 }
 #endif
