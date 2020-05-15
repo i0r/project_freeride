@@ -1019,7 +1019,7 @@ namespace dk
             Precision biggestScalar = r[0];
 
             for ( i32 i = 1; i < ScalarCount; i++ )
-                biggestScalar = dk::maths::max( biggestScalar, r[i] );
+                biggestScalar = Max( biggestScalar, r[i] );
 
             return biggestScalar;
         }
