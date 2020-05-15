@@ -85,5 +85,13 @@ static DUSK_INLINE constexpr u32 MakeFourCC( const u32 a, const u32 b, const u32
     return ( d << 24 ) | ( c << 16) | ( b << 8 ) | a;
 }
 
+#include <type_traits>
+
+template <typename T>
+static DUSK_INLINE constexpr std::underlying_type_t<T> ToUnderlyingType( T x ) noexcept
+{
+    return static_cast< std::underlying_type_t<T> >( x );
+}
+
 #define DUSK_IS_MEMORY_ALIGNED_STATIC( obj, alignInBytes ) static_assert( sizeof( obj ) % alignInBytes == 0, #obj " alignement is invalid!" );
 #endif

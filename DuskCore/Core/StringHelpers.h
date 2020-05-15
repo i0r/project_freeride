@@ -117,6 +117,31 @@ namespace dk
 #endif
         }
 
+        static dkString_t GetFilenameWithExtensionFromPath( const dkString_t& path )
+        {
+            dkString_t sanitizedPath = path;
+            SanitizeFilepathSlashes( sanitizedPath );
+
+            const size_t lastSlashPosition = sanitizedPath.find_last_of( '/' );
+            if ( lastSlashPosition != dkString_t::npos ) {
+                return sanitizedPath.substr( lastSlashPosition + 1 );
+            }
+
+            return DUSK_STRING( "" );
+        }
+
+        static dkString_t GetFilenameOnlyFromPath( const dkString_t& path )
+        {
+            dkString_t filenameWithExtension = GetFilenameWithExtensionFromPath( path );
+            
+            const size_t lastDotPosition = filenameWithExtension.find_last_of( '.' );
+            if ( lastDotPosition != dkString_t::npos ) {
+                return filenameWithExtension.substr( 0, lastDotPosition );
+            }
+
+            return DUSK_STRING( "" );
+        }
+
         DUSK_INLINE static bool IsEndOfLine( const char c )
         {
             return ( ( c == '\n' ) || ( c == '\r' ) );
