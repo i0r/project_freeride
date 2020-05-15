@@ -8,10 +8,14 @@
 #include <Graphics/ShaderCache.h>
 #include <Graphics/FrameGraph.h>
 
+#include <Graphics/Mesh.h>
+#include <Graphics/Model.h>
+
 #include <Core/ViewFormat.h>
+
 #include <Rendering/CommandList.h>
 
-PrimitiveLighting::PrimitiveLighting_Generic_Output AddPrimitiveLightTest( FrameGraph& frameGraph, BuiltPrimitive& primitive, ResHandle_t perSceneBuffer )
+PrimitiveLighting::PrimitiveLighting_Generic_Output AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest, ResHandle_t perSceneBuffer )
 {
     struct PassData {
         ResHandle_t output;
@@ -91,11 +95,17 @@ PrimitiveLighting::PrimitiveLighting_Generic_Output AddPrimitiveLightTest( Frame
 
             cmdList->setupFramebuffer( &outputTarget, zbufferTarget );
             cmdList->prepareAndBindResourceList( passPipelineState );
+            
+            const Model::LevelOfDetail& lod = modelTest->getLevelOfDetailByIndex( 0 );
+            for ( i32 i = 0; i < lod.MeshCount; i++ ) {
+                const Mesh& lodMesh = lod.MeshArray[i];
 
-            cmdList->bindVertexBuffer( (const Buffer**)primitive.VertexAttributeBuffer, 3 );
-            cmdList->bindIndiceBuffer( primitive.IndiceBuffer, true );
+                const Buffer* bufferList[3] = { lodMesh.AttributeBuffers[eMeshAttribute::Position], lodMesh.AttributeBuffers[eMeshAttribute::Normal], lodMesh.AttributeBuffers[eMeshAttribute::UvMap_0] };
+                cmdList->bindVertexBuffer( ( const Buffer** )bufferList, 3, lodMesh.VertexAttributeBufferOffset );
+                cmdList->bindIndiceBuffer( lodMesh.AttributeBuffers[eMeshAttribute::Index], true );
 
-            cmdList->drawIndexed( primitive.IndiceCount, 1u );
+                cmdList->drawIndexed( lodMesh.IndiceCount, 1u );
+            }
 
             cmdList->popEventMarker();
         }

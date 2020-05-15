@@ -35,6 +35,7 @@
 #include "Graphics/GraphicsAssetCache.h"
 #include "Graphics/WorldRenderer.h"
 #include "Graphics/LightGrid.h"
+#include "Graphics/RenderWorld.h"
 
 #if DUSK_USE_RENDERDOC
 #include "Graphics/RenderDocHelper.h"
@@ -69,8 +70,6 @@
 #include "Framework/Cameras/FreeCamera.h"
 #include "DefaultInputConfig.h"
 
-#include "Graphics/PrimitiveBuilder.h"
-
 static char                 g_BaseBuffer[128];
 static void*                g_AllocatedTable;
 
@@ -86,6 +85,7 @@ static ShaderCache*         g_ShaderCache;
 static GraphicsAssetCache*  g_GraphicsAssetCache;
 static WorldRenderer*       g_WorldRenderer;
 static LightGrid*           g_LightGrid;
+static RenderWorld*         g_RenderWorld;
 
 static FreeCamera*          g_FreeCamera;
 
@@ -405,6 +405,8 @@ void InitializeRenderSubsystems()
 
     g_LightGrid = dk::core::allocate<LightGrid>( g_GlobalAllocator, g_GlobalAllocator );
 
+    g_RenderWorld = dk::core::allocate<RenderWorld>( g_GlobalAllocator, g_GlobalAllocator );
+
 #if DUSK_USE_IMGUI
     g_ImGuiManager = dk::core::allocate<ImGuiManager>( g_GlobalAllocator );
     g_ImGuiManager->create( *g_DisplaySurface );
@@ -431,6 +433,7 @@ void InitializeRenderSubsystems()
 
     g_LightGrid->getDirectionalLightData()->IlluminanceInLux = 100000.0f * solidAngle;
     g_LightGrid->getDirectionalLightData()->ColorLinearSpace = dkVec3f( 1.0f, 1.0f, 1.0f );
+
     // END TEMP
 }
 
@@ -485,20 +488,14 @@ void MainLoop()
     f32 frameTime = static_cast<f32>( logicTimer.getDeltaAsSeconds() );
     //f64 accumulator = 0.0;
 
-    //dkTriangle tri;
-    //tri.Position[0] = dkVec3f( -1, 0, -1 );
-    //tri.Position[1] = dkVec3f( 1, 0, 1 );
-    //tri.Position[2] = dkVec3f( -1, 0, 1 );
-    //
-    //tri.calculateNormal();
-    //tri.scaleUniform( 2.0f );
+    // TEST TEST TEST
+    FbxParser fbxParser;
+    fbxParser.create( g_GlobalAllocator );
+    fbxParser.load( "./data/geometry/box.fbx" );
 
-    FbxParser poop;
-    poop.create( g_GlobalAllocator );
-    poop.load( "./data/geometry/box.fbx" );
-
-    //const ParsedMesh* mesh = poop.getMesh( 0 );
-    BuiltPrimitive primTest = dk::graphics::BuildPrimitive( g_RenderDevice, *poop.getMesh( 0 ) );
+    Model* testModel = g_RenderWorld->addAndCommitParsedDynamicModel( g_RenderDevice, *fbxParser.getParsedModel() );
+    dkMat4x4f* testModelInstance = g_RenderWorld->allocateModelInstance( testModel );
+    // TEST TEST TEST
 
     while ( 1 ) {
         g_DisplaySurface->pollSystemEvents( g_InputReader );
@@ -527,7 +524,7 @@ void MainLoop()
             dk::editor::DisplayLoggingConsole();
             static f32 cart[2] = { 0.5f, 0.5f };
 
-            if ( ImGui::SliderFloat2( "Sun Pos", cart, 0.0f, 1.0f ) ) {
+            if ( ImGui::SliderFloat2( "Sun Pos", cart, -1.0f, 1.0f ) ) {
                 g_LightGrid->getDirectionalLightData()->NormalizedDirection = dk::maths::SphericalToCarthesianCoordinates( cart[0], cart[1]  );
             }
             ImGui::Render();
@@ -554,7 +551,7 @@ void MainLoop()
         
         LightGrid::Data lightGridData = g_LightGrid->updateClusters( frameGraph );
         
-        auto primRenderPass = AddPrimitiveLightTest( frameGraph, primTest, lightGridData.PerSceneBuffer );
+        auto primRenderPass = AddPrimitiveLightTest( frameGraph, testModel, lightGridData.PerSceneBuffer );
         ResHandle_t presentRt = g_WorldRenderer->BrunetonSky->renderSky( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
         if ( MSAASamplerCount > 1 ) {
             presentRt = AddMSAAResolveRenderPass( frameGraph, presentRt, -1, -1, MSAASamplerCount, false );

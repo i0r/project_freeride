@@ -142,8 +142,13 @@ public:
     FrameGraph&      prepareFrameGraph( const Viewport& viewport, const ScissorRegion& scissor, const CameraData* camera = nullptr );
 
 private:
+    // The memory allocator owning this instance.
     BaseAllocator*   memoryAllocator;
     PrimitiveCache*  primitiveCache;
+
+    // Draw Command allocator.
     LinearAllocator* drawCmdAllocator;
+
+    // The FrameGraph used to render the world.
     FrameGraph*      frameGraph;
 };
