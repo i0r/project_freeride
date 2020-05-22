@@ -46,8 +46,15 @@ void ImGuiManager::create( const DisplaySurface& displaySurface )
     io.BackendPlatformName = "DuskEd::ImGuiManager";
     io.IniFilename = settingsFilePath.c_str();
 
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+    ImGuiViewport* main_viewport = ImGui::GetMainViewport();
+
 #if DUSK_WIN
-    io.ImeWindowHandle = displaySurface.getNativeDisplaySurface()->Handle;
+    HWND nativeHandle = displaySurface.getNativeDisplaySurface()->Handle;
+
+    main_viewport->PlatformHandle = nativeHandle;
+    main_viewport->PlatformHandleRaw = nativeHandle;
 #endif
     
     io.DisplaySize.x = static_cast<f32>( displaySurface.getWidth() );
