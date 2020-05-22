@@ -1070,24 +1070,84 @@ static void PreprocessShaderSource( const std::string& bodySource, const i32 sta
             if ( token.type != Token::IDENTIFIER ) {
                 break;
             }
-            srcCodeLine.append( token.streamReference.StreamPointer, token.streamReference.Length );
 
-            srcCodeLexer.nextToken( token );
-            if ( token.type == Token::OPEN_BRACKET ) {
-                // Include (system scope)
-                do {
+            // TODO Support other directives (if; pragma; etc.)
+            std::string tokenValue( token.streamReference.StreamPointer, token.streamReference.Length );
+            if ( tokenValue == "include" ) {
+                srcCodeLine.append( tokenValue );
+
+                srcCodeLexer.nextToken( token );
+                if ( token.type == Token::OPEN_BRACKET ) {
+                    // Include (system scope)
+                    do {
+                        srcCodeLine.append( token.streamReference.StreamPointer, token.streamReference.Length );
+                        srcCodeLexer.nextToken( token );
+                    } while ( token.type != Token::CLOSE_BRACKET );
+                    srcCodeLine.append( ">\n" );
+                } else if ( token.type == Token::STRING ) {
+                    // Include (local scope)
+                    srcCodeLine.append( " \"" );
                     srcCodeLine.append( token.streamReference.StreamPointer, token.streamReference.Length );
+                    srcCodeLine.append( "\"" );
+                }
+            } else if ( tokenValue == "endif" ) {
+                srcCodeLine.append( "endif\n" );
+            } else if ( tokenValue == "else" ) {
+                srcCodeLine.append( "else\n" );
+            } else if ( tokenValue == "ifdef" ) {
+                srcCodeLine.append( tokenValue );
+                srcCodeLine.append( " " );
+
+                srcCodeLexer.nextToken( token );
+                if ( token.type == Token::DOLLAR ) {
                     srcCodeLexer.nextToken( token );
-                } while ( token.type != Token::CLOSE_BRACKET );
-                srcCodeLine.append( ">\n" );
-            } else if ( token.type == Token::STRING ) {
-                // Include (local scope)
-                srcCodeLine.append( " \"" );
-                srcCodeLine.append( token.streamReference.StreamPointer, token.streamReference.Length );
-                srcCodeLine.append( "\"" );
-            } //else {
-                // TODO Support other directives (if; pragma; etc.)
-            //}
+
+                    if ( token.type == Token::IDENTIFIER ) {
+                        std::string semanticName( token.streamReference.StreamPointer, token.streamReference.Length );
+                        dkStringHash_t semanticHash = dk::core::CRC32( semanticName );
+
+                        auto flagIt = constantMap.find( semanticHash );
+                        if ( flagIt != constantMap.end() ) {
+                            srcCodeLine.append( flagIt->second->StreamPointer, flagIt->second->Length );
+                        } else {
+                            DUSK_LOG_WARN( "Unknown cflag specified by preprocessor guards: '%s'\n", semanticName.c_str() );
+                        }
+                    }
+
+                    srcCodeLine.append( "\n" );
+                }
+            } else if ( tokenValue == "if" || tokenValue == "elif" ) {
+                srcCodeLine.append( tokenValue );
+                srcCodeLine.append( " " );
+
+                srcCodeLexer.nextToken( token );
+                if ( token.type == Token::DOLLAR ) {
+                    srcCodeLexer.nextToken( token );
+
+                    if ( token.type == Token::IDENTIFIER ) {
+                        std::string semanticName( token.streamReference.StreamPointer, token.streamReference.Length );
+                        dkStringHash_t semanticHash = dk::core::CRC32( semanticName );
+
+                        auto flagIt = constantMap.find( semanticHash );
+                        if ( flagIt != constantMap.end() ) {
+                            srcCodeLine.append( flagIt->second->StreamPointer, flagIt->second->Length );
+                        } else {
+                            DUSK_LOG_WARN( "Unknown cflag specified by preprocessor guards: '%s'\n", semanticName.c_str() );
+                        }
+
+                        do {
+                            srcCodeLexer.nextToken( token );
+                        } while ( token.type == Token::EQUALS || token.type == Token::OPEN_BRACKET || token.type == Token::CLOSE_BRACKET );
+
+                        if ( token.type == Token::NUMBER ) {
+                            srcCodeLine.append( " == " );
+                            srcCodeLine.append( token.streamReference.StreamPointer, token.streamReference.Length );
+                        }
+                    }
+
+                    srcCodeLine.append( "\n" );
+                }
+            }
 
             processedSource.append( srcCodeLine );
             srcCodeLine.clear();
