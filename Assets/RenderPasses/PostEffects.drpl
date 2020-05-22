@@ -1,16 +1,12 @@
 lib PostEffects { 
     properties {
-        float BloomStrength = 0.0;
+        float BloomStrength = 0.004f;
         cflag ApplyDither = true;
         cflag EnableBloom = true;    
     }
     
     resources {
         Texture2D InputRenderTarget {
-            swizzle = float4;
-        }
-
-        Texture2D BloomRenderTarget {
             swizzle = float4;
         }
 
@@ -55,16 +51,9 @@ lib PostEffects {
         float4 finalColor = InputRenderTarget.Load( $SV_DispatchThreadId );
         
         if ( $EnableBloom ) {
-            float3 bloomColor = BloomRenderTarget.Load( $SV_DispatchThreadId ).rgb;
-            
-            float3 bloomLuminance = computeBloomLuminance( bloomColor, 0.0f, currentEV );
-            finalColor.rgb = lerp( finalColor.rgb, bloomLuminance, BloomStrength );
-        
-            int3 glareSamplingIdx = int3( $SV_DispatchThreadId.xyz ); // + uint3( 7, 116, 0 );
-            
-            float3 glareColor = GlareRenderTarget.Load( glareSamplingIdx );
+            float3 glareColor = GlareRenderTarget.Load( $SV_DispatchThreadId );
             float3 glareLuminance = computeBloomLuminance( glareColor, 0.0f, currentEV );
-            finalColor.rgb = lerp( finalColor.rgb, glareLuminance, 0.001f );            
+            finalColor.rgb = lerp( finalColor.rgb, glareLuminance, BloomStrength );            
         }
     
         float3 color = ACESFilmic( finalColor.rgb * exposure );    

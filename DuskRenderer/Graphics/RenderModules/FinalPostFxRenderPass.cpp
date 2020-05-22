@@ -13,7 +13,7 @@
 
 #include "PostEffects.generated.h"
 
-ResHandle_t AddFinalPostFxRenderPass( FrameGraph& frameGraph, ResHandle_t input, ResHandle_t bloomInput, ResHandle_t glareInput )
+ResHandle_t AddFinalPostFxRenderPass( FrameGraph& frameGraph, ResHandle_t input, ResHandle_t glareInput )
 {
     struct PassData {
         ResHandle_t input;
@@ -31,10 +31,8 @@ ResHandle_t AddFinalPostFxRenderPass( FrameGraph& frameGraph, ResHandle_t input,
         [&]( FrameGraphBuilder& builder, PassData& passData ) {
             builder.useAsyncCompute();
 
-            passData.input = builder.readImage( input );
-
-            passData.bloomRtInput = builder.readImage( bloomInput );
-            passData.glareRtInput = builder.readImage( glareInput );
+            passData.input = builder.readReadOnlyImage( input );
+            passData.glareRtInput = builder.readReadOnlyImage( glareInput );
 
             ImageDesc outputDesc;
             outputDesc.dimension = ImageDesc::DIMENSION_2D;
@@ -58,8 +56,8 @@ ResHandle_t AddFinalPostFxRenderPass( FrameGraph& frameGraph, ResHandle_t input,
 
             Image* outputTarget = resources->getImage( passData.output );
             Image* inputTarget = resources->getImage( passData.input );
-            Image* bloomTarget = resources->getImage( passData.bloomRtInput );
             Image* glareTarget = resources->getImage( passData.glareRtInput );
+
             Buffer* passBuffer = resources->getBuffer( passData.PerPassBuffer );
             Buffer* autoExposureBuffer = resources->getPersistentBuffer( passData.autoExposureBuffer );
 
@@ -69,7 +67,6 @@ ResHandle_t AddFinalPostFxRenderPass( FrameGraph& frameGraph, ResHandle_t input,
             cmdList->bindPipelineState( passPipelineState );
 
             cmdList->bindImage( PostEffects::Default_InputRenderTarget_Hashcode, inputTarget );
-            cmdList->bindImage( PostEffects::Default_BloomRenderTarget_Hashcode, bloomTarget );
             cmdList->bindImage( PostEffects::Default_GlareRenderTarget_Hashcode, glareTarget );
             cmdList->bindImage( PostEffects::Default_OutputRenderTarget_Hashcode, outputTarget );
             cmdList->bindBuffer( PostEffects::Default_AutoExposureBuffer_Hashcode, autoExposureBuffer );
