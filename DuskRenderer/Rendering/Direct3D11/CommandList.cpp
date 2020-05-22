@@ -42,6 +42,8 @@ void CommandList::end()
 {
     CommandPacket::ArgumentLessPacket* commandPacket = dk::core::allocate<CommandPacket::ArgumentLessPacket>( nativeCommandList->CommandPacketAllocator );
     commandPacket->Identifier = CPI_END;
+
+    nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
 
 void CommandList::setViewport( const Viewport& viewport )
@@ -49,6 +51,8 @@ void CommandList::setViewport( const Viewport& viewport )
     CommandPacket::SetViewport* commandPacket = dk::core::allocate<CommandPacket::SetViewport>( nativeCommandList->CommandPacketAllocator );
     commandPacket->Identifier = CPI_SET_VIEWPORT;
     commandPacket->ViewportObject = viewport;
+
+    nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
 
 void CommandList::setScissor( const ScissorRegion& scissorRegion )
@@ -56,6 +60,8 @@ void CommandList::setScissor( const ScissorRegion& scissorRegion )
     CommandPacket::SetScissor* commandPacket = dk::core::allocate<CommandPacket::SetScissor>( nativeCommandList->CommandPacketAllocator );
     commandPacket->Identifier = CPI_SET_SCISSOR;
     commandPacket->ScissorObject = scissorRegion;
+
+    nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
 
 void CommandList::draw( const u32 vertexCount, const u32 instanceCount, const u32 vertexOffset, const u32 instanceOffset )
@@ -66,6 +72,8 @@ void CommandList::draw( const u32 vertexCount, const u32 instanceCount, const u3
     commandPacket->InstanceCount = instanceCount;
     commandPacket->VertexOffset = vertexOffset;
     commandPacket->InstanceOffset = instanceOffset;
+
+    nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
 
 void CommandList::drawIndexed( const u32 indiceCount, const u32 instanceCount, const u32 indiceOffset, const u32 vertexOffset, const u32 instanceOffset )
@@ -77,6 +85,8 @@ void CommandList::drawIndexed( const u32 indiceCount, const u32 instanceCount, c
     commandPacket->IndexOffset = indiceOffset;
     commandPacket->VertexOffset = vertexOffset;
     commandPacket->InstanceOffset = instanceOffset;
+
+    nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
 
 void CommandList::dispatchCompute( const u32 threadCountX, const u32 threadCountY, const u32 threadCountZ )
@@ -86,6 +96,8 @@ void CommandList::dispatchCompute( const u32 threadCountX, const u32 threadCount
     commandPacket->ThreadCountX = threadCountX;
     commandPacket->ThreadCountY = threadCountY;
     commandPacket->ThreadCountZ = threadCountZ;
+
+    nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
 
 void CommandList::pushEventMarker( const dkChar_t* eventName )
@@ -94,6 +106,8 @@ void CommandList::pushEventMarker( const dkChar_t* eventName )
     CommandPacket::PushEvent* commandPacket = dk::core::allocate<CommandPacket::PushEvent>( nativeCommandList->CommandPacketAllocator );
     commandPacket->Identifier = CPI_PUSH_EVENT;
     commandPacket->EventName = eventName;
+
+    nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 #endif
 }
 
@@ -102,6 +116,8 @@ void CommandList::popEventMarker()
 #if DUSK_ENABLE_GPU_DEBUG_MARKER
     CommandPacket::ArgumentLessPacket* commandPacket = dk::core::allocate<CommandPacket::ArgumentLessPacket>( nativeCommandList->CommandPacketAllocator );
     commandPacket->Identifier = CPI_POP_EVENT;
+
+    nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 #endif
 }
 #endif

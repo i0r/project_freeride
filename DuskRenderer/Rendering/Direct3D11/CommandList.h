@@ -6,7 +6,7 @@
 
 #if DUSK_D3D11
 #include <d3d11.h>
-
+#include <queue>
 #include <Core/Allocators/LinearAllocator.h>
 
 struct PipelineState;
@@ -23,6 +23,9 @@ struct NativeCommandList
 
     // Memory allocator for CommandList packets.
     LinearAllocator*                        CommandPacketAllocator;
+
+    // Queue holding this command list packets. Each cmd is a pointer to the head of the packet (i.e. its identifier).
+    std::queue<u32*>                        Commands;
 
     // Active PipelineState.
     PipelineState*                          BindedPipelineState;
@@ -85,12 +88,6 @@ namespace CommandPacket
         PipelineState*          PipelineStateObject;
     };
     
-    struct PrepareAndBindResources
-    {
-        u32                     Identifier;
-        const PipelineState*    PipelineStateObject;
-    };
-
     struct BindConstantBuffer
     {
         u32                     Identifier;

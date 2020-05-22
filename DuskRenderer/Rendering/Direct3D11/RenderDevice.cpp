@@ -36,6 +36,9 @@ RenderContext::RenderContext()
     , CsUavRegisterUpdateCount( 0 )
     , FramebufferDepthBuffer( nullptr )
     , BindedPipelineState( nullptr )
+#if DUSK_DEVBUILD
+    , ActiveDebugMarker( nullptr )
+#endif
 {
     memset( CsUavRegistersInfo, 0x00, sizeof( RegisterData )* D3D11_1_UAV_SLOT_COUNT );
     memset( SrvRegistersInfo, 0x00, sizeof( RegisterData )* eShaderStage::SHADER_STAGE_COUNT* D3D11_COMMONSHADER_INPUT_RESOURCE_REGISTER_COUNT );
@@ -393,18 +396,18 @@ void UpdateBuffer_Replay( ID3D11DeviceContext* immediateContext, ID3D11Resource*
     }
 }
 
+#include <Graphics/RenderModules/FFT.generated.h>
+
 void RenderDevice::submitCommandList( CommandList& cmdList )
 {
     // Replay recorded commands
     NativeCommandList* nativeCmdList = cmdList.getNativeCommandList();
 
-    LinearAllocator* packetAllocator = nativeCmdList->CommandPacketAllocator;
-    u8* bufferPointer = static_cast<u8*>( packetAllocator->getBaseAddress() );
+    while ( !nativeCmdList->Commands.empty() ) {
+        u32* bufferPointer = nativeCmdList->Commands.front();
+        nativeCmdList->Commands.pop();
 
-    CommandPacketIdentifier identifier = CommandPacketIdentifier::CPI_UNKNOWN;
-    while ( identifier != CommandPacketIdentifier::CPI_END ) {
-        identifier = *( CommandPacketIdentifier* )bufferPointer;
-
+        CommandPacketIdentifier identifier = *reinterpret_cast<CommandPacketIdentifier*>( bufferPointer );
         switch ( identifier ) {
         case CPI_BIND_VERTEX_BUFFER:
         {
@@ -448,10 +451,9 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
         }
         case CPI_PREPARE_AND_BIND_RESOURCES:
         {
-            CommandPacket::PrepareAndBindResources cmdPacket = *( CommandPacket::PrepareAndBindResources* )bufferPointer;
-            PrepareAndBindResources_Replay( renderContext, cmdPacket.PipelineStateObject );
+            PrepareAndBindResources_Replay( renderContext, renderContext->BindedPipelineState );
 
-            bufferPointer += sizeof( CommandPacket::PrepareAndBindResources );
+            bufferPointer += sizeof( CommandPacket::ArgumentLessPacket );
             break;
         }
         case CPI_BIND_CBUFFER:
@@ -563,12 +565,20 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
             CommandPacket::PushEvent cmdPacket = *( CommandPacket::PushEvent* )bufferPointer;
             renderContext->Annotation->BeginEvent( cmdPacket.EventName );
 
+#if DUSK_DEVBUILD
+            renderContext->ActiveDebugMarker = cmdPacket.EventName;
+#endif
+
             bufferPointer += sizeof( CommandPacket::PushEvent );
             break;
         }
         case CPI_POP_EVENT:
         {
             renderContext->Annotation->EndEvent();
+
+#if DUSK_DEVBUILD
+            renderContext->ActiveDebugMarker = nullptr;
+#endif
 
             bufferPointer += sizeof( CommandPacket::ArgumentLessPacket );
             break;

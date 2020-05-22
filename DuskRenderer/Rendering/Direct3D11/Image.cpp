@@ -480,10 +480,14 @@ void CommandList::insertComputeBarrier( Image& image )
 void CommandList::setupFramebuffer( Image** renderTargetViews, Image* depthStencilView )
 {
     CommandPacket::SetupFramebuffer* commandPacket = dk::core::allocate<CommandPacket::SetupFramebuffer>( nativeCommandList->CommandPacketAllocator );
+    memset( commandPacket, 0, sizeof( CommandPacket::SetupFramebuffer ) );
+
     commandPacket->Identifier = CPI_SETUP_FRAMEBUFFER;
 
     memcpy( commandPacket->RenderTargetView, renderTargetViews, sizeof( Image* ) * nativeCommandList->BindedPipelineState->rtvCount );
     commandPacket->DepthStencilView = depthStencilView;
+
+    nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
 
 void SetupFramebuffer_Replay( RenderContext* renderContext, Image** renderTargetViews, Image* depthStencilView )

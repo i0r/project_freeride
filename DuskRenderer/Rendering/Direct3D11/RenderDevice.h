@@ -91,5 +91,10 @@ struct RenderContext
 
     // Active PipelineState.
     PipelineState*              BindedPipelineState;
+
+#if DUSK_DEVBUILD
+    // Latest debug event pushed on the stack.
+    const dkChar_t*             ActiveDebugMarker;
+#endif
 };
 #endif

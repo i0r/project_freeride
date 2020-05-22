@@ -520,9 +520,12 @@ PipelineState* RenderDevice::createPipelineState( const PipelineStateDesc& descr
 
 void CommandList::prepareAndBindResourceList( const PipelineState* pipelineState )
 {
-    CommandPacket::PrepareAndBindResources* commandPacket = dk::core::allocate<CommandPacket::PrepareAndBindResources>( nativeCommandList->CommandPacketAllocator );
+    DUSK_UNUSED_VARIABLE( pipelineState );
+
+    CommandPacket::ArgumentLessPacket* commandPacket = dk::core::allocate<CommandPacket::ArgumentLessPacket>( nativeCommandList->CommandPacketAllocator );
     commandPacket->Identifier = CPI_PREPARE_AND_BIND_RESOURCES;
-    commandPacket->PipelineStateObject = pipelineState;
+
+    nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
 
 void RenderDevice::destroyPipelineState( PipelineState* pipelineState )
@@ -572,6 +575,8 @@ void CommandList::bindPipelineState( PipelineState* pipelineState )
     // We cache the active PSO so that we don't have to wait command replay to resolve dependencies/resources using the 
     // active pipeline state.
     nativeCommandList->BindedPipelineState = pipelineState;
+
+    nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
 
 void CommandList::bindConstantBuffer( const dkStringHash_t hashcode, Buffer* buffer )
@@ -580,6 +585,8 @@ void CommandList::bindConstantBuffer( const dkStringHash_t hashcode, Buffer* buf
     commandPacket->Identifier = CPI_BIND_CBUFFER;
     commandPacket->BufferObject = buffer;
     commandPacket->ObjectHashcode = hashcode;
+
+    nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
 
 void CommandList::bindImage( const dkStringHash_t hashcode, Image* image, const eViewFormat viewFormat )
@@ -589,6 +596,8 @@ void CommandList::bindImage( const dkStringHash_t hashcode, Image* image, const 
     commandPacket->ImageObject = image;
     commandPacket->ObjectHashcode = hashcode;
     commandPacket->ViewKey = 0ull;
+
+    nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
 
 void CommandList::bindBuffer( const dkStringHash_t hashcode, Buffer* buffer, const eViewFormat viewFormat )
@@ -598,6 +607,8 @@ void CommandList::bindBuffer( const dkStringHash_t hashcode, Buffer* buffer, con
     commandPacket->BufferObject = buffer;
     commandPacket->ObjectHashcode = hashcode;
     commandPacket->ViewKey = 0ull;
+
+    nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
 
 void CommandList::bindSampler( const dkStringHash_t hashcode, Sampler* sampler )

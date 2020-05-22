@@ -86,6 +86,8 @@ void RenderDevice::setDebugMarker( Buffer& buffer, const dkChar_t* objectName )
 void CommandList::bindVertexBuffer( const Buffer** buffers, const u32 bufferCount, const u32 startBindIndex )
 {
     CommandPacket::BindVertexBuffer* commandPacket = dk::core::allocate<CommandPacket::BindVertexBuffer>( nativeCommandList->CommandPacketAllocator );
+    memset( commandPacket, 0, sizeof( CommandPacket::BindVertexBuffer ) );
+
     commandPacket->Identifier = CPI_BIND_VERTEX_BUFFER;
     commandPacket->BufferCount = bufferCount;
     commandPacket->StartBindIndex = startBindIndex;
@@ -95,6 +97,8 @@ void CommandList::bindVertexBuffer( const Buffer** buffers, const u32 bufferCoun
         commandPacket->Strides[i] = buffers[i]->Stride;
         commandPacket->Offsets[i] = 0;
     }
+
+    nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
 
 void CommandList::bindIndiceBuffer( const Buffer* buffer, const bool use32bitsIndices )
@@ -104,6 +108,8 @@ void CommandList::bindIndiceBuffer( const Buffer* buffer, const bool use32bitsIn
     commandPacket->ViewFormat = ( use32bitsIndices ) ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R16_UINT;
     commandPacket->Offset = 0u;
     commandPacket->BufferObject = buffer->BufferObject;
+
+    nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
 
 void CommandList::updateBuffer( Buffer& buffer, const void* data, const size_t dataSize )
@@ -113,6 +119,8 @@ void CommandList::updateBuffer( Buffer& buffer, const void* data, const size_t d
     commandPacket->BufferObject = buffer.BufferObject;
     commandPacket->Data = data;
     commandPacket->DataSize = dataSize;
+
+    nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
 
 void* CommandList::mapBuffer( Buffer& buffer, const u32 startOffsetInBytes, const u32 sizeInBytes )
