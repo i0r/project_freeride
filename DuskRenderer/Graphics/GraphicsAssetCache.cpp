@@ -244,7 +244,8 @@ FontDescriptor* GraphicsAssetCache::getFont( const dkChar_t* assetName, const bo
 
     auto font = fontMap[assetHashcode];
 
-    dk::io::LoadFontFile( virtualFileSystem->openFile( assetName, eFileOpenMode::FILE_OPEN_MODE_READ ), *font );
+    dk::io::LoadFontFile( file, *font );
+
 
     return fontMap[assetHashcode];
 }
