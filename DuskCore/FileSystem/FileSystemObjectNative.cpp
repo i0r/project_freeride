@@ -10,7 +10,8 @@
 #include <fstream>
 
 FileSystemObjectNative::FileSystemObjectNative( const dkString_t& objectPath )
-    : openedMode( eFileOpenMode::FILE_OPEN_MODE_NONE )
+    : FileSystemObject()
+    , openedMode( eFileOpenMode::FILE_OPEN_MODE_NONE )
 {
     nativeObjectPath = objectPath;
     fileHashcode = dk::core::CRC32( nativeObjectPath );
@@ -25,6 +26,8 @@ FileSystemObjectNative::~FileSystemObjectNative()
 
 void FileSystemObjectNative::open( const int32_t mode )
 {
+    acquireOwnership();
+
     nativeStream.open( nativeObjectPath, static_cast<std::ios_base::openmode>( mode ) );
 
     openedMode = mode;
@@ -35,6 +38,8 @@ void FileSystemObjectNative::close()
     nativeStream.close();
 
     openedMode = eFileOpenMode::FILE_OPEN_MODE_NONE;
+
+    releaseOwnership();
 }
 
 bool FileSystemObjectNative::isOpen()

@@ -4,6 +4,7 @@
 */
 #pragma once
 
+#include <atomic>
 #include <Core/Types.h>
 #include "FileSystem.h"
 
@@ -11,24 +12,47 @@
 class FileSystemObject
 {
 public:
-    inline dkStringHash_t   getHashcode() const { return fileHashcode; }
-    inline dkString_t       getFilename() const { return nativeObjectPath; }
-    inline void             writePadding()
-    {
-        static constexpr uint8_t PADDING = 0xFF;
+    // Return the filename hashcode of this file.
+    // Note that this is not the hashcode of this file content!
+    DUSK_INLINE dkStringHash_t getHashcode() const { 
+        return fileHashcode; 
+    }
 
-        auto streamPos = tell();
-        while ( streamPos % 16 != 0 ) {
-            write( ( uint8_t* )&PADDING, sizeof( char ) );
+    // Return the filename.
+    DUSK_INLINE dkString_t getFilename() const { 
+        return nativeObjectPath; 
+    }
+
+    // Write binary padding to guarantee memory alignment of a file content being written.
+    DUSK_INLINE void writeMemoryAlignmentPadding( const u64 alignmentInBytes = 16ull, const u8 paddingByte = 0xff ) {
+        u64 streamPos = tell();
+        while ( streamPos % alignmentInBytes != 0 ) {
+            write( ( uint8_t* )&paddingByte, sizeof( u8 ) );
             streamPos++;
         }
     }
 
 public:
-    template<typename T>    void write( const T& variable ) { write( (uint8_t*)&variable, sizeof( T ) ); }
-    template<typename T>    void read( const T& variable ) { read( (uint8_t*)&variable, sizeof( T ) ); }
+    // Wrapped write call to allow templated write calls.
+    template<typename T>    
+    void write( const T& variable ) { 
+        write( (uint8_t*)&variable, sizeof( T ) ); 
+    }
+
+    // Wrapped read call to allow templated write calls.
+    template<typename T>    
+    void read( const T& variable ) { 
+        read( (uint8_t*)&variable, sizeof( T ) ); 
+    }
 
 public:
+    FileSystemObject() 
+        : fileHashcode( 0 )
+        , nativeObjectPath( DUSK_STRING( "" ) )
+        , fileOwnership( false ) 
+    {
+    }
+
     virtual                 ~FileSystemObject() { }
     virtual void            open( const int32_t mode ) = 0;
     virtual void            close() = 0;
@@ -43,7 +67,35 @@ public:
     virtual void            skip( const uint64_t byteCountToSkip ) = 0;
     virtual void            seek( const uint64_t byteCount, const eFileReadDirection direction ) = 0;
 
+public:
+    // Acquire the ownership of this file. This operation is required in multithreaded context in order to guarantee
+    // that two file won't try to access this object at the same time.
+    void acquireOwnership()
+    {
+        // Spin until the ownership of this file has been released.
+        while ( !canAcquireOwnership() );
+
+        fileOwnership.store( true );
+    }
+
+    // Release the ownership of this file. Must be called as soon as the thread has finished its operations on this object.
+    void releaseOwnership()
+    {
+        fileOwnership.store( false );
+    }
+
 protected:
     dkStringHash_t          fileHashcode;
     dkString_t              nativeObjectPath;
+
+private:
+    std::atomic<bool>       fileOwnership;
+
+private:
+    // Return true if this file is not in use by another thread and can safely be used by the caller; false otherwise.
+    DUSK_INLINE bool canAcquireOwnership()
+    {
+        bool expected = false;
+        return fileOwnership.compare_exchange_weak( expected, false );
+    }
 };

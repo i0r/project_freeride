@@ -80,7 +80,7 @@ FileSystemObject* FileSystemNative::openFile( const dkString_t& filename, const 
     // Check if the file has already been opened
     dkStringHash_t fileHashcode = dk::core::CRC32( filename );
     for ( auto& openedFile : openedFiles ) {
-        if ( openedFile->getHashcode() == fileHashcode && !openedFile->isOpen() ) {
+        if ( openedFile->getHashcode() == fileHashcode ) {
             openedFile->open( openMode );
             return openedFile;
         }
@@ -101,9 +101,9 @@ void FileSystemNative::closeFile( FileSystemObject* fileSystemObject )
         return;
     }
 
-    openedFiles.remove_if( [=]( FileSystemObject* obj ) { 
+  /* openedFiles.remove_if( [=]( FileSystemObject* obj ) { 
         return obj->getHashcode() == fileSystemObject->getHashcode(); 
-    } );
+    } );*/
 
     delete fileSystemObject;
 }
