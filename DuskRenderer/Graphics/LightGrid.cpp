@@ -46,7 +46,7 @@ LightGrid::Data LightGrid::updateClusters( FrameGraph& frameGraph )
             sceneClustersBufferDesc.SizeInBytes = sizeof( PerSceneBufferData );
             passData.PerSceneBuffer = builder.allocateBuffer( sceneClustersBufferDesc, SHADER_STAGE_COMPUTE );
 
-            ImageDesc lightClusterDesc;
+            /*     ImageDesc lightClusterDesc;
             lightClusterDesc.dimension = ImageDesc::DIMENSION_3D;
             lightClusterDesc.format = eViewFormat::VIEW_FORMAT_R32G32_UINT;
             lightClusterDesc.usage = RESOURCE_USAGE_DEFAULT;
@@ -64,7 +64,7 @@ LightGrid::Data LightGrid::updateClusters( FrameGraph& frameGraph )
             itemListDesc.StrideInBytes = static_cast<u32>( itemListDesc.SizeInBytes / sizeof( u32 ) );
             itemListDesc.DefaultView.ViewFormat = eViewFormat::VIEW_FORMAT_R32_UINT;
 
-            passData.ItemList = builder.allocateBuffer( itemListDesc, SHADER_STAGE_COMPUTE );
+            passData.ItemList = builder.allocateBuffer( itemListDesc, SHADER_STAGE_COMPUTE );*/
         },
         [=]( const LightGrid::Data& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
             Image* lightsClusters = resources->getImage( passData.LightClusters );
