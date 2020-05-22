@@ -5,11 +5,16 @@ lib FFT
         cint  BufferDimension = 512;
         cint  ButterflyCount = 9;
         cflag IsRowPass = false;
-        cflag IsInverseFFT = false;    
+        cflag IsInverseFFT = false;
+        
+        // Uv coordinates offsets. Required to crop the FFT padding.
+        // Order: left; top; right; bottom.
+        float4 BorderOffsets = { 0, 0, 0, 0 };
     }
     
     resources 
     {
+        // FFT/IFFT/Convolution Parameters
         // Input (Real).
         Texture2D TextureSourceR {
             swizzle = float3;
@@ -30,12 +35,29 @@ lib FFT
         }
         
         // Output
+        RWTexture2D KernelTexture {
+            swizzle = float4;
+        }
+        
         RWTexture2D TextureTargetR {
             swizzle = float3;
         }
 
         RWTexture2D TextureTargetI {
             swizzle = float3;
+        }
+        
+        // FFT Upscale Parameters
+        Texture2D OutputRenderTarget {
+            swizzle = float4;
+        }
+        
+        Texture2D InputRenderTarget {
+            swizzle = float4;
+        }
+        
+        sampler BilinearSampler {
+            format = BilinearClampEdge;
         }
     }
     
@@ -79,15 +101,26 @@ lib FFT
             float3 inputR2 = pingPongArray[t0][Indices.y];
             float3 inputI2 = pingPongArray[t1][Indices.y];
 
-            if ( $IsInverseFFT ) {
-                resultR = (inputR1 + Weights.x * inputR2 + Weights.y * inputI2) * 0.5;
-                resultI = (inputI1 - Weights.y * inputR2 + Weights.x * inputI2) * 0.5;
-            } else {
-                resultR = inputR1 + Weights.x * inputR2 - Weights.y * inputI2;
-                resultI = inputI1 + Weights.y * inputR2 + Weights.x * inputI2;
-            }
+            resultR = inputR1 + Weights.x * inputR2 - Weights.y * inputI2;
+            resultI = inputI1 + Weights.y * inputR2 + Weights.x * inputI2;
         }
 
+        void IButterflyPass(int passIndex, uint x, uint t0, uint t1, out float3 resultR, out float3 resultI) 
+        {
+            uint2 Indices;
+            float2 Weights;
+            GetButterflyValues(passIndex, x, Indices, Weights);
+            
+            float3 inputR1 = pingPongArray[t0][Indices.x];
+            float3 inputI1 = pingPongArray[t1][Indices.x];
+
+            float3 inputR2 = pingPongArray[t0][Indices.y];
+            float3 inputI2 = pingPongArray[t1][Indices.y];
+
+            resultR = (inputR1 + Weights.x * inputR2 + Weights.y * inputI2) * 0.5;
+            resultI = (inputI1 - Weights.y * inputR2 + Weights.x * inputI2) * 0.5;
+        }
+        
         void ButterflyPassFinalNoI(int passIndex, int x, int t0, int t1, out float3 resultR)
         {
             uint2 Indices;
@@ -107,24 +140,25 @@ lib FFT
     {
         uint2 texelIdx = uint2( $SV_DispatchThreadID.xy );
         
-        TextureTargetR[texelIdx] = ( TextureSourceR[texelIdx] * Texture2SourceR[texelIdx] );
-        TextureTargetI[texelIdx] = ( TextureSourceI[texelIdx] * Texture2SourceI[texelIdx] );
+        float3 A = TextureSourceR[texelIdx];
+        float3 B = TextureSourceI[texelIdx];
+        
+        float3 C = Texture2SourceR[texelIdx];   
+        float3 D = Texture2SourceI[texelIdx];
+        
+        TextureTargetR[texelIdx] = float4(A*D + B*C, 0);
+        TextureTargetI[texelIdx] = float4(A*C - B*D, 0);
     }  
     
-    shader FFTCompute
-    {
+    shader FFTRow {
         uint3 position = $SV_DispatchThreadID.xyz;
-        uint2 texturePos = ( $IsRowPass ) ? uint2( $SV_DispatchThreadID.xy ) : uint2( $SV_DispatchThreadID.yx );
+        uint2 texturePos = uint2( position.xy );
 
         // Load entire row or column into scratch array.
         pingPongArray[0][position.x].xyz = TextureSourceR[texturePos];
         
         // Don't load values from the imaginary texture when loading the original texture.
-        if ( $IsRowPass && !$IsInverseFFT ) {
-            pingPongArray[1][position.x].xyz = 0;
-        } else {
-            pingPongArray[1][position.x].xyz = TextureSourceI[texturePos];
-        }
+        pingPongArray[1][position.x].xyz = 0;
 
         uint4 textureIndices = uint4(0, 1, 2, 3);
         for (int i = 0; i < $ButterflyCount - 1; i++) {
@@ -136,43 +170,143 @@ lib FFT
         // Final butterfly will write directly to the target texture
         GroupMemoryBarrierWithGroupSync();
 
-        // The final pass writes to the output UAV texture
-        if ( !$IsRowPass && $IsInverseFFT ) {
-            // last pass of the inverse transform. The imaginary value is no longer needed
-            ButterflyPassFinalNoI($ButterflyCount - 1, position.x, textureIndices.x, textureIndices.y, TextureTargetR[texturePos]);
-        } else {
-            ButterflyPass($ButterflyCount - 1, position.x, textureIndices.x, textureIndices.y, TextureTargetR[texturePos], TextureTargetI[texturePos]);
+        ButterflyPass($ButterflyCount - 1, position.x, textureIndices.x, textureIndices.y, TextureTargetR[texturePos], TextureTargetI[texturePos]);
+    }
+    
+    shader FFTCol {
+        uint3 position = $SV_DispatchThreadID.xyz;
+        uint2 texturePos = uint2( position.yx );
+
+        // Load entire row or column into scratch array.
+        pingPongArray[0][position.x].xyz = TextureSourceR[texturePos];
+        
+        // Don't load values from the imaginary texture when loading the original texture.
+        pingPongArray[1][position.x].xyz = TextureSourceI[texturePos];
+
+        uint4 textureIndices = uint4(0, 1, 2, 3);
+        for (int i = 0; i < $ButterflyCount - 1; i++) {
+            GroupMemoryBarrierWithGroupSync();
+            ButterflyPass( i, position.x, textureIndices.x, textureIndices.y, pingPongArray[textureIndices.z][position.x].xyz, pingPongArray[textureIndices.w][position.x].xyz );
+            textureIndices.xyzw = textureIndices.zwxy;
         }
+
+        // Final butterfly will write directly to the target texture
+        GroupMemoryBarrierWithGroupSync();
+
+        ButterflyPass($ButterflyCount - 1, position.x, textureIndices.x, textureIndices.y, TextureTargetR[texturePos], TextureTargetI[texturePos]);
+    }
+    
+    shader InverseFFTRow {
+        uint3 position = $SV_DispatchThreadID.xyz;
+        uint2 texturePos = uint2( position.xy );
+
+        // Load entire row or column into scratch array.
+        pingPongArray[0][position.x].xyz = TextureSourceR[texturePos];
+        
+        // Don't load values from the imaginary texture when loading the original texture.
+        pingPongArray[1][position.x].xyz = TextureSourceI[texturePos];
+
+        uint4 textureIndices = uint4(0, 1, 2, 3);
+        for (int i = 0; i < $ButterflyCount - 1; i++) {
+            GroupMemoryBarrierWithGroupSync();
+            IButterflyPass( i, position.x, textureIndices.x, textureIndices.y, pingPongArray[textureIndices.z][position.x].xyz, pingPongArray[textureIndices.w][position.x].xyz );
+            textureIndices.xyzw = textureIndices.zwxy;
+        }
+
+        // Final butterfly will write directly to the target texture
+        GroupMemoryBarrierWithGroupSync();
+
+        IButterflyPass($ButterflyCount - 1, position.x, textureIndices.x, textureIndices.y, TextureTargetR[texturePos], TextureTargetI[texturePos]);
+    }
+    
+    shader InverseFFTCol {
+        uint3 position = $SV_DispatchThreadID.xyz;
+        uint2 texturePos = uint2( position.yx );
+
+        // Load entire row or column into scratch array.
+        pingPongArray[0][position.x].xyz = TextureSourceR[texturePos];
+        
+        // Don't load values from the imaginary texture when loading the original texture.
+        pingPongArray[1][position.x].xyz = TextureSourceI[texturePos];
+
+        uint4 textureIndices = uint4(0, 1, 2, 3);
+        for (int i = 0; i < $ButterflyCount - 1; i++) {
+            GroupMemoryBarrierWithGroupSync();
+            IButterflyPass( i, position.x, textureIndices.x, textureIndices.y, pingPongArray[textureIndices.z][position.x].xyz, pingPongArray[textureIndices.w][position.x].xyz );
+            textureIndices.xyzw = textureIndices.zwxy;
+        }
+
+        // Final butterfly will write directly to the target texture
+        GroupMemoryBarrierWithGroupSync();
+
+        // last pass of the inverse transform. The imaginary value is no longer needed
+        ButterflyPassFinalNoI($ButterflyCount - 1, position.x, textureIndices.x, textureIndices.y, TextureTargetR[texturePos]);
+    }
+    
+    shader FFTShift {
+        int2 id = (int2)$SV_DispatchThreadID.xy;
+        
+        int2 inputId = id;     
+        inputId.x += ( inputId.x >= FFT_SAMPLING_OFFSET ) ? -FFT_SAMPLING_OFFSET : FFT_SAMPLING_OFFSET;
+        inputId.y += ( inputId.y >= FFT_SAMPLING_OFFSET ) ? -FFT_SAMPLING_OFFSET : FFT_SAMPLING_OFFSET;
+        
+        inputId.xy =  int2( $BufferDimension, $BufferDimension ) - inputId.xy;
+        
+        TextureTargetR[inputId] = TextureSourceR[id];
+    } 
+   
+    shader FFTCopyImage {     
+        if ( $SV_VertexId == 0 ) {
+            $TEXCOORD0 = BorderOffsets.xy;
+        } else if ( $SV_VertexId == 1 ) {
+            $TEXCOORD0 = BorderOffsets.zy;
+        } else if ( $SV_VertexId == 2 ) {
+            $TEXCOORD0 = BorderOffsets.xw;
+        } else if ( $SV_VertexId == 3 ) {
+            $TEXCOORD0 = BorderOffsets.zw;
+        }
+        
+        float2 uvCoords = float2( $SV_VertexId % 2, ( $SV_VertexId % 4 ) >> 1 );
+        $SV_Position = float4( ( uvCoords.x - 0.5f ) * 2, -( uvCoords.y - 0.5f ) * 2, 0, 1 );
+    }
+    
+    shader CopyImageAndRemoveBorders {
+        $SV_TARGET0 = InputRenderTarget.SampleLevel( BilinearSampler, $TEXCOORD0, 0 );
     }
     
     pass FrequencyDomainMul {
         compute       = FFTMultiply;        
         dispatch      = { 16, 16, 1 };
     }
+        
+    pass FFTRealShift {
+        compute       = FFTShift;        
+        dispatch      = { 16, 16, 1 };
+    }
     
     pass FFTComputeRow {
-        compute       = FFTCompute;        
+        compute       = FFTRow;        
         dispatch      = { 512, 1, 1 };
-        IsRowPass     = true; 
     }
     
     pass FFTComputeCol {
-        compute       = FFTCompute;        
+        compute       = FFTCol;        
         dispatch      = { 512, 1, 1 };
-        IsRowPass     = false; 
     }
         
     pass InverseFFTComputeRow {
-        compute       = FFTCompute;        
+        compute       = InverseFFTRow;        
         dispatch      = { 512, 1, 1 };
-        IsRowPass     = true;
-        IsInverseFFT  = true;
     }
     
     pass InverseFFTComputeCol {
-        compute       = FFTCompute;        
+        compute       = InverseFFTCol;        
         dispatch      = { 512, 1, 1 };
-        IsRowPass     = false;
-        IsInverseFFT  = true;
+    }
+    
+    pass UpscaleConvolutedFFT {
+        vertex        = FFTCopyImage;    
+        pixel         = CopyImageAndRemoveBorders;
+        rendertargets = { OutputRenderTarget };
     }
 }

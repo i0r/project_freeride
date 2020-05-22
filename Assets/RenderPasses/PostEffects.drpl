@@ -14,6 +14,10 @@ lib PostEffects {
             swizzle = float4;
         }
 
+        Texture2D GlareRenderTarget {
+            swizzle = float4;
+        }
+        
         RWTexture2D OutputRenderTarget {
             swizzle = float4;
         }
@@ -55,11 +59,14 @@ lib PostEffects {
             
             float3 bloomLuminance = computeBloomLuminance( bloomColor, 0.0f, currentEV );
             finalColor.rgb = lerp( finalColor.rgb, bloomLuminance, BloomStrength );
+        
+            int3 glareSamplingIdx = int3( $SV_DispatchThreadId.xyz ); // + uint3( 7, 116, 0 );
+            
+            float3 glareColor = GlareRenderTarget.Load( glareSamplingIdx );
+            float3 glareLuminance = computeBloomLuminance( glareColor, 0.0f, currentEV );
+            finalColor.rgb = lerp( finalColor.rgb, glareLuminance, 0.001f );            
         }
     
-        // float3 glareColor = GlareRenderTarget.Load( $SV_DispatchThreadId );
-        // finalColor.rgb += ( finalColor.rgb * glareColor );
-        
         float3 color = ACESFilmic( finalColor.rgb * exposure );    
         color = accurateLinearToSRGB( color );
 
