@@ -5,6 +5,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <atomic>
 
 #include <Rendering/RenderDevice.h>
 
@@ -37,8 +38,16 @@ private:
 
 	std::unordered_map<dkStringHash_t, Shader*>	    cachedStages;
 
+    // True if a thread is currently acessing the cache; false otherwise.
+    std::atomic<bool>                               cacheLock;
+
     // Fallbacks incase of missing shader
     Shader*                                         defaultVertexStage;
     Shader*                                         defaultPixelStage;
     Shader*                                         defaultComputeStage;
+
+private:
+    // Return true if cache access is safe (no thread is trying to read/write from the cache); false otherwise.
+    // Can be used for spinlock call.
+    bool canAccessCache();
 };

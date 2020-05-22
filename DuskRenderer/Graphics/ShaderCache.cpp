@@ -20,6 +20,7 @@ ShaderCache::ShaderCache( BaseAllocator* allocator, RenderDevice* activeRenderDe
     : virtualFileSystem( activeVFS )
     , renderDevice( activeRenderDevice )
     , memoryAllocator( allocator )
+    , cacheLock( false )
 {
     DUSK_LOG_INFO( "Loading default shaders...\n" );
 
@@ -30,6 +31,8 @@ ShaderCache::ShaderCache( BaseAllocator* allocator, RenderDevice* activeRenderDe
 
 ShaderCache::~ShaderCache()
 {
+    while ( !canAccessCache() );
+
     for ( auto& shader : cachedStages ) {
         renderDevice->destroyShader( shader.second );
     }
@@ -79,10 +82,14 @@ Shader* ShaderCache::getOrUploadStage( const dkChar_t* shaderHashcode, const boo
 
     const dkStringHash_t fileHashcode = file->getHashcode();
 
+    while ( !canAccessCache() );
+
+    cacheLock.store( true );
     auto it = cachedStages.find( fileHashcode );
     if ( it != cachedStages.end() ) {
         if ( !forceReload ) {
             file->close();
+            cacheLock.store( false );
             return it->second;
         } else {
             // If asked for force reloading, destroy previously cached shader instance
@@ -99,7 +106,10 @@ Shader* ShaderCache::getOrUploadStage( const dkChar_t* shaderHashcode, const boo
         cachedStages[fileHashcode] = renderDevice->createShader( stageType, precompiledShader.data(), precompiledShader.size() );
     }
 
-	return cachedStages[fileHashcode];
+    Shader* cachedStage = cachedStages[fileHashcode];
+    cacheLock.store( false );
+
+    return cachedStage;
 }
 
 template<eShaderStage stageType>
@@ -130,4 +140,10 @@ Shader* ShaderCache::getOrUploadStageDynamic( const char* shadernameWithPermutat
     dkString_t filenameWithExtension = dk::core::GetHashcodeDigest128( permutationHashcode );
 
     return getOrUploadStage<stageType>( filenameWithExtension.c_str(), forceReload );
+}
+
+bool ShaderCache::canAccessCache()
+{
+    bool expected = false;
+    return cacheLock.compare_exchange_weak( expected, false );
 }
