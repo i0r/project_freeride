@@ -1009,6 +1009,24 @@ static constexpr Vector<Precision, ScalarCount> operator / ( const Vector<Precis
     return v;
 }
 
+template <typename Precision, i32 ScalarCount>
+static constexpr bool operator == ( const Vector<Precision, ScalarCount>& l, const Vector<Precision, ScalarCount>& r )
+{
+    for ( i32 i = 0; i < ScalarCount; i++ ) {
+        if ( l[i] != r[i] ) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+template <typename Precision, i32 ScalarCount>
+static constexpr bool operator != ( const Vector<Precision, ScalarCount>& l, const Vector<Precision, ScalarCount>& r )
+{
+    return !( l == r );
+}
+
 namespace dk
 {
     namespace maths
