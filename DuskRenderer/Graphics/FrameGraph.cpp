@@ -672,12 +672,14 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
     graphBuilder.scheduleRenderPasses( graphScheduler, renderPasses, renderPassCount );
 
     // Update PerView Buffer
-    perViewData.ViewProjectionMatrix = activeCamera->viewProjectionMatrix;
-    perViewData.InverseViewProjectionMatrix = activeCamera->inverseViewProjectionMatrix;
-    perViewData.ScreenSize = activeCamera->viewportSize;
-    perViewData.InverseScreenSize = activeCamera->inverseViewportSize;
-    perViewData.WorldPosition = activeCamera->worldPosition;
-    perViewData.FrameIndex = activeCamera->cameraFrameNumber;
+    if ( activeCamera != nullptr ) {
+        perViewData.ViewProjectionMatrix = activeCamera->viewProjectionMatrix;
+        perViewData.InverseViewProjectionMatrix = activeCamera->inverseViewProjectionMatrix;
+        perViewData.ScreenSize = activeCamera->viewportSize;
+        perViewData.InverseScreenSize = activeCamera->inverseViewportSize;
+        perViewData.WorldPosition = activeCamera->worldPosition;
+        perViewData.FrameIndex = activeCamera->cameraFrameNumber;
+    }
 
     // Dispatch render passes to rendering threads
     graphScheduler.dispatch( &perViewData );
