@@ -20,6 +20,7 @@ ResHandle_t AddFinalPostFxRenderPass( FrameGraph& frameGraph, ResHandle_t input,
         ResHandle_t output;
 
         ResHandle_t bloomRtInput;
+        ResHandle_t glareRtInput;
 
         ResHandle_t autoExposureBuffer;
         ResHandle_t PerPassBuffer;
@@ -33,6 +34,7 @@ ResHandle_t AddFinalPostFxRenderPass( FrameGraph& frameGraph, ResHandle_t input,
             passData.input = builder.readImage( input );
 
             passData.bloomRtInput = builder.readImage( bloomInput );
+            passData.glareRtInput = builder.readImage( glareInput );
 
             ImageDesc outputDesc;
             outputDesc.dimension = ImageDesc::DIMENSION_2D;
@@ -57,6 +59,7 @@ ResHandle_t AddFinalPostFxRenderPass( FrameGraph& frameGraph, ResHandle_t input,
             Image* outputTarget = resources->getImage( passData.output );
             Image* inputTarget = resources->getImage( passData.input );
             Image* bloomTarget = resources->getImage( passData.bloomRtInput );
+            Image* glareTarget = resources->getImage( passData.glareRtInput );
             Buffer* passBuffer = resources->getBuffer( passData.PerPassBuffer );
             Buffer* autoExposureBuffer = resources->getPersistentBuffer( passData.autoExposureBuffer );
 
@@ -67,6 +70,7 @@ ResHandle_t AddFinalPostFxRenderPass( FrameGraph& frameGraph, ResHandle_t input,
 
             cmdList->bindImage( PostEffects::Default_InputRenderTarget_Hashcode, inputTarget );
             cmdList->bindImage( PostEffects::Default_BloomRenderTarget_Hashcode, bloomTarget );
+            cmdList->bindImage( PostEffects::Default_GlareRenderTarget_Hashcode, glareTarget );
             cmdList->bindImage( PostEffects::Default_OutputRenderTarget_Hashcode, outputTarget );
             cmdList->bindBuffer( PostEffects::Default_AutoExposureBuffer_Hashcode, autoExposureBuffer );
 

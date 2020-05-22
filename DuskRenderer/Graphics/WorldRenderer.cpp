@@ -20,6 +20,7 @@
 #include "RenderModules/AutomaticExposure.h"
 #include "RenderModules/BlurPyramid.h"
 #include "RenderModules/TextRenderingModule.h"
+#include "RenderModules/GlareRenderModule.h"
 
 static constexpr size_t MAX_DRAW_CMD_COUNT = 4096;
 
@@ -89,10 +90,12 @@ WorldRenderer::WorldRenderer( BaseAllocator* allocator )
     : BrunetonSky( dk::core::allocate<BrunetonSkyRenderModule>( allocator ) )
     , AutomaticExposure( dk::core::allocate<AutomaticExposureModule>( allocator ) )
     , TextRendering( dk::core::allocate<TextRenderingModule>( allocator ) )
+    , GlareRendering( dk::core::allocate<GlareRenderModule>( allocator ) )
     , memoryAllocator( allocator )
     , primitiveCache( dk::core::allocate<PrimitiveCache>( allocator ) )
     , drawCmdAllocator( dk::core::allocate<LinearAllocator>( allocator, sizeof( DrawCmd )* MAX_DRAW_CMD_COUNT, allocator->allocate( sizeof( DrawCmd ) * MAX_DRAW_CMD_COUNT ) ) )
     , frameGraph( nullptr )
+    , needResourcePrecompute( true )
 {
 
 }
@@ -117,6 +120,7 @@ void WorldRenderer::destroy( RenderDevice* renderDevice )
     BrunetonSky->destroy( *renderDevice );
     AutomaticExposure->destroy( *renderDevice );
     TextRendering->destroy( *renderDevice );
+    GlareRendering->destroy( *renderDevice );
 
     FreeCachedResourcesBP( *renderDevice );
 }
@@ -130,8 +134,17 @@ void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache
     BrunetonSky->loadCachedResources( *renderDevice, *shaderCache, *graphicsAssetCache );
     AutomaticExposure->loadCachedResources( *renderDevice, *shaderCache, *graphicsAssetCache );
     TextRendering->loadCachedResources( *renderDevice, *shaderCache, *graphicsAssetCache );
+    GlareRendering->loadCachedResources( *renderDevice, *shaderCache, *graphicsAssetCache );
 
     LoadCachedResourcesBP( *renderDevice, *shaderCache );
+
+    // Precompute resources (might worth being done offline?).
+    FrameGraph& graph = *frameGraph;
+    graph.waitPendingFrameCompletion();
+
+    GlareRendering->precomputePipelineResources( graph );
+
+    graph.execute( renderDevice, 0.0f );
 }
 
 void WorldRenderer::drawDebugSphere( CommandList& cmdList )

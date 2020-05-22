@@ -20,6 +20,7 @@ class VirtualFileSystem;
 class BrunetonSkyRenderModule;
 class TextRenderingModule;
 class AutomaticExposureModule;
+class GlareRenderModule;
 
 template <typename Precision, int RowCount, int ColumnCount>
 struct Matrix;
@@ -122,6 +123,7 @@ public:
     BrunetonSkyRenderModule* BrunetonSky;
     AutomaticExposureModule* AutomaticExposure;
     TextRenderingModule*     TextRendering;
+    GlareRenderModule*       GlareRendering;
 
 public:
                      WorldRenderer( BaseAllocator* allocator );
@@ -151,4 +153,7 @@ private:
 
     // The FrameGraph used to render the world.
     FrameGraph*      frameGraph;
+
+    // If true, RenderModules need to precompute its transistent resources for frame rendering.
+    bool             needResourcePrecompute;
 };

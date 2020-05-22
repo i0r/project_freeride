@@ -29,6 +29,8 @@
 #include "Graphics/RenderModules/BlurPyramid.h"
 #include "Graphics/RenderModules/TextRenderingModule.h"
 #include "Graphics/RenderModules/PrimitiveLightingTest.h"
+#include "Graphics/RenderModules/GlareRenderModule.h"
+#include "Graphics/RenderModules/FFTRenderPass.h"
 // END TEMP
 
 #include "Graphics/ShaderCache.h"
@@ -526,6 +528,7 @@ void MainLoop()
 
             if ( ImGui::SliderFloat2( "Sun Pos", cart, -1.0f, 1.0f ) ) {
                 g_LightGrid->getDirectionalLightData()->NormalizedDirection = dk::maths::SphericalToCarthesianCoordinates( cart[0], cart[1]  );
+                g_WorldRenderer->BrunetonSky->setSunSphericalPosition( cart[0], cart[1] );
             }
             ImGui::Render();
             g_ImGuiRenderModule->unlockRenderList();
@@ -557,9 +560,14 @@ void MainLoop()
             presentRt = AddMSAAResolveRenderPass( frameGraph, presentRt, -1, -1, MSAASamplerCount, false );
         }
        
-        ResHandle_t bloomRt = AddBlurPyramidRenderPass( frameGraph, presentRt, ScreenSize.x, ScreenSize.y );
+        // Glare Rendering.
+        FFTPassOutput frequencyDomainRt = AddFFTComputePass( frameGraph, presentRt, static_cast< f32 >( ScreenSize.x ), static_cast< f32 >( ScreenSize.y ) );
+        FFTPassOutput convolutedFFT = g_WorldRenderer->GlareRendering->addGlareComputePass( frameGraph, frequencyDomainRt );
+        ResHandle_t inverseFFT = AddInverseFFTComputePass( frameGraph, convolutedFFT, static_cast< f32 >( ScreenSize.x ), static_cast< f32 >( ScreenSize.y ) );
+
+       // ResHandle_t bloomRt = AddBlurPyramidRenderPass( frameGraph, presentRt, ScreenSize.x, ScreenSize.y );
         g_WorldRenderer->AutomaticExposure->computeExposure( frameGraph, presentRt, ScreenSize );
-        presentRt = AddFinalPostFxRenderPass( frameGraph, presentRt, bloomRt, -1 );
+        presentRt = AddFinalPostFxRenderPass( frameGraph, presentRt, inverseFFT, inverseFFT );
         presentRt = g_WorldRenderer->TextRendering->renderText( frameGraph, presentRt );
 
 #if DUSK_USE_IMGUI
