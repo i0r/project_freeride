@@ -369,6 +369,9 @@ public:
     // Retrieve the swapchain buffer for the current frame being recorded.
     ResHandle_t retrieveSwapchainBuffer();
 
+    // Retrieve the post-fx output image for the current frame being recorded.
+    ResHandle_t retrievePresentImage();
+
     // Retrieve the PerView buffer for the current frame being recorded.
     // The data should be immutable (the buffer is updated at the beginning of the frame once).
     ResHandle_t retrievePerViewBuffer();
@@ -585,6 +588,9 @@ public:
     void    importPersistentImage( const dkStringHash_t resourceHashcode, Image* image );
     void    importPersistentBuffer( const dkStringHash_t resourceHashcode, Buffer* buffer );
 
+    // Copy the input rendertarget and store it in the persistent resource Present RenderTarget.
+    void    copyAsPresentRenderTarget( ResHandle_t inputRenderTarget );
+
     template<typename T>
     T& addRenderPass( const char* name, dkPassSetup_t<T> setup, dkPassCallback_t<T> execute ) {
         static_assert( sizeof( T ) <= sizeof( ResHandle_t ) * 128, "Pass data 128 resource limit hit!" );
@@ -619,6 +625,10 @@ public:
     const char* getProfilingSummary() const;
 #endif
 
+    // Return a const pointer to presentRenderTarget. Required if the viewport is different from the regular client one
+    // (e.g. imgui editor viewport).
+    Image* getPresentRenderTarget() const;
+
 private:
     BaseAllocator*                      memoryAllocator;
 
@@ -633,8 +643,12 @@ private:
 
     PerViewBufferData                   perViewData;
 
-    // Persistent Resources
+    // Last Frame (pre post-fx) render target. This is a persistent resource valid across the frames. There is no guarantee
+    // of the content correctness.
     Image*                              lastFrameRenderTarget;
+
+    // Current frame (post post-fx) render target. This is a persistent resource updated each frame.
+    Image*                              presentRenderTarget;
 
     FrameGraphResources                 graphResources;
     FrameGraphBuilder                   graphBuilder;

@@ -520,18 +520,6 @@ void MainLoop()
 #if DUSK_USE_IMGUI
         if ( g_IsDevMenuVisible ) {
             g_ImGuiManager->update( frameTime );
-
-            g_ImGuiRenderModule->lockRenderList();
-            ImGui::NewFrame();
-            dk::editor::DisplayLoggingConsole();
-            static f32 cart[2] = { 0.5f, 0.5f };
-
-            if ( ImGui::SliderFloat2( "Sun Pos", cart, -1.0f, 1.0f ) ) {
-                g_LightGrid->getDirectionalLightData()->NormalizedDirection = dk::maths::SphericalToCarthesianCoordinates( cart[0], cart[1]  );
-                g_WorldRenderer->BrunetonSky->setSunSphericalPosition( cart[0], cart[1] );
-            }
-            ImGui::Render();
-            g_ImGuiRenderModule->unlockRenderList();
         }
 #endif
 
@@ -547,6 +535,113 @@ void MainLoop()
 
         // Wait for previous frame completion
         FrameGraph& frameGraph = g_WorldRenderer->prepareFrameGraph( vp, sr, &g_FreeCamera->getData() );
+
+#if DUSK_USE_IMGUI
+        if ( g_IsDevMenuVisible ) {
+            static bool IsRenderDocVisible = false;
+
+            g_ImGuiRenderModule->lockRenderList();
+            ImGui::NewFrame();
+
+            f32 menuBarHeight = 0.0f;
+            if ( ImGui::BeginMainMenuBar() ) {
+                menuBarHeight = ImGui::GetWindowSize().y;
+
+                if ( ImGui::BeginMenu( "File" ) ) {
+                    ImGui::EndMenu();
+                }
+
+                if ( ImGui::BeginMenu( "Edit" ) ) {
+                    ImGui::EndMenu();
+                }
+
+                if ( ImGui::BeginMenu( "Graphics" ) ) {
+                    if ( ImGui::MenuItem( "RenderDoc", nullptr, nullptr, g_RenderDocHelper->isAvailable() ) ) {
+                        IsRenderDocVisible = true;
+                    }
+
+                    ImGui::EndMenu();
+                }
+
+                ImGui::EndMainMenuBar();
+            }
+
+            ImGui::SetNextWindowSize( ImVec2( static_cast< f32 >( ScreenSize.x ), static_cast< f32 >( ScreenSize.y ) - menuBarHeight ) );
+            ImGui::SetNextWindowPos( ImVec2( 0, menuBarHeight ) );
+       
+            static ImGuiID dockspaceID = 0;
+            bool active = true;
+            if ( ImGui::Begin( "Master Window", &active, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing ) ) {
+
+            }
+
+            if ( active ) {
+                // Declare Central dockspace
+                dockspaceID = ImGui::GetID( "HUB_DockSpace" );
+                ImGui::DockSpace( dockspaceID, ImVec2( 0.0f, 0.0f ), ImGuiDockNodeFlags_None | ImGuiDockNodeFlags_PassthruCentralNode /*|ImGuiDockNodeFlags_NoResize*/ );
+            }
+            ImGui::End();
+
+            ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
+
+            if ( ImGui::Begin( "RenderDoc", &IsRenderDocVisible, ImGuiWindowFlags_NoSavedSettings ) ) {
+                static bool g_AwaitingFrameCapture = false;
+                static i32 g_FrameToCaptureCount = 1u;
+
+                if ( g_AwaitingFrameCapture ) {
+                    g_AwaitingFrameCapture = !g_RenderDocHelper->openLatestCapture();
+                }
+
+                ImGui::SetNextItemWidth( 60.0f );
+                ImGui::DragInt( "Frame Count", &g_FrameToCaptureCount, 1.0f, 1, 60 );
+
+                bool refAllResources = g_RenderDocHelper->isReferencingAllResources();
+                if ( ImGui::Checkbox( "Reference All Resources", &refAllResources ) ) {
+                    g_RenderDocHelper->referenceAllResources( refAllResources );
+                }
+
+                bool captureAllCmdLists = g_RenderDocHelper->isCapturingAllCmdLists();
+                if ( ImGui::Checkbox( "Capture All Command Lists", &captureAllCmdLists ) ) {
+                    g_RenderDocHelper->captureAllCmdLists( captureAllCmdLists );
+                }
+
+                if ( ImGui::Button( "Capture" ) ) {
+                    g_RenderDocHelper->triggerCapture( g_FrameToCaptureCount );
+                }
+
+                ImGui::SameLine();
+
+                if ( ImGui::Button( "Capture & Analyze" ) ) {
+                    g_RenderDocHelper->triggerCapture( g_FrameToCaptureCount );
+
+                    g_AwaitingFrameCapture = true;
+                }
+
+                ImGui::End();
+            }
+
+            ImGui::Begin( "Inspector" );
+            dk::editor::DisplayLoggingConsole();
+            static f32 cart[2] = { 0.5f, 0.5f };
+
+            if ( ImGui::SliderFloat2( "Sun Pos", cart, -1.0f, 1.0f ) ) {
+                g_LightGrid->getDirectionalLightData()->NormalizedDirection = dk::maths::SphericalToCarthesianCoordinates( cart[0], cart[1] );
+                g_WorldRenderer->BrunetonSky->setSunSphericalPosition( cart[0], cart[1] );
+            }
+            ImGui::End();
+
+            ImGui::Begin( "Viewport" );
+            ImVec2 winSize = ImGui::GetWindowSize();
+            winSize.x -= 32;
+            winSize.y -= 32;
+            ImGui::Image( static_cast<ImTextureID>( frameGraph.getPresentRenderTarget() ), winSize );
+            ImGui::End();
+
+            ImGui::Render();
+
+            g_ImGuiRenderModule->unlockRenderList();
+        }
+#endif
 
         // Rendering
         g_WorldRenderer->TextRendering->addOutlinedText( str.c_str(), 0.4f, 8.0f, 8.0f, dkVec4f( 1, 1, 1, 1 ) );
@@ -565,13 +660,14 @@ void MainLoop()
         FFTPassOutput convolutedFFT = g_WorldRenderer->GlareRendering->addGlareComputePass( frameGraph, frequencyDomainRt );
         ResHandle_t inverseFFT = AddInverseFFTComputePass( frameGraph, convolutedFFT, static_cast< f32 >( ScreenSize.x ), static_cast< f32 >( ScreenSize.y ) );
 
-       // ResHandle_t bloomRt = AddBlurPyramidRenderPass( frameGraph, presentRt, ScreenSize.x, ScreenSize.y );
         g_WorldRenderer->AutomaticExposure->computeExposure( frameGraph, presentRt, ScreenSize );
-        presentRt = AddFinalPostFxRenderPass( frameGraph, presentRt, inverseFFT, inverseFFT );
+        presentRt = AddFinalPostFxRenderPass( frameGraph, presentRt, inverseFFT );
         presentRt = g_WorldRenderer->TextRendering->renderText( frameGraph, presentRt );
 
 #if DUSK_USE_IMGUI
         if ( g_IsDevMenuVisible ) {
+            frameGraph.copyAsPresentRenderTarget( presentRt );
+            
             presentRt = g_ImGuiRenderModule->render( frameGraph, presentRt );
         }
 #endif

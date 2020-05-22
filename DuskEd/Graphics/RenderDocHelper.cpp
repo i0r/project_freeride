@@ -139,6 +139,8 @@ void RenderDocHelper::triggerCapture( const u32 frameCountToCapture )
     } else {
         renderDocAPI->TriggerCapture();
     }
+
+    DUSK_LOG_INFO( "Triggered capture %u frame(s)...\n", frameCountToCapture );
 }
 
 bool RenderDocHelper::openLatestCapture()
@@ -149,6 +151,7 @@ bool RenderDocHelper::openLatestCapture()
     bool hasCapturedSomething = ( renderDocAPI->GetCapture( captureIdx, captureFilename, nullptr, nullptr ) == 1 );
 
     if ( hasCapturedSomething ) {
+        DUSK_LOG_INFO( "Launching RenderDoc to replay capture '%hs'...\n", captureFilename );
         renderDocAPI->LaunchReplayUI( 0u, captureFilename );
     }
 

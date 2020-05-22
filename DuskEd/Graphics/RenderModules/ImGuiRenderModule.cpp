@@ -20,32 +20,6 @@
 
 #include <imgui/imgui.h>
 
-// Not really clean, but it'd be too messy to do one header per backend
-// Store our identifier
-#if DUSK_D3D11
-#include <Rendering/Direct3D11/Image.h>
-
-DUSK_INLINE static void UpdateInternalTextureID( Image* texture )
-{
-    ImGuiIO& io = ImGui::GetIO();
-    io.Fonts->TexID = static_cast<ImTextureID>( texture->DefaultShaderResourceView );
-}
-#elif DUSK_D3D12
-#include <Rendering/Direct3D12/Image.h>
-
-DUSK_INLINE static void UpdateInternalTextureID( Image* texture )
-{
-    ImGuiIO& io = ImGui::GetIO();
-}
-#elif DUSK_VULKAN
-#include <Rendering/Vulkan/Image.h>
-
-DUSK_INLINE static void UpdateInternalTextureID( Image* texture )
-{
-    ImGuiIO& io = ImGui::GetIO();
-}
-#endif
-
 ImGuiRenderModule::ImGuiRenderModule()
     : imguiCmdListCount( 0 )
     , imguiCmdLists( nullptr )
@@ -104,7 +78,7 @@ void ImGuiRenderModule::loadCachedResources( RenderDevice& renderDevice, ShaderC
     
     fontAtlas = renderDevice.createImage( textureDesc, pixels, static_cast<size_t>( width * height * 4 ) );
 
-    UpdateInternalTextureID( fontAtlas );
+    ImGui::GetIO().Fonts->TexID = static_cast< ImTextureID >( fontAtlas );
 }
 
 void ImGuiRenderModule::destroy( RenderDevice& renderDevice )
@@ -134,7 +108,7 @@ ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_
             { eBlendSource::BLEND_SOURCE_SRC_ALPHA, eBlendSource::BLEND_SOURCE_INV_SRC_ALPHA, eBlendOperation::BLEND_OPERATION_ADD },
             { eBlendSource::BLEND_SOURCE_INV_SRC_ALPHA, eBlendSource::BLEND_SOURCE_ZERO, eBlendOperation::BLEND_OPERATION_ADD }
         ),
-        FramebufferLayoutDesc( FramebufferLayoutDesc::AttachmentDesc( FramebufferLayoutDesc::WRITE_COLOR, FramebufferLayoutDesc::DONT_CARE, VIEW_FORMAT_R16G16B16A16_FLOAT ) ),
+        FramebufferLayoutDesc( FramebufferLayoutDesc::AttachmentDesc( FramebufferLayoutDesc::WRITE_COLOR, FramebufferLayoutDesc::CLEAR, VIEW_FORMAT_R16G16B16A16_FLOAT ) ),
         { { RenderingHelpers::S_BilinearClampEdge }, 1 },
         { {
             { 0, VIEW_FORMAT_R32G32_FLOAT, 0, 0, 0, false, "POSITION" },
@@ -161,11 +135,11 @@ ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_
 
             isRenderListRendering.store( true );
 
-            // Update ImGui internal resources
-            update( *cmdList );
-
             Buffer* parametersBuffer = resources->getBuffer( passData.PerPassBuffer );
             Image* outputTarget = resources->getImage( passData.Output );
+
+            // Update ImGui internal resources
+            update( *cmdList );
 
             PipelineState* pipelineState = psoCache->getOrCreatePipelineState( PipelineDesc, HUD::ImGui_ShaderBinding );
             cmdList->pushEventMarker( HUD::ImGui_EventName );
@@ -193,6 +167,8 @@ ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_
             cmdList->bindVertexBuffer( vbos );
             cmdList->bindIndiceBuffer( indiceBuffer );
 
+            ImTextureID activeTexId = static_cast< Image* >( fontAtlas );
+
             // Render command lists
             i32 vtx_offset = 0;
             i32 idx_offset = 0;
@@ -207,6 +183,16 @@ ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_
                     scissorRegion.Right = static_cast< i32 >( pcmd->ClipRect.z - displayPos.x );
                     scissorRegion.Bottom = static_cast< i32 >( pcmd->ClipRect.w - displayPos.y );
                     cmdList->setScissor( scissorRegion );
+
+                    // Check if we need to update the resource binding.
+                    ImTextureID cmdTexId = static_cast< ImTextureID >( pcmd->TextureId );
+                    if ( cmdTexId != activeTexId ) {
+                        Image* cmdImage = static_cast< Image* >( pcmd->TextureId );
+                        cmdList->bindImage( HUD::ImGui_FontAtlasTexture_Hashcode, cmdImage );
+                        cmdList->prepareAndBindResourceList( pipelineState );
+
+                        activeTexId = static_cast< ImTextureID >( cmdImage );
+                    }
 
                     cmdList->drawIndexed( pcmd->ElemCount, 1, idx_offset, vtx_offset );
                     idx_offset += pcmd->ElemCount;

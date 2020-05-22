@@ -10,8 +10,12 @@
 
 #include <Rendering/RenderDevice.h>
 
+#include <Graphics/RenderModules/BuiltIn.generated.h>
+
 static constexpr dkStringHash_t SWAPCHAIN_BUFFER_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__SwapchainBuffer__" );
 static constexpr dkStringHash_t PERVIEW_BUFFER_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__PerViewBuffer__" );
+static constexpr dkStringHash_t PRESENT_IMAGE_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__PresentRenderTarget__" );
+static constexpr dkStringHash_t LAST_FRAME_IMAGE_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__LastFrameRenderTarget__" );
 
 FrameGraphBuilder::FrameGraphBuilder()
     : frameSamplerCount( 1 )
@@ -43,9 +47,9 @@ void FrameGraphBuilder::compile( RenderDevice* renderDevice, FrameGraphResources
 
     for ( u32 i = 0; i < imageCount; i++ ) {
         ImageAllocInfo& resToAlloc = images[i];
-        if ( resToAlloc.referenceCount == 0 ) {
+      /*  if ( resToAlloc.referenceCount == 0 ) {
             continue;
-        }
+        }*/
 
         resources.allocateImage( renderDevice, i, resToAlloc.description );
     }
@@ -266,6 +270,12 @@ ResHandle_t FrameGraphBuilder::readBuffer( const ResHandle_t resourceHandle )
 ResHandle_t FrameGraphBuilder::retrieveSwapchainBuffer()
 {
     persitentImages[persitentImageCount] = SWAPCHAIN_BUFFER_RESOURCE_HASHCODE;
+    return persitentImageCount++;
+}
+
+ResHandle_t FrameGraphBuilder::retrievePresentImage()
+{
+    persitentImages[persitentImageCount] = PRESENT_IMAGE_RESOURCE_HASHCODE;
     return persitentImageCount++;
 }
 
@@ -581,6 +591,7 @@ FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevi
     , pipelineImageQuality( 1.0f )
     , hasViewportChanged( false )
     , lastFrameRenderTarget( nullptr )
+    , presentRenderTarget( nullptr )
     , graphResources( allocator )
     , graphBuilder()
     , graphScheduler( allocator, activeRenderDevice, activeVfs, activeShaderCache )
@@ -615,6 +626,10 @@ void FrameGraph::destroy( RenderDevice* renderDevice )
     if ( lastFrameRenderTarget != nullptr ) {
         renderDevice->destroyImage( lastFrameRenderTarget );
     }
+
+    if ( presentRenderTarget != nullptr ) {
+        renderDevice->destroyImage( presentRenderTarget );
+    }
 }
 
 void FrameGraph::enableProfiling( RenderDevice* renderDevice )
@@ -634,13 +649,9 @@ void FrameGraph::waitPendingFrameCompletion()
 
 void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
 {
-    // Update per-frame renderer infos
-    graphResources.updateDeltaTime( deltaTime );
-    graphResources.importPersistentImage( SWAPCHAIN_BUFFER_RESOURCE_HASHCODE, renderDevice->getSwapchainBuffer() );
-    graphResources.importPersistentBuffer( PERVIEW_BUFFER_RESOURCE_HASHCODE, graphScheduler.getPerViewPersistentBuffer() );
-
     // Check if we need to reallocate persistent resources
     if ( hasViewportChanged ) {
+        // Last Frame Render Target
         if ( lastFrameRenderTarget != nullptr ) {
             renderDevice->destroyImage( lastFrameRenderTarget );
         }
@@ -658,11 +669,33 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
 
         lastFrameRenderTarget = renderDevice->createImage( lastFrameDesc );
 
-        // Import the new render target
-        graphResources.importPersistentImage( DUSK_STRING_HASH( "LastFrameRenderTarget" ), lastFrameRenderTarget );
+        // Present Render Target
+        if ( presentRenderTarget != nullptr ) {
+            renderDevice->destroyImage( presentRenderTarget );
+        }
+
+        ImageDesc postPostFxDesc = {};
+        postPostFxDesc.dimension = ImageDesc::DIMENSION_2D;
+        postPostFxDesc.format = eViewFormat::VIEW_FORMAT_R16G16B16A16_FLOAT;
+        postPostFxDesc.width = static_cast< uint32_t >( activeViewport.Width );
+        postPostFxDesc.height = static_cast< uint32_t >( activeViewport.Height );
+        postPostFxDesc.depth = 1;
+        postPostFxDesc.mipCount = 1;
+        postPostFxDesc.samplerCount = 1;
+        postPostFxDesc.usage = RESOURCE_USAGE_DEFAULT;
+        postPostFxDesc.bindFlags = RESOURCE_BIND_RENDER_TARGET_VIEW | RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
+
+        presentRenderTarget = renderDevice->createImage( postPostFxDesc );
 
         hasViewportChanged = false;
     }
+
+    // Update per-frame renderer infos
+    graphResources.updateDeltaTime( deltaTime );
+    graphResources.importPersistentImage( SWAPCHAIN_BUFFER_RESOURCE_HASHCODE, renderDevice->getSwapchainBuffer() );
+    graphResources.importPersistentBuffer( PERVIEW_BUFFER_RESOURCE_HASHCODE, graphScheduler.getPerViewPersistentBuffer() );
+    graphResources.importPersistentImage( LAST_FRAME_IMAGE_RESOURCE_HASHCODE, lastFrameRenderTarget );
+    graphResources.importPersistentImage( PRESENT_IMAGE_RESOURCE_HASHCODE, presentRenderTarget );
 
     // Cull & compile
     //graphBuilder.cullRenderPasses( renderPasses, renderPassCount );
@@ -729,6 +762,52 @@ void FrameGraph::importPersistentBuffer( const dkStringHash_t resourceHashcode, 
     graphResources.importPersistentBuffer( resourceHashcode, buffer );
 }
 
+void FrameGraph::copyAsPresentRenderTarget( ResHandle_t inputRenderTarget )
+{ 
+    constexpr PipelineStateDesc DefaultPipelineStateDesc = PipelineStateDesc( 
+        PipelineStateDesc::GRAPHICS,
+        ePrimitiveTopology::PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+        DepthStencilStateDesc(),
+        RasterizerStateDesc( CULL_MODE_BACK ),
+        RenderingHelpers::BS_Disabled,
+        FramebufferLayoutDesc( FramebufferLayoutDesc::AttachmentDesc( FramebufferLayoutDesc::WRITE_COLOR, FramebufferLayoutDesc::DONT_CARE, eViewFormat::VIEW_FORMAT_R16G16B16A16_FLOAT ) ),
+        { { RenderingHelpers::S_BilinearClampEdge }, 1 }
+    );
+        
+    struct PassData {
+        ResHandle_t inputImage;
+    };
+
+    PassData& downscaleData = addRenderPass<PassData>(
+        "FrameGraph::copyAsPresentRenderTarget",
+        [&]( FrameGraphBuilder& builder, PassData& passData ) {
+            builder.setUncullablePass();
+            passData.inputImage = builder.readReadOnlyImage( inputRenderTarget );
+        },
+        [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+            Image* output = presentRenderTarget;
+            Image* input = resources->getImage( passData.inputImage );
+
+            PipelineState* pso = psoCache->getOrCreatePipelineState( DefaultPipelineStateDesc, BuiltIn::CopyImagePass_ShaderBinding );
+
+            cmdList->pushEventMarker( BuiltIn::CopyImagePass_EventName );
+            cmdList->bindPipelineState( pso );
+
+            cmdList->setViewport( *resources->getMainViewport() );
+
+            // Bind resources
+            cmdList->bindImage( BuiltIn::CopyImagePass_InputRenderTarget_Hashcode, input );
+
+            cmdList->prepareAndBindResourceList( pso );
+            cmdList->setupFramebuffer( &output );
+
+            cmdList->draw( 3, 1 );
+
+            cmdList->popEventMarker();
+        }
+    );
+}
+
 #if DUSK_DEVBUILD
 const char* FrameGraph::getProfilingSummary() const
 {
@@ -737,6 +816,11 @@ const char* FrameGraph::getProfilingSummary() const
     return ( !proflingString.empty() ) ? proflingString.c_str() : nullptr;*/
 }
 #endif
+
+Image* FrameGraph::getPresentRenderTarget() const
+{
+    return presentRenderTarget;
+}
 
 FrameGraphScheduler::FrameGraphScheduler( BaseAllocator* allocator, RenderDevice* renderDevice, VirtualFileSystem* virtualFileSys, ShaderCache* shaderCache )
     : memoryAllocator( allocator )
