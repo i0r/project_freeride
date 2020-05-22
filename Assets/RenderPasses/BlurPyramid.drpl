@@ -131,7 +131,7 @@ lib BlurPyramid {
     pass DownsampleKarisAverage {
         compute         = DownsampleCS;
         dispatch        = { 16, 16, 1 };
-        UseKarisAverage = true;
+        cflag UseKarisAverage = true;
     }
     
     pass Upsample {

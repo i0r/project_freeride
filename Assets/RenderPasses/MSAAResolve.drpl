@@ -39,6 +39,7 @@ lib AntiAliasing {
     }
     
     shared {
+        #include <Shared.hlsli>
         #include <AutoExposure/Shared.hlsli>
         #include <Photometry.hlsli>
         #include <ColorSpaces.hlsli>
@@ -140,10 +141,39 @@ lib AntiAliasing {
             
             return (ma_unit > 1.0) ? ( p_clip + v_clip / ma_unit ) : prevSample;
         }
-    
+        
+        float max3(float x, float y, float z) { return max(x, max(y, z)); }
+
+        // Apply this to tonemap linear HDR color "c" after a sample is fetched in the resolve.
+        // Note "c" 1.0 maps to the expected limit of low-dynamic-range monitor output.
+        float3 Tonemap(float3 c) { return c * rcp(max3(c.r, c.g, c.b) + 1.0); }
+
+        // When the filter kernel is a weighted sum of fetched colors,
+        // it is more optimal to fold the weighting into the tonemap operation.
+        float3 TonemapWithWeight(float3 c, float w) { return c * (w * rcp(max3(c.r, c.g, c.b) + 1.0)); }
+
+        // Apply this to restore the linear HDR color before writing out the result of the resolve.
+        float3 TonemapInvert(float3 c) { return c * rcp(1.0 - max3(c.r, c.g, c.b)); }
+
         float3 SampleInputMSAA( Texture2DMS<float4> textureInput, float2 samplePos, uint subSampleIdx )
         {
             return textureInput.Load( samplePos, subSampleIdx ).xyz;
+        }
+        
+        float FilterBlackmanHarris(in float x)
+        {
+            x = 1.0f - x;
+
+            const float a0 = 0.35875f;
+            const float a1 = 0.48829f;
+            const float a2 = 0.14128f;
+            const float a3 = 0.01168f;
+            return saturate(a0 - a1 * cos(PI * x) + a2 * cos(2 * PI * x) - a3 * cos(3 * PI * x));
+        }
+        
+        float CalcLuminance( float3 color )
+        {
+            return dot( color, float3( 0.299f, 0.587f, 0.114f ) );
         }
     }
     
@@ -163,9 +193,9 @@ lib AntiAliasing {
             float3 sum = 0.0f;
             float totalWeight = 0.0f;
 
-            float3 clrMin = float3( asfloat( 0x7fffffff ), asfloat( 0x7fffffff ), asfloat( 0x7fffffff ) );
-            float3 clrMax =  float3( -asfloat( 0x7fffffff ), -asfloat( 0x7fffffff ), -asfloat( 0x7fffffff ) );
-
+            float3 clrMin = 99999999.0f;
+            float3 clrMax = -99999999.0f;
+    
             [loop]
             for ( int y = -SampleRadius; y <= SampleRadius; ++y ) {
                 for ( int x = -SampleRadius; x <= SampleRadius; ++x ) {
@@ -175,20 +205,21 @@ lib AntiAliasing {
 
                     [unroll]
                     for ( uint subSampleIdx = 0; subSampleIdx < $SamplerCount; ++subSampleIdx ) {
-                        sampleOffset += GetSampleOffset( subSampleIdx ) - float2( 0.5f, 0.5f );
-                        float sampleDist = length( sampleOffset ) / ( FilterSize / 2.0f );
+                      
+                        float2 subSampleOffset = GetSampleOffset( subSampleIdx );
+                        float2 sampleDist = abs(sampleOffset + subSampleOffset) / (FilterSize / 2.0f);
 
                         [branch]
-                        if ( sampleDist <= 1.0f ) {
+                        if ( all( sampleDist <= 1.0f ) ) {
                             float3 sample = SampleInputMSAA( TextureInput, samplePos, subSampleIdx );
                             sample = max( sample, 0.0f );
 
-                            float weight = 1.0f - smoothstep( 0.0f, 1.0f, sampleDist );
+
+                            float weight = FilterBlackmanHarris(sampleDist.x) * FilterBlackmanHarris(sampleDist.y);
                             clrMin = min( clrMin, sample );
                             clrMax = max( clrMax, sample );
 
-                            float sampleLum = RGBToLuminance( sample ) * exposure;
-
+                            float sampleLum = CalcLuminance( sample ) / ( exposure * 100.0f );
                             weight *= 1.0f / ( 1.0f + sampleLum );
 
                             sum += sample * weight;
@@ -212,7 +243,7 @@ lib AntiAliasing {
             mWeight = 1.0f;
         }
         
-        if ( $UseTemporalAA ) {
+        #ifdef $UseTemporalAA
             float3 currColor = output;         
             float3 prevColor = ReprojectMSAA( pixelPos, exposure, VelocityTexture, DepthBuffer, LastFrameInputTexture );
             
@@ -229,7 +260,7 @@ lib AntiAliasing {
             weightB *= 1.0f / ( 1.0f + RGBToLuminance( prevColor ) );
 
             output = ( currColor * weightA + prevColor * weightB ) / ( weightA + weightB );
-        }
+        #endif
         
         ResolvedTarget[$SV_DispatchThreadID.xy] = float4( output, 1.0f );
     }
@@ -237,49 +268,49 @@ lib AntiAliasing {
     pass ResolveTAA {
         compute         = ResolveMSAACS;
         dispatch        = { 16, 16, 1 };
-        SamplerCount    = 1;
-        UseTemporalAA   = true;
+        cint SamplerCount    = 1;
+        cflag UseTemporalAA   = true;
     }
     
     pass ResolveMSAAx2 {
         compute         = ResolveMSAACS;
         dispatch        = { 16, 16, 1 };
-        SamplerCount    = 2;
-        UseTemporalAA   = false;
+        cint SamplerCount    = 2;
+        cflag UseTemporalAA   = false;
     }
     
     pass ResolveMSAAx2WithTAA {
         compute         = ResolveMSAACS;
         dispatch        = { 16, 16, 1 };
-        SamplerCount    = 2;
-        UseTemporalAA   = true;
+        cint SamplerCount    = 2;
+        cflag UseTemporalAA   = true;
     }
     
     pass ResolveMSAAx4 {
         compute         = ResolveMSAACS;
         dispatch        = { 16, 16, 1 };
-        SamplerCount    = 4;
-        UseTemporalAA   = false;
+        cint SamplerCount    = 4;
+        cflag UseTemporalAA   = false;
     }
     
     pass ResolveMSAAx4WithTAA {
         compute         = ResolveMSAACS;
         dispatch        = { 16, 16, 1 };
-        SamplerCount    = 4;
-        UseTemporalAA   = true;
+        cint SamplerCount    = 4;
+        cflag UseTemporalAA   = true;
     }
     
     pass ResolveMSAAx8 {
         compute         = ResolveMSAACS;
         dispatch        = { 16, 16, 1 };
-        SamplerCount    = 8;
-        UseTemporalAA   = false;
+        cint SamplerCount    = 8;
+        cflag UseTemporalAA   = false;
     }
     
     pass ResolveMSAAx8WithTAA {
         compute         = ResolveMSAACS;
         dispatch        = { 16, 16, 1 };
-        SamplerCount    = 8;
-        UseTemporalAA   = true;
+        cint SamplerCount    = 8;
+        cflag UseTemporalAA   = true;
     }
 }

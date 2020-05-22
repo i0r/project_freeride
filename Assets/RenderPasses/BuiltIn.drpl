@@ -38,6 +38,12 @@ lib BuiltIn {
         rendertargets = { OutputRenderTarget };
     }
     
+    pass CopyImagePass {
+        vertex        = FullscreenTriangle;    
+        pixel         = CopyImage;
+        rendertargets = { OutputRenderTarget };
+    }
+    
     pass Error {
         vertex        = ErrorVS;    
         pixel         = ErrorPS;
