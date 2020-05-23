@@ -12,6 +12,7 @@
 #include <Rendering/CommandList.h>
 
 #include "PostEffects.generated.h"
+#include "AutomaticExposure.h"
 
 ResHandle_t AddFinalPostFxRenderPass( FrameGraph& frameGraph, ResHandle_t input, ResHandle_t glareInput )
 {
@@ -49,7 +50,7 @@ ResHandle_t AddFinalPostFxRenderPass( FrameGraph& frameGraph, ResHandle_t input,
             bufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
             passData.PerPassBuffer = builder.allocateBuffer( bufferDesc, eShaderStage::SHADER_STAGE_COMPUTE );
 
-            passData.autoExposureBuffer = builder.retrievePersistentBuffer( DUSK_STRING_HASH( "AutoExposure/ReadBuffer" ) );
+            passData.autoExposureBuffer = builder.retrievePersistentBuffer( AutomaticExposureModule::PERSISTENT_BUFFER_HASHCODE_READ );
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
             const Viewport* vp = resources->getMainViewport();

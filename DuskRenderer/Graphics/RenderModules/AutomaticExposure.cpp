@@ -34,8 +34,8 @@ AutomaticExposureModule::~AutomaticExposureModule()
 
 void AutomaticExposureModule::importResourcesToGraph( FrameGraph& frameGraph ) 
 {
-    frameGraph.importPersistentBuffer( DUSK_STRING_HASH( "AutoExposure/ReadBuffer" ), autoExposureBuffer[exposureTarget] );
-    frameGraph.importPersistentBuffer( DUSK_STRING_HASH( "AutoExposure/WriteBuffer" ), autoExposureBuffer[( exposureTarget == 0 ) ? 1 : 0] );
+    frameGraph.importPersistentBuffer( PERSISTENT_BUFFER_HASHCODE_READ, autoExposureBuffer[exposureTarget] );
+    frameGraph.importPersistentBuffer( PERSISTENT_BUFFER_HASHCODE_WRITE, autoExposureBuffer[( exposureTarget == 0 ) ? 1 : 0] );
 
     // Swap buffers
     exposureTarget = ( ++exposureTarget % EXPOSURE_INFO_BUFFER_COUNT );
@@ -190,8 +190,8 @@ ResHandle_t AutomaticExposureModule::addExposureComputePass( FrameGraph& frameGr
             builder.useAsyncCompute();
 
             passData.Input = builder.readBuffer( mergedHistoBuffer );
-            passData.Output = builder.retrievePersistentBuffer( DUSK_STRING_HASH( "AutoExposure/WriteBuffer" ) );
-            passData.LastFrameOutput = builder.retrievePersistentBuffer( DUSK_STRING_HASH( "AutoExposure/ReadBuffer" ) );
+            passData.Output = builder.retrievePersistentBuffer( PERSISTENT_BUFFER_HASHCODE_WRITE );
+            passData.LastFrameOutput = builder.retrievePersistentBuffer( PERSISTENT_BUFFER_HASHCODE_READ );
 
             BufferDesc parametersBufferDesc;
             parametersBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;

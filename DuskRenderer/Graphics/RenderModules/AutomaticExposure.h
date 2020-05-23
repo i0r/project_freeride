@@ -15,6 +15,10 @@ struct PipelineState;
 class AutomaticExposureModule
 {
 public:
+    static constexpr dkStringHash_t PERSISTENT_BUFFER_HASHCODE_READ = DUSK_STRING_HASH( "AutoExposure/ReadBuffer" );
+    static constexpr dkStringHash_t PERSISTENT_BUFFER_HASHCODE_WRITE = DUSK_STRING_HASH( "AutoExposure/WriteBuffer" );
+
+public:
                         AutomaticExposureModule();
                         AutomaticExposureModule( AutomaticExposureModule& ) = delete;
                         AutomaticExposureModule& operator = ( AutomaticExposureModule& ) = delete;
