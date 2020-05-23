@@ -94,24 +94,13 @@ ResHandle_t TextRenderingModule::renderText( FrameGraph& frameGraph, ResHandle_t
             PipelineState* pipelineState = psoCache->getOrCreatePipelineState( PipelineStateDefault, HUD::RenderText_ShaderBinding );
 
             const Viewport* pipelineDimensions = resources->getMainViewport();
-            dkVec4u rtDimensions = {
-                static_cast< u32 >( pipelineDimensions->Width ),
-                static_cast< u32 >( pipelineDimensions->Height ),
-                0u,
-                0u
-            };
-
-            ScissorRegion sr;
-            sr.Top = 0;
-            sr.Left = 0;
-            sr.Right = static_cast< i32 >( rtDimensions.x );
-            sr.Bottom = static_cast< i32 >( rtDimensions.y );
+            const ScissorRegion* pipelineScissor = resources->getMainScissorRegion();
 
             cmdList->pushEventMarker( HUD::RenderText_EventName );
             cmdList->bindPipelineState( pipelineState );
 
             cmdList->setViewport( *pipelineDimensions );
-            cmdList->setScissor( sr );
+            cmdList->setScissor( *pipelineScissor );
 
             cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
             cmdList->bindImage( HUD::RenderText_FontAtlasTexture_Hashcode, fontAtlas );
