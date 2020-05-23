@@ -62,7 +62,7 @@ class BakerInclude : public ID3DInclude
         FileSystemObject* file = g_DataFS->openFile( filePath.c_str() );
 
         if ( file == nullptr || !file->isGood() ) {
-            std::wstring filePath = g_GeneratedHeaderPath + DUSK_STRING( "/../" ) + StringToWideString( pFileName );
+            std::wstring filePath = g_GeneratedHeaderPath + DUSK_STRING( "/../../" ) + StringToWideString( pFileName );
             file = g_DataFS->openFile( filePath.c_str() );
         }
 
