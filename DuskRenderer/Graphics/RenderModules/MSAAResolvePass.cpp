@@ -11,7 +11,7 @@
 #include <Core/ViewFormat.h>
 #include <Rendering/CommandList.h>
 
-#include "AntiAliasing.generated.h"
+#include "Generated/AntiAliasing.generated.h"
 
 // MSAA off and TAA on.
 ResHandle_t AddTAAResolveRenderPass( FrameGraph& frameGraph,

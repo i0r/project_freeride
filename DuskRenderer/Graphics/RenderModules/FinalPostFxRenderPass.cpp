@@ -11,7 +11,8 @@
 #include <Core/ViewFormat.h>
 #include <Rendering/CommandList.h>
 
-#include "PostEffects.generated.h"
+#include "Generated/PostEffects.generated.h"
+
 #include "AutomaticExposure.h"
 
 ResHandle_t AddFinalPostFxRenderPass( FrameGraph& frameGraph, ResHandle_t input, ResHandle_t glareInput )

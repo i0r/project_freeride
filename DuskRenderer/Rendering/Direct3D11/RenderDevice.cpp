@@ -396,8 +396,6 @@ void UpdateBuffer_Replay( ID3D11DeviceContext* immediateContext, ID3D11Resource*
     }
 }
 
-#include <Graphics/RenderModules/FFT.generated.h>
-
 void RenderDevice::submitCommandList( CommandList& cmdList )
 {
     // Replay recorded commands

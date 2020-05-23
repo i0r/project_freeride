@@ -11,6 +11,6 @@ class Model;
 
 using ResHandle_t = uint32_t;
 
-#include "PrimitiveLighting.generated.h"
+#include "Generated/PrimitiveLighting.generated.h"
 
 PrimitiveLighting::PrimitiveLighting_Generic_Output AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest, ResHandle_t perSceneBuffer );

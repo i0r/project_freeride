@@ -11,7 +11,7 @@
 #include <Core/ViewFormat.h>
 #include <Rendering/CommandList.h>
 
-#include "BuiltIn.generated.h"
+#include "Generated/BuiltIn.generated.h"
 
 void AddPresentRenderPass( FrameGraph& frameGraph, ResHandle_t imageToPresent )
 {

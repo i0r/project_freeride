@@ -9,7 +9,7 @@
 #include <Graphics/ShaderCache.h>
 #include <Graphics/GraphicsAssetCache.h>
 
-#include "FFT.generated.h"
+#include "Generated/FFT.generated.h"
 
 GlareRenderModule::GlareRenderModule()
     : glarePatternTexture( nullptr )

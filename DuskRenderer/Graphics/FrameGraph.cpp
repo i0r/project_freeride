@@ -10,7 +10,7 @@
 
 #include <Rendering/RenderDevice.h>
 
-#include <Graphics/RenderModules/BuiltIn.generated.h>
+#include <Graphics/RenderModules/Generated/BuiltIn.generated.h>
 
 static constexpr dkStringHash_t SWAPCHAIN_BUFFER_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__SwapchainBuffer__" );
 static constexpr dkStringHash_t PERVIEW_BUFFER_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__PerViewBuffer__" );

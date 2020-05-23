@@ -18,7 +18,6 @@ class GraphicsAssetCache;
 #include "FrameGraph.h"
 #include "Light.h"
 
-#include "RenderModules/Scene.generated.h"
 #include <Maths/Vector.h>
 
 class LightGrid

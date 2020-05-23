@@ -15,7 +15,7 @@
 
 #include <Framework/Cameras/Camera.h>
 
-#include "AutoExposure.generated.h"
+#include "Generated/AutoExposure.generated.h"
 
 constexpr i32 EXPOSURE_INFO_BUFFER_COUNT = 2;
 

@@ -54,8 +54,6 @@
 #include "ThirdParty/imgui/imgui_internal.h"
 
 #include "Framework/LoggingConsole.h"
-
-#include <Graphics/RenderModules/PostEffects.reflected.h>
 #endif
 
 #include "Input/InputMapper.h"

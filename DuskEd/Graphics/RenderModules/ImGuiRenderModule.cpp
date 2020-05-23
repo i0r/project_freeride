@@ -16,7 +16,7 @@
 #include <Rendering/RenderDevice.h>
 #include <Rendering/CommandList.h>
 
-#include <Graphics/RenderModules/HUD.generated.h>
+#include <Graphics/RenderModules/Generated/HUD.generated.h>
 
 #include <imgui/imgui.h>
 

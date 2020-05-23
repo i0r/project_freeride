@@ -14,8 +14,6 @@
 
 #include <Maths/Helpers.h>
 
-#include "RenderModules/Scene.generated.h"
-
 static constexpr i32 CLUSTER_X = 16;
 static constexpr i32 CLUSTER_Y = 8;
 static constexpr i32 CLUSTER_Z = 24;
@@ -37,9 +35,13 @@ LightGrid::Data LightGrid::updateClusters( FrameGraph& frameGraph )
 {
     constexpr PipelineStateDesc DefaultPipelineState( PipelineStateDesc::COMPUTE );
 
-    LightGrid::Data& passData = frameGraph.addRenderPass<LightGrid::Data>(
-        Scene::LightCulling_Name,
-        [&]( FrameGraphBuilder& builder, LightGrid::Data& passData ) {
+    struct PassData {
+        ResHandle_t PerSceneBuffer;
+    };
+
+    PassData& passData = frameGraph.addRenderPass<PassData>(
+        "PerSceneBufferData Update",
+        [&]( FrameGraphBuilder& builder, PassData& passData ) {
             BufferDesc sceneClustersBufferDesc;
             sceneClustersBufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
             sceneClustersBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
@@ -66,9 +68,9 @@ LightGrid::Data LightGrid::updateClusters( FrameGraph& frameGraph )
 
             passData.ItemList = builder.allocateBuffer( itemListDesc, SHADER_STAGE_COMPUTE );*/
         },
-        [=]( const LightGrid::Data& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
-            Image* lightsClusters = resources->getImage( passData.LightClusters );
-            Buffer* itemList = resources->getBuffer( passData.ItemList );
+        [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+  /*          Image* lightsClusters = resources->getImage( passData.LightClusters );
+            Buffer* itemList = resources->getBuffer( passData.ItemList );*/
             Buffer* perSceneBuffer = resources->getBuffer( passData.PerSceneBuffer );
 
             //PipelineState* pipelineState = psoCache->getOrCreatePipelineState( DefaultPipelineState, Scene::LightCulling_ShaderBinding );
@@ -79,7 +81,7 @@ LightGrid::Data LightGrid::updateClusters( FrameGraph& frameGraph )
             cmdList->bindImage( Scene::LightCulling_LightClusters_Hashcode, lightsClusters );
             cmdList->bindBuffer( Scene::LightCulling_ItemList_Hashcode, itemList, VIEW_FORMAT_R32_UINT );
             cmdList->bindConstantBuffer( PerWorldBufferHashcode, perSceneBuffer );*/
-            cmdList->pushEventMarker( Scene::LightCulling_EventName );
+            cmdList->pushEventMarker( DUSK_STRING( "LightCulling Buffer Update" ) );
             cmdList->updateBuffer( *perSceneBuffer, &perSceneBufferData, sizeof( PerSceneBufferData ) );
 
             //cmdList->prepareAndBindResourceList( pipelineState );
@@ -90,7 +92,10 @@ LightGrid::Data LightGrid::updateClusters( FrameGraph& frameGraph )
         }
     );
 
-    return passData;
+    Data returnData;
+    returnData.PerSceneBuffer = passData.PerSceneBuffer;
+
+    return returnData;
 }
 
 void LightGrid::setSceneBounds( const dkVec3f& sceneAABBMax, const dkVec3f& sceneAABBMin )

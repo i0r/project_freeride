@@ -11,8 +11,8 @@
 #include <Core/ViewFormat.h>
 #include <Rendering/CommandList.h>
 
-#include "FFT.generated.h"
-#include "BuiltIn.generated.h"
+#include "Generated/FFT.generated.h"
+#include "Generated/BuiltIn.generated.h"
 
 // Calculate the downscaled dimension to make an image suitable for FFT compute.
 static dkVec2f FitImageDimensionForFFT( const dkVec2f& inputTargetSize )

@@ -15,7 +15,7 @@
 #include <Rendering/RenderDevice.h>
 #include <Rendering/CommandList.h>
 
-#include "HUD.generated.h"
+#include "Generated/HUD.generated.h"
 
 TextRenderingModule::TextRenderingModule()
     : fontAtlas( nullptr )
