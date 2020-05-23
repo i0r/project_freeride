@@ -9,10 +9,9 @@ DuskRenderer/UnityBuild/*
 DuskEd/UnityBuild/*
 DuskEd/ThirdParty/*
 DuskBaker/UnityBuild/*
+*UnityBuild*
 *.dummy
 *.autosave
 *.user
-DuskRenderer/Graphics/RenderModules/*.generated.h
-DuskEd/Graphics/RenderModules/*.generated.h
-DuskEd/Graphics/RenderModules/*.reflected.h
-DuskEd/ThirdParty/FBX_SDK/*
+*.generated.h
+*.reflected.h
