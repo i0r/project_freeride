@@ -110,7 +110,7 @@ void RenderDocHelper::create()
     renderDocAPI->SetCaptureOptionU32( eRENDERDOC_Option_RefAllResources, 1 );
     renderDocAPI->SetCaptureOptionU32( eRENDERDOC_Option_DebugOutputMute, 1 );
 
-    renderDocAPI->MaskOverlayBits( eRENDERDOC_Overlay_Default, eRENDERDOC_Overlay_Default );
+    renderDocAPI->MaskOverlayBits( eRENDERDOC_Overlay_None, eRENDERDOC_Overlay_None );
 
     RENDERDOC_InputButton captureButtons[1] = { RENDERDOC_InputButton::eRENDERDOC_Key_F11 };
     renderDocAPI->SetCaptureKeys( captureButtons, 1 );
