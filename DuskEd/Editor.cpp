@@ -51,6 +51,7 @@
 #include "Core/ImGuiManager.h"
 #include "Graphics/RenderModules/ImGuiRenderModule.h"
 #include "ThirdParty/imgui/imgui.h"
+#include "ThirdParty/imgui/imgui_internal.h"
 
 #include "Framework/LoggingConsole.h"
 
@@ -102,8 +103,9 @@ static ImGuiRenderModule*          g_ImGuiRenderModule;
 #endif
 #endif
 
-static bool                    g_IsDevMenuVisible = false;
+static bool                    g_IsDevMenuVisible = true;
 static bool                    g_IsGamePaused = false;
+static bool                    g_IsFirstLaunch = false;
 
 DUSK_ENV_VAR( EnableVSync, true, bool ); // "Enable Vertical Synchronisation [false/true]"
 DUSK_ENV_VAR( ScreenSize, dkVec2u( 1280, 720 ), dkVec2u ); // "Defines application screen size [0..N]"
@@ -117,6 +119,7 @@ DUSK_DEV_VAR_PERSISTENT( UseRenderDocCapture, false, bool );// "Use RenderDoc fr
 void RegisterInputContexts()
 {
     g_InputMapper->pushContext( DUSK_STRING_HASH( "Editor" ) );
+    g_InputMapper->pushContext( DUSK_STRING_HASH( "DebugUI" ) );
 
     // Free Camera
     g_InputMapper->addCallback( [&]( MappedInput & input, float frameTime ) {
@@ -170,12 +173,36 @@ void RegisterInputContexts()
             }
         }
 
-        if ( input.States.find( DUSK_STRING_HASH( "MoveCamera" ) ) != input.States.end() ) {
+        if ( input.States.find( DUSK_STRING_HASH( "RightMouseButton" ) ) != input.States.end() ) {
             // Camera Controls
             auto axisX = input.Ranges[DUSK_STRING_HASH( "CameraMoveHorizontal" )];
             auto axisY = input.Ranges[DUSK_STRING_HASH( "CameraMoveVertical" )];
 
             g_FreeCamera->updateMouse( frameTime, axisX, axisY );
+        }
+
+        if ( input.States.find( DUSK_STRING_HASH( "CameraMoveRight" ) ) != input.States.end() ) {
+            g_FreeCamera->moveRight( frameTime );
+        }
+
+        if ( input.States.find( DUSK_STRING_HASH( "CameraMoveLeft" ) ) != input.States.end() ) {
+            g_FreeCamera->moveLeft( frameTime );
+        }
+
+        if ( input.States.find( DUSK_STRING_HASH( "CameraMoveForward" ) ) != input.States.end() ) {
+            g_FreeCamera->moveForward( frameTime );
+        }
+
+        if ( input.States.find( DUSK_STRING_HASH( "CameraMoveBackward" ) ) != input.States.end() ) {
+            g_FreeCamera->moveBackward( frameTime );
+        }
+
+        if ( input.States.find( DUSK_STRING_HASH( "CameraLowerAltitude" ) ) != input.States.end() ) {
+            g_FreeCamera->lowerAltitude( frameTime );
+        }
+
+        if ( input.States.find( DUSK_STRING_HASH( "CameraTakeAltitude" ) ) != input.States.end() ) {
+            g_FreeCamera->takeAltitude( frameTime );
         }
 
         ImGuiIO& io = ImGui::GetIO();
@@ -325,6 +352,8 @@ void InitializeIOSubsystems()
 
     FileSystemObject* envConfigurationFile = g_VirtualFileSystem->openFile( DUSK_STRING( "SaveData/environment.cfg" ), eFileOpenMode::FILE_OPEN_MODE_READ );
     if ( envConfigurationFile == nullptr ) {
+        g_IsFirstLaunch = true;
+
         DUSK_LOG_INFO( "Creating default user configuration!\n" );
         FileSystemObject* newEnvConfigurationFile = g_VirtualFileSystem->openFile( DUSK_STRING( "SaveData/environment.cfg" ), eFileOpenMode::FILE_OPEN_MODE_WRITE );
         EnvironmentVariables::serialize( newEnvConfigurationFile );
@@ -566,25 +595,39 @@ void MainLoop()
                 ImGui::EndMainMenuBar();
             }
 
+            static bool active = false;
             ImGui::SetNextWindowSize( ImVec2( static_cast< f32 >( ScreenSize.x ), static_cast< f32 >( ScreenSize.y ) - menuBarHeight ) );
             ImGui::SetNextWindowPos( ImVec2( 0, menuBarHeight ) );
-       
-            static ImGuiID dockspaceID = 0;
-            bool active = true;
-            if ( ImGui::Begin( "Master Window", &active, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing ) ) {
+            ImGui::Begin( "Master Window", &active, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing );
 
+            // static ImGuiID dockspaceID = 0;
+            static bool NeedDockSetup = g_IsFirstLaunch;
+            ImGuiIO& io = ImGui::GetIO();
+            ImGuiID dockspaceID = ImGui::GetID( "MyDockspace" );
+
+            if ( NeedDockSetup ) {
+                NeedDockSetup = false;
+
+                ImGuiContext* ctx = ImGui::GetCurrentContext();
+                ImGui::DockBuilderRemoveNode( dockspaceID );
+                ImGui::DockBuilderAddNode( dockspaceID );
+
+                ImGuiID dock_main_id = dockspaceID;
+                ImGuiID dock_id_prop = ImGui::DockBuilderSplitNode( dock_main_id, ImGuiDir_Left, 0.20f, NULL, &dock_main_id );
+                ImGuiID dock_id_bottom = ImGui::DockBuilderSplitNode( dock_main_id, ImGuiDir_Down, 0.20f, NULL, &dock_main_id );
+
+                ImGui::DockBuilderDockWindow( "Viewport", dock_main_id );
+                ImGui::DockBuilderDockWindow( "Console", dock_id_bottom );
+                ImGui::DockBuilderDockWindow( "Inspector", dock_id_prop );
+                ImGui::DockBuilderDockWindow( "RenderDoc", dock_id_prop );
+                ImGui::DockBuilderFinish( dockspaceID );
             }
 
-            if ( active ) {
-                // Declare Central dockspace
-                dockspaceID = ImGui::GetID( "HUB_DockSpace" );
-                ImGui::DockSpace( dockspaceID, ImVec2( 0.0f, 0.0f ), ImGuiDockNodeFlags_None | ImGuiDockNodeFlags_PassthruCentralNode /*|ImGuiDockNodeFlags_NoResize*/ );
-            }
-            ImGui::End();
+            ImGui::DockSpace( dockspaceID );
 
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
 
-            if ( ImGui::Begin( "RenderDoc", &IsRenderDocVisible, ImGuiWindowFlags_NoSavedSettings ) ) {
+            if ( IsRenderDocVisible && ImGui::Begin( "RenderDoc", &IsRenderDocVisible ) ) {
                 static bool g_AwaitingFrameCapture = false;
                 static i32 g_FrameToCaptureCount = 1u;
 
@@ -620,8 +663,11 @@ void MainLoop()
                 ImGui::End();
             }
 
-            ImGui::Begin( "Inspector" );
+            ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
             dk::editor::DisplayLoggingConsole();
+
+            ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
+            ImGui::Begin( "Inspector" );
             static f32 cart[2] = { 0.5f, 0.5f };
 
             if ( ImGui::SliderFloat2( "Sun Pos", cart, -1.0f, 1.0f ) ) {
@@ -630,13 +676,19 @@ void MainLoop()
             }
             ImGui::End();
 
-            ImGui::Begin( "Viewport" );
+            ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
+            ImGui::Begin( "Viewport", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar );
             ImVec2 winSize = ImGui::GetWindowSize();
+
+
+            //g_FreeCamera->setProjectionMatrix( DefaultCameraFov, winSize.x, winSize.y  );
+
             winSize.x -= 32;
             winSize.y -= 32;
+
             ImGui::Image( static_cast<ImTextureID>( frameGraph.getPresentRenderTarget() ), winSize );
             ImGui::End();
-
+            ImGui::End();
             ImGui::Render();
 
             g_ImGuiRenderModule->unlockRenderList();
