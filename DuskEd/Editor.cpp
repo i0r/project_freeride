@@ -65,11 +65,10 @@
 #include "Maths/Vector.h"
 #include "Maths/Helpers.h"
 
-#include "Io/DirectDrawSurface.h"
-#include "Maths/Primitives.h"
-
 #include "Framework/Cameras/FreeCamera.h"
 #include "DefaultInputConfig.h"
+
+#include "Framework/MaterialEditor.h"
 
 static char                 g_BaseBuffer[128];
 static void*                g_AllocatedTable;
@@ -89,21 +88,25 @@ static LightGrid*           g_LightGrid;
 static RenderWorld*         g_RenderWorld;
 
 static FreeCamera*          g_FreeCamera;
+static MaterialEditor*      g_MaterialEditor;
 
 #if DUSK_DEVBUILD
-static FileSystemNative*           g_ShaderSourceFileSystem;
+static FileSystemNative*    g_ShaderSourceFileSystem;
 #if DUSK_USE_RENDERDOC
-static RenderDocHelper*            g_RenderDocHelper;
+static RenderDocHelper*     g_RenderDocHelper;
 #endif
 #if DUSK_USE_IMGUI
-static ImGuiManager*               g_ImGuiManager;
-static ImGuiRenderModule*          g_ImGuiRenderModule;
+static ImGuiManager*        g_ImGuiManager;
+static ImGuiRenderModule*   g_ImGuiRenderModule;
+
 #endif
 #endif
 
 static bool                    g_IsDevMenuVisible = true;
 static bool                    g_IsGamePaused = false;
 static bool                    g_IsFirstLaunch = false;
+static bool                    g_IsMouseOverViewportWindow = false;
+static bool                    g_CanMoveCamera = false;
 
 DUSK_ENV_VAR( EnableVSync, true, bool ); // "Enable Vertical Synchronisation [false/true]"
 DUSK_ENV_VAR( ScreenSize, dkVec2u( 1280, 720 ), dkVec2u ); // "Defines application screen size [0..N]"
@@ -121,7 +124,7 @@ void RegisterInputContexts()
 
     // Free Camera
     g_InputMapper->addCallback( [&]( MappedInput & input, float frameTime ) {
-        if ( g_IsDevMenuVisible ) {
+        if ( g_IsDevMenuVisible && !g_CanMoveCamera ) {
             return;
         }
 
@@ -165,45 +168,22 @@ void RegisterInputContexts()
 
             if ( g_IsDevMenuVisible ) {
                 g_InputMapper->pushContext( DUSK_STRING_HASH( "DebugUI" ) );
-            }
-            else {
+            } else {
                 g_InputMapper->popContext();
             }
         }
 
-        if ( input.States.find( DUSK_STRING_HASH( "RightMouseButton" ) ) != input.States.end() ) {
-            // Camera Controls
-            auto axisX = input.Ranges[DUSK_STRING_HASH( "CameraMoveHorizontal" )];
-            auto axisY = input.Ranges[DUSK_STRING_HASH( "CameraMoveVertical" )];
+        const bool previousCamState = g_CanMoveCamera;
+        const bool isRightButtonDown = input.States.find( DUSK_STRING_HASH( "RightMouseButton" ) ) != input.States.end();
+        g_CanMoveCamera = ( g_IsMouseOverViewportWindow && isRightButtonDown );
 
-            g_FreeCamera->updateMouse( frameTime, axisX, axisY );
+        if ( previousCamState != g_CanMoveCamera ) {
+            if ( g_CanMoveCamera ) {
+                g_InputMapper->popContext();
+            } else {
+                g_InputMapper->pushContext( DUSK_STRING_HASH( "DebugUI" ) );
+            }
         }
-
-        if ( input.States.find( DUSK_STRING_HASH( "CameraMoveRight" ) ) != input.States.end() ) {
-            g_FreeCamera->moveRight( frameTime );
-        }
-
-        if ( input.States.find( DUSK_STRING_HASH( "CameraMoveLeft" ) ) != input.States.end() ) {
-            g_FreeCamera->moveLeft( frameTime );
-        }
-
-        if ( input.States.find( DUSK_STRING_HASH( "CameraMoveForward" ) ) != input.States.end() ) {
-            g_FreeCamera->moveForward( frameTime );
-        }
-
-        if ( input.States.find( DUSK_STRING_HASH( "CameraMoveBackward" ) ) != input.States.end() ) {
-            g_FreeCamera->moveBackward( frameTime );
-        }
-
-        if ( input.States.find( DUSK_STRING_HASH( "CameraLowerAltitude" ) ) != input.States.end() ) {
-            g_FreeCamera->lowerAltitude( frameTime );
-        }
-
-        if ( input.States.find( DUSK_STRING_HASH( "CameraTakeAltitude" ) ) != input.States.end() ) {
-            g_FreeCamera->takeAltitude( frameTime );
-        }
-
-        ImGuiIO& io = ImGui::GetIO();
 
         // Default: Ctrl
         if ( input.States.find( DUSK_STRING_HASH( "Modifier1" ) ) != input.States.end() ) {
@@ -216,58 +196,59 @@ void RegisterInputContexts()
             }*/
         }
 
-        if ( !io.WantCaptureMouse ) {
-            if ( input.Actions.find( DUSK_STRING_HASH( "PickNode" ) ) != input.Actions.end() ) {
-                CameraData& cameraData = g_FreeCamera->getData();
-                const dkMat4x4f& viewMat = cameraData.viewMatrix;
-                const dkMat4x4f& projMat = cameraData.depthProjectionMatrix;
+        //if ( !io.WantCaptureMouse ) {
+        //    if ( input.Actions.find( DUSK_STRING_HASH( "PickNode" ) ) != input.Actions.end() ) {
+        //        CameraData& cameraData = g_FreeCamera->getData();
+        //        const dkMat4x4f& viewMat = cameraData.viewMatrix;
+        //        const dkMat4x4f& projMat = cameraData.depthProjectionMatrix;
 
-                dkMat4x4f inverseViewProj = ( projMat * viewMat ).inverse();
+        //        dkMat4x4f inverseViewProj = ( projMat * viewMat ).inverse();
 
-                dkVec4f ray =
-                {
-                    ( io.MousePos.x / io.DisplaySize.x ) * 2.f - 1.f,
-                    ( 1.f - ( io.MousePos.y / io.DisplaySize.y ) ) * 2.f - 1.f,
-                    0.0f,
-                    1.0f
-                };
+        //        dkVec4f ray =
+        //        {
+        //            ( io.MousePos.x / io.DisplaySize.x ) * 2.f - 1.f,
+        //            ( 1.f - ( io.MousePos.y / io.DisplaySize.y ) ) * 2.f - 1.f,
+        //            0.0f,
+        //            1.0f
+        //        };
 
-                dkVec4f rayOrigin =
-                {
-                    ray.x * inverseViewProj[0][0] + ray.y * inverseViewProj[1][0] + ray.z * inverseViewProj[2][0] + ray.w * inverseViewProj[3][0],
-                    ray.x * inverseViewProj[0][1] + ray.y * inverseViewProj[1][1] + ray.z * inverseViewProj[2][1] + ray.w * inverseViewProj[3][1],
-                    ray.x * inverseViewProj[0][2] + ray.y * inverseViewProj[1][2] + ray.z * inverseViewProj[2][2] + ray.w * inverseViewProj[3][2],
-                    ray.x * inverseViewProj[0][3] + ray.y * inverseViewProj[1][3] + ray.z * inverseViewProj[2][3] + ray.w * inverseViewProj[3][3],
-                };
-                rayOrigin *= ( 1.0f / rayOrigin.w );
+        //        dkVec4f rayOrigin =
+        //        {
+        //            ray.x * inverseViewProj[0][0] + ray.y * inverseViewProj[1][0] + ray.z * inverseViewProj[2][0] + ray.w * inverseViewProj[3][0],
+        //            ray.x * inverseViewProj[0][1] + ray.y * inverseViewProj[1][1] + ray.z * inverseViewProj[2][1] + ray.w * inverseViewProj[3][1],
+        //            ray.x * inverseViewProj[0][2] + ray.y * inverseViewProj[1][2] + ray.z * inverseViewProj[2][2] + ray.w * inverseViewProj[3][2],
+        //            ray.x * inverseViewProj[0][3] + ray.y * inverseViewProj[1][3] + ray.z * inverseViewProj[2][3] + ray.w * inverseViewProj[3][3],
+        //        };
+        //        rayOrigin *= ( 1.0f / rayOrigin.w );
 
-                ray.z = 1.0f;
-                dkVec4f rayEnd =
-                {
-                    ray.x * inverseViewProj[0][0] + ray.y * inverseViewProj[1][0] + ray.z * inverseViewProj[2][0] + ray.w * inverseViewProj[3][0],
-                    ray.x * inverseViewProj[0][1] + ray.y * inverseViewProj[1][1] + ray.z * inverseViewProj[2][1] + ray.w * inverseViewProj[3][1],
-                    ray.x * inverseViewProj[0][2] + ray.y * inverseViewProj[1][2] + ray.z * inverseViewProj[2][2] + ray.w * inverseViewProj[3][2],
-                    ray.x * inverseViewProj[0][3] + ray.y * inverseViewProj[1][3] + ray.z * inverseViewProj[2][3] + ray.w * inverseViewProj[3][3],
-                };
-                rayEnd *= ( 1.0f / rayEnd.w );
+        //        ray.z = 1.0f;
+        //        dkVec4f rayEnd =
+        //        {
+        //            ray.x * inverseViewProj[0][0] + ray.y * inverseViewProj[1][0] + ray.z * inverseViewProj[2][0] + ray.w * inverseViewProj[3][0],
+        //            ray.x * inverseViewProj[0][1] + ray.y * inverseViewProj[1][1] + ray.z * inverseViewProj[2][1] + ray.w * inverseViewProj[3][1],
+        //            ray.x * inverseViewProj[0][2] + ray.y * inverseViewProj[1][2] + ray.z * inverseViewProj[2][2] + ray.w * inverseViewProj[3][2],
+        //            ray.x * inverseViewProj[0][3] + ray.y * inverseViewProj[1][3] + ray.z * inverseViewProj[2][3] + ray.w * inverseViewProj[3][3],
+        //        };
+        //        rayEnd *= ( 1.0f / rayEnd.w );
 
-                dkVec3f rayDir = ( rayEnd - rayOrigin ).normalize();
+        //        dkVec3f rayDir = ( rayEnd - rayOrigin ).normalize();
 
-                dkVec3f rayDirection = dkVec3f( rayDir );
-                dkVec3f rayOrig = dkVec3f( rayOrigin );
+        //        dkVec3f rayDirection = dkVec3f( rayDir );
+        //        dkVec3f rayOrig = dkVec3f( rayOrigin );
 
-                /*g_PickingRay.origin = rayOrig;
-                g_PickingRay.direction = rayDirection;
+        //        /*g_PickingRay.origin = rayOrig;
+        //        g_PickingRay.direction = rayDirection;
 
-                g_PickedNode = g_SceneTest->intersect( g_PickingRay );*/
-            }
-        }
+        //        g_PickedNode = g_SceneTest->intersect( g_PickingRay );*/
+        //    }
+        //}
 
-        auto rawX = dk::maths::clamp( static_cast< f32 >( g_InputReader->getAbsoluteAxisValue( dk::input::eInputAxis::MOUSE_X ) ), 0.0f, static_cast< f32 >( ScreenSize.x ) );
-        auto rawY = dk::maths::clamp( static_cast< f32 >( g_InputReader->getAbsoluteAxisValue( dk::input::eInputAxis::MOUSE_Y ) ), 0.0f, static_cast< f32 >( ScreenSize.y ) );
-
+        // Forward input states to ImGui
+        f32 rawX = dk::maths::clamp( static_cast< f32 >( g_InputReader->getAbsoluteAxisValue( dk::input::eInputAxis::MOUSE_X ) ), 0.0f, static_cast< f32 >( ScreenSize.x ) );
+        f32 rawY = dk::maths::clamp( static_cast< f32 >( g_InputReader->getAbsoluteAxisValue( dk::input::eInputAxis::MOUSE_Y ) ), 0.0f, static_cast< f32 >( ScreenSize.y ) );
         f32 mouseWheel = static_cast< f32 >( g_InputReader->getAbsoluteAxisValue( dk::input::eInputAxis::MOUSE_SCROLL_WHEEL ) );
 
+        ImGuiIO& io = ImGui::GetIO();
         io.MousePos = ImVec2( rawX, rawY );
         io.MouseWheel = mouseWheel;
 
@@ -275,13 +256,34 @@ void RegisterInputContexts()
         io.KeyShift = ( input.States.find( DUSK_STRING_HASH( "KeyShift" ) ) != input.States.end() );
         io.KeyAlt = ( input.States.find( DUSK_STRING_HASH( "KeyAlt" ) ) != input.States.end() );
 
+        io.KeysDown[io.KeyMap[ImGuiKey_Backspace]] = ( input.States.find( DUSK_STRING_HASH( "KeyBackspace" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_Delete]] = ( input.States.find( DUSK_STRING_HASH( "KeyDelete" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_A]] = ( input.States.find( DUSK_STRING_HASH( "KeyA" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_C]] = ( input.States.find( DUSK_STRING_HASH( "KeyC" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_V]] = ( input.States.find( DUSK_STRING_HASH( "KeyV" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_X]] = ( input.States.find( DUSK_STRING_HASH( "KeyX" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_Y]] = ( input.States.find( DUSK_STRING_HASH( "KeyY" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_Z]] = ( input.States.find( DUSK_STRING_HASH( "KeyZ" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_Escape]] = ( input.States.find( DUSK_STRING_HASH( "KeyEscape" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_Enter]] = ( input.States.find( DUSK_STRING_HASH( "KeyEnter" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_Space]] = ( input.States.find( DUSK_STRING_HASH( "KeySpace" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_Tab]] = ( input.States.find( DUSK_STRING_HASH( "KeyTab" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_Insert]] = ( input.States.find( DUSK_STRING_HASH( "KeyInsert" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_End]] = ( input.States.find( DUSK_STRING_HASH( "KeyEnd" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_Home]] = ( input.States.find( DUSK_STRING_HASH( "KeyHome" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_PageDown]] = ( input.States.find( DUSK_STRING_HASH( "KeyPageDown" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_PageUp]] = ( input.States.find( DUSK_STRING_HASH( "KeyPageUp" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_DownArrow]] = ( input.States.find( DUSK_STRING_HASH( "KeyDownArrow" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_UpArrow]] = ( input.States.find( DUSK_STRING_HASH( "KeyUpArrow" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_RightArrow]] = ( input.States.find( DUSK_STRING_HASH( "KeyRightArrow" ) ) != input.States.end() );
+        io.KeysDown[io.KeyMap[ImGuiKey_LeftArrow]] = ( input.States.find( DUSK_STRING_HASH( "KeyLeftArrow" ) ) != input.States.end() );
+
         io.MouseDown[0] = ( input.States.find( DUSK_STRING_HASH( "LeftMouseButton" ) ) != input.States.end() );
         io.MouseDown[1] = ( input.States.find( DUSK_STRING_HASH( "RightMouseButton" ) ) != input.States.end() );
         io.MouseDown[2] = ( input.States.find( DUSK_STRING_HASH( "MiddleMouseButton" ) ) != input.States.end() );
 
         fnKeyStrokes_t keyStrokes = g_InputReader->getAndFlushKeyStrokes();
-
-        for ( auto key : keyStrokes ) {
+        for ( dk::input::eInputKey key : keyStrokes ) {
             io.AddInputCharacter( key );
         }
     }, -1 );
@@ -411,6 +413,7 @@ void InitializeRenderSubsystems()
 
     g_DisplaySurface = dk::core::allocate<DisplaySurface>( g_GlobalAllocator, g_GlobalAllocator );
     g_DisplaySurface->create( ScreenSize.x, ScreenSize.y, eDisplayMode::WINDOWED );
+    g_DisplaySurface->setCaption( DUSK_STRING( "DuskEd" ) );
 
     DUSK_LOG_INFO( "Creating RenderDevice (%s)...\n", RenderDevice::getBackendName() );
 
@@ -490,6 +493,8 @@ void Initialize( const char* cmdLineArgs )
 
     RegisterInputContexts();
 
+    g_MaterialEditor = dk::core::allocate<MaterialEditor>( g_GlobalAllocator, g_GlobalAllocator );
+
     DUSK_LOG_INFO( "Initialization done (took %.5f seconds)\n", profileTimer.getElapsedTimeAsSeconds() );
     DUSK_LOG_RAW( "\n================================\n\n" );
 }
@@ -515,7 +520,7 @@ void MainLoop()
 
     FramerateCounter framerateCounter;
     f32 frameTime = static_cast<f32>( logicTimer.getDeltaAsSeconds() );
-    //f64 accumulator = 0.0;
+    f64 accumulator = 0.0;
 
     // TEST TEST TEST
     FbxParser fbxParser;
@@ -535,23 +540,38 @@ void MainLoop()
 
         frameTime = static_cast< f32 >( logicTimer.getDeltaAsSeconds() );
 
+        framerateCounter.onFrame( frameTime );
+
         // Update Input
         g_InputReader->onFrame( g_InputMapper );
 
-        // Update Local Game Instance
-        g_InputMapper->update( frameTime );
-        g_InputMapper->clear();
+        accumulator += static_cast< f64 >( frameTime );
 
-        framerateCounter.onFrame( frameTime );
+        // As ticks
+        constexpr uint32_t LOGIC_TICKRATE = 300;
+        constexpr uint32_t PHYSICS_TICKRATE = 100;
+
+        // As milliseconds
+        constexpr f64 LOGIC_DELTA = 1.0f / static_cast< float >( LOGIC_TICKRATE );
+        constexpr f64 PHYSICS_DELTA = 1.0f / static_cast< float >( PHYSICS_TICKRATE );
+
+        while ( accumulator >= LOGIC_DELTA ) {
+            // Update Local Game Instance
+            g_InputMapper->update( LOGIC_DELTA );
 
 #if DUSK_USE_IMGUI
-        if ( g_IsDevMenuVisible ) {
-            g_ImGuiManager->update( frameTime );
-        }
+            if ( g_IsDevMenuVisible ) {
+                g_ImGuiManager->update( LOGIC_DELTA );
+            }
 #endif
 
-        // Game Logic
-        g_FreeCamera->update( frameTime );
+            // Game Logic
+            g_FreeCamera->update( LOGIC_DELTA );
+
+            accumulator -= LOGIC_DELTA;
+        }
+
+        g_InputMapper->clear();
 
         std::string str = std::to_string( framerateCounter.AvgDeltaTime ).substr( 0, 6 )
             + " ms / "
@@ -583,8 +603,16 @@ void MainLoop()
                 }
 
                 if ( ImGui::BeginMenu( "Graphics" ) ) {
+                    ImGui::EndMenu();
+                }
+
+                if ( ImGui::BeginMenu( "Window" ) ) {
                     if ( ImGui::MenuItem( "RenderDoc", nullptr, nullptr, g_RenderDocHelper->isAvailable() ) ) {
                         IsRenderDocVisible = true;
+                    }
+
+                    if ( ImGui::MenuItem( "Material Editor" ) ) {
+                        g_MaterialEditor->openEditorWindow();
                     }
 
                     ImGui::EndMenu();
@@ -665,6 +693,9 @@ void MainLoop()
             dk::editor::DisplayLoggingConsole();
 
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
+            g_MaterialEditor->displayEditorWindow();
+
+            ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
             ImGui::Begin( "Inspector" );
             static f32 cart[2] = { 0.5f, 0.5f };
 
@@ -678,8 +709,9 @@ void MainLoop()
             ImGui::Begin( "Viewport", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar );
             ImVec2 winSize = ImGui::GetWindowSize();
 
+            g_IsMouseOverViewportWindow = ImGui::IsWindowHovered();
 
-            //g_FreeCamera->setProjectionMatrix( DefaultCameraFov, winSize.x, winSize.y  );
+            //g_FreeCamera->setProjectionMatrix( DefaultCameraFov, winSize.x, winSize.y );
 
             winSize.x -= 32;
             winSize.y -= 32;

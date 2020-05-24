@@ -50,6 +50,10 @@ void ImGuiManager::create( const DisplaySurface& displaySurface )
 
     ImGuiViewport* main_viewport = ImGui::GetMainViewport();
 
+    for ( i32 i = 0; i < ImGuiKey_COUNT; i++ ) {
+        io.KeyMap[i] = i;
+    }
+
 #if DUSK_WIN
     HWND nativeHandle = displaySurface.getNativeDisplaySurface()->Handle;
 

@@ -170,7 +170,9 @@ void DisplaySurface::pollSystemEvents( InputReader* inputReader )
         } else if ( msg.message == WM_QUIT ) {
             displaySurface->Flags.ShouldQuit = 1;
         } else if ( msg.message == WM_CHAR ) {
-            //inputReader->pushKeyStroke( static_cast< dkChar_t >( msg.wParam ) );
+            if ( msg.wParam > 0 && msg.wParam < 0x10000 ) {
+                inputReader->pushKeyStroke( static_cast< dk::input::eInputKey >( msg.wParam ) );
+            }
         }
 
         TranslateMessage( &msg );
