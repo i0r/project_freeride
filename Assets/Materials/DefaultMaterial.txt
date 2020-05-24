@@ -1,0 +1,10 @@
+Material "Default"
+{
+    ShadingModel = Default;
+    
+    Layer {
+        Name = "Root";
+        BaseColor = { 0.50, 0.50, 0.50 };
+        
+    };
+}
