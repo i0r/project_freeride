@@ -49,6 +49,11 @@ namespace dk
             str.erase( std::remove( str.begin(), str.end(), '\0' ), str.end() );
         }
 
+        static bool ContainsString( const dkString_t& string, const dkString_t& containedString )
+        {
+            return string.find( containedString ) != dkString_t::npos;
+        }
+
 #if DUSK_UNICODE
         static void TrimString( std::string& str )
         {

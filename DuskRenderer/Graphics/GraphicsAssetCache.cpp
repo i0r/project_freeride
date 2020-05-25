@@ -111,6 +111,7 @@ Image* GraphicsAssetCache::getImage( const dkChar_t* assetName, const bool force
         }
 
         imageMap[assetHashcode] = renderDevice->createImage( ddsData.imageDesc, ddsData.textureData.data(), ddsData.textureData.size() );
+        imageDescMap[assetHashcode] = ddsData.imageDesc;
     } break;
 
     case DUSK_STRING_HASH( "png16" ):
@@ -154,6 +155,7 @@ Image* GraphicsAssetCache::getImage( const dkChar_t* assetName, const bool force
         }
 
         imageMap[assetHashcode] = renderDevice->createImage( desc, image, w * comp );
+        imageDescMap[assetHashcode] = desc;
 
         stbi_image_free( image );
     } break;
@@ -206,6 +208,7 @@ Image* GraphicsAssetCache::getImage( const dkChar_t* assetName, const bool force
         }
 
         imageMap[assetHashcode] = renderDevice->createImage( desc, image, w * comp );
+        imageDescMap[assetHashcode] = desc;
 
         stbi_image_free( image );
     } break;
@@ -364,4 +367,24 @@ Mesh* GraphicsAssetCache::getMesh( const dkChar_t* assetName, const bool forceRe
     //}
 
     //return meshInstance;
+}
+
+ImageDesc* GraphicsAssetCache::getImageDescription( const dkChar_t* assetPath )
+{
+    // TODO This is slightly stupid to call the VFS simply to retrieve the file hashcode...
+    FileSystemObject* file = virtualFileSystem->openFile( assetPath, eFileOpenMode::FILE_OPEN_MODE_READ | eFileOpenMode::FILE_OPEN_MODE_BINARY );
+    if ( file == nullptr ) {
+        DUSK_LOG_ERROR( "'%hs' does not exist!\n", assetPath );
+        return nullptr;
+    }
+
+    dkStringHash_t assetHashcode = file->getHashcode();
+    file->close();
+
+    auto mapIterator = imageDescMap.find( assetHashcode );
+    if ( mapIterator != imageDescMap.end() ) {
+        return &mapIterator->second;
+    }
+
+    return nullptr;
 }
