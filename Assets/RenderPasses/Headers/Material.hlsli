@@ -61,4 +61,14 @@ float3 BRDF_Default( const float3 L, const float3 V, const float3 N, const Mater
     float3 specular = ( distribution * fresnel * visibility );
     return ( diffuse + specular ) * NoL;
 }
+
+float3 BlendNormals_UDN( in float3 baseNormal, in float3 topNormal )
+{
+    static const float3 c = float3( 2, 1, 0 );
+    
+    float3 blendedNormals = topNormal * c.yyz + baseNormal.xyz;
+    blendedNormals = blendedNormals * c.xxx - c.xxy;
+    
+    return normalize( blendedNormals );
+}
 #endif

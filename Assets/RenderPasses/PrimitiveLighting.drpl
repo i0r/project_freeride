@@ -1,7 +1,10 @@
 lib PrimitiveLighting {
     properties {
         cflag       UseInstancing = false;
+        cflag       WriteVelocity = false;
         float4x4    PerModelMatrix; // Only relevant if instancing is disabled.
+        float       StartVector;
+        float       VectorPerInstance;
     }
     
     resources {   
@@ -12,21 +15,27 @@ lib PrimitiveLighting {
         Texture2D OutputDepthTarget {
             swizzle = float4;
         }
+        
+        Buffer InstanceVectorBuffer {
+            swizzle = float4;
+        }
     }
     
     shared {
         #include <Material.hlsli>
         
-        float4x4 GetInstanceModelMatrix( uint InstanceId )
+        float4x4 GetInstanceModelMatrix( const uint instanceIdx )
         {
-            return float4x4( 
-                float4( 1, 0, 0, 0 ),
-                float4( 0, 1, 0, 0 ),
-                float4( 0, 0, 1, 0 ),
-                float4( 0, 0, 0, 1 )
-            );
+            uint modelMatrixVectorOffset = StartVector + instanceIdx * VectorPerInstance;
+            
+            float4 r0 = InstanceVectorBuffer.Load( modelMatrixVectorOffset + 0 );
+            float4 r1 = InstanceVectorBuffer.Load( modelMatrixVectorOffset + 1 );
+            float4 r2 = InstanceVectorBuffer.Load( modelMatrixVectorOffset + 2 );
+            float4 r3 = InstanceVectorBuffer.Load( modelMatrixVectorOffset + 3 );
+            
+            return float4x4( r0, r1, r2, r3 );
         }
-        
+                
         float3 GetDirectionalLightIlluminance( in DirectionalLightGPU light, in float3 R, in float3 N, inout float3 L )
         {
             float r = sin( light.AngularRadius );
@@ -52,12 +61,11 @@ lib PrimitiveLighting {
     }
     
     shader PrimitiveVS {
-        float4x4 ModelMatrix;
-        if ( $UseInstancing ) {
-            ModelMatrix = GetInstanceModelMatrix( 0 );
-        } else {
-            ModelMatrix = PerModelMatrix;
-        }
+        #ifdef $UseInstancing
+            float4x4 ModelMatrix = GetInstanceModelMatrix( $SV_InstanceID );
+        #else
+            float4x4 ModelMatrix = PerModelMatrix;
+        #endif
         
         $POSITION0 = mul( ModelMatrix, float4( $POSITION.xyz, 1.0f ) );
         $NORMAL0 = normalize( mul( ModelMatrix, float4( $NORMAL.xyz, 0.0f ) ) );
@@ -66,16 +74,9 @@ lib PrimitiveLighting {
     }
     
     shader PrimitivePS {
-        Material testMaterial;
-        testMaterial.BaseColor = float3( 0.5, 0.5, 0.5 );
-        testMaterial.Reflectance = 0.50f;
-        testMaterial.Roughness = 0.50f;
-        testMaterial.Metalness = 0.0f;
-        testMaterial.AmbientOcclusion = 0.0f;
-        testMaterial.Emissivity = 0.0f;
-        testMaterial.Opacity = 1.0f;
-        testMaterial.ClearCoat = 0.0f;
-        testMaterial.ClearCoatGlossiness = 0.0f;
+        // A generated material has to fill the 'DUSK_GET_AND_BLEND_LAYERS' in order to retrieve the input Material
+        // structure. DUSK_GET_AND_BLEND_LAYERS should either define or return a Material named BlendedMaterial.
+        DUSK_GET_AND_BLEND_LAYERS;
         
         float3 V = normalize( g_WorldPosition - $POSITION0.xyz );
         float3 N = normalize( $NORMAL0.xyz );
@@ -86,7 +87,7 @@ lib PrimitiveLighting {
         // Add explicit sun/moon light contribution
         float3 L;
         float3 dirLightIlluminance = GetDirectionalLightIlluminance( g_DirectionalLight, R, N, L );        
-        LightContribution.rgb = BRDF_Default( L, V, N, testMaterial ) * dirLightIlluminance;
+        LightContribution.rgb = BRDF_Default( L, V, N, BlendedMaterial ) * dirLightIlluminance;
         
         $SV_TARGET0 = LightContribution;
     }
