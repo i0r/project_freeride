@@ -7,6 +7,7 @@
 #include <Graphics/Material.h>
 
 class BaseAllocator;
+class GraphicsAssetCache;
 
 enum ShadingModel : i32 {
     Default = 0,
@@ -61,8 +62,8 @@ struct MaterialAttribute
     };
 
     struct {
-        Image* TextureInstance;
-        const char* PathToTextureAsset;
+        Image*      TextureInstance;
+        dkString_t  PathToTextureAsset;
     } AsTexture;
 
     struct {
@@ -72,6 +73,10 @@ struct MaterialAttribute
 
     MaterialAttribute()
         : Type( InputType::Unused )
+        , AsFloat( 0.0f )
+        , AsFloat3( 0.0f, 0.0f, 0.0f )
+        , AsTexture{ nullptr, dkString_t() }
+        , AsCodePiece{ nullptr, nullptr }
     {
 
     }
@@ -84,30 +89,46 @@ struct EditableMaterialLayer
     MaterialAttribute   Reflectance;
     MaterialAttribute   Roughness;
     MaterialAttribute   Metalness;
+    MaterialAttribute   Emissivity;
     MaterialAttribute   AmbientOcclusion;
     MaterialAttribute   Normal;
-
+    MaterialAttribute   BlendMask;
+    MaterialAttribute   AlphaMask;
+    
     // Scale of the current layer.
     dkVec2f             Scale;
 
     // Offset of the current layer.
     dkVec2f             Offset;
 
+    f32                 AlphaCutoff;
+    f32                 DiffuseContribution;
+    f32                 SpecularContribution;
+    f32                 NormalContribution;
+
     EditableMaterialLayer()
         : BaseColor()
         , Reflectance()
         , Roughness()
         , Metalness()
+        , Emissivity()
         , AmbientOcclusion()
         , Normal()
+        , BlendMask()
+        , AlphaMask()
         , Scale( dkVec2f( 1.0f, 1.0f ) )
         , Offset( dkVec2f( 0.0f, 0.0f ) )
+        , AlphaCutoff( 0.33f )
+        , DiffuseContribution( 1.0f )
+        , SpecularContribution( 1.0f )
+        , NormalContribution( 1.0f )
     {
-
+        BlendMask.Type = MaterialAttribute::Constant_1D;
+        BlendMask.AsFloat = 0.50f;
     }
 };
 
-// A datastructure representing an editable material.
+// A data structure representing an editable material.
 // Used by the Material Editor and Compiler.
 // Requires a generation step to "runtime" material in order to be usable
 // (see MaterialGenerator).
@@ -119,8 +140,10 @@ struct EditableMaterial
     // The shading model of this material.
     ShadingModel            SModel;
     
+    // Layer Count for this material.
     i32                     LayerCount;
 
+    // Layers for this material.
     EditableMaterialLayer   Layers[Material::MAX_LAYER_COUNT];
 
     // True if this material is double faced.
@@ -172,7 +195,7 @@ struct EditableMaterial
 class MaterialEditor 
 {
 public:
-            MaterialEditor( BaseAllocator* allocator );
+            MaterialEditor( BaseAllocator* allocator, GraphicsAssetCache* gfxCache );
             ~MaterialEditor();
 
 #if DUSK_USE_IMGUI
@@ -196,13 +219,19 @@ private:
     // Pointer to the material instance being edited.
     Material*           activeMaterial;
 
+    // Memory allocator owning this instance.
     BaseAllocator*      memoryAllocator;
+
+    // Pointer to the active instance of the Graphics Assets cache.
+    GraphicsAssetCache* graphicsAssetCache;
 
 private:
     // The maximum length of a code piece attribute (in characters count).
     static constexpr u32 MAX_CODE_PIECE_LENGTH = 1024;
 
 private:
+    // Display GUI for a given Material Attribute.
+    // SaturateInput can be used to clamp the input between 0 and 1 (for scalar and integer inputs).
     template<bool SaturateInput>
     void                displayMaterialAttribute( const char* displayName, MaterialAttribute& attribute );
 };

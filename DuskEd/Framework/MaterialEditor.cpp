@@ -14,11 +14,12 @@
 
 static constexpr dkChar_t* DefaultTextureFilter = DUSK_STRING( "All (*.dds, *.jpg, *.png, *.png16, *.tga, *.lpng)\0*.dds;*.jpg;*.png;*.png16;*.tga;*.lpng\0DirectDraw Surface (*.dds)\0*.dds\0JPG (*.jpg)\0*.jpg\0PNG (*.png)\0*.png\0PNG 16 Bits (*.png16)\0*.png16\0Low Precision PNG (*.lpng)\0*.lpng\0TGA (*.tga)\0*.tga\0" );
 
-MaterialEditor::MaterialEditor( BaseAllocator* allocator )
+MaterialEditor::MaterialEditor( BaseAllocator* allocator, GraphicsAssetCache* gfxCache )
     : isOpened( false )
     , editedMaterial()
     , activeMaterial( nullptr )
     , memoryAllocator( allocator )
+    , graphicsAssetCache( gfxCache )
 {
 
 }
@@ -78,6 +79,7 @@ isMaterialDirty = true;\
             const bool isTopmostLayer = ( layerIdx == ( editedMaterial.LayerCount - 1 ) );
             const bool canAddLayer = ( editedMaterial.LayerCount < Material::MAX_LAYER_COUNT && isTopmostLayer );
             const bool canRemoveLayer = ( editedMaterial.LayerCount > 1 && isTopmostLayer );
+            const bool canBlendLayer = ( editedMaterial.LayerCount > 1 && layerIdx != 0 );
 
             if ( !canAddLayer ) {
                 ImGui::PushItemFlag( ImGuiItemFlags_Disabled, true );
@@ -86,6 +88,7 @@ isMaterialDirty = true;\
 
             if ( ImGui::Button( "+" ) && canAddLayer ) {
                 editedMaterial.LayerCount++;
+                editedMaterial.Layers[editedMaterial.LayerCount - 1] = EditableMaterialLayer();
             }
 
             if ( !canAddLayer ) {
@@ -110,7 +113,6 @@ isMaterialDirty = true;\
                 ImGui::PopStyleVar();
             }
 
-
             ImGui::SameLine();
 
             if ( ImGui::TreeNode( LayerNames[layerIdx] ) ) {
@@ -120,6 +122,19 @@ isMaterialDirty = true;\
                 displayMaterialAttribute<true>( "Metalness", layer.Metalness );
                 displayMaterialAttribute<true>( "AmbientOcclusion", layer.AmbientOcclusion );
                 displayMaterialAttribute<false>( "Normal", layer.Normal );
+
+                if ( editedMaterial.IsAlphaTested ) {
+                    displayMaterialAttribute<true>( "AlphaMask", layer.AlphaMask );
+                    ImGui::DragFloat( "AlphaCutoff", &layer.AlphaCutoff );
+                }
+
+                if ( canBlendLayer ) {
+                    displayMaterialAttribute<true>( "BlendMask", layer.BlendMask );
+
+                    ImGui::SliderFloat( "Diffuse Contribution", &layer.DiffuseContribution, 0.0f, 1.0f );
+                    ImGui::SliderFloat( "Specular Contribution", &layer.SpecularContribution, 0.0f, 1.0f );
+                    ImGui::SliderFloat( "Normal Contribution", &layer.NormalContribution, 0.0f, 1.0f );
+                }
 
                 ImGui::DragFloat2( "LayerScale", &layer.Scale[0], 0.01f, 0.01f, 1024.0f );
                 ImGui::DragFloat2( "LayerOffset", &layer.Offset[0], 0.01f, 0.01f, 1024.0f );
@@ -195,7 +210,8 @@ void MaterialEditor::displayMaterialAttribute( const char* displayName, Material
         {
             Image* textureInstance = attribute.AsTexture.TextureInstance;
 
-            bool buttonHasBeenPressed = ( textureInstance != nullptr )
+            bool hasTextureBound = ( textureInstance != nullptr );
+            bool buttonHasBeenPressed = ( hasTextureBound )
                 ? ImGui::ImageButton( static_cast< ImTextureID >( textureInstance ), ImVec2( 64, 64 ) )
                 : ImGui::Button( "+", ImVec2( 64, 64 ) );
 
@@ -204,13 +220,44 @@ void MaterialEditor::displayMaterialAttribute( const char* displayName, Material
                 if ( dk::core::DisplayFileSelectionPrompt( fullPathToAsset,
                                                            dk::core::SelectionType::OpenFile, 
                                                            DefaultTextureFilter ) ) {
-                    // If is not in the GameData FileSystem
-                    //  Then Copy to the gamedata filesystem
-                    // Use the Gfx Asset Cache to load teh texture
+                    dk::core::SanitizeFilepathSlashes( fullPathToAsset );
+                    
+                    dkString_t workingDirectory;
+                    dk::core::RetrieveWorkingDirectory( workingDirectory );
+
+                    if ( !dk::core::ContainsString( fullPathToAsset, workingDirectory ) ) {
+
+                    } else {
+                        dk::core::RemoveWordFromString( fullPathToAsset, workingDirectory + DUSK_STRING( "data/" ) );
+                        attribute.AsTexture.PathToTextureAsset = dkString_t( DUSK_STRING( "GameData/" ) ) + fullPathToAsset;
+                    }
+
+                    attribute.AsTexture.TextureInstance = graphicsAssetCache->getImage( attribute.AsTexture.PathToTextureAsset.c_str(), true );
                 }
             }
             ImGui::SameLine();
-            ImGui::Text( "No Texture Bound" );
+
+            if ( hasTextureBound ) {
+                ImageDesc* imgDesc = graphicsAssetCache->getImageDescription( attribute.AsTexture.PathToTextureAsset.c_str() );
+
+                std::string infos;
+                infos.append( WideStringToString( attribute.AsTexture.PathToTextureAsset ).c_str() );
+
+                infos.append( "\nDimensions: " );
+                infos.append( std::to_string( imgDesc->width ) );
+                infos.append( "x" );
+                infos.append( std::to_string( imgDesc->height ) );
+
+                infos.append( "\nMip Count: " );
+                infos.append( std::to_string( imgDesc->mipCount ) );
+
+                infos.append( "\nFormat: " );
+                infos.append( VIEW_FORMAT_STRING[imgDesc->format] );
+                
+                ImGui::Text( infos.c_str() );
+            } else {
+                ImGui::Text( "No Texture Bound" );
+            }
             break;
         }
         case MaterialAttribute::Code_Piece:
