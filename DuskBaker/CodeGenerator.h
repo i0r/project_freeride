@@ -6,6 +6,7 @@
 
 struct TypeAST;
 
+#include <vector>
 #include <Rendering/RenderDevice.h>
 
 struct GeneratedShader 
@@ -19,8 +20,8 @@ namespace dk
 {
     namespace baker
     {
-        static void WriteEnum( const TypeAST& type );
-        static void WriteStruct( const TypeAST& type, const bool useReflection = true );
-        static void WriteRenderLibrary( const TypeAST& type, std::string& libraryName, std::string& generatedHeader, std::string& reflectionHeader, std::vector<GeneratedShader>& generatedShaders );
+        void WriteEnum( const TypeAST& type );
+        void WriteStruct( const TypeAST& type, const bool useReflection = true );
+        void WriteRenderLibrary( const TypeAST& type, std::string& libraryName, std::string& generatedHeader, std::string& reflectionHeader, std::vector<GeneratedShader>& generatedShaders );
     }
 }

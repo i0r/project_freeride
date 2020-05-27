@@ -5,6 +5,7 @@
 #pragma once
 
 #include <Core/ViewFormat.h>
+#include <Core/DebugHelpers.h>
 
 class BaseAllocator;
 class DisplaySurface;

@@ -29,6 +29,7 @@
 //#include <Framework/Mesh.h>
 //#include <Framework/Material.h>
 
+#include <Core/Hashing/CRC32.h>
 #include <Core/StringHelpers.h>
 
 using namespace dk::core;

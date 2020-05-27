@@ -7,6 +7,8 @@
 class Material;
 class VirtualFileSystem;
 
+#include "EditableMaterial.h"
+
 class MaterialGenerator 
 {
 public:

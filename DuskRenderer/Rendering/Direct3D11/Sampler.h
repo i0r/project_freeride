@@ -6,6 +6,7 @@
 
 #if DUSK_D3D11
 #include <d3d11.h>
+#include <Rendering/RenderDevice.h>
 
 static constexpr D3D11_TEXTURE_ADDRESS_MODE D3D11_SAMPLER_ADDRESS[eSamplerAddress::SAMPLER_ADDRESS_COUNT] = {
     D3D11_TEXTURE_ADDRESS_WRAP,

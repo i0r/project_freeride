@@ -11,6 +11,12 @@
 #endif
 
 #include <Core/FileSystemIOHelpers.h>
+#include <Core/StringHelpers.h>
+#include <Core/Environment.h>
+
+#include <Graphics/GraphicsAssetCache.h>
+
+#include <Rendering/RenderDevice.h>
 
 static constexpr dkChar_t* DefaultTextureFilter = DUSK_STRING( "All (*.dds, *.jpg, *.png, *.png16, *.tga, *.lpng)\0*.dds;*.jpg;*.png;*.png16;*.tga;*.lpng\0DirectDraw Surface (*.dds)\0*.dds\0JPG (*.jpg)\0*.jpg\0PNG (*.png)\0*.png\0PNG 16 Bits (*.png16)\0*.png16\0Low Precision PNG (*.lpng)\0*.lpng\0TGA (*.tga)\0*.tga\0" );
 

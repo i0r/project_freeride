@@ -14,6 +14,7 @@ struct Mesh;
 
 struct Image;
 struct FontDescriptor;
+struct ImageDesc;
 
 class BaseAllocator;
 class FreeListAllocator;

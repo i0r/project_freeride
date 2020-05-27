@@ -7,7 +7,10 @@
 #include <Core/Polygon.h>
 #include <Maths/AABB.h>
 
+#include <vector>
+
 // TODO It should be a class (we shouldnt expose the memory allocators nor the flags...).
+class BaseAllocator;
 
 // Hold data parsed from a regular file format (.fbx, .obj, etc.).
 struct ParsedMesh

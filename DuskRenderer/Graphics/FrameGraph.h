@@ -15,6 +15,7 @@ struct Image;
 #include <unordered_map>
 #include <atomic>
 #include <thread>
+#include <functional>
 
 #include <Framework/Cameras/Camera.h>
 #include <Rendering/RenderDevice.h>

@@ -36,6 +36,8 @@
 #define DUSK_IS_MEMORY_ALIGNED_STATIC( x, y )
 #endif
 
+#include <Shared.h>
+
 // A distant source light that is infinitely far away (e.g. the sun).
 struct DirectionalLightGPU 
 {

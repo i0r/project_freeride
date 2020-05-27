@@ -7,8 +7,11 @@
 class Model;
 class DrawCommandBuilder;
 class RenderDevice;
+class PoolAllocator;
 
 #include <Parsing/GeometryParser.h>
+
+#include <Maths/Matrix.h>
 
 // The RenderWorld is responsible for render entity management (allocation/streaming/update/etc.).
 class RenderWorld 

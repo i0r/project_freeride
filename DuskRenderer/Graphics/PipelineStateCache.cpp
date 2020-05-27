@@ -2,7 +2,7 @@
     Dusk Source Code
     Copyright (C) 2020 Prevost Baptiste
 */
-#include "Shared.h"
+#include <Shared.h>
 #include "PipelineStateCache.h"
 
 #include "ShaderCache.h"
