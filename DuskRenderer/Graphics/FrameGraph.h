@@ -7,7 +7,6 @@
 class FrameGraphResources;
 class GraphicsProfiler;
 class FrameGraphBuilder;
-class RenderDevice;
 class PipelineStateCache;
 
 struct Buffer;
@@ -18,7 +17,7 @@ struct Image;
 #include <thread>
 
 #include <Framework/Cameras/Camera.h>
-#include <Rendering/Shared.h>
+#include <Rendering/RenderDevice.h>
 #include <Rendering/CommandList.h>
 
 #include "WorldRenderer.h"

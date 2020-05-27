@@ -13,7 +13,6 @@ class LinearAllocator;
 
 #include <Core/Hashing/Helpers.h>
 #include <Core/Types.h>
-#include <Rendering/Shared.h>
 
 class PipelineStateCache
 {

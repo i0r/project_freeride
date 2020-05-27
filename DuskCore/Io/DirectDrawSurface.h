@@ -6,13 +6,17 @@
 
 class FileSystemObject;
 
-#include <Rendering/Shared.h>
+#include <Parsing/ImageParser.h>
 #include <vector>
 
 struct DirectDrawSurface
 {
-    ImageDesc                   imageDesc;
-    std::vector<uint8_t>    textureData;
+    // Description of the parsed DDS.
+    ParsedImageDesc         TextureDescription;
+
+    // Texels for this DDS. Careful: the data layout is defined by TextureDescription::Format (check the field first
+    // to figure out how to read the pixels; you don't need to do anything if you upload the texture to the GPU).
+    std::vector<uint8_t>    TextureData;
 };
 
 namespace dk

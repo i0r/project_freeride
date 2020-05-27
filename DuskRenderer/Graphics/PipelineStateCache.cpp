@@ -5,13 +5,12 @@
 #include "Shared.h"
 #include "PipelineStateCache.h"
 
-#include <Rendering/Shared.h>
 #include "ShaderCache.h"
 
 #include <Core/Hashing/MurmurHash3.h>
 #include <Core/BitsManipulation.h>
 #include <Core/Allocators/LinearAllocator.h>
-
+#include <Rendering/RenderDevice.h>
 #include <FileSystem/VirtualFileSystem.h>
 
 static constexpr size_t PSO_BLOB_CACHE_SIZE = ( 4 << 20 ); // Size (in bytes) of the memory block allocated for cached PSO blob read

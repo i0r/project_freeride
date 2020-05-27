@@ -10,10 +10,12 @@ set( SOURCES ${SRC} ${INC} )
 add_executable( DuskBaker ${SOURCES} )
 
 target_link_libraries( DuskBaker debug DuskCore_Debug optimized DuskCore )
+target_link_libraries( DuskBaker debug DuskRenderer_Debug optimized DuskRenderer )
 
 include_directories( "${DUSK_BASE_FOLDER}DuskBaker/ThirdParty" )
 include_directories( "${DUSK_BASE_FOLDER}DuskBaker" )
 include_directories( "${DUSK_BASE_FOLDER}DuskCore" )
+include_directories( "${DUSK_BASE_FOLDER}DuskRenderer" )
 
 if ( WIN32 )
     target_link_libraries( DuskBaker winmm Pathcch Shlwapi )
