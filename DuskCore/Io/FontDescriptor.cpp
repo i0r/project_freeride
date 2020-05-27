@@ -6,7 +6,6 @@
 #include "FontDescriptor.h"
 
 #include <FileSystem/FileSystemObject.h>
-#include <Core/Parser.h>
 #include "TextStreamHelpers.h"
 #include "Core/StringHelpers.h"
 

@@ -13,8 +13,8 @@
 #include "Core/Allocators/AllocationHelpers.h"
 #include "Core/Allocators/LinearAllocator.h"
 
-#include "Core/Lexer.h"
-#include "Core/Parser.h"
+#include <Lexer.h>
+#include <Parser.h>
 
 #include "Io/TextStreamHelpers.h"
 

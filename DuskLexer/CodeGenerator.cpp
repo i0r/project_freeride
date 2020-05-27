@@ -5,7 +5,7 @@
 #include <Shared.h>
 #include "CodeGenerator.h"
 
-#include <Core/Parser.h>
+#include "Parser.h"
 #include <Core/StringHelpers.h>
 #include <Core/Hashing/MurmurHash3.h>
 #include <Core/Hashing/Helpers.h>
