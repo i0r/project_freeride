@@ -6,7 +6,7 @@
 
 struct TypeAST;
 
-#include <Rendering/Shared.h>
+#include <Rendering/RenderDevice.h>
 
 struct GeneratedShader 
 {

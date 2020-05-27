@@ -25,7 +25,7 @@
 
 static constexpr u32 DDS_MAGIC = 0x20534444; // "DDS "
 
-                                                  // Copy/Pasted from msdn for better abstraction
+// Copy/Pasted from msdn for better abstraction
 struct DDS_PIXELFORMAT
 {
     u32 dwSize;
@@ -608,18 +608,15 @@ void dk::io::LoadDirectDrawSurface( FileSystemObject* stream, DirectDrawSurface&
 
     // Verify header to validate DDS file
     if ( hdr.dwSize != sizeof( DDS_HEADER )
-        || hdr.ddspf.dwSize != sizeof( DDS_PIXELFORMAT ) ) {
+      || hdr.ddspf.dwSize != sizeof( DDS_PIXELFORMAT ) ) {
         return;
     }
 
-    ImageDesc desc;
-    desc.bindFlags = RESOURCE_BIND_SHADER_RESOURCE;
-    desc.usage = RESOURCE_USAGE_STATIC;
-    desc.width = hdr.dwWidth;
-    desc.height = hdr.dwHeight;
-    desc.depth = hdr.dwDepth;
-    desc.mipCount = hdr.dwMipMapCount;
-    desc.arraySize = 1;
+    data.TextureDescription.Width = hdr.dwWidth;
+    data.TextureDescription.Height = hdr.dwHeight;
+    data.TextureDescription.Depth = hdr.dwDepth;
+    data.TextureDescription.MipCount = hdr.dwMipMapCount;
+    data.TextureDescription.ArraySize = 1;
 
     bool isDXT10Header = ( hdr.ddspf.dwFlags & DDS_FOURCC ) && ( MAKEFOURCC( 'D', 'X', '1', '0' ) == hdr.ddspf.dwFourCC );
 
@@ -627,22 +624,22 @@ void dk::io::LoadDirectDrawSurface( FileSystemObject* stream, DirectDrawSurface&
         DDS_HEADER_DXT10 d3d10ext;
         stream->read( d3d10ext );
 
-        desc.arraySize = d3d10ext.arraySize;
-        desc.format = static_cast<eViewFormat>( d3d10ext.dxgiFormat );
+        data.TextureDescription.ArraySize = d3d10ext.arraySize;
+        data.TextureDescription.Format = static_cast<eViewFormat>( d3d10ext.dxgiFormat );
 
         switch ( d3d10ext.resourceDimension ) {
         case _D3D10_RESOURCE_DIMENSION_TEXTURE1D:
-            desc.height = desc.depth = 1;
-            desc.dimension = ImageDesc::DIMENSION_1D;
+            data.TextureDescription.Height = data.TextureDescription.Depth = 1;
+            data.TextureDescription.ImageDimension = ParsedImageDesc::Dimension::DIMENSION_1D;
             break;
 
         case _D3D10_RESOURCE_DIMENSION_TEXTURE2D:
             if ( d3d10ext.miscFlag & _D3D11_RESOURCE_MISC_TEXTURECUBE ) {
-                desc.arraySize *= 6;
-                desc.miscFlags |= ImageDesc::IS_CUBE_MAP;
+                data.TextureDescription.ArraySize *= 6;
+                data.TextureDescription.IsCubemap = true;
             }
-            desc.depth = 1;
-            desc.dimension = ImageDesc::DIMENSION_2D;
+            data.TextureDescription.Depth = 1;
+            data.TextureDescription.ImageDimension = ParsedImageDesc::Dimension::DIMENSION_2D;
             break;
 
         case _D3D10_RESOURCE_DIMENSION_TEXTURE3D:
@@ -650,36 +647,36 @@ void dk::io::LoadDirectDrawSurface( FileSystemObject* stream, DirectDrawSurface&
                 return;
             }
 
-            if ( desc.arraySize > 1 ) {
+            if ( data.TextureDescription.ArraySize > 1 ) {
                 return;
             }
-            desc.dimension = ImageDesc::DIMENSION_3D;
+            data.TextureDescription.ImageDimension = ParsedImageDesc::Dimension::DIMENSION_3D;
             break;
 
         default:
             return;
         }
     } else {
-        desc.format = static_cast<eViewFormat>( GetDXGIFormat( hdr.ddspf ) );
+        data.TextureDescription.Format = static_cast<eViewFormat>( GetDXGIFormat( hdr.ddspf ) );
 
-        if ( desc.format == 0 ) {
+        if ( data.TextureDescription.Format == 0 ) {
             return;
         }
 
         if ( hdr.dwFlags & DDS_HEADER_FLAGS_VOLUME ) {
-            desc.dimension = ImageDesc::DIMENSION_3D;
+            data.TextureDescription.ImageDimension = ParsedImageDesc::Dimension::DIMENSION_3D;
         } else {
             if ( hdr.dwCaps2 & DDS_CUBEMAP ) {
                 if ( ( hdr.dwCaps2 & DDS_CUBEMAP_ALLFACES ) != DDS_CUBEMAP_ALLFACES ) {
                     return;
                 }
 
-                desc.arraySize = 6;
-                desc.miscFlags |= ImageDesc::IS_CUBE_MAP;
+                data.TextureDescription.ArraySize = 6;
+                data.TextureDescription.IsCubemap = true;
             }
 
-            desc.depth = 1;
-            desc.dimension = ImageDesc::DIMENSION_2D;
+            data.TextureDescription.Depth = 1;
+            data.TextureDescription.ImageDimension = ParsedImageDesc::Dimension::DIMENSION_2D;
 
             // NOTE There's no way for a legacy Direct3D 9 DDS to express a '1D' texture
         }
@@ -688,8 +685,6 @@ void dk::io::LoadDirectDrawSurface( FileSystemObject* stream, DirectDrawSurface&
     u64 streamSize = stream->getSize();
     size_t texelsSize = streamSize - stream->tell();
 
-    data.imageDesc = desc;
-    data.textureData.resize( texelsSize );
-
-    stream->read( &data.textureData[0], texelsSize );
+    data.TextureData.resize( texelsSize );
+    stream->read( &data.TextureData[0], texelsSize );
 }

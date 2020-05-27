@@ -110,7 +110,34 @@ Image* GraphicsAssetCache::getImage( const dkChar_t* assetName, const bool force
             renderDevice->destroyImage( imageMap[assetHashcode] );
         }
 
-        imageMap[assetHashcode] = renderDevice->createImage( ddsData.imageDesc, ddsData.textureData.data(), ddsData.textureData.size() );
+        // Converts ParsedImageDesc to GPU ImageDesc.
+        ImageDesc desc;
+        if ( ddsData.TextureDescription.ImageDimension == ParsedImageDesc::Dimension::DIMENSION_1D ) {
+            desc.dimension = ImageDesc::DIMENSION_1D;
+        } else if ( ddsData.TextureDescription.ImageDimension == ParsedImageDesc::Dimension::DIMENSION_2D ) {
+            desc.dimension = ImageDesc::DIMENSION_2D;
+        } else if ( ddsData.TextureDescription.ImageDimension == ParsedImageDesc::Dimension::DIMENSION_3D ) {
+            desc.dimension = ImageDesc::DIMENSION_3D;
+        } else {
+            desc.dimension = ImageDesc::DIMENSION_UNKNOWN;
+        }
+
+        desc.width = ddsData.TextureDescription.Width;
+        desc.height = ddsData.TextureDescription.Height;
+        desc.depth = ddsData.TextureDescription.Depth;
+        desc.arraySize = ddsData.TextureDescription.ArraySize;
+        desc.mipCount = ddsData.TextureDescription.MipCount;
+        desc.samplerCount = 1;
+        desc.format = ddsData.TextureDescription.Format;
+        desc.bindFlags = RESOURCE_BIND_SHADER_RESOURCE;
+        desc.usage = RESOURCE_USAGE_STATIC;
+
+        desc.miscFlags = 0;
+        if ( ddsData.TextureDescription.IsCubemap ) {
+            desc.miscFlags |= ImageDesc::IS_CUBE_MAP;
+        }
+
+        imageMap[assetHashcode] = renderDevice->createImage( desc, ddsData.TextureData.data(), ddsData.TextureData.size() );
     } break;
 
     case DUSK_STRING_HASH( "png16" ):

@@ -31,6 +31,8 @@
 #include <FileSystem/FileSystemUnix.h>
 #endif
 
+#include <Rendering/RenderDevice.h>
+
 static char         g_BaseBuffer[128];
 static void*        g_AllocatedTable;
 static LinearAllocator* g_GlobalAllocator;
