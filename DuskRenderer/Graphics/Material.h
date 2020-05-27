@@ -12,7 +12,7 @@ public:
         DepthOnly
     };
 
-    static constexpr i32 MAX_LAYER_COUNT = 3;
+    static constexpr i32 MAX_LAYER_COUNT = 4;
 
 public:
             Material( BaseAllocator* allocator, const dkChar_t* name = DUSK_STRING( "DefaultMaterial" ) );

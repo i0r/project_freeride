@@ -70,7 +70,8 @@ isMaterialDirty = true;\
             constexpr const char* LayerNames[Material::MAX_LAYER_COUNT] = {
                 "Root Layer",
                 "Layer 1",
-                "Layer 2"
+                "Layer 2",
+                "Layer 3"
             };
 
             // We need to distinguish the current attributes if we have multiple layer expanded at once.
@@ -129,7 +130,14 @@ isMaterialDirty = true;\
                 }
 
                 if ( canBlendLayer ) {
+                    constexpr const char* BlendModeString[ShadingModel::Count] = {
+                        "Additive",
+                        "Multiplicative"
+                    };
+
                     displayMaterialAttribute<true>( "BlendMask", layer.BlendMask );
+
+                    ImGui::Combo( "Blend Mode", reinterpret_cast< i32* >( &layer.BlendMode ), BlendModeString, LayerBlendMode::BlendModeCount );
 
                     ImGui::SliderFloat( "Diffuse Contribution", &layer.DiffuseContribution, 0.0f, 1.0f );
                     ImGui::SliderFloat( "Specular Contribution", &layer.SpecularContribution, 0.0f, 1.0f );

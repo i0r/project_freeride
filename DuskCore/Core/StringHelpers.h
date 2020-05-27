@@ -84,6 +84,15 @@ namespace dk
             }
         }
 
+        static void ReplaceWord( std::string& string, const std::string& wordToReplace, const std::string& newWord )
+        {
+            std::size_t wordIndex = 0;
+
+            while ( ( wordIndex = string.find( wordToReplace ) ) != dkString_t::npos ) {
+                string.replace( wordIndex, wordToReplace.size(), newWord );
+            }
+        }
+
         DUSK_INLINE void StringToLower( dkString_t& string )
         {
             std::transform( string.begin(), string.end(), string.begin(), ::tolower );

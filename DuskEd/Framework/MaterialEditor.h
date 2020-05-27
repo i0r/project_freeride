@@ -16,6 +16,13 @@ enum ShadingModel : i32 {
     Count,
 };
 
+enum LayerBlendMode : i32 {
+    Additive = 0,
+    Multiplicative,
+
+    BlendModeCount,
+};
+
 // An editable material input.
 struct MaterialAttribute 
 {
@@ -49,17 +56,8 @@ struct MaterialAttribute
 
     // We want to keep every type input active (no memory aliasing).
     // This way the previous user input is not removed whenever the type changes.
-    union {
-        f32         AsFloat;
-        u32         AsUnsignedInteger;
-        i32         AsSignedInteger;
-    };
-
-    union {
-        dkVec3f     AsFloat3;
-        dkVec3i     AsUnsignedInteger3;
-        dkVec3u     AsSignedInteger3;
-    };
+    f32         AsFloat;
+    dkVec3f     AsFloat3;
 
     struct {
         Image*      TextureInstance;
@@ -101,6 +99,9 @@ struct EditableMaterialLayer
     // Offset of the current layer.
     dkVec2f             Offset;
 
+    // Layer blending mode.
+    LayerBlendMode      BlendMode;
+
     f32                 AlphaCutoff;
     f32                 DiffuseContribution;
     f32                 SpecularContribution;
@@ -118,6 +119,7 @@ struct EditableMaterialLayer
         , AlphaMask()
         , Scale( dkVec2f( 1.0f, 1.0f ) )
         , Offset( dkVec2f( 0.0f, 0.0f ) )
+        , BlendMode( LayerBlendMode::Additive )
         , AlphaCutoff( 0.33f )
         , DiffuseContribution( 1.0f )
         , SpecularContribution( 1.0f )

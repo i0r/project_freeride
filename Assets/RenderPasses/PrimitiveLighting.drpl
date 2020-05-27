@@ -19,6 +19,13 @@ lib PrimitiveLighting {
         Buffer InstanceVectorBuffer {
             swizzle = float4;
         }
+        
+        sampler TextureSampler {
+            format = BilinearClampEdge;
+        }
+        
+        // Injected at Material compile-time. DO NOT REMOVE.
+        DUSK_LAYERS_RESOURCES;
     }
     
     shared {
@@ -58,6 +65,9 @@ lib PrimitiveLighting {
             
             return illuminance + ( lightIlluminance * surfaceTransmittance );
         }
+        
+        // Injected at Material compile-time. DO NOT REMOVE.
+        DUSK_LAYERS_FUNCTIONS;
     }
     
     shader PrimitiveVS {
@@ -74,9 +84,9 @@ lib PrimitiveLighting {
     }
     
     shader PrimitivePS {
-        // A generated material has to fill the 'DUSK_GET_AND_BLEND_LAYERS' in order to retrieve the input Material
-        // structure. DUSK_GET_AND_BLEND_LAYERS should either define or return a Material named BlendedMaterial.
-        DUSK_GET_AND_BLEND_LAYERS;
+        // Injected at Material compile-time. DO NOT REMOVE.
+        // Return a ready to use material named BlendedMaterial.
+        DUSK_LAYERS_GET;
         
         float3 V = normalize( g_WorldPosition - $POSITION0.xyz );
         float3 N = normalize( $NORMAL0.xyz );

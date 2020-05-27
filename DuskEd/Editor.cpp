@@ -91,7 +91,7 @@ static FreeCamera*          g_FreeCamera;
 static MaterialEditor*      g_MaterialEditor;
 
 #if DUSK_DEVBUILD
-static FileSystemNative*    g_ShaderSourceFileSystem;
+static FileSystemNative*    g_EdAssetsFileSystem;
 #if DUSK_USE_RENDERDOC
 static RenderDocHelper*     g_RenderDocHelper;
 #endif
@@ -326,8 +326,10 @@ void InitializeIOSubsystems()
 
 #if DUSK_DEVBUILD
     DUSK_LOG_INFO( "Mounting devbuild filesystems...\n" );
-    g_ShaderSourceFileSystem = dk::core::allocate<FileSystemNative>( g_GlobalAllocator, DUSK_STRING( "./../dusk/Shaders/" ) );
-    g_VirtualFileSystem->mount( g_ShaderSourceFileSystem, DUSK_STRING( "ShaderSources" ), 0 );
+
+    // TODO Make this more flexible? (do not assume the current working directory).
+    g_EdAssetsFileSystem = dk::core::allocate<FileSystemNative>( g_GlobalAllocator, DUSK_STRING( "./../Assets/" ) );
+    g_VirtualFileSystem->mount( g_EdAssetsFileSystem, DUSK_STRING( "EditorAssets" ), 0 );
 #endif
 
     dkString_t SaveFolder = saveFolder->resolveFilename( DUSK_STRING( "SaveData/" ), configurationFolderName );
@@ -783,7 +785,7 @@ void Shutdown()
     dk::core::free( g_GlobalAllocator, g_ImGuiRenderModule );
 #endif
 
-    dk::core::free( g_GlobalAllocator, g_ShaderSourceFileSystem );
+    dk::core::free( g_GlobalAllocator, g_EdAssetsFileSystem );
 #endif
 
     dk::core::free( g_GlobalAllocator, g_WorldRenderer );
