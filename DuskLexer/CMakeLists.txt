@@ -13,6 +13,8 @@ set( SOURCES ${SRC} ${INC} )
 
 add_library( DuskLexer STATIC ${SOURCES} )
 
+set_property(TARGET DuskLexer PROPERTY FOLDER "DuskEngine")
+
 # Should be removed in the future (only required for shader stage enum...)
 include_directories( "${DUSK_BASE_FOLDER}DuskRenderer" )
 include_directories( "${DUSK_BASE_FOLDER}DuskCore" )

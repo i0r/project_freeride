@@ -3,6 +3,8 @@ cmake_policy( VERSION 3.5 )
 
 project( Dusk )
 
+set_property (GLOBAL PROPERTY USE_FOLDERS ON)
+
 set( DUSK_BASE_FOLDER "${CMAKE_SOURCE_DIR}/" )
 
 set( DUSK_BIN_FOLDER "${DUSK_BASE_FOLDER}/build/bin" )

@@ -33,6 +33,8 @@ set( SOURCES ${SRC} ${INC} "${DUSK_BASE_FOLDER}DuskCore/Shared.cpp" "${DUSK_BASE
 
 add_library( DuskCore STATIC ${SOURCES} )
 
+set_property(TARGET DuskCore PROPERTY FOLDER "DuskEngine")
+
 include_directories( "${DUSK_BASE_FOLDER}DuskCore/ThirdParty" )
 include_directories( "${DUSK_BASE_FOLDER}DuskCore" )
 

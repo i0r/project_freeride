@@ -13,6 +13,8 @@ set( SOURCES ${SRC} ${INC} )
 
 add_library( DuskGUI STATIC ${SOURCES} )
 
+set_property(TARGET DuskGUI PROPERTY FOLDER "DuskEngine")
+
 include_directories( "${DUSK_BASE_FOLDER}DuskRenderer" )
 include_directories( "${DUSK_BASE_FOLDER}DuskCore" )
 

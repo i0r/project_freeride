@@ -9,6 +9,8 @@ set( SOURCES ${SRC} ${INC} )
 
 add_executable( DuskBaker ${SOURCES} )
 
+set_property(TARGET DuskBaker PROPERTY FOLDER "Projects")
+
 target_link_libraries( DuskBaker debug DuskCore_Debug optimized DuskCore )
 target_link_libraries( DuskBaker debug DuskLexer_Debug optimized DuskLexer )
 

@@ -48,6 +48,8 @@ add_msvc_filters( "${SOURCES}" )
 
 add_executable( DuskEd ${GUI_TYPE} ${SOURCES})
 
+set_property(TARGET DuskEd PROPERTY FOLDER "Projects")
+
 target_link_libraries( DuskEd debug DuskCore_Debug optimized DuskCore )
 target_link_libraries( DuskEd debug DuskRenderer_Debug optimized DuskRenderer )
 target_link_libraries( DuskEd debug DuskLexer_Debug optimized DuskLexer )
