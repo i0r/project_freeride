@@ -5,6 +5,8 @@
 #include <Shared.h>
 #include "MaterialEditor.h"
 
+#include "MaterialGenerator.h"
+
 #if DUSK_USE_IMGUI
 #include <imgui/imgui.h>
 #include <imgui/imgui_internal.h>
@@ -15,17 +17,18 @@
 #include <Core/Environment.h>
 
 #include <Graphics/GraphicsAssetCache.h>
-
 #include <Rendering/RenderDevice.h>
 
 static constexpr dkChar_t* DefaultTextureFilter = DUSK_STRING( "All (*.dds, *.jpg, *.png, *.png16, *.tga, *.lpng)\0*.dds;*.jpg;*.png;*.png16;*.tga;*.lpng\0DirectDraw Surface (*.dds)\0*.dds\0JPG (*.jpg)\0*.jpg\0PNG (*.png)\0*.png\0PNG 16 Bits (*.png16)\0*.png16\0Low Precision PNG (*.lpng)\0*.lpng\0TGA (*.tga)\0*.tga\0" );
 
-MaterialEditor::MaterialEditor( BaseAllocator* allocator, GraphicsAssetCache* gfxCache )
+MaterialEditor::MaterialEditor( BaseAllocator* allocator, GraphicsAssetCache* gfxCache, VirtualFileSystem* vfs )
     : isOpened( false )
     , editedMaterial()
     , activeMaterial( nullptr )
     , memoryAllocator( allocator )
     , graphicsAssetCache( gfxCache )
+    , virtualFileSystem( vfs )
+    , materialGenerator( dk::core::allocate<MaterialGenerator>( allocator, allocator, vfs ) )
 {
 
 }
@@ -48,6 +51,10 @@ isMaterialDirty = true;\
 
     if ( isOpened && ImGui::Begin( "Material Editor", &isOpened ) ) {
         bool isMaterialDirty = false;
+
+        if ( ImGui::Button( "Force Recompile" ) ) {
+            materialGenerator->createMaterial( editedMaterial );
+        }
 
         // Material Description.
         ImGui::InputText( "Name", editedMaterial.Name, DUSK_MAX_PATH );

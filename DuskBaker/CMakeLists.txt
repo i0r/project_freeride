@@ -1,4 +1,4 @@
-file(GLOB_RECURSE SRC "Baker.cpp" "EntryPointWin64.cpp" "EntryPointUnix.cpp" "CodeGenerator.cpp" "CodeGenerator.h" )
+file(GLOB_RECURSE SRC "Baker.cpp" "EntryPointWin64.cpp" "EntryPointUnix.cpp" )
 file(GLOB_RECURSE INC "Baker.h" )
 
 if ( ${DUSK_USE_UNITY_BUILD} )

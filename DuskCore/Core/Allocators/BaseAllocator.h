@@ -37,7 +37,7 @@ public:
     virtual void        free( void* pointer ) = 0;
 
 protected:
-    void*               baseAddress;
+    void*          baseAddress;
     size_t         memorySize;
 
     size_t         memoryUsage;

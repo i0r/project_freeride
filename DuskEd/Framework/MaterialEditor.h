@@ -12,11 +12,13 @@
 class BaseAllocator;
 class GraphicsAssetCache;
 class Material;
+class MaterialGenerator;
+class VirtualFileSystem;
 
 class MaterialEditor
 {
 public:
-                        MaterialEditor( BaseAllocator* allocator, GraphicsAssetCache* gfxCache );
+                        MaterialEditor( BaseAllocator* allocator, GraphicsAssetCache* gfxCache, VirtualFileSystem* vfs );
                         ~MaterialEditor();
 
 #if DUSK_USE_IMGUI
@@ -45,6 +47,12 @@ private:
 
     // Pointer to the active instance of the Graphics Assets cache.
     GraphicsAssetCache* graphicsAssetCache;
+
+    // Pointer to the active instance of the Virtual Filesystem.
+    VirtualFileSystem* virtualFileSystem;
+
+    // Instance of the material generator.
+    MaterialGenerator*  materialGenerator;
 
 private:
     // The maximum length of a code piece attribute (in characters count).

@@ -49,5 +49,5 @@ private:
 private:
     // Return true if cache access is safe (no thread is trying to read/write from the cache); false otherwise.
     // Can be used for spinlock call.
-    bool canAccessCache();
+    bool                    canAccessCache();
 };

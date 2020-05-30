@@ -6,13 +6,14 @@
 
 class Material;
 class VirtualFileSystem;
+class RuntimeShaderCompiler;
 
 #include "EditableMaterial.h"
 
 class MaterialGenerator 
 {
 public:
-                        MaterialGenerator( VirtualFileSystem* virtualFileSystem );
+                        MaterialGenerator( BaseAllocator* allocator, VirtualFileSystem* virtualFileSystem );
                         ~MaterialGenerator();
 
     // Create an editable material instance from a previously generated material instance.
@@ -40,6 +41,12 @@ private:
     // Pointer to the active VirtualFileSystem instance.
     VirtualFileSystem*  virtualFs;
 
+    // Allocator owning this instance.
+    BaseAllocator*      memoryAllocator;
+
+    // A local thread-safe instance of the shader compiler (for runtime shader recompiling).
+    RuntimeShaderCompiler* shaderCompiler;
+    
 private:
     // Clear/Reset internal states for Material generation (string builders; indexes; etc.).
     void                resetMaterialTemporaryOutput();

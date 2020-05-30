@@ -8,10 +8,17 @@
 #include <FileSystem/VirtualFileSystem.h>
 #include <Io/TextStreamHelpers.h>
 
-MaterialGenerator::MaterialGenerator( VirtualFileSystem* virtualFileSystem )
+#include <Parser.h>
+#include <RenderPassGenerator.h>
+
+#include <Graphics/RuntimeShaderCompiler.h>
+
+MaterialGenerator::MaterialGenerator( BaseAllocator* allocator, VirtualFileSystem* virtualFileSystem )
     : attributeGetterCount( 0 )
     , texResourceCount( 0 )
     , virtualFs( virtualFileSystem )
+    , memoryAllocator( allocator )
+    , shaderCompiler( dk::core::allocate<RuntimeShaderCompiler>( allocator, allocator, virtualFileSystem ) )
 {
 
 }
@@ -57,7 +64,7 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
     }
 
     // "Inject" this material informations in the render pass template.
-    FileSystemObject* matTemplate = virtualFs->openFile( DUSK_STRING( "EditorAssets/RenderPasses/PrimitiveLighting.drpl" ), eFileOpenMode::FILE_OPEN_MODE_READ );
+    FileSystemObject* matTemplate = virtualFs->openFile( DUSK_STRING( "EditorAssets/RenderPasses/PrimitiveLighting.tdrpl" ), eFileOpenMode::FILE_OPEN_MODE_READ );
     if ( matTemplate == nullptr ) {
         DUSK_LOG_ERROR( "Material renderpass template does not exist!\n" );
         return nullptr;
@@ -71,6 +78,38 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
     dk::core::ReplaceWord( assetStr, "DUSK_LAYERS_GET", materialLayersGetter );
 
     // Generate permutations for this material.
+    Parser parser( assetStr.c_str() );
+    parser.generateAST();
+
+    const u32 typeCount = parser.getTypeCount();
+    for ( u32 t = 0; t < typeCount; t++ ) {
+        const TypeAST& typeAST = parser.getType( t );
+        switch ( typeAST.Type ) {
+        case TypeAST::LIBRARY:
+        {
+            RenderLibraryGenerator renderLibGenerator;
+            renderLibGenerator.generateFromAST( typeAST, false, false );
+
+            const std::vector<RenderLibraryGenerator::GeneratedShader>& libraryShaders = renderLibGenerator.getGeneratedShaders();
+            for ( const RenderLibraryGenerator::GeneratedShader& shader : libraryShaders ) {
+                RuntimeShaderCompiler::GeneratedBytecode compiledShader = shaderCompiler->compileShaderModel5( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size() );
+
+                if ( compiledShader.Length == 0ull ) {
+                    DUSK_LOG_ERROR( "'%hs' : compilation failed!\n", shader.ShaderName.c_str() );
+                    continue;
+                }
+
+                dkString_t shaderBinPath = dkString_t( DUSK_STRING( "GameData/shaders/sm5/" ) ) + StringToWideString( shader.ShaderName );
+                FileSystemObject* compiledShaderBin = virtualFs->openFile( shaderBinPath, eFileOpenMode::FILE_OPEN_MODE_WRITE );
+                if ( compiledShaderBin->isGood() ) {
+                    compiledShaderBin->write( compiledShader.Bytecode, compiledShader.Length );
+                
+                    DUSK_LOG_INFO( "'%hs' : shader has been saved successfully!\n", shader.ShaderName.c_str() );
+                }
+            }
+        } break;
+        }
+    }
 
     // Bind the generated permutations as the active material.
 

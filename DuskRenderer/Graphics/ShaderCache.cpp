@@ -51,11 +51,11 @@ template<eShaderStage stageType>
 Shader* ShaderCache::getOrUploadStage( const dkChar_t* shaderHashcode, const bool forceReload )
 {
 #if DUSK_VULKAN
-    static constexpr const dkChar_t* SHADER_MODEL_PATH = DUSK_STRING( "GameData/shaders/spirv/" );
+    constexpr const dkChar_t* SHADER_MODEL_PATH = DUSK_STRING( "GameData/shaders/spirv/" );
 #elif DUSK_D3D11
-    static constexpr const dkChar_t* SHADER_MODEL_PATH = DUSK_STRING( "GameData/shaders/sm5/" );
+    constexpr const dkChar_t* SHADER_MODEL_PATH = DUSK_STRING( "GameData/shaders/sm5/" );
 #elif DUSK_D3D12
-    static constexpr const dkChar_t* SHADER_MODEL_PATH = DUSK_STRING( "GameData/shaders/sm6/" );
+    constexpr const dkChar_t* SHADER_MODEL_PATH = DUSK_STRING( "GameData/shaders/sm6/" );
 #endif
 
     dkString_t filePath = SHADER_MODEL_PATH;

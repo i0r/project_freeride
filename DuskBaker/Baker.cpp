@@ -15,12 +15,11 @@
 
 #include <Lexer.h>
 #include <Parser.h>
+#include <RenderPassGenerator.h>
 
 #include "Io/TextStreamHelpers.h"
 
 #include "FileSystem/FileSystemNative.h"
-
-#include "CodeGenerator.h"
 
 #include <d3dcompiler.h>
 #include <fstream>
@@ -161,16 +160,15 @@ void dk::baker::Start( const char* cmdLineArgs )
         for ( u32 t = 0; t < typeCount; t++ ) {
             const TypeAST& typeAST = parser.getType( t );
             switch ( typeAST.Type ) {
-            case TypeAST::ENUM:
-                dk::baker::WriteEnum( typeAST );
-                break;
             case TypeAST::LIBRARY:
             {
-                std::string libraryHeader;
-                std::string libraryName;
-                std::string libraryReflection;
-                std::vector<GeneratedShader> libraryShaders;
-                dk::baker::WriteRenderLibrary( typeAST, libraryName, libraryHeader, libraryReflection, libraryShaders );
+                RenderLibraryGenerator renderLibGenerator;
+                renderLibGenerator.generateFromAST( typeAST, true, true );
+
+                const std::string& libraryHeader = renderLibGenerator.getGeneratedMetadata();
+                const std::string& libraryName = renderLibGenerator.getGeneratedLibraryName();
+                const std::string& libraryReflection = renderLibGenerator.getGeneratedReflection();
+                const std::vector<RenderLibraryGenerator::GeneratedShader>& libraryShaders = renderLibGenerator.getGeneratedShaders();
 
                 std::ofstream headerStream( generatedHeadersPath + "/" + libraryName + ".generated.h" );
                 headerStream << libraryHeader;
@@ -183,7 +181,7 @@ void dk::baker::Start( const char* cmdLineArgs )
                 }
 
                 BakerInclude include;
-                for ( GeneratedShader& shader : libraryShaders ) {
+                for ( const RenderLibraryGenerator::GeneratedShader& shader : libraryShaders ) {
                     // TODO Compile for each Graphics API (only works for shader model 5.0 atm)
                     // Use DXC for Shader model 6.0; use spirv-cross for SPIRV bytecode
                     ID3DBlob* shaderBlob = nullptr;

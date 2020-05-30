@@ -328,7 +328,7 @@ void InitializeIOSubsystems()
     DUSK_LOG_INFO( "Mounting devbuild filesystems...\n" );
 
     // TODO Make this more flexible? (do not assume the current working directory).
-    g_EdAssetsFileSystem = dk::core::allocate<FileSystemNative>( g_GlobalAllocator, DUSK_STRING( "./../Assets/" ) );
+    g_EdAssetsFileSystem = dk::core::allocate<FileSystemNative>( g_GlobalAllocator, DUSK_STRING( "./../../Assets/" ) );
     g_VirtualFileSystem->mount( g_EdAssetsFileSystem, DUSK_STRING( "EditorAssets" ), 0 );
 #endif
 
@@ -495,7 +495,7 @@ void Initialize( const char* cmdLineArgs )
 
     RegisterInputContexts();
 
-    g_MaterialEditor = dk::core::allocate<MaterialEditor>( g_GlobalAllocator, g_GlobalAllocator, g_GraphicsAssetCache );
+    g_MaterialEditor = dk::core::allocate<MaterialEditor>( g_GlobalAllocator, g_GlobalAllocator, g_GraphicsAssetCache, g_VirtualFileSystem );
 
     DUSK_LOG_INFO( "Initialization done (took %.5f seconds)\n", profileTimer.getElapsedTimeAsSeconds() );
     DUSK_LOG_RAW( "\n================================\n\n" );
