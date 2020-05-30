@@ -7,7 +7,7 @@ Tools/ShaderCache/__pycache__/*
 DuskCore/UnityBuild/*
 DuskRenderer/UnityBuild/*
 DuskEd/UnityBuild/*
-DuskEd/ThirdParty/*
+DuskEd/ThirdParty/FBX_SDK/*
 DuskBaker/UnityBuild/*
 *UnityBuild*
 *.dummy
