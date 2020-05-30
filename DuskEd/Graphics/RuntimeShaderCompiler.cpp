@@ -9,6 +9,9 @@
 
 #include <d3dcompiler.h>
 
+#include <Core/StringHelpers.h>
+#include <Io/TextStreamHelpers.h>
+
 class RuntimeInclude : public ID3DInclude {
 public:
     RuntimeInclude( VirtualFileSystem* vfs )

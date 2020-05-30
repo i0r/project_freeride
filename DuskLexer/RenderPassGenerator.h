@@ -11,6 +11,7 @@ struct TypeAST;
 
 // We need this retarded include to get eShaderStage definition...
 #include <Rendering/RenderDevice.h>
+#include "Lexer.h"
 
 class RenderLibraryGenerator 
 {

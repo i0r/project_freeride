@@ -7,6 +7,8 @@
 class BaseAllocator;
 class VirtualFileSystem;
 class RuntimeInclude;
+ 
+#include <Rendering/RenderDevice.h>
 
 class RuntimeShaderCompiler {
 public:
