@@ -69,12 +69,16 @@ struct MaterialAttribute
         BaseAllocator*  Allocator;
     } AsCodePiece;
 
+    // Mutable parameter offset (in bytes).
+    i32                 CBufferOffset;
+
     MaterialAttribute()
         : Type( InputType::Unused )
         , AsFloat( 0.0f )
         , AsFloat3( 0.0f, 0.0f, 0.0f )
         , AsTexture{ nullptr, dkString_t() }
         , AsCodePiece{ nullptr, nullptr }
+        , CBufferOffset( 0 )
     {
 
     }
@@ -125,8 +129,29 @@ struct EditableMaterialLayer
         , SpecularContribution( 1.0f )
         , NormalContribution( 1.0f )
     {
+        BaseColor.Type = MaterialAttribute::Constant_3D;
+        BaseColor.AsFloat3 = dkVec3f( 0.50f, 0.50f, 0.50f );
+
+        Reflectance.Type = MaterialAttribute::Constant_1D;
+        Reflectance.AsFloat = 0.50f;
+
+        Roughness.Type = MaterialAttribute::Constant_1D;
+        Roughness.AsFloat = 0.50f;
+
+        Metalness.Type = MaterialAttribute::Constant_1D;
+        Metalness.AsFloat = 0.0f;
+
+        Emissivity.Type = MaterialAttribute::Constant_1D;
+        Emissivity.AsFloat = 0.0f;
+
+        AmbientOcclusion.Type = MaterialAttribute::Constant_1D;
+        AmbientOcclusion.AsFloat = 1.0f;
+
         BlendMask.Type = MaterialAttribute::Constant_1D;
         BlendMask.AsFloat = 0.50f;
+
+        AlphaMask.Type = MaterialAttribute::Constant_1D;
+        AlphaMask.AsFloat = 1.0f;
     }
 };
 

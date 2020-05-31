@@ -16,7 +16,7 @@ class GraphicsAssetCache;
 
 #include "Shared.h"
 #include "FrameGraph.h"
-#include "Light.h"
+#include "RenderPasses/Headers/Light.h"
 
 #include <Maths/Vector.h>
 

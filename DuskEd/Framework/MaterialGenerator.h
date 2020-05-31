@@ -4,14 +4,62 @@
 */
 #pragma once
 
-class Material;
 class VirtualFileSystem;
 class RuntimeShaderCompiler;
 
+#include <Graphics/Material.h>
 #include "EditableMaterial.h"
 
 class MaterialGenerator 
 {
+public:
+    struct GeneratedMaterial {
+        // Describe the binding for a mutable parameter.
+        struct MutableParameter {
+            // The name of the parameter (written as is in the serialized asset).
+            std::string ParameterName;
+
+            // Its default value set at creation time.
+            dkVec3f     DefaultValueAsFloat3;
+        };
+
+        // Describe the binding for a Rendering scenario.
+        struct ScenarioBinding {
+            // Hashcode of the vertex shader name.
+            std::string VertexShaderName;
+
+            // Hashcode of the pixel shader name.
+            std::string PixelShaderName;
+        
+            // Array of mutable parameters required for the given rendering scenario.
+            std::vector<MutableParameter> MutableParameters;
+        };
+
+        // Name of this material.
+        std::string     MaterialName;
+
+        // Material version.
+        u32             Version;
+
+        // Light (Forward+) rendering scenario binding.
+        ScenarioBinding DefaultBinding;
+
+        // Depth only (shadow, depth prepass, etc.) rendering scenario binding.
+        ScenarioBinding DepthOnlyBinding;
+
+        // True if this material require alpha testing.
+        u8 EnableAlphaTest : 1;
+
+        // True if this material require alpha to coverage.
+        u8 EnableAlphaToCoverage : 1;
+
+        // True if this material is double face (will disable backface culling).
+        u8 IsDoubleFace : 1;
+
+        // True if this material use alpha blending.
+        u8 EnableAlphaBlend : 1;
+    };
+
 public:
                         MaterialGenerator( BaseAllocator* allocator, VirtualFileSystem* virtualFileSystem );
                         ~MaterialGenerator();
@@ -20,7 +68,7 @@ public:
     EditableMaterial    createEditableMaterial( const Material* material );
 
     // Create a runtime material instance from an editable material instance. Return null if the creation failed.
-    Material*           createMaterial( const EditableMaterial& editableMaterial );
+    GeneratedMaterial   createMaterial( const EditableMaterial& editableMaterial );
 
 private:
     // The string building the HLSL code to retrieve a material layer attributes.

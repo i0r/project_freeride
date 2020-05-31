@@ -92,6 +92,7 @@ static MaterialEditor*      g_MaterialEditor;
 
 #if DUSK_DEVBUILD
 static FileSystemNative*    g_EdAssetsFileSystem;
+static FileSystemNative*    g_RendererFileSystem;
 #if DUSK_USE_RENDERDOC
 static RenderDocHelper*     g_RenderDocHelper;
 #endif
@@ -329,7 +330,10 @@ void InitializeIOSubsystems()
 
     // TODO Make this more flexible? (do not assume the current working directory).
     g_EdAssetsFileSystem = dk::core::allocate<FileSystemNative>( g_GlobalAllocator, DUSK_STRING( "./../../Assets/" ) );
+    g_RendererFileSystem = dk::core::allocate<FileSystemNative>( g_GlobalAllocator, DUSK_STRING( "./../../DuskRenderer/Graphics/" ) );
+
     g_VirtualFileSystem->mount( g_EdAssetsFileSystem, DUSK_STRING( "EditorAssets" ), 0 );
+    g_VirtualFileSystem->mount( g_RendererFileSystem, DUSK_STRING( "EditorAssets" ), 1 );
 #endif
 
     dkString_t SaveFolder = saveFolder->resolveFilename( DUSK_STRING( "SaveData/" ), configurationFolderName );
@@ -786,6 +790,7 @@ void Shutdown()
 #endif
 
     dk::core::free( g_GlobalAllocator, g_EdAssetsFileSystem );
+    dk::core::free( g_GlobalAllocator, g_RendererFileSystem );
 #endif
 
     dk::core::free( g_GlobalAllocator, g_WorldRenderer );

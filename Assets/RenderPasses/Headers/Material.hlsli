@@ -24,14 +24,7 @@ struct Material
     // Material emissivity factor.
     float   Emissivity;
     
-    // Unused if the surface is fully opaque.
-    float   Opacity;
-    
-    // Clear coat strength.
-    float   ClearCoat;
-    
-    // Clear coat glosiness.
-    float   ClearCoatGlossiness;
+    float   BlendMask;
 };
 
 float3 BRDF_Default( const float3 L, const float3 V, const float3 N, const Material material )

@@ -35,7 +35,7 @@ EditableMaterial MaterialGenerator::createEditableMaterial( const Material* mate
     return editableMat;
 }
 
-Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMaterial )
+MaterialGenerator::GeneratedMaterial MaterialGenerator::createMaterial( const EditableMaterial& editableMaterial )
 {
     resetMaterialTemporaryOutput();
 
@@ -67,17 +67,20 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
     FileSystemObject* matTemplate = virtualFs->openFile( DUSK_STRING( "EditorAssets/RenderPasses/PrimitiveLighting.tdrpl" ), eFileOpenMode::FILE_OPEN_MODE_READ );
     if ( matTemplate == nullptr ) {
         DUSK_LOG_ERROR( "Material renderpass template does not exist!\n" );
-        return nullptr;
+        return GeneratedMaterial();
     }
 
     std::string assetStr;
     dk::io::LoadTextFile( matTemplate, assetStr );
 
-    dk::core::ReplaceWord( assetStr, "DUSK_LAYERS_RESOURCES", materialResourcesCode );
-    dk::core::ReplaceWord( assetStr, "DUSK_LAYERS_FUNCTIONS", materialSharedCode );
-    dk::core::ReplaceWord( assetStr, "DUSK_LAYERS_GET", materialLayersGetter );
+    dk::core::ReplaceWord( assetStr, "DUSK_LAYERS_RESOURCES;", materialResourcesCode );
+    dk::core::ReplaceWord( assetStr, "DUSK_LAYERS_FUNCTIONS;", materialSharedCode );
+    dk::core::ReplaceWord( assetStr, "DUSK_LAYERS_GET;", materialLayersGetter );
+    dk::core::ReplaceWord( assetStr, "pass ", std::string( "pass " ) + editableMaterial.Name );
 
     // Generate permutations for this material.
+    RenderLibraryGenerator renderLibGenerator;
+
     Parser parser( assetStr.c_str() );
     parser.generateAST();
 
@@ -87,23 +90,24 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
         switch ( typeAST.Type ) {
         case TypeAST::LIBRARY:
         {
-            RenderLibraryGenerator renderLibGenerator;
             renderLibGenerator.generateFromAST( typeAST, false, false );
 
             const std::vector<RenderLibraryGenerator::GeneratedShader>& libraryShaders = renderLibGenerator.getGeneratedShaders();
             for ( const RenderLibraryGenerator::GeneratedShader& shader : libraryShaders ) {
                 RuntimeShaderCompiler::GeneratedBytecode compiledShader = shaderCompiler->compileShaderModel5( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size() );
 
-                if ( compiledShader.Length == 0ull ) {
+                if ( compiledShader.Length == 0ull || compiledShader.Bytecode == nullptr ) {
                     DUSK_LOG_ERROR( "'%hs' : compilation failed!\n", shader.ShaderName.c_str() );
                     continue;
                 }
 
                 dkString_t shaderBinPath = dkString_t( DUSK_STRING( "GameData/shaders/sm5/" ) ) + StringToWideString( shader.ShaderName );
-                FileSystemObject* compiledShaderBin = virtualFs->openFile( shaderBinPath, eFileOpenMode::FILE_OPEN_MODE_WRITE );
+                FileSystemObject* compiledShaderBin = virtualFs->openFile( shaderBinPath, eFileOpenMode::FILE_OPEN_MODE_WRITE | eFileOpenMode::FILE_OPEN_MODE_BINARY );
                 if ( compiledShaderBin->isGood() ) {
                     compiledShaderBin->write( compiledShader.Bytecode, compiledShader.Length );
                 
+                    compiledShaderBin->close();
+
                     DUSK_LOG_INFO( "'%hs' : shader has been saved successfully!\n", shader.ShaderName.c_str() );
                 }
             }
@@ -111,9 +115,18 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
         }
     }
 
-    // Bind the generated permutations as the active material.
+    // Fill GeneratedMaterial struct.
+    GeneratedMaterial generatedMaterial;
 
-    return nullptr;
+    const std::vector<RenderLibraryGenerator::RenderPassInfos>& renderPasses = renderLibGenerator.getGeneratedRenderPasses();
+    for ( const RenderLibraryGenerator::RenderPassInfos& renderPass : renderPasses ) {
+        if ( renderPass.RenderPassName == "PrimitiveLighting_Generic" ) {
+            generatedMaterial.DefaultBinding.VertexShaderName = renderPass.StageShaderNames[0];
+            generatedMaterial.DefaultBinding.PixelShaderName = renderPass.StageShaderNames[3];
+        }
+    }
+
+    return generatedMaterial;
 }
 
 void MaterialGenerator::resetMaterialTemporaryOutput()
@@ -201,7 +214,7 @@ void MaterialGenerator::appendLayerRead( const char* layerName, const EditableMa
 {
     materialLayersGetter.append( "Material " );
     materialLayersGetter.append( layerName );
-    materialLayersGetter.append( ";/n" );
+    materialLayersGetter.append( ";\n" );
 
     materialLayersGetter.append( layerName );
     materialLayersGetter.append( ".BaseColor=" );

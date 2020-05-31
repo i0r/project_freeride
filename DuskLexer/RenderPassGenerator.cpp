@@ -629,6 +629,9 @@ void RenderLibraryGenerator::processRenderPassNode( const Token::StreamRef& astN
 
     // Name of this renderpass (without its library name).
     const std::string scopedPassName( astName.StreamPointer, astName.Length );
+    passInfos.RenderPassName = scopedPassName;
+
+    generatedRenderPasses.push_back( passInfos );
 
     // ShaderBinding content for this RenderPass.
     std::string shaderBindingContent;
@@ -1054,6 +1057,7 @@ void RenderLibraryGenerator::resetGeneratedContent()
     generatedMetadata.clear();
     generatedReflection.clear();
     generatedShaders.clear();
+    generatedRenderPasses.clear();
 
     propertiesNode = nullptr;
     resourceListNode = nullptr;

@@ -35,6 +35,7 @@ public:
     };
 
     struct RenderPassInfos {
+        std::string                 RenderPassName;
         std::string                 StageShaderNames[eShaderStage::SHADER_STAGE_COUNT]; // Vertex, TEval, TComp, Pixel, Compute
         PipelineStateDesc::Type     PipelineStateType; // Compute or Graphics PSO
 
@@ -46,7 +47,8 @@ public:
         std::string                 DepthStencilBuffer;
 
         RenderPassInfos()
-            : PipelineStateType( PipelineStateDesc::GRAPHICS )
+            : RenderPassName( "" )
+            , PipelineStateType( PipelineStateDesc::GRAPHICS )
             , DispatchX( 0 )
             , DispatchY( 0 )
             , DispatchZ( 0 )
@@ -60,6 +62,7 @@ public:
     DUSK_INLINE const std::string& getGeneratedMetadata() const { return generatedMetadata; }
     DUSK_INLINE const std::string& getGeneratedReflection() const { return generatedReflection; }
     DUSK_INLINE const std::vector<GeneratedShader>& getGeneratedShaders() const { return generatedShaders; }
+    DUSK_INLINE const std::vector<RenderPassInfos>& getGeneratedRenderPasses() const { return generatedRenderPasses; }
 
 public:
                     RenderLibraryGenerator();
@@ -84,6 +87,9 @@ private:
     // so we can't know in advance how many shaders sources we'll have to store.
     std::vector<GeneratedShader>    generatedShaders;
     
+    // Array holding the generated renderpasses from a RenderPass Library.
+    std::vector<RenderPassInfos>    generatedRenderPasses;
+
     // Pointer to the AST node holding the library properties. Careful, this pointer is only valid when
     // a generation is in progress.
     TypeAST*                        propertiesNode;

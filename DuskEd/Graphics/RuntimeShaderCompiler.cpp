@@ -24,7 +24,7 @@ public:
 private:
     HRESULT Open( D3D_INCLUDE_TYPE IncludeType, LPCSTR pFileName, LPCVOID pParentData, LPCVOID* ppData, UINT* pBytes ) override
     {
-        dkString_t filePath = dkString_t( DUSK_STRING( "Assets/RenderPasses/Headers/" ) ) + StringToWideString( pFileName );
+        dkString_t filePath = dkString_t( DUSK_STRING( "EditorAssets/RenderPasses/Headers/" ) ) + StringToWideString( pFileName );
         FileSystemObject* file = virtualFileSystem->openFile( filePath.c_str(), eFileOpenMode::FILE_OPEN_MODE_READ );
 
         if ( file == nullptr || !file->isGood() ) {

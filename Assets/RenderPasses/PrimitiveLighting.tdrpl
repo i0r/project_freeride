@@ -31,14 +31,14 @@ lib PrimitiveLighting {
     shared {
         #include <Material.hlsli>
         
-        float4x4 GetInstanceModelMatrix( const uint instanceIdx )
+        float4x4 GetInstanceModelMatrix( Buffer instanceVectorBuffer, const uint instanceIdx )
         {
             uint modelMatrixVectorOffset = StartVector + instanceIdx * VectorPerInstance;
             
-            float4 r0 = InstanceVectorBuffer.Load( modelMatrixVectorOffset + 0 );
-            float4 r1 = InstanceVectorBuffer.Load( modelMatrixVectorOffset + 1 );
-            float4 r2 = InstanceVectorBuffer.Load( modelMatrixVectorOffset + 2 );
-            float4 r3 = InstanceVectorBuffer.Load( modelMatrixVectorOffset + 3 );
+            float4 r0 = instanceVectorBuffer.Load( modelMatrixVectorOffset + 0 );
+            float4 r1 = instanceVectorBuffer.Load( modelMatrixVectorOffset + 1 );
+            float4 r2 = instanceVectorBuffer.Load( modelMatrixVectorOffset + 2 );
+            float4 r3 = instanceVectorBuffer.Load( modelMatrixVectorOffset + 3 );
             
             return float4x4( r0, r1, r2, r3 );
         }
@@ -72,7 +72,7 @@ lib PrimitiveLighting {
     
     shader PrimitiveVS {
         #ifdef $UseInstancing
-            float4x4 ModelMatrix = GetInstanceModelMatrix( $SV_InstanceID );
+            float4x4 ModelMatrix = GetInstanceModelMatrix( InstanceVectorBuffer, $SV_InstanceID );
         #else
             float4x4 ModelMatrix = PerModelMatrix;
         #endif

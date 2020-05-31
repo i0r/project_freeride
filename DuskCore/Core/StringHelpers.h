@@ -88,7 +88,7 @@ namespace dk
         {
             std::size_t wordIndex = 0;
 
-            while ( ( wordIndex = string.find( wordToReplace ) ) != dkString_t::npos ) {
+            while ( ( wordIndex = string.find( wordToReplace, wordIndex + 1 ) ) != dkString_t::npos ) {
                 string.replace( wordIndex, wordToReplace.size(), newWord );
             }
         }

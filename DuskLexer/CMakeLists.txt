@@ -1,6 +1,6 @@
-file(GLOB_RECURSE SRC 
+file(GLOB SRC 
     "${DUSK_BASE_FOLDER}DuskLexer/*.cpp" )
-file(GLOB_RECURSE INC 
+file(GLOB INC 
     "${DUSK_BASE_FOLDER}DuskLexer/*.h")
 
 set( SOURCES ${SRC} ${INC} )
