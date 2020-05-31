@@ -334,6 +334,7 @@ void InitializeIOSubsystems()
 
     g_VirtualFileSystem->mount( g_EdAssetsFileSystem, DUSK_STRING( "EditorAssets" ), 0 );
     g_VirtualFileSystem->mount( g_RendererFileSystem, DUSK_STRING( "EditorAssets" ), 1 );
+    g_VirtualFileSystem->mount( g_EdAssetsFileSystem, DUSK_STRING( "GameData" ), 0 );
 #endif
 
     dkString_t SaveFolder = saveFolder->resolveFilename( DUSK_STRING( "SaveData/" ), configurationFolderName );
@@ -531,7 +532,7 @@ void MainLoop()
     // TEST TEST TEST
     FbxParser fbxParser;
     fbxParser.create( g_GlobalAllocator );
-    fbxParser.load( "./data/geometry/box.fbx" );
+    fbxParser.load( "../../Assets/geometry/box.fbx" );
 
     Model* testModel = g_RenderWorld->addAndCommitParsedDynamicModel( g_RenderDevice, *fbxParser.getParsedModel() );
     dkMat4x4f* testModelInstance = g_RenderWorld->allocateModelInstance( testModel );

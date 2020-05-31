@@ -117,6 +117,12 @@ MaterialGenerator::GeneratedMaterial MaterialGenerator::createMaterial( const Ed
 
     // Fill GeneratedMaterial struct.
     GeneratedMaterial generatedMaterial;
+    generatedMaterial.MaterialName = editableMaterial.Name;
+    generatedMaterial.Version = 1;
+    generatedMaterial.EnableAlphaBlend = editableMaterial.IsAlphaBlended;
+    generatedMaterial.EnableAlphaTest = editableMaterial.IsAlphaTested;
+    generatedMaterial.EnableAlphaToCoverage = editableMaterial.UseAlphaToCoverage;
+    generatedMaterial.IsDoubleFace = editableMaterial.IsDoubleFace;
 
     const std::vector<RenderLibraryGenerator::RenderPassInfos>& renderPasses = renderLibGenerator.getGeneratedRenderPasses();
     for ( const RenderLibraryGenerator::RenderPassInfos& renderPass : renderPasses ) {
