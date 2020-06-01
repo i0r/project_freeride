@@ -31,6 +31,9 @@ public:
 
     // Set the material to edit.
     void                setActiveMaterial( Material* material );
+    
+    // Return a pointer to the material instance being edited (null if no material is being edited).
+    Material*           getActiveMaterial() const;
 
 private:
     // True if the editor window is opened in the editor workspace.

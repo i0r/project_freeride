@@ -182,7 +182,7 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
     material->deserialize( TestmaterialDescriptor );
     materialDescriptor->close();
 
-    return nullptr;
+    return material;
 }
 
 void MaterialGenerator::serializeScenario( FileSystemObject* stream, const char* scenarioName, const ScenarioBinding& scenarioBinding )

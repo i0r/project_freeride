@@ -53,7 +53,7 @@ isMaterialDirty = true;\
         bool isMaterialDirty = false;
 
         if ( ImGui::Button( "Force Recompile" ) ) {
-            materialGenerator->createMaterial( editedMaterial );
+            activeMaterial = materialGenerator->createMaterial( editedMaterial );
         }
 
         // Material Description.
@@ -181,6 +181,11 @@ void MaterialEditor::openEditorWindow()
 void MaterialEditor::setActiveMaterial( Material* material )
 {
     activeMaterial = material;
+}
+
+Material* MaterialEditor::getActiveMaterial() const
+{
+    return activeMaterial;
 }
 
 template<bool SaturateInput>
