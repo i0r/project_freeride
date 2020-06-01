@@ -11,7 +11,6 @@
 #include <Core/StringHelpers.h>
 #include <string.h>
 
-
 Parser::Parser( const char* text )
     : lexer( text )
     , currentToken()
@@ -172,6 +171,92 @@ void Parser::parseShaderBlock(  const TypeAST::eTypes blockType, TypeAST& parent
     parentType.Types.push_back( &_type );
 }
 
+void Parser::parseMaterial()
+{
+    Token token;
+    if ( !lexer.expectToken( Token::STRING, token ) ) {
+        return;
+    }
+
+    Token::StreamRef name = token.streamReference;
+
+    if ( !lexer.expectToken( Token::OPEN_BRACE, token ) ) {
+        return;
+    }
+
+    TypeAST& type = types[typesCount++];
+    type.Name = name;
+    type.Type = TypeAST::MATERIAL;
+    type.Exportable = true;
+
+    while ( !lexer.equalToken( Token::CLOSE_BRACE, token ) ) {
+        if ( token.type == Token::IDENTIFIER ) {
+            if ( dk::core::ExpectKeyword( token.streamReference.StreamPointer, 8, "scenario" ) ) {
+                // RenderScenario format: scenario %s {}
+                if ( !lexer.expectToken( Token::STRING, token ) ) {
+                    return;
+                }
+
+                Token::StreamRef scenarioName = token.streamReference;
+
+                if ( !lexer.expectToken( Token::OPEN_BRACE, token ) ) {
+                    return;
+                }
+
+                TypeAST& scenarioType = types[typesCount++];
+                scenarioType.Name = scenarioName;
+                scenarioType.Type = TypeAST::RENDER_SCENARIO;
+                scenarioType.Exportable = true;
+
+                type.Names.push_back( scenarioName );
+                type.Types.push_back( &scenarioType );
+
+                while ( !lexer.equalToken( Token::CLOSE_BRACE, token ) ) {
+                    // ShaderPermutation format: stageToken = %s;
+                    if ( token.type == Token::IDENTIFIER ) {
+                        if ( dk::core::ExpectKeyword( token.streamReference.StreamPointer, 6, "vertex" ) 
+                          || dk::core::ExpectKeyword( token.streamReference.StreamPointer, 5, "pixel" ) ) {
+                            parseShaderPermutation( token, scenarioType );
+                        }
+                    }
+                }
+            } else {
+                // Parse flags/typeless variables.
+                parseVariable( token.streamReference, type, true );
+            }
+        }
+    }
+}
+
+void Parser::parseShaderPermutation( Token& token, TypeAST& scenarioType )
+{
+    Token::StreamRef stageName = token.streamReference;
+
+    if ( !lexer.expectToken( Token::EQUALS, token ) ) {
+        return;
+    }
+
+    if ( !lexer.expectToken( Token::STRING, token ) ) {
+        return;
+    }
+
+    Token::StreamRef shaderHashcode = token.streamReference;
+
+    TypeAST& shaderType = types[typesCount++];
+    shaderType.Name = stageName;
+    shaderType.Type = TypeAST::SHADER_PERMUTATION;
+    shaderType.Exportable = true;
+    shaderType.Values.push_back( shaderHashcode );
+
+    scenarioType.Names.push_back( stageName );
+    scenarioType.Types.push_back( &shaderType );
+    scenarioType.Values.push_back( shaderHashcode );
+
+    while ( token.type != Token::SEMICOLON ) {
+        lexer.nextToken( token );
+    }
+}
+
 void Parser::parseLibrary()
 {
     Token token;
@@ -264,6 +349,15 @@ void Parser::parseIdentifier( const Token& token )
 
                 break;
             }
+
+            case 'm': {
+                if ( dk::core::ExpectKeyword( token.streamReference.StreamPointer, 8, "material" ) ) {
+                    parseMaterial();
+                    return;
+                }
+
+                break;
+            }
         }
     }
 }
@@ -318,16 +412,23 @@ void Parser::parseEnum()
     }
 }
 
-void Parser::parseVariable( const Token::StreamRef& typeName, TypeAST& type )
+void Parser::parseVariable( const Token::StreamRef& typeName, TypeAST& type, const bool isTypeless )
 {
-    TypeAST* varType = getType( typeName );
-
     Token token;
-    if ( !lexer.expectToken( Token::IDENTIFIER, token ) ) {
-        return;
-    }
 
-    Token::StreamRef name = token.streamReference;
+    TypeAST* varType = nullptr;
+    Token::StreamRef name;
+    if ( !isTypeless ) {
+        // Check if the variable is strongly typed (must be if isTypeless flag is not set).
+        if ( !lexer.expectToken( Token::IDENTIFIER, token ) ) {
+            return;
+        }
+
+        name = token.streamReference;
+        varType = getType( typeName );
+    } else {
+        name = typeName;
+    }
 
     Token::StreamRef value;
     value.StreamPointer = nullptr;
@@ -345,7 +446,7 @@ void Parser::parseVariable( const Token::StreamRef& typeName, TypeAST& type )
         lexer.nextToken( token );
     }
 
-    value.Length = static_cast<u32>(  token.streamReference.StreamPointer - value.StreamPointer );
+    value.Length = static_cast<u32>( token.streamReference.StreamPointer - value.StreamPointer );
 
     type.Types.emplace_back( varType );
     type.Names.emplace_back( name );

@@ -963,6 +963,8 @@ void RenderLibraryGenerator::processShaderStage( const i32 stageIndex, const std
 
     // Append shader stage name to the shader name (this way we can have shaders with the same name but different
     // stage type).
+    const std::string baseShaderName = passInfos.StageShaderNames[stageIndex];
+    passInfos.StageShaderNames[stageIndex].append( passInfos.RenderPassName );
     passInfos.StageShaderNames[stageIndex].append( SHADER_STAGE_NAME_LUT[stageIndex] );
 
     // Hash the final name.
@@ -972,7 +974,7 @@ void RenderLibraryGenerator::processShaderStage( const i32 stageIndex, const std
     dkString_t filenameWithExtension = dk::core::GetHashcodeDigest128( permutationHashcode );
 
     // Create our generated shader output.
-    GeneratedShader generatedShader( SHADER_STAGE_LUT[stageIndex], WideStringToString( filenameWithExtension ).c_str() );
+    GeneratedShader generatedShader( SHADER_STAGE_LUT[stageIndex], WideStringToString( filenameWithExtension ).c_str(), baseShaderName.c_str() );
 
     appendSharedShaderHeader( generatedShader.GeneratedSource );
 

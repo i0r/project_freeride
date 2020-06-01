@@ -325,7 +325,9 @@ ID3D11RasterizerState* CreateRasterizerState( ID3D11Device* nativeDevice, const 
     };
 
     ID3D11RasterizerState* rasterizerState;
-    nativeDevice->CreateRasterizerState( &rasterDesc, &rasterizerState );
+    HRESULT operationResult = nativeDevice->CreateRasterizerState( &rasterDesc, &rasterizerState );
+
+    DUSK_DEV_ASSERT( SUCCEEDED( operationResult ), "CreateRasterizerState returned an error: 0x%x\n", operationResult );
 
     return rasterizerState;
 }

@@ -13,6 +13,28 @@
 
 #include <Graphics/RuntimeShaderCompiler.h>
 
+// Return the first shader hashcode with matching name. Return an empty string if the given shader name does not exist.
+std::string FindShaderPermutationHashcode( const std::vector<RenderLibraryGenerator::GeneratedShader>& shaderList, const std::string& shaderName )
+{
+    // We need to do a crappy linear search to find the matching shader stage hashcode (not great; might need some optimization in a near future...).
+    for ( const RenderLibraryGenerator::GeneratedShader& shader : shaderList ) {
+        if ( shader.OriginalName == shaderName ) {
+            return shader.Hashcode;
+        }
+    }
+
+    return "";
+}
+
+DUSK_INLINE void SerializeFlag( FileSystemObject* stream, const char* flagName, const bool value )
+{
+    std::string serializedFlag;
+    serializedFlag.append( flagName );
+    serializedFlag.append( " = " );
+    serializedFlag.append( value ? "true" : "false" );
+    serializedFlag.append( ";\n" );
+}
+
 MaterialGenerator::MaterialGenerator( BaseAllocator* allocator, VirtualFileSystem* virtualFileSystem )
     : attributeGetterCount( 0 )
     , texResourceCount( 0 )
@@ -35,7 +57,7 @@ EditableMaterial MaterialGenerator::createEditableMaterial( const Material* mate
     return editableMat;
 }
 
-MaterialGenerator::GeneratedMaterial MaterialGenerator::createMaterial( const EditableMaterial& editableMaterial )
+Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMaterial )
 {
     resetMaterialTemporaryOutput();
 
@@ -67,12 +89,14 @@ MaterialGenerator::GeneratedMaterial MaterialGenerator::createMaterial( const Ed
     FileSystemObject* matTemplate = virtualFs->openFile( DUSK_STRING( "EditorAssets/RenderPasses/PrimitiveLighting.tdrpl" ), eFileOpenMode::FILE_OPEN_MODE_READ );
     if ( matTemplate == nullptr ) {
         DUSK_LOG_ERROR( "Material renderpass template does not exist!\n" );
-        return GeneratedMaterial();
+        return nullptr;
     }
 
     std::string assetStr;
     dk::io::LoadTextFile( matTemplate, assetStr );
 
+    matTemplate->close();
+    
     dk::core::ReplaceWord( assetStr, "DUSK_LAYERS_RESOURCES;", materialResourcesCode );
     dk::core::ReplaceWord( assetStr, "DUSK_LAYERS_FUNCTIONS;", materialSharedCode );
     dk::core::ReplaceWord( assetStr, "DUSK_LAYERS_GET;", materialLayersGetter );
@@ -97,42 +121,98 @@ MaterialGenerator::GeneratedMaterial MaterialGenerator::createMaterial( const Ed
                 RuntimeShaderCompiler::GeneratedBytecode compiledShader = shaderCompiler->compileShaderModel5( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size() );
 
                 if ( compiledShader.Length == 0ull || compiledShader.Bytecode == nullptr ) {
-                    DUSK_LOG_ERROR( "'%hs' : compilation failed!\n", shader.ShaderName.c_str() );
+                    DUSK_LOG_ERROR( "'%hs' : compilation failed!\n", shader.Hashcode.c_str() );
                     continue;
                 }
 
-                dkString_t shaderBinPath = dkString_t( DUSK_STRING( "GameData/shaders/sm5/" ) ) + StringToWideString( shader.ShaderName );
+                dkString_t shaderBinPath = dkString_t( DUSK_STRING( "GameData/shaders/sm5/" ) ) + StringToWideString( shader.Hashcode );
                 FileSystemObject* compiledShaderBin = virtualFs->openFile( shaderBinPath, eFileOpenMode::FILE_OPEN_MODE_WRITE | eFileOpenMode::FILE_OPEN_MODE_BINARY );
                 if ( compiledShaderBin->isGood() ) {
                     compiledShaderBin->write( compiledShader.Bytecode, compiledShader.Length );
                 
                     compiledShaderBin->close();
 
-                    DUSK_LOG_INFO( "'%hs' : shader has been saved successfully!\n", shader.ShaderName.c_str() );
+                    DUSK_LOG_INFO( "'%hs' : shader has been saved successfully!\n", shader.Hashcode.c_str() );
                 }
             }
         } break;
         }
     }
 
-    // Fill GeneratedMaterial struct.
-    GeneratedMaterial generatedMaterial;
-    generatedMaterial.MaterialName = editableMaterial.Name;
-    generatedMaterial.Version = 1;
-    generatedMaterial.EnableAlphaBlend = editableMaterial.IsAlphaBlended;
-    generatedMaterial.EnableAlphaTest = editableMaterial.IsAlphaTested;
-    generatedMaterial.EnableAlphaToCoverage = editableMaterial.UseAlphaToCoverage;
-    generatedMaterial.IsDoubleFace = editableMaterial.IsDoubleFace;
+    // Generate material manifest (pipeline flags, external assets required, etc.).
+    const std::string namedGenericPass = std::string( editableMaterial.Name ) + "PrimitiveLighting_Generic";
 
+    ScenarioBinding DefaultBinding;
     const std::vector<RenderLibraryGenerator::RenderPassInfos>& renderPasses = renderLibGenerator.getGeneratedRenderPasses();
     for ( const RenderLibraryGenerator::RenderPassInfos& renderPass : renderPasses ) {
-        if ( renderPass.RenderPassName == "PrimitiveLighting_Generic" ) {
-            generatedMaterial.DefaultBinding.VertexShaderName = renderPass.StageShaderNames[0];
-            generatedMaterial.DefaultBinding.PixelShaderName = renderPass.StageShaderNames[3];
+        if ( renderPass.RenderPassName == namedGenericPass ) {
+            DefaultBinding.VertexShaderName = FindShaderPermutationHashcode( renderLibGenerator.getGeneratedShaders(), renderPass.StageShaderNames[0] );
+            DefaultBinding.PixelShaderName = FindShaderPermutationHashcode( renderLibGenerator.getGeneratedShaders(), renderPass.StageShaderNames[3] );
         }
     }
 
-    return generatedMaterial;
+    FileSystemObject* materialDescriptor = virtualFs->openFile( dkString_t( DUSK_STRING( "GameData/materials/" ) ) + StringToWideString( editableMaterial.Name ) + DUSK_STRING( ".mat" ), eFileOpenMode::FILE_OPEN_MODE_WRITE );
+    if ( materialDescriptor->isGood() ) {
+        materialDescriptor->writeString( "material \"" );
+        materialDescriptor->writeString( editableMaterial.Name );
+        materialDescriptor->writeString( "\" {\n" );
+
+        // Misc. infos.
+        materialDescriptor->writeString( "\tversion = " );
+        materialDescriptor->writeString( std::to_string( MaterialGenerator::Version ) );
+        materialDescriptor->writeString( ";\n" );
+
+        // Write Material flags.
+        SerializeFlag( materialDescriptor, "\tisAlphaBlended", editableMaterial.IsAlphaBlended );
+        SerializeFlag( materialDescriptor, "\tisDoubleFace", editableMaterial.IsDoubleFace );
+        SerializeFlag( materialDescriptor, "\tenableAlphaToCoverage", editableMaterial.UseAlphaToCoverage );
+        SerializeFlag( materialDescriptor, "\tisAlphaTested", editableMaterial.IsAlphaTested );
+
+        // Write each Rendering scenario.
+        serializeScenario( materialDescriptor, "Default", DefaultBinding );
+
+        materialDescriptor->writeString( "}\n" );
+
+        materialDescriptor->close();
+    }
+
+    // TEST crap test
+    FileSystemObject* TestmaterialDescriptor = virtualFs->openFile( dkString_t( DUSK_STRING( "GameData/materials/" ) ) + StringToWideString( editableMaterial.Name ) + DUSK_STRING( ".mat" ), eFileOpenMode::FILE_OPEN_MODE_READ );
+    Material* material = new Material( memoryAllocator );
+    material->deserialize( TestmaterialDescriptor );
+    materialDescriptor->close();
+
+    return nullptr;
+}
+
+void MaterialGenerator::serializeScenario( FileSystemObject* stream, const char* scenarioName, const ScenarioBinding& scenarioBinding )
+{
+    stream->writeString( "\tscenario \"" );
+    stream->writeString( scenarioName );  
+    stream->writeString( "\" {\n" );
+
+    stream->writeString( "\t\tvertex = \"" );
+    stream->writeString( scenarioBinding.VertexShaderName ); 
+    stream->writeString( "\";\n" );
+
+    stream->writeString( "\t\tpixel = \"" );
+    stream->writeString( scenarioBinding.PixelShaderName );
+    stream->writeString( "\";\n" );
+
+    if ( !scenarioBinding.MutableParameters.empty() ) {
+        stream->writeString( "\t\tparameters { \"" );
+
+        for ( const MutableParameter& param : scenarioBinding.MutableParameters ) {
+            stream->writeString( "\t\t\t " );
+            stream->writeString( param.ParameterName );
+            stream->writeString( " = " );
+            stream->writeString( dk::io::Vector3DToString( param.DefaultValueAsFloat3 ) );
+            stream->writeString( ";\n" );
+        }
+        stream->writeString( "}\n" );
+    }
+
+    stream->writeString( "\t}\n" );
 }
 
 void MaterialGenerator::resetMaterialTemporaryOutput()

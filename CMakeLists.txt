@@ -87,7 +87,7 @@ if ( DUSK_ENABLE_GPU_DEBUG_MARKER )
 endif ( DUSK_ENABLE_GPU_DEBUG_MARKER )
 
 # Add shared include directories (add paths here only if needed)
-include_directories( "${DUSK_BASE_FOLDER}/dusk/" )
+include_directories( "${DUSK_BASE_FOLDER}/" )
 link_directories( "${DUSK_BASE_FOLDER}/build/lib" )
 
 add_definitions( -D${DUSK_GFX_API} )

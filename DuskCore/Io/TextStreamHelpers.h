@@ -114,6 +114,20 @@ namespace dk
             return vec;
         }
 
+        static std::string Vector3DToString( const dkVec3f& vec )
+        {
+            std::string str;
+            str.append( "{ " );
+            str.append( std::to_string( vec.x ) );
+            str.append( ", " );
+            str.append( std::to_string( vec.y ) );
+            str.append( ", " );
+            str.append( std::to_string( vec.z ) );
+            str.append( "} " );
+
+            return str;
+        }
+
         static dkVec3f StringTo3DVector( const dkString_t& str )
         {
             if ( str.size() <= 2 || str.front() != '{' || str.back() != '}' ) {

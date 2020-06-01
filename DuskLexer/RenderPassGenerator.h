@@ -18,7 +18,10 @@ class RenderLibraryGenerator
 public:
     struct GeneratedShader {
         // The name of the generated shader (a 128bits hashcode digest).
-        std::string     ShaderName;
+        std::string     Hashcode;
+
+        // The human readable name of the generated shader.
+        std::string     OriginalName;
 
         // The HLSL source code of this shader (ready to compile).
         std::string     GeneratedSource;
@@ -26,8 +29,9 @@ public:
         // The pipeline stage of this shader.
         eShaderStage    ShaderStage;
 
-        GeneratedShader( const eShaderStage stage = eShaderStage::SHADER_STAGE_VERTEX, const char* name = "" )
-            : ShaderName( name )
+        GeneratedShader( const eShaderStage stage = eShaderStage::SHADER_STAGE_VERTEX, const char* hashcode = "", const char* name = "" )
+            : Hashcode( hashcode )
+            , OriginalName( name )
             , GeneratedSource()
             , ShaderStage( stage )
         {

@@ -557,10 +557,10 @@ struct RasterizerStateDesc
             f32         DepthBiasClamp;
 
             // Backface culling mode.
-            eCullMode   CullMode : 2;
+            eCullMode   CullMode : 4;
 
             // Primitive fill mode.
-            eFillMode   FillMode : 1;
+            eFillMode   FillMode : 2;
 
             // Use front counter clockwise face order.
             u8          UseTriangleCCW : 1;

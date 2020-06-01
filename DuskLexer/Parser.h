@@ -56,7 +56,10 @@ struct TypeAST {
         PROPERTIES,
         PASS,
         LIBRARY,
-        FONT
+        FONT,
+        MATERIAL,
+        RENDER_SCENARIO,
+        SHADER_PERMUTATION,
     };
 
     eTypes                       Type;
@@ -177,8 +180,11 @@ private:
     void            parseStruct();
     void            parseEnum();
     void            parseResources( TypeAST& parentType );
-    void            parseVariable( const Token::StreamRef& typeName, TypeAST& type );
+    void            parseVariable( const Token::StreamRef& typeName, TypeAST& type, const bool isTypeless = false );
     void            parseFont();
+    void            parseMaterial();
+
+    void            parseShaderPermutation( Token& token, TypeAST& scenarioType );
 
     TypeAST*        getType( const Token::StreamRef& typeName );
 };

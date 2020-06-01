@@ -215,6 +215,6 @@ struct EditableMaterial
         , ScaleUVByModelScale( false )
         , UseRefraction( false )
     {
-
+        memset( Name, 0, sizeof( char ) * DUSK_MAX_PATH );
     }
 };

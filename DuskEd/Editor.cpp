@@ -323,7 +323,7 @@ void InitializeIOSubsystems()
 
     g_DataFileSystem = dk::core::allocate<FileSystemNative>( g_GlobalAllocator, DUSK_STRING( "./data/" ) );
 
-    g_VirtualFileSystem->mount( g_DataFileSystem, DUSK_STRING( "GameData" ), 1 );
+    g_VirtualFileSystem->mount( g_DataFileSystem, DUSK_STRING( "GameData" ), 0 );
 
 #if DUSK_DEVBUILD
     DUSK_LOG_INFO( "Mounting devbuild filesystems...\n" );
@@ -334,7 +334,7 @@ void InitializeIOSubsystems()
 
     g_VirtualFileSystem->mount( g_EdAssetsFileSystem, DUSK_STRING( "EditorAssets" ), 0 );
     g_VirtualFileSystem->mount( g_RendererFileSystem, DUSK_STRING( "EditorAssets" ), 1 );
-    g_VirtualFileSystem->mount( g_EdAssetsFileSystem, DUSK_STRING( "GameData" ), 0 );
+    g_VirtualFileSystem->mount( g_EdAssetsFileSystem, DUSK_STRING( "GameData" ), 1 );
 #endif
 
     dkString_t SaveFolder = saveFolder->resolveFilename( DUSK_STRING( "SaveData/" ), configurationFolderName );

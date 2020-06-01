@@ -213,7 +213,7 @@ void dk::baker::Start( const char* cmdLineArgs )
                     
                     //DUSK_LOG_DEBUG( "%hs\n", shader.GeneratedSource.c_str() );
 
-                    std::ofstream shaderStrean( compiledShadersPath + "/sm5/" + shader.ShaderName, std::ios::binary | std::ios::trunc );
+                    std::ofstream shaderStrean( compiledShadersPath + "/sm5/" + shader.Hashcode, std::ios::binary | std::ios::trunc );
                     shaderStrean.write( (const char*)shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize() );
                     shaderStrean.close();
                 }

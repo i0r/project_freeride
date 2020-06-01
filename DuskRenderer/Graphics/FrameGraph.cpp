@@ -589,6 +589,7 @@ FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevi
     : memoryAllocator( allocator )
     , renderPassCount( 0 )
     , pipelineImageQuality( 1.0f )
+    , activeCamera( nullptr )
     , hasViewportChanged( false )
     , lastFrameRenderTarget( nullptr )
     , presentRenderTarget( nullptr )
