@@ -41,12 +41,19 @@ PipelineStateCache::~PipelineStateCache()
     memset( pipelineStates, 0, sizeof( PipelineState* ) * MAX_CACHE_ELEMENT_COUNT );
 }
 
-PipelineState* PipelineStateCache::getOrCreatePipelineState( const PipelineStateDesc& descriptor, const ShaderBinding& shaderBinding )
+PipelineState* PipelineStateCache::getOrCreatePipelineState( const PipelineStateDesc& descriptor, const ShaderBinding& shaderBinding, const bool forceRebuild )
 {
+    i32 cachedPsoIndex = -1;
+
     // (crappy) linear hashcode lookup (TODO profile this to make sure this isn't bottleneck)
     Hash128 psoDescHashcode = computePipelineStateKey( descriptor, shaderBinding );
     for ( i32 i = 0; i < cachedPipelineStateCount; i++ ) {
         if ( pipelineHashes[i] == psoDescHashcode ) {
+            if ( forceRebuild ) {
+                cachedPsoIndex = i;
+                break;
+            }
+
             return pipelineStates[i];
         }
     }
@@ -54,19 +61,19 @@ PipelineState* PipelineStateCache::getOrCreatePipelineState( const PipelineState
     // TODO In the future this should be done asynchronously to avoid this blocking behavior
     PipelineStateDesc filledDescriptor = descriptor;
     if ( filledDescriptor.PipelineType == PipelineStateDesc::COMPUTE ) {
-        filledDescriptor.computeShader = shaderCache->getOrUploadStage<eShaderStage::SHADER_STAGE_COMPUTE>( shaderBinding.ComputeShader );
+        filledDescriptor.computeShader = shaderCache->getOrUploadStage<eShaderStage::SHADER_STAGE_COMPUTE>( shaderBinding.ComputeShader, forceRebuild );
     } else {
         if ( shaderBinding.VertexShader != 0 ) {
-            filledDescriptor.vertexShader = shaderCache->getOrUploadStage<eShaderStage::SHADER_STAGE_VERTEX>( shaderBinding.VertexShader );
+            filledDescriptor.vertexShader = shaderCache->getOrUploadStage<eShaderStage::SHADER_STAGE_VERTEX>( shaderBinding.VertexShader, forceRebuild );
         }
        /* if ( shaderBinding.TesselationControlShader != 0 ) {
-            filledDescriptor.tesselationControlShader = shaderCache->getOrUploadStage<eShaderStage::SHADER_STAGE_TESSELATION_CONTROL>( shaderBinding.TesselationControlShader );
+            filledDescriptor.tesselationControlShader = shaderCache->getOrUploadStage<eShaderStage::SHADER_STAGE_TESSELATION_CONTROL>( shaderBinding.TesselationControlShader, forceRebuild );
         }
         if ( shaderBinding.TesselationEvaluationShader != 0 ) {
-            filledDescriptor.tesselationEvalShader = shaderCache->getOrUploadStage<eShaderStage::SHADER_STAGE_TESSELATION_EVALUATION>( shaderBinding.TesselationEvaluationShader );
+            filledDescriptor.tesselationEvalShader = shaderCache->getOrUploadStage<eShaderStage::SHADER_STAGE_TESSELATION_EVALUATION>( shaderBinding.TesselationEvaluationShader, forceRebuild );
         }*/
         if ( shaderBinding.PixelShader != 0 ) {
-            filledDescriptor.pixelShader = shaderCache->getOrUploadStage<eShaderStage::SHADER_STAGE_PIXEL>( shaderBinding.PixelShader );
+            filledDescriptor.pixelShader = shaderCache->getOrUploadStage<eShaderStage::SHADER_STAGE_PIXEL>( shaderBinding.PixelShader, forceRebuild );
         }
     }
 
@@ -119,11 +126,13 @@ PipelineState* PipelineStateCache::getOrCreatePipelineState( const PipelineState
     }
 
     // TODO Critical section / synchronized section
-    pipelineHashes[cachedPipelineStateCount] = psoDescHashcode;
-    pipelineStates[cachedPipelineStateCount] = pipelineState;
+    i32& psoCacheIndex = ( cachedPsoIndex == -1 ) ? cachedPipelineStateCount : cachedPsoIndex;
 
-    PipelineState* cachedPipelineState = pipelineStates[cachedPipelineStateCount];
-    cachedPipelineStateCount++;
+    pipelineHashes[psoCacheIndex] = psoDescHashcode;
+    pipelineStates[psoCacheIndex] = pipelineState;
+
+    PipelineState* cachedPipelineState = pipelineStates[psoCacheIndex];
+    psoCacheIndex++;
 
     return cachedPipelineState;
 }

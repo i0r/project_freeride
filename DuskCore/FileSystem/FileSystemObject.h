@@ -75,7 +75,7 @@ public:
         // Spin until the ownership of this file has been released.
         while ( !canAcquireOwnership() );
 
-        fileOwnership.store( true );
+        fileOwnership.store( true, std::memory_order::memory_order_release );
     }
 
     // Release the ownership of this file. Must be called as soon as the thread has finished its operations on this object.

@@ -268,49 +268,49 @@ lib AntiAliasing {
     pass ResolveTAA {
         compute         = ResolveMSAACS;
         dispatch        = { 16, 16, 1 };
-        cint SamplerCount    = 1;
-        cflag UseTemporalAA   = true;
+        SamplerCount    = 1;
+        UseTemporalAA   = true;
     }
     
     pass ResolveMSAAx2 {
         compute         = ResolveMSAACS;
         dispatch        = { 16, 16, 1 };
-        cint SamplerCount    = 2;
-        cflag UseTemporalAA   = false;
+        SamplerCount    = 2;
+        UseTemporalAA   = false;
     }
     
     pass ResolveMSAAx2WithTAA {
         compute         = ResolveMSAACS;
         dispatch        = { 16, 16, 1 };
-        cint SamplerCount    = 2;
-        cflag UseTemporalAA   = true;
+        SamplerCount    = 2;
+        UseTemporalAA   = true;
     }
     
     pass ResolveMSAAx4 {
         compute         = ResolveMSAACS;
         dispatch        = { 16, 16, 1 };
-        cint SamplerCount    = 4;
-        cflag UseTemporalAA   = false;
+        SamplerCount    = 4;
+        UseTemporalAA   = false;
     }
     
     pass ResolveMSAAx4WithTAA {
         compute         = ResolveMSAACS;
         dispatch        = { 16, 16, 1 };
-        cint SamplerCount    = 4;
-        cflag UseTemporalAA   = true;
+        SamplerCount    = 4;
+        UseTemporalAA   = true;
     }
     
     pass ResolveMSAAx8 {
         compute         = ResolveMSAACS;
         dispatch        = { 16, 16, 1 };
-        cint SamplerCount    = 8;
-        cflag UseTemporalAA   = false;
+        SamplerCount    = 8;
+        UseTemporalAA   = false;
     }
     
     pass ResolveMSAAx8WithTAA {
         compute         = ResolveMSAACS;
         dispatch        = { 16, 16, 1 };
-        cint SamplerCount    = 8;
-        cflag UseTemporalAA   = true;
+        SamplerCount    = 8;
+        UseTemporalAA   = true;
     }
 }

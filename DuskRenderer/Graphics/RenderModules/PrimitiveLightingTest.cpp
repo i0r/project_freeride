@@ -10,12 +10,18 @@
 
 #include <Graphics/Mesh.h>
 #include <Graphics/Model.h>
+#include <Graphics/Material.h>
 
 #include <Core/ViewFormat.h>
 
 #include <Rendering/CommandList.h>
 
-PrimitiveLighting::PrimitiveLighting_Generic_Output AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest, ResHandle_t perSceneBuffer )
+struct PerPassData 
+{
+    dkMat4x4f PerModelMatrix;
+};
+
+LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest, Material* materialTest, ResHandle_t perSceneBuffer )
 {
     struct PassData {
         ResHandle_t output;
@@ -26,7 +32,7 @@ PrimitiveLighting::PrimitiveLighting_Generic_Output AddPrimitiveLightTest( Frame
     };
 
     PassData& data = frameGraph.addRenderPass<PassData>(
-        PrimitiveLighting::PrimitiveLighting_Generic_Name,
+        "Primitive Light",
         [&]( FrameGraphBuilder& builder, PassData& passData ) {
             ImageDesc rtDesc;
             rtDesc.dimension = ImageDesc::DIMENSION_2D;
@@ -48,7 +54,7 @@ PrimitiveLighting::PrimitiveLighting_Generic_Output AddPrimitiveLightTest( Frame
             BufferDesc perPassBuffer;
             perPassBuffer.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
             perPassBuffer.Usage = RESOURCE_USAGE_DYNAMIC;
-            perPassBuffer.SizeInBytes = sizeof( PrimitiveLighting::PrimitiveLighting_GenericRuntimeProperties );
+            perPassBuffer.SizeInBytes = sizeof( PerPassData );
 
             passData.PerPassBuffer = builder.allocateBuffer( perPassBuffer, SHADER_STAGE_VERTEX | SHADER_STAGE_PIXEL );
             passData.PerViewBuffer = builder.retrievePerViewBuffer();
@@ -62,39 +68,24 @@ PrimitiveLighting::PrimitiveLighting_Generic_Output AddPrimitiveLightTest( Frame
             Buffer* perViewBuffer = resources->getPersistentBuffer( passData.PerViewBuffer );
             Buffer* perWorldBuffer = resources->getBuffer( passData.PerSceneBuffer );
 
-            PipelineStateDesc DefaultPipelineState( PipelineStateDesc::GRAPHICS );
-            DefaultPipelineState.PrimitiveTopology = ePrimitiveTopology::PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-            DefaultPipelineState.DepthStencilState.EnableDepthWrite = true;
-            DefaultPipelineState.DepthStencilState.EnableDepthTest = true;
-            DefaultPipelineState.DepthStencilState.DepthComparisonFunc = eComparisonFunction::COMPARISON_FUNCTION_GREATER;
+            cmdList->pushEventMarker( DUSK_STRING( "Forward+ Light Pass" ) );
 
-            DefaultPipelineState.RasterizerState.CullMode = CULL_MODE_FRONT;
-            DefaultPipelineState.RasterizerState.UseTriangleCCW = true;
-
-            DefaultPipelineState.FramebufferLayout.declareRTV( 0, VIEW_FORMAT_R16G16B16A16_FLOAT, FramebufferLayoutDesc::CLEAR );
-            DefaultPipelineState.FramebufferLayout.declareDSV( VIEW_FORMAT_D32_FLOAT, FramebufferLayoutDesc::CLEAR );
-            DefaultPipelineState.samplerCount = resources->getMainCamera()->msaaSamplerCount;
-            DefaultPipelineState.InputLayout.Entry[0] = { 0, VIEW_FORMAT_R32G32B32_FLOAT, 0, 0, 0, false, "POSITION" };
-            DefaultPipelineState.InputLayout.Entry[1] = { 0, VIEW_FORMAT_R32G32B32_FLOAT, 0, 1, 0, true, "NORMAL" };
-            DefaultPipelineState.InputLayout.Entry[2] = { 0, VIEW_FORMAT_R32G32_FLOAT, 0, 2, 0, true, "TEXCOORD" };
-            DefaultPipelineState.depthClearValue = 0.0f;
-
-            PipelineState* passPipelineState = psoCache->getOrCreatePipelineState( DefaultPipelineState, PrimitiveLighting::PrimitiveLighting_Generic_ShaderBinding );
-
-            cmdList->pushEventMarker( PrimitiveLighting::PrimitiveLighting_Generic_EventName );
-            cmdList->bindPipelineState( passPipelineState );
-            
             cmdList->updateBuffer( *perPassBuffer, &dkMat4x4f::Identity, sizeof( dkMat4x4f ) );
-
-            cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
-            cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
-            cmdList->bindConstantBuffer( PerWorldBufferHashcode, perWorldBuffer );
 
             cmdList->setViewport( *resources->getMainViewport() );
             cmdList->setScissor( *resources->getMainScissorRegion() );
 
+            // for each DrawCall to render
+            /* Material* cmdMat = getDrawCmd().Material */;
+            PipelineState* pipelineState = materialTest->bindForScenario( Material::RenderScenario::Default, cmdList, psoCache, resources->getMainCamera()->msaaSamplerCount );
+
+            // TODO We need to rebind the cbuffer every time the pso might have changed... this is bad.
+            cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
+            cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
+            cmdList->bindConstantBuffer( PerWorldBufferHashcode, perWorldBuffer );
+
             cmdList->setupFramebuffer( &outputTarget, zbufferTarget );
-            cmdList->prepareAndBindResourceList( passPipelineState );
+            cmdList->prepareAndBindResourceList( pipelineState );
             
             const Model::LevelOfDetail& lod = modelTest->getLevelOfDetailByIndex( 0 );
             for ( i32 i = 0; i < lod.MeshCount; i++ ) {
@@ -106,12 +97,13 @@ PrimitiveLighting::PrimitiveLighting_Generic_Output AddPrimitiveLightTest( Frame
 
                 cmdList->drawIndexed( lodMesh.IndiceCount, 1u );
             }
+            // endif
 
             cmdList->popEventMarker();
         }
     );
 
-    PrimitiveLighting::PrimitiveLighting_Generic_Output output;
+    LightPassOutput output;
     output.OutputRenderTarget = data.output;
     output.OutputDepthTarget = data.depthBuffer;
     return output;

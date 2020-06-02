@@ -23,15 +23,19 @@ public:
         // The human readable name of the generated shader.
         std::string     OriginalName;
 
+        // The human readable name of the renderpass which requested this shader permutation.
+        std::string     RenderPassOwner;
+
         // The HLSL source code of this shader (ready to compile).
         std::string     GeneratedSource;
 
         // The pipeline stage of this shader.
         eShaderStage    ShaderStage;
 
-        GeneratedShader( const eShaderStage stage = eShaderStage::SHADER_STAGE_VERTEX, const char* hashcode = "", const char* name = "" )
+        GeneratedShader( const eShaderStage stage = eShaderStage::SHADER_STAGE_VERTEX, const char* hashcode = "", const char* name = "", const char* passName = "" )
             : Hashcode( hashcode )
             , OriginalName( name )
+            , RenderPassOwner( passName )
             , GeneratedSource()
             , ShaderStage( stage )
         {

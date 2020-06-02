@@ -47,13 +47,20 @@ if ( ImGui::Checkbox( #flagName, ( bool* )&flagName##flag ) ) {\
 editedMaterial.##flagName = flagName##flag;\
 \
 isMaterialDirty = true;\
-}\
+}
+    if ( !isOpened ) {
+        return;
+    }
 
-    if ( isOpened && ImGui::Begin( "Material Editor", &isOpened ) ) {
+    if ( ImGui::Begin( "Material Editor", &isOpened ) ) {
         bool isMaterialDirty = false;
 
         if ( ImGui::Button( "Force Recompile" ) ) {
             activeMaterial = materialGenerator->createMaterial( editedMaterial );
+
+            if ( activeMaterial != nullptr ) {
+                activeMaterial->invalidateCache();
+            }
         }
 
         // Material Description.
@@ -165,9 +172,9 @@ isMaterialDirty = true;\
 
             ImGui::PopID();
         }
-
-        ImGui::End();
     }
+    
+    ImGui::End();
     
 #undef DUSK_DISPLAY_MATERIAL_FLAG
 }

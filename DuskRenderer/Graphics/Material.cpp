@@ -42,6 +42,7 @@ Material::Material( BaseAllocator* allocator )
     , isDoubleFace( false )
     , enableAlphaToCoverage( false )
     , isAlphaTested( false )
+    , invalidateCachedStates( false )
 {
 
 }
@@ -92,7 +93,9 @@ void Material::deserialize( FileSystemObject* object )
 
                     switch ( type.Type ) {
                     case TypeAST::RENDER_SCENARIO: {
-                        if ( dk::core::ExpectKeyword( name.StreamPointer, 7, "Default" ) ) {
+                        if ( dk::core::ExpectKeyword( name.StreamPointer, 14, "Default_Editor" ) ) {
+                            ParseScenario( defaultEditorScenario, type );
+                        } else if ( dk::core::ExpectKeyword( name.StreamPointer, 7, "Default" ) ) {
                             ParseScenario( defaultScenario, type );
                         }
                     } break;
@@ -104,9 +107,42 @@ void Material::deserialize( FileSystemObject* object )
     }
 }
 
-void Material::bindForScenario( const RenderScenario scenario )
+PipelineState* Material::bindForScenario( const RenderScenario scenario, CommandList* cmdList, PipelineStateCache* psoCache, const u32 samplerCount )
 {
+    PipelineState* scenarioPso = nullptr;
 
+    switch ( scenario ) {
+    case RenderScenario::Default:
+    {
+        PipelineStateDesc DefaultPipelineState( PipelineStateDesc::GRAPHICS );
+        DefaultPipelineState.PrimitiveTopology = ePrimitiveTopology::PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+        DefaultPipelineState.DepthStencilState.EnableDepthWrite = true;
+        DefaultPipelineState.DepthStencilState.EnableDepthTest = true;
+        DefaultPipelineState.DepthStencilState.DepthComparisonFunc = eComparisonFunction::COMPARISON_FUNCTION_GREATER;
+
+        DefaultPipelineState.RasterizerState.CullMode = CULL_MODE_FRONT;
+        DefaultPipelineState.RasterizerState.UseTriangleCCW = true;
+
+        DefaultPipelineState.FramebufferLayout.declareRTV( 0, VIEW_FORMAT_R16G16B16A16_FLOAT, FramebufferLayoutDesc::CLEAR );
+        DefaultPipelineState.FramebufferLayout.declareDSV( VIEW_FORMAT_D32_FLOAT, FramebufferLayoutDesc::CLEAR );
+        DefaultPipelineState.samplerCount = samplerCount;
+        DefaultPipelineState.InputLayout.Entry[0] = { 0, VIEW_FORMAT_R32G32B32_FLOAT, 0, 0, 0, false, "POSITION" };
+        DefaultPipelineState.InputLayout.Entry[1] = { 0, VIEW_FORMAT_R32G32B32_FLOAT, 0, 1, 0, true, "NORMAL" };
+        DefaultPipelineState.InputLayout.Entry[2] = { 0, VIEW_FORMAT_R32G32_FLOAT, 0, 2, 0, true, "TEXCOORD" };
+        DefaultPipelineState.depthClearValue = 0.0f;
+
+        scenarioPso = psoCache->getOrCreatePipelineState( DefaultPipelineState, defaultScenario.PsoShaderBinding, invalidateCachedStates );
+    } break;
+    default:
+        break;
+    }
+
+    // Reset flags.
+    invalidateCachedStates = false;
+
+    cmdList->bindPipelineState( scenarioPso );
+
+    return scenarioPso;
 }
 
 const char* Material::getName() const
@@ -117,4 +153,9 @@ const char* Material::getName() const
 bool Material::isParameterMutable( const dkStringHash_t parameterHashcode ) const
 {
     return ( mutableParameters.find( parameterHashcode ) != mutableParameters.end() );
+}
+
+void Material::invalidateCache()
+{
+    invalidateCachedStates = true;
 }

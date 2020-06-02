@@ -8,9 +8,13 @@ class FrameGraph;
 class RenderDevice;
 class ShaderCache;
 class Model;
+class Material;
 
 using ResHandle_t = uint32_t;
 
-#include "Generated/PrimitiveLighting.generated.h"
+struct LightPassOutput {
+    ResHandle_t	OutputRenderTarget;
+    ResHandle_t	OutputDepthTarget;
+};
 
-PrimitiveLighting::PrimitiveLighting_Generic_Output AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest, ResHandle_t perSceneBuffer );
+LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest, Material* materialTest, ResHandle_t perSceneBuffer );

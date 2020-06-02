@@ -2,6 +2,7 @@ lib PrimitiveLighting {
     properties {
         cflag       UseInstancing = false;
         cflag       WriteVelocity = false;
+        cflag       MaterialEditor = false;
         float4x4    PerModelMatrix; // Only relevant if instancing is disabled.
         float       StartVector;
         float       VectorPerInstance;
@@ -30,6 +31,10 @@ lib PrimitiveLighting {
     
     shared {
         #include <Material.hlsli>
+        
+        #ifdef $MaterialEditor
+        #include <MaterialEditor.hlsli>
+        #endif
         
         float4x4 GetInstanceModelMatrix( Buffer instanceVectorBuffer, const uint instanceIdx )
         {
@@ -84,9 +89,14 @@ lib PrimitiveLighting {
     }
     
     shader PrimitivePS {
-        // Injected at Material compile-time. DO NOT REMOVE.
-        // Return a ready to use material named BlendedMaterial.
-        DUSK_LAYERS_GET;
+        #ifdef $MaterialEditor
+            // Retrieve material attributes from the cbuffer (SLOW).
+            Material BlendedMaterial = FetchMaterialAttributes();
+        #else
+            // Injected at Material compile-time. DO NOT REMOVE.
+            // Return a ready to use material named BlendedMaterial.
+            DUSK_LAYERS_GET;
+        #endif
         
         float3 V = normalize( g_WorldPosition - $POSITION0.xyz );
         float3 N = normalize( $NORMAL0.xyz );
@@ -102,9 +112,17 @@ lib PrimitiveLighting {
         $SV_TARGET0 = LightContribution;
     }
     
-    pass PrimitiveLighting_Generic {
+    pass LightPass {
         vertex = PrimitiveVS;
         pixel = PrimitivePS;
+        rendertargets = { OutputRenderTarget };
+        depthStencil = OutputDepthTarget;
+    }
+    
+    pass LightPassEd {
+        vertex = PrimitiveVS;
+        pixel = PrimitivePS;
+        MaterialEditor = true;
         rendertargets = { OutputRenderTarget };
         depthStencil = OutputDepthTarget;
     }

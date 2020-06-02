@@ -625,14 +625,13 @@ void MainLoop()
                     ImGui::EndMenu();
                 }
 
-                ImGui::EndMainMenuBar();
             }
+            ImGui::EndMainMenuBar();
 
             static bool active = false;
             ImGui::SetNextWindowSize( ImVec2( static_cast< f32 >( ScreenSize.x ), static_cast< f32 >( ScreenSize.y ) - menuBarHeight ) );
             ImGui::SetNextWindowPos( ImVec2( 0, menuBarHeight ) );
             ImGui::Begin( "Master Window", &active, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing );
-
             // static ImGuiID dockspaceID = 0;
             static bool NeedDockSetup = g_IsFirstLaunch;
             ImGuiIO& io = ImGui::GetIO();
@@ -659,8 +658,9 @@ void MainLoop()
             ImGui::DockSpace( dockspaceID );
 
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
+            if ( IsRenderDocVisible ) {
+                ImGui::Begin( "RenderDoc", &IsRenderDocVisible );
 
-            if ( IsRenderDocVisible && ImGui::Begin( "RenderDoc", &IsRenderDocVisible ) ) {
                 static bool g_AwaitingFrameCapture = false;
                 static i32 g_FrameToCaptureCount = 1u;
 
@@ -703,29 +703,33 @@ void MainLoop()
             g_MaterialEditor->displayEditorWindow();
 
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
-            ImGui::Begin( "Inspector" );
-            static f32 cart[2] = { 0.5f, 0.5f };
+            if ( ImGui::Begin( "Inspector" ) ) {
+                static f32 cart[2] = { 0.5f, 0.5f };
 
-            if ( ImGui::SliderFloat2( "Sun Pos", cart, -1.0f, 1.0f ) ) {
-                g_LightGrid->getDirectionalLightData()->NormalizedDirection = dk::maths::SphericalToCarthesianCoordinates( cart[0], cart[1] );
-                g_WorldRenderer->BrunetonSky->setSunSphericalPosition( cart[0], cart[1] );
+                if ( ImGui::SliderFloat2( "Sun Pos", cart, -1.0f, 1.0f ) ) {
+                    g_LightGrid->getDirectionalLightData()->NormalizedDirection = dk::maths::SphericalToCarthesianCoordinates( cart[0], cart[1] );
+                    g_WorldRenderer->BrunetonSky->setSunSphericalPosition( cart[0], cart[1] );
+                }
             }
             ImGui::End();
 
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
-            ImGui::Begin( "Viewport", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar );
-            ImVec2 winSize = ImGui::GetWindowSize();
+            if ( ImGui::Begin( "Viewport", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar ) ) {
+                ImVec2 winSize = ImGui::GetWindowSize();
 
-            g_IsMouseOverViewportWindow = ImGui::IsWindowHovered();
+                g_IsMouseOverViewportWindow = ImGui::IsWindowHovered();
 
-            //g_FreeCamera->setProjectionMatrix( DefaultCameraFov, winSize.x, winSize.y );
+                //g_FreeCamera->setProjectionMatrix( DefaultCameraFov, winSize.x, winSize.y );
 
-            winSize.x -= 32;
-            winSize.y -= 32;
+                winSize.x -= 32;
+                winSize.y -= 32;
 
-            ImGui::Image( static_cast<ImTextureID>( frameGraph.getPresentRenderTarget() ), winSize );
+                ImGui::Image( static_cast< ImTextureID >( frameGraph.getPresentRenderTarget() ), winSize );
+            }
             ImGui::End();
+
             ImGui::End();
+
             ImGui::Render();
 
             g_ImGuiRenderModule->unlockRenderList();
@@ -738,8 +742,14 @@ void MainLoop()
         
         LightGrid::Data lightGridData = g_LightGrid->updateClusters( frameGraph );
         
-        auto primRenderPass = AddPrimitiveLightTest( frameGraph, testModel, lightGridData.PerSceneBuffer );
-        ResHandle_t presentRt = g_WorldRenderer->BrunetonSky->renderSky( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
+        ResHandle_t presentRt;
+        if ( g_MaterialEditor->getActiveMaterial() == nullptr ) {
+            presentRt = g_WorldRenderer->BrunetonSky->renderSky( frameGraph, -1, -1 );
+        } else {
+            auto primRenderPass = AddPrimitiveLightTest( frameGraph, testModel, g_MaterialEditor->getActiveMaterial(), lightGridData.PerSceneBuffer );
+            presentRt = g_WorldRenderer->BrunetonSky->renderSky( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
+        }
+
         if ( MSAASamplerCount > 1 ) {
             presentRt = AddMSAAResolveRenderPass( frameGraph, presentRt, -1, -1, MSAASamplerCount, false );
         }

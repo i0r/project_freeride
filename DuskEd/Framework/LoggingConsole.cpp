@@ -30,6 +30,6 @@ void dk::editor::DisplayLoggingConsole()
         ImGui::TextUnformatted( logData );
         ImGui::SetScrollHereY( 1.0f );
         ImGui::EndChild();
-        ImGui::End();
     }
+    ImGui::End();
 }

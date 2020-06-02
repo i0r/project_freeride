@@ -58,7 +58,7 @@ public:
                                                         PipelineStateCache& operator = ( PipelineStateCache& ) = delete;
                                                         ~PipelineStateCache();
 
-    PipelineState*                                      getOrCreatePipelineState( const PipelineStateDesc& descriptor, const ShaderBinding& shaderBinding );
+    PipelineState*                                      getOrCreatePipelineState( const PipelineStateDesc& descriptor, const ShaderBinding& shaderBinding, const bool forceRebuild = false );
 
 private:
     // The pipeline cache is local (one cache per thread); it shouldnt be too expensive 

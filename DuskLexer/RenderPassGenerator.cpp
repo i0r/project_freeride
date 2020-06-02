@@ -139,8 +139,7 @@ static DUSK_INLINE void ParseRenderPassProperties( const TypeAST& renderPassBloc
         } else if ( paramType != nullptr && propertiesNode != nullptr ) {
             // If the name does not match an identifier, assume it is a property override
             for ( u32 i = 0; i < propertiesNode->Values.size(); i++ ) {
-                if ( dk::core::ExpectKeyword( passParam.StreamPointer, passParam.Length, propertiesNode->Names[i].StreamPointer )
-                     && propertiesNode->Types[i]->PrimitiveType == paramType->PrimitiveType ) {
+                if ( dk::core::ExpectKeyword( passParam.StreamPointer, passParam.Length, propertiesNode->Names[i].StreamPointer ) ) {
                     propertiesNode->Values[i] = paramValue;
                     break;
                 }
@@ -388,7 +387,7 @@ static void PreprocessShaderSource( const std::string& bodySource, const i32 sta
                 srcCodeLine.append( "endif\n" );
             } else if ( tokenValue == "else" ) {
                 srcCodeLine.append( "else\n" );
-            } else if ( tokenValue == "ifdef" ) {
+            } else if ( tokenValue == "ifdef" || tokenValue == "ifndef" ) {
                 srcCodeLine.append( tokenValue );
                 srcCodeLine.append( " " );
 
@@ -974,7 +973,7 @@ void RenderLibraryGenerator::processShaderStage( const i32 stageIndex, const std
     dkString_t filenameWithExtension = dk::core::GetHashcodeDigest128( permutationHashcode );
 
     // Create our generated shader output.
-    GeneratedShader generatedShader( SHADER_STAGE_LUT[stageIndex], WideStringToString( filenameWithExtension ).c_str(), baseShaderName.c_str() );
+    GeneratedShader generatedShader( SHADER_STAGE_LUT[stageIndex], WideStringToString( filenameWithExtension ).c_str(), baseShaderName.c_str(), passInfos.RenderPassName.c_str() );
 
     appendSharedShaderHeader( generatedShader.GeneratedSource );
 

@@ -14,11 +14,11 @@
 #include <Graphics/RuntimeShaderCompiler.h>
 
 // Return the first shader hashcode with matching name. Return an empty string if the given shader name does not exist.
-std::string FindShaderPermutationHashcode( const std::vector<RenderLibraryGenerator::GeneratedShader>& shaderList, const std::string& shaderName )
+std::string FindShaderPermutationHashcode( const std::vector<RenderLibraryGenerator::GeneratedShader>& shaderList, const std::string& shaderName, const std::string& passName )
 {
     // We need to do a crappy linear search to find the matching shader stage hashcode (not great; might need some optimization in a near future...).
     for ( const RenderLibraryGenerator::GeneratedShader& shader : shaderList ) {
-        if ( shader.OriginalName == shaderName ) {
+        if ( shader.OriginalName == shaderName && shader.RenderPassOwner == passName ) {
             return shader.Hashcode;
         }
     }
@@ -139,15 +139,22 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
         }
     }
 
-    // Generate material manifest (pipeline flags, external assets required, etc.).
-    const std::string namedGenericPass = std::string( editableMaterial.Name ) + "PrimitiveLighting_Generic";
+    // Generate material descriptor (pipeline flags, external assets required, etc.).
+    const std::string namedGenericPass = std::string( editableMaterial.Name ) + "LightPass";
+    const std::string namedGenericPassEd = std::string( editableMaterial.Name ) + "LightPassEd";
 
     ScenarioBinding DefaultBinding;
+    ScenarioBinding DefaultEdBinding;
     const std::vector<RenderLibraryGenerator::RenderPassInfos>& renderPasses = renderLibGenerator.getGeneratedRenderPasses();
     for ( const RenderLibraryGenerator::RenderPassInfos& renderPass : renderPasses ) {
         if ( renderPass.RenderPassName == namedGenericPass ) {
-            DefaultBinding.VertexShaderName = FindShaderPermutationHashcode( renderLibGenerator.getGeneratedShaders(), renderPass.StageShaderNames[0] );
-            DefaultBinding.PixelShaderName = FindShaderPermutationHashcode( renderLibGenerator.getGeneratedShaders(), renderPass.StageShaderNames[3] );
+            DefaultBinding.VertexShaderName = FindShaderPermutationHashcode( renderLibGenerator.getGeneratedShaders(), renderPass.StageShaderNames[0], renderPass.RenderPassName );
+            DefaultBinding.PixelShaderName = FindShaderPermutationHashcode( renderLibGenerator.getGeneratedShaders(), renderPass.StageShaderNames[3], renderPass.RenderPassName );
+        }
+
+        if ( renderPass.RenderPassName == namedGenericPassEd ) {
+            DefaultEdBinding.VertexShaderName = FindShaderPermutationHashcode( renderLibGenerator.getGeneratedShaders(), renderPass.StageShaderNames[0], renderPass.RenderPassName );
+            DefaultEdBinding.PixelShaderName = FindShaderPermutationHashcode( renderLibGenerator.getGeneratedShaders(), renderPass.StageShaderNames[3], renderPass.RenderPassName );
         }
     }
 
@@ -170,6 +177,7 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
 
         // Write each Rendering scenario.
         serializeScenario( materialDescriptor, "Default", DefaultBinding );
+        serializeScenario( materialDescriptor, "Default_Editor", DefaultEdBinding );
 
         materialDescriptor->writeString( "}\n" );
 
