@@ -12,9 +12,17 @@ class Material
 {
 public:
     enum class RenderScenario {
+        // Default Geometry Render Scenario. This scenario assumes you wanna render world geometry (e.g. static mesh).
         Default,
+
+        // Same as Default, except that you can dynamically update layers and attributes of this material. This scenario
+        // has an obvious performance cost.
         Default_Editor,
+
+        // Depth only render pass. It will output non-linearized depth.
         DepthOnly,
+
+        // Do not use.
         Count
     };
 
@@ -28,38 +36,70 @@ public:
     static constexpr i32 MAX_LAYER_COUNT = 4;
 
 public:
-                Material( BaseAllocator* allocator );
-                ~Material();
+                    Material( BaseAllocator* allocator );
+                    ~Material();
 
-    void        deserialize( FileSystemObject* object );
+    void            deserialize( FileSystemObject* object );
 
     // Bind this material for a certain rendering scenario (depth only, lighting, etc.).
     // Return the pso required to render the given Scenario (or null if the scenario is invalid/unavailable/etc.).
-    PipelineState* bindForScenario( const RenderScenario scenario, CommandList* cmdList, PipelineStateCache* psoCache, const u32 samplerCount = 1u );
+    PipelineState*  bindForScenario( const RenderScenario scenario, CommandList* cmdList, PipelineStateCache* psoCache, const u32 samplerCount = 1u );
 
     // Return the name of this material.
-    const char* getName() const;
+    const char*     getName() const;
 
     // Return true if a parameter with the given hashcode exists, and if this parameter has been declared as mutable
     // (i.e. this parameter can be modified at runtime).
-    bool        isParameterMutable( const dkStringHash_t parameterHashcode ) const;
+    bool            isParameterMutable( const dkStringHash_t parameterHashcode ) const;
 
     // Invalidate cached pipeline state and will force a full pso/resource rebuild the next time this material is binded.
     // This call is pretty slow, so call it only when required (e.g. if you want to update a material being edited in the
     // editor).
-    void        invalidateCache();
+    void            invalidateCache();
+
+    // Ensure resources required to render this material are loaded in memory.
+    void            updateResourceStreaming( GraphicsAssetCache* graphicsAssetCache );
 
 private:
-    enum class MutableParamType {
-        Float3,
+    struct MutableParameter {
+        // Cached Parameter value converted to Float3.
+        dkVec3f Float3Value;
+
+        // Pointer to the cached instance for this texture. Careful: images are usually streamed,
+        // so you have to make sure the image is valid and in memory when accessing this field!
+        Image* CachedImageAsset;
+
+        // The type of this parameter. Required to figure out how to interpret the parameter.
+        enum class ParamType {
+            Unused,
+            Float3,
+            Texture2D
+        } Type;
+        
+        // The "raw" value for this mutable parameter (aka the parsed value).
+        std::string Value;
+    
+        MutableParameter()
+            : Float3Value( dkVec3f::Zero )
+            , CachedImageAsset( nullptr )
+            , Type( ParamType::Unused )
+            , Value( "" )
+        {
+
+        }
+    };
+
+    struct ParameterBinding {
+        dkStringHash_t  ParameterHashcode;
+        Image*          ImageAsset;
     };
 
 private:
     // Name of this material.
-    std::string  name;
+    std::string name;
 
     // Hashmap holding each mutable parameter.
-    std::unordered_map<dkStringHash_t, MutableParamType> mutableParameters;
+    std::unordered_map<dkStringHash_t, MutableParameter> mutableParameters;
 
     // Pipeline binding for the default render scenario (forward+ light pass).
     RenderScenarioBinding defaultScenario;
@@ -71,11 +111,15 @@ private:
     // the resources from the hard drive.
     u8 invalidateCachedStates : 1;
 
+    // True if this material use alpha blending.
     u8 isAlphaBlended : 1;
 
+    // True if this material is double faced.
     u8 isDoubleFace : 1;
 
+    // True if this material is alpha tested and needs alpha to coverage.
     u8 enableAlphaToCoverage : 1;
 
+    // True if this material is alpha tested.
     u8 isAlphaTested : 1;
 };

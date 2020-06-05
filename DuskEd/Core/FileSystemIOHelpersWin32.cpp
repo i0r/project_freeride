@@ -35,7 +35,7 @@ bool dk::core::DisplayFileSelectionPrompt( dkString_t& selectedFilename,
     ofn.nMaxFileTitle = 0;
     ofn.lpstrInitialDir = initialDirectory.c_str();
     ofn.lpstrTitle = promptTitle.c_str();
-    ofn.Flags = OFN_EXPLORER | OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR | OFN_OVERWRITEPROMPT;
+    ofn.Flags = OFN_EXPLORER | OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
 
     // Display the Open dialog box.
     return ( selectionType == SelectionType::OpenFile ) ? GetOpenFileName( &ofn ) : GetSaveFileName( &ofn );

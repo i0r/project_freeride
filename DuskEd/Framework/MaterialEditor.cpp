@@ -19,7 +19,49 @@
 #include <Graphics/GraphicsAssetCache.h>
 #include <Rendering/RenderDevice.h>
 
+#include <Graphics/RenderPasses/Headers/MaterialRuntimeEd.h>
+
 static constexpr dkChar_t* DefaultTextureFilter = DUSK_STRING( "All (*.dds, *.jpg, *.png, *.png16, *.tga, *.lpng)\0*.dds;*.jpg;*.png;*.png16;*.tga;*.lpng\0DirectDraw Surface (*.dds)\0*.dds\0JPG (*.jpg)\0*.jpg\0PNG (*.png)\0*.png\0PNG 16 Bits (*.png16)\0*.png16\0Low Precision PNG (*.lpng)\0*.lpng\0TGA (*.tga)\0*.tga\0" );
+
+void FillRuntimeMaterialAttribute( const MaterialAttribute& attribute, MaterialEdAttribute& runtimeAttribute )
+{
+    switch ( attribute.Type ) {
+    case MaterialAttribute::Unused:
+        runtimeAttribute.Type = 0;
+        break;
+    case MaterialAttribute::Constant_1D:
+        runtimeAttribute.Type = 1;
+        runtimeAttribute.Input.x = attribute.AsFloat;
+        break;
+    case MaterialAttribute::Constant_3D:
+    case MaterialAttribute::Mutable_3D:
+        runtimeAttribute.Type = 3;
+        runtimeAttribute.Input = attribute.AsFloat3;
+        break;
+    case MaterialAttribute::Texture_2D:
+        runtimeAttribute.Type = 4;
+        break;
+    }
+}
+
+void FillRuntimeMaterialLayer( const EditableMaterialLayer& layer, MaterialEdLayer& runtimeLayer )
+{
+    FillRuntimeMaterialAttribute( layer.BaseColor, runtimeLayer.BaseColor );
+    FillRuntimeMaterialAttribute( layer.Reflectance, runtimeLayer.Reflectance );
+    FillRuntimeMaterialAttribute( layer.Roughness, runtimeLayer.Roughness );
+    FillRuntimeMaterialAttribute( layer.Metalness, runtimeLayer.Metalness );
+    FillRuntimeMaterialAttribute( layer.AmbientOcclusion, runtimeLayer.AmbientOcclusion );
+    FillRuntimeMaterialAttribute( layer.Emissivity, runtimeLayer.Emissivity );
+    FillRuntimeMaterialAttribute( layer.BlendMask, runtimeLayer.BlendMask );
+
+    runtimeLayer.LayerScale = layer.Scale;
+    runtimeLayer.LayerOffset = layer.Offset;
+
+    runtimeLayer.Contribution.BlendMode = layer.BlendMode;
+    runtimeLayer.Contribution.DiffuseContribution = layer.DiffuseContribution;
+    runtimeLayer.Contribution.SpecularContribution = layer.SpecularContribution;
+    runtimeLayer.Contribution.NormalContribution = layer.NormalContribution;
+}
 
 MaterialEditor::MaterialEditor( BaseAllocator* allocator, GraphicsAssetCache* gfxCache, VirtualFileSystem* vfs )
     : isOpened( false )
@@ -29,6 +71,7 @@ MaterialEditor::MaterialEditor( BaseAllocator* allocator, GraphicsAssetCache* gf
     , graphicsAssetCache( gfxCache )
     , virtualFileSystem( vfs )
     , materialGenerator( dk::core::allocate<MaterialGenerator>( allocator, allocator, vfs ) )
+    , bufferData{}
 {
 
 }
@@ -55,11 +98,12 @@ isMaterialDirty = true;\
     if ( ImGui::Begin( "Material Editor", &isOpened ) ) {
         bool isMaterialDirty = false;
 
-        if ( ImGui::Button( "Force Recompile" ) ) {
+        if ( ImGui::Button( "Compile" ) ) {
             activeMaterial = materialGenerator->createMaterial( editedMaterial );
 
             if ( activeMaterial != nullptr ) {
                 activeMaterial->invalidateCache();
+                activeMaterial->updateResourceStreaming( graphicsAssetCache );
             }
         }
 
@@ -195,6 +239,28 @@ Material* MaterialEditor::getActiveMaterial() const
     return activeMaterial;
 }
 
+MaterialEdData* MaterialEditor::getRuntimeEditionData()
+{
+    if ( activeMaterial == nullptr ) {
+        return nullptr;
+    }
+
+    bufferData.LayerCount = editedMaterial.LayerCount;
+    bufferData.ShadingModel = static_cast< i32 >( editedMaterial.SModel );
+    bufferData.WriteVelocity = editedMaterial.WriteVelocity;
+    bufferData.ReceiveShadow = editedMaterial.ReceiveShadow;
+    bufferData.ScaleUVByModelScale = editedMaterial.ScaleUVByModelScale;
+
+    for ( i32 layerIdx = 0; layerIdx < editedMaterial.LayerCount; layerIdx++ ) {
+        const EditableMaterialLayer& layer = editedMaterial.Layers[layerIdx];
+        MaterialEdLayer& runtimeLayer = bufferData.Layers[layerIdx];
+
+        FillRuntimeMaterialLayer( layer, runtimeLayer );
+    }
+
+    return &bufferData;
+}
+
 template<bool SaturateInput>
 void MaterialEditor::displayMaterialAttribute( const char* displayName, MaterialAttribute& attribute )
 {
@@ -249,6 +315,7 @@ void MaterialEditor::displayMaterialAttribute( const char* displayName, Material
                 : ImGui::Button( "+", ImVec2( 64, 64 ) );
 
             if ( buttonHasBeenPressed ) {
+                // TODO Legacy shit. Should be removed once the asset browser is implemented.
                 dkString_t fullPathToAsset;
                 if ( dk::core::DisplayFileSelectionPrompt( fullPathToAsset,
                                                            dk::core::SelectionType::OpenFile, 
@@ -257,11 +324,15 @@ void MaterialEditor::displayMaterialAttribute( const char* displayName, Material
                     
                     dkString_t workingDirectory;
                     dk::core::RetrieveWorkingDirectory( workingDirectory );
+                    dk::core::RemoveWordFromString( workingDirectory, DUSK_STRING( "build/bin/" ) );
 
                     if ( !dk::core::ContainsString( fullPathToAsset, workingDirectory ) ) {
-
+                        // TODO Copy resource to the working directory.
                     } else {
-                        dk::core::RemoveWordFromString( fullPathToAsset, workingDirectory + DUSK_STRING( "data/" ) );
+                        dk::core::RemoveWordFromString( fullPathToAsset, workingDirectory );
+                        dk::core::RemoveWordFromString( fullPathToAsset, DUSK_STRING( "data/" ) );
+                        dk::core::RemoveWordFromString( fullPathToAsset, DUSK_STRING( "Assets/" ) );
+
                         attribute.AsTexture.PathToTextureAsset = dkString_t( DUSK_STRING( "GameData/" ) ) + fullPathToAsset;
                     }
 

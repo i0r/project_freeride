@@ -60,6 +60,7 @@ struct TypeAST {
         MATERIAL,
         RENDER_SCENARIO,
         SHADER_PERMUTATION,
+        MATERIAL_PARAMETER,
     };
 
     eTypes                       Type;

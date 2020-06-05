@@ -82,15 +82,14 @@ lib PrimitiveLighting {
             float4x4 ModelMatrix = PerModelMatrix;
         #endif
         
+        $TEXCOORD0 = $TEXCOORD;
         $POSITION0 = mul( ModelMatrix, float4( $POSITION.xyz, 1.0f ) );
         $NORMAL0 = normalize( mul( ModelMatrix, float4( $NORMAL.xyz, 0.0f ) ) );
-        $TEXCOORD0 = $TEXCOORD;
         $SV_POSITION =  mul( g_ViewProjectionMatrix, float4( $POSITION0.xyz, 1.0f ) );
     }
     
     shader PrimitivePS {
         #ifdef $MaterialEditor
-            // Retrieve material attributes from the cbuffer (SLOW).
             Material BlendedMaterial = FetchMaterialAttributes();
         #else
             // Injected at Material compile-time. DO NOT REMOVE.

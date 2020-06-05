@@ -136,7 +136,7 @@ static DUSK_INLINE void ParseRenderPassProperties( const TypeAST& renderPassBloc
             passInfos.DispatchX = std::stoi( dispatchX );
             passInfos.DispatchY = std::stoi( dispatchY );
             passInfos.DispatchZ = std::stoi( dispatchZ );
-        } else if ( paramType != nullptr && propertiesNode != nullptr ) {
+        } else if ( propertiesNode != nullptr ) {
             // If the name does not match an identifier, assume it is a property override
             for ( u32 i = 0; i < propertiesNode->Values.size(); i++ ) {
                 if ( dk::core::ExpectKeyword( passParam.StreamPointer, passParam.Length, propertiesNode->Names[i].StreamPointer ) ) {
@@ -401,7 +401,20 @@ static void PreprocessShaderSource( const std::string& bodySource, const i32 sta
 
                         auto flagIt = constantMap.find( semanticHash );
                         if ( flagIt != constantMap.end() ) {
-                            srcCodeLine.append( flagIt->second->StreamPointer, flagIt->second->Length );
+                            std::string flagValue( flagIt->second->StreamPointer, flagIt->second->Length );
+
+                            // TODO ATROCIOUS GARBAGE THAT NEEDS A REFACTORING AS SOON AS POSSIBLE
+                            static i32 ProxyCountFlag = 0;
+
+                            std::string defineProxyName = "PROXY_" + std::to_string( ProxyCountFlag++ );
+
+                            if ( flagValue == "true" ) {
+                                processedSource.append( "#define " );
+                                processedSource.append( defineProxyName );
+                                processedSource.append( "\n" );
+                            }
+
+                            srcCodeLine.append( defineProxyName );
                         } else {
                             DUSK_LOG_WARN( "Unknown cflag specified by preprocessor guards: '%s'\n", semanticName.c_str() );
                         }
@@ -423,7 +436,19 @@ static void PreprocessShaderSource( const std::string& bodySource, const i32 sta
 
                         auto flagIt = constantMap.find( semanticHash );
                         if ( flagIt != constantMap.end() ) {
-                            srcCodeLine.append( flagIt->second->StreamPointer, flagIt->second->Length );
+                            std::string flagValue( flagIt->second->StreamPointer, flagIt->second->Length );
+
+                            static i32 ProxyCount = 0;
+                            
+                            std::string defineProxyName = "PROXY_" + std::to_string( ProxyCount++ );
+
+                            if ( flagValue == "true" ) {
+                                processedSource.append( "#define " );
+                                processedSource.append( defineProxyName );
+                                processedSource.append( "\n" );
+                            }
+
+                            srcCodeLine.append( defineProxyName );
                         } else {
                             DUSK_LOG_WARN( "Unknown cflag specified by preprocessor guards: '%s'\n", semanticName.c_str() );
                         }

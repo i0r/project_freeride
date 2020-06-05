@@ -21,6 +21,8 @@ struct Image;
 #include <Rendering/RenderDevice.h>
 #include <Rendering/CommandList.h>
 
+#include "RenderPasses/Headers/MaterialRuntimeEd.h"
+
 #include "WorldRenderer.h"
 
 using ResHandle_t = u32;
@@ -35,6 +37,7 @@ using dkPassCallback_t = std::function< void( const T&, const FrameGraphResource
 static constexpr dkStringHash_t PerViewBufferHashcode = DUSK_STRING_HASH( "PerViewBuffer" );
 static constexpr dkStringHash_t PerPassBufferHashcode = DUSK_STRING_HASH( "PerPassBuffer" );
 static constexpr dkStringHash_t PerWorldBufferHashcode = DUSK_STRING_HASH( "PerWorldBuffer" );
+static constexpr dkStringHash_t MaterialEditorBufferHashcode = DUSK_STRING_HASH( "MaterialEditorBuffer" );
 
 struct PerViewBufferData 
 {
@@ -201,6 +204,9 @@ public:
 public:
     // Return a pointer to the PerViewBuffer persistent buffer.
     DUSK_INLINE Buffer*         getPerViewPersistentBuffer() const { return perViewBuffer; }
+    
+    // Return a pointer to the MaterialEd persistent buffer.
+    DUSK_INLINE Buffer*         getMaterialEdPersistentBuffer() const { return materialEditorBuffer; }
 
 public:
                                 FrameGraphScheduler( BaseAllocator* allocator, RenderDevice* renderDevice, VirtualFileSystem* virtualFileSys, ShaderCache* shaderCache );
@@ -214,6 +220,8 @@ public:
     // Enqueue an asynchronous FrameGraphRenderPass for execution (with or without dependencies). The Renderpass must run
     // on a GPU compute pipeline.
     void                        addAsyncComputeRenderPass( const FrameGraphRenderPass& renderPass, const FrameGraphRenderPass::Handle_t* dependencies = nullptr, const u32 dependencyCount = 0u );
+
+    void                        updateMaterialEdBuffer( const MaterialEdData* matEdData );
 
     // Dispatch enqueued RenderPassExecutionInfos to FrameGraphRenderThreads. PerViewBufferData is a pointer to a persistent
     // resource containing the data for the current view (can be nil if the scheduled render passes don't need those infos)
@@ -252,6 +260,9 @@ private:
     // Persistent buffer (matches PerViewBuffer).
     Buffer*                     perViewBuffer;
 
+    // Persistent buffer (matches MaterialEditorBuffer).
+    Buffer*                     materialEditorBuffer;
+
     // Thread responsible for CommandList submission to RenderDevice.
     std::thread                 dispatcherThread;
 
@@ -272,6 +283,9 @@ private:
 
     // PerViewBufferData for the current frame (this is a copy of FrameGraph data).
     PerViewBufferData           perViewBufferData;
+
+    // PerViewBufferData for the current frame (this is a copy of FrameGraph data).
+    MaterialEdData              materialEdData;
 
 private:
     // Internal function for CommandList allocation/submit and RenderDevice present.
@@ -376,6 +390,10 @@ public:
     // The data should be immutable (the buffer is updated at the beginning of the frame once).
     ResHandle_t retrievePerViewBuffer();
 
+    // Retrieve the MaterialEd buffer for the current frame being recorded.
+    // The data should be immutable (the buffer is updated at the beginning of the frame once).
+    ResHandle_t retrieveMaterialEdBuffer();
+    
     // Retrieve a persistent image.
     ResHandle_t retrievePersistentImage( const dkStringHash_t resourceHashcode );
 
@@ -581,6 +599,8 @@ public:
     void    setViewport( const Viewport& viewport, const ScissorRegion& scissorRegion, const CameraData* camera = nullptr );
     void    setMSAAQuality( const uint32_t samplerCount = 1 );
 
+    void    acquireCurrentMaterialEdData( const MaterialEdData* matEdData );
+
     // imageQuality = ( image Quality In Percent / 100.0f )
     // (e.g. 1.0f = 100% image quality)
     void    setImageQuality( const f32 imageQuality = 1.0f );
@@ -627,7 +647,7 @@ public:
 
     // Return a const pointer to presentRenderTarget. Required if the viewport is different from the regular client one
     // (e.g. imgui editor viewport).
-    Image* getPresentRenderTarget() const;
+    Image*  getPresentRenderTarget() const;
 
 private:
     BaseAllocator*                      memoryAllocator;
@@ -642,6 +662,8 @@ private:
     bool                                hasViewportChanged;
 
     PerViewBufferData                   perViewData;
+
+    MaterialEdData                      localMaterialEdData;
 
     // Last Frame (pre post-fx) render target. This is a persistent resource valid across the frames. There is no guarantee
     // of the content correctness.

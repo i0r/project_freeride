@@ -29,20 +29,14 @@ private:
         // The name of the parameter (written as is in the serialized asset).
         std::string ParameterName;
 
-        // Its default value set at creation time.
-        dkVec3f     DefaultValueAsFloat3;
-    };
+        // The value of the parameter (written as is in the serialized asset).
+        std::string ParameterValue;
 
-    // Describe the binding for a Rendering scenario.
-    struct ScenarioBinding {
-        // Hashcode of the vertex shader name.
-        std::string VertexShaderName;
-
-        // Hashcode of the pixel shader name.
-        std::string PixelShaderName;
-
-        // Array of mutable parameters required for the given rendering scenario.
-        std::vector<MutableParameter> MutableParameters;
+        MutableParameter( const char* name, const char* value )
+            : ParameterName( name )
+            , ParameterValue( value )
+        {
+        }
     };
 
 private:
@@ -54,6 +48,9 @@ private:
 
     // The string building the resource list for attribute fetching.
     std::string         materialResourcesCode;
+
+    // Array of mutable parameters required for the given rendering scenario.
+    std::vector<MutableParameter> mutableParameters;
 
     // The number of custom function used for the active generated material.
     i32                 attributeGetterCount;
@@ -71,8 +68,6 @@ private:
     RuntimeShaderCompiler* shaderCompiler;
     
 private:
-    void                serializeScenario( FileSystemObject* stream, const char* scenarioName, const ScenarioBinding& scenarioBinding );
-
     // Clear/Reset internal states for Material generation (string builders; indexes; etc.).
     void                resetMaterialTemporaryOutput();
 
@@ -80,6 +75,10 @@ private:
     // The blend result will be stored in the bottom layer (since the material layering
     // works in a stack fashion).
     void                appendLayerBlend( const EditableMaterialLayer& bottomLayer, const EditableMaterialLayer& topLayer, const char* bottomLayerName, const char* topLayerName );
+
+    void                processAttributeParameter( const char* layerName, const char* attributeName, const MaterialAttribute& attribute );
+
+    void                buildMaterialParametersMap( const char* layerName, const EditableMaterialLayer& layer );
 
     // Append the HLSL code to blend two Material attribute with an additive blend mode.
     // Note that the blend is done at runtime.
@@ -95,19 +94,19 @@ private:
 
     // Append the HLSL code to retrieve a given MaterialAttribute 1D value depending on its type (either 
     // hardcoded static value, sample a given texture or fetch cbuffer attribute if mutable).
-    void                appendAttributeFetch1D( const MaterialAttribute& attribute );
+    void                appendAttributeFetch1D( const char* attributeName, const char* layerName, const MaterialAttribute& attribute );
 
     // Append the HLSL code to retrieve a given MaterialAttribute 2D value depending on its type (either 
     // hardcoded static value, sample a given texture or fetch cbuffer attribute if mutable).
-    void                appendAttributeFetch2D( const MaterialAttribute& attribute );
+    void                appendAttributeFetch2D( const char* attributeName, const char* layerName, const MaterialAttribute& attribute );
 
     // Append the HLSL code to retrieve a given MaterialAttribute 3D value depending on its type (either 
     // hardcoded static value, sample a given texture or fetch cbuffer attribute if mutable).
-    void                appendAttributeFetch3D( const MaterialAttribute& attribute );
+    void                appendAttributeFetch3D( const char* attributeName, const char* layerName, const MaterialAttribute& attribute );
 
     // Append the HLSL code to retrieve a given MaterialAttribute 4D value depending on its type (either 
     // hardcoded static value, sample a given texture or fetch cbuffer attribute if mutable).
-    void                appendAttributeFetch4D( const MaterialAttribute& attribute );
+    void                appendAttributeFetch4D( const char* attributeName, const char* layerName, const MaterialAttribute& attribute );
 
 private:
     // Version of the MaterialCompiler. Should be bumped whenever a change has been made to the code.

@@ -45,23 +45,6 @@ namespace dk
             return wrappedString.substr( ( stringStart + 1 ), stringLength );
         }
 
-        static dkString_t TyplessToString( const dkString_t& typelessString )
-        {
-            dkString_t lowerCaseString = typelessString;
-            dk::core::StringToLower( lowerCaseString );
-
-            if ( lowerCaseString == DUSK_STRING( "none" ) ) {
-                return DUSK_STRING( "" );
-            }
-
-            dkString_t unwrappedString = WrappedStringToString( typelessString );
-            if ( !unwrappedString.empty() ) {
-                return unwrappedString;
-            }
-
-            return typelessString;
-        }
-
         static bool StringToBoolean( const dkString_t& string )
         {
             dkString_t lowerCaseString = string;
@@ -128,7 +111,7 @@ namespace dk
             return str;
         }
 
-        static dkVec3f StringTo3DVector( const dkString_t& str )
+        static dkVec3f StringTo3DVector( const std::string& str )
         {
             if ( str.size() <= 2 || str.front() != '{' || str.back() != '}' ) {
                 return dkVec3f();
@@ -142,9 +125,9 @@ namespace dk
 
                 vecEnd = str.find_last_of( '}' );
 
-            dkString_t vecX = str.substr( 1, offsetX - 1 );
-            dkString_t vecY = str.substr( offsetX + 1, offsetY - offsetX - 1 );
-            dkString_t vecZ = str.substr( offsetY + 1, vecEnd - offsetZ - 1 );
+            std::string vecX = str.substr( 1, offsetX - 1 );
+            std::string vecY = str.substr( offsetX + 1, offsetY - offsetX - 1 );
+            std::string vecZ = str.substr( offsetY + 1, vecEnd - offsetZ - 1 );
 
             vec.x = std::stof( vecX.c_str() );
             vec.y = std::stof( vecY.c_str() );

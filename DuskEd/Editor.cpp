@@ -31,6 +31,7 @@
 #include "Graphics/RenderModules/PrimitiveLightingTest.h"
 #include "Graphics/RenderModules/GlareRenderModule.h"
 #include "Graphics/RenderModules/FFTRenderPass.h"
+#include "Graphics/Material.h"
 // END TEMP
 
 #include "Graphics/ShaderCache.h"
@@ -508,6 +509,15 @@ void Initialize( const char* cmdLineArgs )
 
 void MainLoop()
 {
+    // As ticks
+    constexpr uint32_t LOGIC_TICKRATE = 300;
+    constexpr uint32_t PHYSICS_TICKRATE = 100;
+
+    // As milliseconds
+    constexpr f64 LOGIC_DELTA = 1.0f / static_cast< float >( LOGIC_TICKRATE );
+    constexpr f64 PHYSICS_DELTA = 1.0f / static_cast< float >( PHYSICS_TICKRATE );
+
+    // TEST TEST TEST
     Viewport vp;
     vp.X = 0;
     vp.Y = 0;
@@ -522,14 +532,6 @@ void MainLoop()
     sr.Left = 0;
     sr.Right = ScreenSize.x;
 
-    Timer logicTimer;
-    logicTimer.start();
-
-    FramerateCounter framerateCounter;
-    f32 frameTime = static_cast<f32>( logicTimer.getDeltaAsSeconds() );
-    f64 accumulator = 0.0;
-
-    // TEST TEST TEST
     FbxParser fbxParser;
     fbxParser.create( g_GlobalAllocator );
     fbxParser.load( "../../Assets/geometry/box.fbx" );
@@ -537,6 +539,13 @@ void MainLoop()
     Model* testModel = g_RenderWorld->addAndCommitParsedDynamicModel( g_RenderDevice, *fbxParser.getParsedModel() );
     dkMat4x4f* testModelInstance = g_RenderWorld->allocateModelInstance( testModel );
     // TEST TEST TEST
+
+    Timer logicTimer;
+    logicTimer.start();
+
+    FramerateCounter framerateCounter;
+    f32 frameTime = static_cast< f32 >( logicTimer.getDeltaAsSeconds() );
+    f64 accumulator = 0.0;
 
     while ( 1 ) {
         g_DisplaySurface->pollSystemEvents( g_InputReader );
@@ -553,14 +562,6 @@ void MainLoop()
         g_InputReader->onFrame( g_InputMapper );
 
         accumulator += static_cast< f64 >( frameTime );
-
-        // As ticks
-        constexpr uint32_t LOGIC_TICKRATE = 300;
-        constexpr uint32_t PHYSICS_TICKRATE = 100;
-
-        // As milliseconds
-        constexpr f64 LOGIC_DELTA = 1.0f / static_cast< float >( LOGIC_TICKRATE );
-        constexpr f64 PHYSICS_DELTA = 1.0f / static_cast< float >( PHYSICS_TICKRATE );
 
         while ( accumulator >= LOGIC_DELTA ) {
             // Update Local Game Instance
@@ -589,6 +590,7 @@ void MainLoop()
 
         // Wait for previous frame completion
         FrameGraph& frameGraph = g_WorldRenderer->prepareFrameGraph( vp, sr, &g_FreeCamera->getData() );
+        frameGraph.acquireCurrentMaterialEdData( g_MaterialEditor->getRuntimeEditionData() );
 
 #if DUSK_USE_IMGUI
         if ( g_IsDevMenuVisible ) {
@@ -737,6 +739,8 @@ void MainLoop()
 #endif
 
         // Rendering
+
+        // TEST TEST TEST TEST
         g_WorldRenderer->TextRendering->addOutlinedText( str.c_str(), 0.4f, 8.0f, 8.0f, dkVec4f( 1, 1, 1, 1 ) );
         g_WorldRenderer->AutomaticExposure->importResourcesToGraph( frameGraph );
         
@@ -772,6 +776,7 @@ void MainLoop()
 #endif
 
         AddPresentRenderPass( frameGraph, presentRt );
+        // TEST TEST TEST TEST
 
         g_WorldRenderer->drawWorld( g_RenderDevice, frameTime );
     }

@@ -13,6 +13,15 @@
 
 #include <Graphics/RuntimeShaderCompiler.h>
 
+// Describe the binding for a Rendering scenario.
+struct ScenarioBinding {
+    // Hashcode of the vertex shader name.
+    std::string VertexShaderName;
+
+    // Hashcode of the pixel shader name.
+    std::string PixelShaderName;
+};
+
 // Return the first shader hashcode with matching name. Return an empty string if the given shader name does not exist.
 std::string FindShaderPermutationHashcode( const std::vector<RenderLibraryGenerator::GeneratedShader>& shaderList, const std::string& shaderName, const std::string& passName )
 {
@@ -33,6 +42,34 @@ DUSK_INLINE void SerializeFlag( FileSystemObject* stream, const char* flagName, 
     serializedFlag.append( " = " );
     serializedFlag.append( value ? "true" : "false" );
     serializedFlag.append( ";\n" );
+}
+
+void SerializeScenario( FileSystemObject* stream, const char* scenarioName, const ScenarioBinding& scenarioBinding )
+{
+    stream->writeString( "\tscenario \"" );
+    stream->writeString( scenarioName );
+    stream->writeString( "\" {\n" );
+
+    stream->writeString( "\t\tvertex = \"" );
+    stream->writeString( scenarioBinding.VertexShaderName );
+    stream->writeString( "\";\n" );
+
+    stream->writeString( "\t\tpixel = \"" );
+    stream->writeString( scenarioBinding.PixelShaderName );
+    stream->writeString( "\";\n" );
+
+    stream->writeString( "\t}\n" );
+}
+
+DUSK_INLINE std::string BuildTextureLayerName( const char* attributeName, const char* layerName )
+{
+    // Format each attribute texture name (since each layer can have its own attribute texture).
+    std::string resourceName = "Texture_";
+    resourceName.append( layerName );
+    resourceName.append( "_" );
+    resourceName.append( attributeName );
+
+    return resourceName;
 }
 
 MaterialGenerator::MaterialGenerator( BaseAllocator* allocator, VirtualFileSystem* virtualFileSystem )
@@ -73,7 +110,10 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
     // We read each material layer first.
     for ( i32 layerIdx = 0; layerIdx < editableMaterial.LayerCount; layerIdx++ ) {
         const EditableMaterialLayer& layer = editableMaterial.Layers[layerIdx];
-        appendLayerRead( MaterialLayerNames[layerIdx], layer );
+        const char* layerName = MaterialLayerNames[layerIdx];
+
+        appendLayerRead( layerName, layer );
+        buildMaterialParametersMap( layerName, layer );
     }
 
     // Then we perform blending between each layer (starting from the root).
@@ -175,9 +215,23 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
         SerializeFlag( materialDescriptor, "\tenableAlphaToCoverage", editableMaterial.UseAlphaToCoverage );
         SerializeFlag( materialDescriptor, "\tisAlphaTested", editableMaterial.IsAlphaTested );
 
+        // Write Parameters.
+        if ( !mutableParameters.empty() ) {
+            materialDescriptor->writeString( "\tparameters {\n" );
+
+            for ( const MutableParameter& param : mutableParameters ) {
+                materialDescriptor->writeString( "\t\t \"" );
+                materialDescriptor->writeString( param.ParameterName );
+                materialDescriptor->writeString( "\" = \"" );
+                materialDescriptor->writeString( param.ParameterValue );
+                materialDescriptor->writeString( "\";\n" );
+            }
+            materialDescriptor->writeString( "\t}\n" );
+        }
+
         // Write each Rendering scenario.
-        serializeScenario( materialDescriptor, "Default", DefaultBinding );
-        serializeScenario( materialDescriptor, "Default_Editor", DefaultEdBinding );
+        SerializeScenario( materialDescriptor, "Default", DefaultBinding );
+        SerializeScenario( materialDescriptor, "Editor_Default", DefaultEdBinding );
 
         materialDescriptor->writeString( "}\n" );
 
@@ -193,41 +247,13 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
     return material;
 }
 
-void MaterialGenerator::serializeScenario( FileSystemObject* stream, const char* scenarioName, const ScenarioBinding& scenarioBinding )
-{
-    stream->writeString( "\tscenario \"" );
-    stream->writeString( scenarioName );  
-    stream->writeString( "\" {\n" );
-
-    stream->writeString( "\t\tvertex = \"" );
-    stream->writeString( scenarioBinding.VertexShaderName ); 
-    stream->writeString( "\";\n" );
-
-    stream->writeString( "\t\tpixel = \"" );
-    stream->writeString( scenarioBinding.PixelShaderName );
-    stream->writeString( "\";\n" );
-
-    if ( !scenarioBinding.MutableParameters.empty() ) {
-        stream->writeString( "\t\tparameters { \"" );
-
-        for ( const MutableParameter& param : scenarioBinding.MutableParameters ) {
-            stream->writeString( "\t\t\t " );
-            stream->writeString( param.ParameterName );
-            stream->writeString( " = " );
-            stream->writeString( dk::io::Vector3DToString( param.DefaultValueAsFloat3 ) );
-            stream->writeString( ";\n" );
-        }
-        stream->writeString( "}\n" );
-    }
-
-    stream->writeString( "\t}\n" );
-}
-
 void MaterialGenerator::resetMaterialTemporaryOutput()
 {
     materialLayersGetter.clear();
     materialSharedCode.clear();
     materialResourcesCode.clear();
+
+    mutableParameters.clear();
 
     attributeGetterCount = 0;
     texResourceCount = 0;
@@ -252,6 +278,36 @@ void MaterialGenerator::appendLayerBlend( const EditableMaterialLayer& bottomLay
         appendAttributeBlendMultiplicative( "Metalness", bottomLayerName, topLayerName, topLayer.SpecularContribution );
     } break;
     }
+}
+
+void MaterialGenerator::processAttributeParameter( const char* layerName, const char* attributeName, const MaterialAttribute& attribute )
+{
+    switch ( attribute.Type ) {
+    case MaterialAttribute::Texture_2D:
+    {
+        const std::string resourceName = BuildTextureLayerName( attributeName, layerName );
+        const std::string resourceValue = WideStringToString( attribute.AsTexture.PathToTextureAsset );
+
+        mutableParameters.push_back( MutableParameter( resourceName.c_str(), resourceValue.c_str() ) );
+    } break;
+    case MaterialAttribute::Mutable_3D:
+    {
+        mutableParameters.push_back( MutableParameter( attributeName, dk::io::Vector3DToString( attribute.AsFloat3 ).c_str() ) );
+    } break;
+    default:
+        break;
+    }
+}
+
+void MaterialGenerator::buildMaterialParametersMap( const char* layerName, const EditableMaterialLayer& layer )
+{
+    processAttributeParameter( layerName, "BaseColor", layer.BaseColor );
+    processAttributeParameter( layerName, "Reflectance", layer.Reflectance );
+    processAttributeParameter( layerName, "Roughness", layer.Roughness );
+    processAttributeParameter( layerName, "Metalness", layer.Metalness );
+    processAttributeParameter( layerName, "AmbientOcclusion", layer.AmbientOcclusion );
+    processAttributeParameter( layerName, "Emissivity", layer.Emissivity );
+    processAttributeParameter( layerName, "BlendMask", layer.BlendMask );
 }
 
 void MaterialGenerator::appendAttributeBlendAdditive( const char* attributeName, const char* bottomLayerName, const char* topLayerName, const f32 contributionFactor )
@@ -312,41 +368,41 @@ void MaterialGenerator::appendLayerRead( const char* layerName, const EditableMa
 
     materialLayersGetter.append( layerName );
     materialLayersGetter.append( ".BaseColor=" );
-    appendAttributeFetch3D( layer.BaseColor );
+    appendAttributeFetch3D( "BaseColor", layerName, layer.BaseColor );
     materialLayersGetter.append( ";\n" );
 
     materialLayersGetter.append( layerName );
     materialLayersGetter.append( ".Reflectance=" );
-    appendAttributeFetch1D( layer.Reflectance );
+    appendAttributeFetch1D( "Reflectance", layerName, layer.Reflectance );
     materialLayersGetter.append( ";\n" );
 
     materialLayersGetter.append( layerName );
     materialLayersGetter.append( ".Roughness=" );
-    appendAttributeFetch1D( layer.Roughness );
+    appendAttributeFetch1D( "Roughness", layerName, layer.Roughness );
     materialLayersGetter.append( ";\n" );
 
     materialLayersGetter.append( layerName );
     materialLayersGetter.append( ".Metalness=" );
-    appendAttributeFetch1D( layer.Metalness );
+    appendAttributeFetch1D( "Metalness", layerName, layer.Metalness );
     materialLayersGetter.append( ";\n" );
 
     materialLayersGetter.append( layerName );
     materialLayersGetter.append( ".AmbientOcclusion=" );
-    appendAttributeFetch1D( layer.AmbientOcclusion );
+    appendAttributeFetch1D( "AmbientOcclusion", layerName, layer.AmbientOcclusion );
     materialLayersGetter.append( ";\n" );
 
     materialLayersGetter.append( layerName );
     materialLayersGetter.append( ".Emissivity=" );
-    appendAttributeFetch1D( layer.Emissivity );
+    appendAttributeFetch1D( "Emissivity", layerName, layer.Emissivity );
     materialLayersGetter.append( ";\n" );
 
     materialLayersGetter.append( layerName );
     materialLayersGetter.append( ".BlendMask=" );
-    appendAttributeFetch1D( layer.BlendMask );
+    appendAttributeFetch1D( "BlendMask", layerName, layer.BlendMask );
     materialLayersGetter.append( ";\n" );
 }
 
-void MaterialGenerator::appendAttributeFetch1D( const MaterialAttribute& attribute )
+void MaterialGenerator::appendAttributeFetch1D( const char* attributeName, const char* layerName, const MaterialAttribute& attribute )
 {
     switch ( attribute.Type ) {
     case MaterialAttribute::Constant_1D:
@@ -362,7 +418,8 @@ void MaterialGenerator::appendAttributeFetch1D( const MaterialAttribute& attribu
     } break;
     case MaterialAttribute::Texture_2D:
     {
-        std::string resourceName = "Texture_" + std::to_string( texResourceCount++ );
+        // Format each attribute texture name (since each layer can have its own attribute texture).
+        const std::string resourceName = BuildTextureLayerName( attributeName, layerName );
 
         materialLayersGetter.append( resourceName );
         materialLayersGetter.append( ".Sample(TextureSampler, $TEXCOORD0).r" );
@@ -387,7 +444,7 @@ void MaterialGenerator::appendAttributeFetch1D( const MaterialAttribute& attribu
     }
 }
     
-void MaterialGenerator::appendAttributeFetch2D( const MaterialAttribute& attribute )
+void MaterialGenerator::appendAttributeFetch2D( const char* attributeName, const char* layerName, const MaterialAttribute& attribute )
 {
     switch ( attribute.Type ) {
     case MaterialAttribute::Constant_1D:
@@ -411,7 +468,8 @@ void MaterialGenerator::appendAttributeFetch2D( const MaterialAttribute& attribu
     } break;
     case MaterialAttribute::Texture_2D:
     {
-        std::string resourceName = "Texture_" + std::to_string( texResourceCount++ );
+        // Format each attribute texture name (since each layer can have its own attribute texture).
+        const std::string resourceName = BuildTextureLayerName( attributeName, layerName );
 
         materialLayersGetter.append( resourceName );
         materialLayersGetter.append( ".Sample(TextureSampler, $TEXCOORD0).rg" );
@@ -436,7 +494,7 @@ void MaterialGenerator::appendAttributeFetch2D( const MaterialAttribute& attribu
     }
 }
     
-void MaterialGenerator::appendAttributeFetch3D( const MaterialAttribute& attribute )
+void MaterialGenerator::appendAttributeFetch3D( const char* attributeName, const char* layerName, const MaterialAttribute& attribute )
 {
     switch ( attribute.Type ) {
     case MaterialAttribute::Constant_1D:
@@ -464,7 +522,8 @@ void MaterialGenerator::appendAttributeFetch3D( const MaterialAttribute& attribu
     } break;
     case MaterialAttribute::Texture_2D:
     {
-        std::string resourceName = "Texture_" + std::to_string( texResourceCount++ );
+        // Format each attribute texture name (since each layer can have its own attribute texture).
+        const std::string resourceName = BuildTextureLayerName( attributeName, layerName );
 
         materialLayersGetter.append( resourceName );
         materialLayersGetter.append( ".Sample(TextureSampler, $TEXCOORD0).rgb" );
@@ -489,7 +548,7 @@ void MaterialGenerator::appendAttributeFetch3D( const MaterialAttribute& attribu
     }
 }
 
-void MaterialGenerator::appendAttributeFetch4D( const MaterialAttribute& attribute )
+void MaterialGenerator::appendAttributeFetch4D( const char* attributeName, const char* layerName, const MaterialAttribute& attribute )
 {
     switch ( attribute.Type ) {
     case MaterialAttribute::Constant_1D:
@@ -519,7 +578,8 @@ void MaterialGenerator::appendAttributeFetch4D( const MaterialAttribute& attribu
     } break;
     case MaterialAttribute::Texture_2D:
     {
-        std::string resourceName = "Texture_" + std::to_string( texResourceCount++ );
+        // Format each attribute texture name (since each layer can have its own attribute texture).
+        const std::string resourceName = BuildTextureLayerName( attributeName, layerName );
 
         materialLayersGetter.append( resourceName );
         materialLayersGetter.append( ".Sample(TextureSampler, $TEXCOORD0).rgba" );

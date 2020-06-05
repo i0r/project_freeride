@@ -1,67 +1,51 @@
 #ifndef __MATERIAL_EDITOR_H__
 #define __MATERIAL_EDITOR_H__ 1
-struct MaterialEdAttribute
-{
-    // One dimensional input use the first scalar; two dimensional use the first two; etc.
-    float3 Input;
-    
-    // Type of input used by this attribute.
-    // 0 - Unused/1 - 1D/2 - 2D/3 - 3D/4 - Texture Sampler,
-    int    Type;
-};
 
-struct MaterialEdLayer
-{
-    MaterialEdAttribute BaseColor;
-    MaterialEdAttribute Reflectance;
-    MaterialEdAttribute Roughness;
-    MaterialEdAttribute Metalness;
-    MaterialEdAttribute AmbientOcclusion;
-    MaterialEdAttribute Emissivity;    
-    MaterialEdAttribute BlendMask;    
-    float2              LayerScale;
-    float2              LayerOffset;
-};
+#include <MaterialRuntimeEd.h>
+#include <Material.hlsli>
+
+#define BLEND_ADDITIVE 0
+#define BLEND_MULTIPLICATIVE 1
+
+#define ATTRIB_UNDEFINED 0
+#define ATTRIB_FLOAT 1
+#define ATTRIB_FLOAT2 2
+#define ATTRIB_FLOAT3 3
+#define ATTRIB_TEX2D 4
 
 cbuffer MaterialEditorBuffer : register( b5 )
 {
-    // TODO Share Material::MAX_LAYER_COUNT between GPU and CPU.
-    // MaterialEditor layers.
-    MaterialEdLayer MaterialEdLayers[4];
-    
-    // MaterialEditor active layer count.
-    int             MaterialEdLayerCount;
-    
-    // 0 - Additive/1 - Multiplicative
-    int             MaterialEdBlendMode;
+    MaterialEdData  MaterialEditor;
 };
-
-#include <Material.hlsli>
 
 float FetchAttribute1D( MaterialEdAttribute attribute )
 {
-    if ( attribute.Type == 0 ) {
+    if ( attribute.Type == ATTRIB_UNDEFINED ) {
         return 0.0f;
-    } else if ( attribute.Type == 1 ) {
-        return layer.Input.x;
-    } else if ( attribute.Type == 2 ) {
-        return layer.Input.x;
-    } else if ( attribute.Type == 3 ) {
-        return layer.Input.x;
+    } else if ( attribute.Type == ATTRIB_FLOAT ) {
+        return attribute.Input.x;
+    } else if ( attribute.Type == ATTRIB_FLOAT2 ) {
+        return attribute.Input.x;
+    } else if ( attribute.Type == ATTRIB_FLOAT3 ) {
+        return attribute.Input.x;
     }
+    
+    return 0.0f;
 }
 
 float3 FetchAttribute3D( MaterialEdAttribute attribute )
 {
-    if ( attribute.Type == 0 ) {
+    if ( attribute.Type == ATTRIB_UNDEFINED ) {
         return float3( 1, 1, 0 );
-    } else if ( attribute.Type == 1 ) {
-        return layer.Input.xxx;
-    } else if ( attribute.Type == 2 ) {
-        return float3( layer.Input.x, layer.Input.y, 0 );
-    } else if ( attribute.Type == 3 ) {
-        return layer.Input.xyz;
+    } else if ( attribute.Type == ATTRIB_FLOAT ) {
+        return attribute.Input.xxx;
+    } else if ( attribute.Type == ATTRIB_FLOAT2 ) {
+        return float3( attribute.Input.x, attribute.Input.y, 0 );
+    } else if ( attribute.Type == ATTRIB_FLOAT3 ) {
+        return attribute.Input.xyz;
     }
+    
+    return float3( 0, 0, 0 );
 }
 
 float3 BlendAdditive3D( float3 bottom, float3 top, float mask, float contribution )
@@ -97,28 +81,28 @@ Material FetchMaterialEdLayer( MaterialEdLayer layer )
     return builtLayer;
 }
 
-void BlendMaterials( Material blendedMaterial, Material otherMaterial )
+void BlendMaterials( inout Material blendedMaterial, Material otherMaterial, MaterialEdContribution blendInfos )
 {
-    if ( MaterialEdBlendMode == 0 ) {
-        blendedMaterial.BaseColor = BlendAdditive3D( blendedMaterial.BaseColor, otherMaterial.BaseColor, otherMaterial.BlendMask, 1.0f ); 
-        blendedMaterial.Reflectance = BlendAdditive1D( blendedMaterial.Reflectance, otherMaterial.Reflectance, otherMaterial.BlendMask, 1.0f ); 
-        blendedMaterial.Roughness = BlendAdditive1D( blendedMaterial.Roughness, otherMaterial.Roughness, otherMaterial.BlendMask, 1.0f ); 
-        blendedMaterial.Metalness = BlendAdditive1D( blendedMaterial.Metalness, otherMaterial.Metalness, otherMaterial.BlendMask, 1.0f ); 
-    } else if ( MaterialEdBlendMode == 1 ) {
-        blendedMaterial.BaseColor = BlendMultiplicative3D( blendedMaterial.BaseColor, otherMaterial.BaseColor, otherMaterial.BlendMask, 1.0f ); 
-        blendedMaterial.Reflectance = BlendMultiplicative1D( blendedMaterial.Reflectance, otherMaterial.Reflectance, otherMaterial.BlendMask, 1.0f ); 
-        blendedMaterial.Roughness = BlendMultiplicative1D( blendedMaterial.Roughness, otherMaterial.Roughness, otherMaterial.BlendMask, 1.0f ); 
-        blendedMaterial.Metalness = BlendMultiplicative1D( blendedMaterial.Metalness, otherMaterial.Metalness, otherMaterial.BlendMask, 1.0f ); 
+    if ( blendInfos.BlendMode == BLEND_ADDITIVE ) {
+        blendedMaterial.BaseColor = BlendAdditive3D( blendedMaterial.BaseColor, otherMaterial.BaseColor, otherMaterial.BlendMask, blendInfos.DiffuseContribution ); 
+        blendedMaterial.Reflectance = BlendAdditive1D( blendedMaterial.Reflectance, otherMaterial.Reflectance, otherMaterial.BlendMask, blendInfos.SpecularContribution ); 
+        blendedMaterial.Roughness = BlendAdditive1D( blendedMaterial.Roughness, otherMaterial.Roughness, otherMaterial.BlendMask, blendInfos.SpecularContribution ); 
+        blendedMaterial.Metalness = BlendAdditive1D( blendedMaterial.Metalness, otherMaterial.Metalness, otherMaterial.BlendMask, blendInfos.SpecularContribution );
+    } else if ( blendInfos.BlendMode == BLEND_MULTIPLICATIVE ) {
+        blendedMaterial.BaseColor = BlendMultiplicative3D( blendedMaterial.BaseColor, otherMaterial.BaseColor, otherMaterial.BlendMask, blendInfos.DiffuseContribution ); 
+        blendedMaterial.Reflectance = BlendMultiplicative1D( blendedMaterial.Reflectance, otherMaterial.Reflectance, otherMaterial.BlendMask, blendInfos.SpecularContribution ); 
+        blendedMaterial.Roughness = BlendMultiplicative1D( blendedMaterial.Roughness, otherMaterial.Roughness, otherMaterial.BlendMask, blendInfos.SpecularContribution ); 
+        blendedMaterial.Metalness = BlendMultiplicative1D( blendedMaterial.Metalness, otherMaterial.Metalness, otherMaterial.BlendMask, blendInfos.SpecularContribution );
     }
 }
 
 Material FetchMaterialAttributes()
 {
-    Material generatedMaterial = FetchMaterialEdLayer( MaterialEdLayer[0] );
+    Material generatedMaterial = FetchMaterialEdLayer( MaterialEditor.Layers[0] );
     
-    for ( int layerIdx = 1; layerIdx < MaterialEdLayerCount; layerIdx++ ) {
-        Material layerMaterial = FetchMaterialEdLayer( MaterialEdLayer[layerIdx] );
-        BlendMaterials( generatedMaterial, layerMaterial );
+    for ( int layerIdx = 1; layerIdx < MaterialEditor.LayerCount; layerIdx++ ) {
+        Material layerMaterial = FetchMaterialEdLayer( MaterialEditor.Layers[layerIdx] );
+        BlendMaterials( generatedMaterial, layerMaterial, MaterialEditor.Layers[layerIdx].Contribution );
     }
     
     return generatedMaterial;

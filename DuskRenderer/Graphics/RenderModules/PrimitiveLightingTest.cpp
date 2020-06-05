@@ -29,6 +29,7 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest,
         ResHandle_t PerPassBuffer;
         ResHandle_t PerViewBuffer;
         ResHandle_t PerSceneBuffer;
+        ResHandle_t MaterialEdBuffer;
     };
 
     PassData& data = frameGraph.addRenderPass<PassData>(
@@ -58,6 +59,7 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest,
 
             passData.PerPassBuffer = builder.allocateBuffer( perPassBuffer, SHADER_STAGE_VERTEX | SHADER_STAGE_PIXEL );
             passData.PerViewBuffer = builder.retrievePerViewBuffer();
+            passData.MaterialEdBuffer = builder.retrieveMaterialEdBuffer();
 
             passData.PerSceneBuffer = builder.readReadOnlyBuffer( perSceneBuffer );
         },
@@ -67,6 +69,7 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest,
             Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
             Buffer* perViewBuffer = resources->getPersistentBuffer( passData.PerViewBuffer );
             Buffer* perWorldBuffer = resources->getBuffer( passData.PerSceneBuffer );
+            Buffer* materialEdBuffer = resources->getPersistentBuffer( passData.MaterialEdBuffer );
 
             cmdList->pushEventMarker( DUSK_STRING( "Forward+ Light Pass" ) );
 
@@ -84,6 +87,9 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest,
             cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
             cmdList->bindConstantBuffer( PerWorldBufferHashcode, perWorldBuffer );
 
+            // todo something like: if ( isInMaterialEditor )
+            //cmdList->bindConstantBuffer( MaterialEditorBufferHashcode, materialEdBuffer );
+            
             cmdList->setupFramebuffer( &outputTarget, zbufferTarget );
             cmdList->prepareAndBindResourceList( pipelineState );
             

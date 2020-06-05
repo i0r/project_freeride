@@ -16,6 +16,8 @@ static constexpr dkStringHash_t SWAPCHAIN_BUFFER_RESOURCE_HASHCODE = DUSK_STRING
 static constexpr dkStringHash_t PERVIEW_BUFFER_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__PerViewBuffer__" );
 static constexpr dkStringHash_t PRESENT_IMAGE_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__PresentRenderTarget__" );
 static constexpr dkStringHash_t LAST_FRAME_IMAGE_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__LastFrameRenderTarget__" );
+static constexpr dkStringHash_t MATERIALED_BUFFER_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__MaterialEditorBuffer__" );
+
 
 FrameGraphBuilder::FrameGraphBuilder()
     : frameSamplerCount( 1 )
@@ -282,6 +284,12 @@ ResHandle_t FrameGraphBuilder::retrievePresentImage()
 ResHandle_t FrameGraphBuilder::retrievePerViewBuffer()
 {
     persitentBuffers[persitentBufferCount] = PERVIEW_BUFFER_RESOURCE_HASHCODE;
+    return persitentBufferCount++;
+}
+
+ResHandle_t FrameGraphBuilder::retrieveMaterialEdBuffer()
+{
+    persitentBuffers[persitentBufferCount] = MATERIALED_BUFFER_RESOURCE_HASHCODE;
     return persitentBufferCount++;
 }
 
@@ -697,6 +705,7 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
     graphResources.importPersistentBuffer( PERVIEW_BUFFER_RESOURCE_HASHCODE, graphScheduler.getPerViewPersistentBuffer() );
     graphResources.importPersistentImage( LAST_FRAME_IMAGE_RESOURCE_HASHCODE, lastFrameRenderTarget );
     graphResources.importPersistentImage( PRESENT_IMAGE_RESOURCE_HASHCODE, presentRenderTarget );
+    graphResources.importPersistentBuffer( MATERIALED_BUFFER_RESOURCE_HASHCODE, graphScheduler.getMaterialEdPersistentBuffer() );
 
     // Cull & compile
     //graphBuilder.cullRenderPasses( renderPasses, renderPassCount );
@@ -714,6 +723,8 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
         perViewData.WorldPosition = activeCamera->worldPosition;
         perViewData.FrameIndex = activeCamera->cameraFrameNumber;
     }
+    
+    graphScheduler.updateMaterialEdBuffer( &localMaterialEdData );
 
     // Dispatch render passes to rendering threads
     graphScheduler.dispatch( &perViewData );
@@ -743,6 +754,15 @@ void FrameGraph::setViewport( const Viewport& viewport, const ScissorRegion& sci
 void FrameGraph::setMSAAQuality( const uint32_t samplerCount )
 {
     graphBuilder.setMSAAQuality( samplerCount );
+}
+
+void FrameGraph::acquireCurrentMaterialEdData( const MaterialEdData* matEdData )
+{
+    if ( matEdData == nullptr ) {
+        return;
+    }
+
+    memcpy( &localMaterialEdData, matEdData, sizeof( MaterialEdData ) );
 }
 
 void FrameGraph::setImageQuality( const f32 imageQuality )
@@ -827,6 +847,7 @@ FrameGraphScheduler::FrameGraphScheduler( BaseAllocator* allocator, RenderDevice
     : memoryAllocator( allocator )
     , renderDevice( renderDevice )
     , perViewBuffer( nullptr )
+    , materialEditorBuffer( nullptr )
     , enqueuedRenderPassCount( 0u )
     , enqueuedAsyncRenderPassCount( 0u )
     , currentState( SCHEDULER_STATE_READY )
@@ -837,6 +858,13 @@ FrameGraphScheduler::FrameGraphScheduler( BaseAllocator* allocator, RenderDevice
     perViewBufferDesc.SizeInBytes = sizeof( PerViewBufferData );
 
     perViewBuffer = renderDevice->createBuffer( perViewBufferDesc );
+
+    BufferDesc matEdBufferDesc;
+    matEdBufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
+    matEdBufferDesc.SizeInBytes = sizeof( MaterialEdData );
+    matEdBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
+
+    materialEditorBuffer = renderDevice->createBuffer( matEdBufferDesc );
 
     workers = dk::core::allocateArray<FrameGraphRenderThread>( memoryAllocator, RENDER_THREAD_COUNT, memoryAllocator, renderDevice, virtualFileSys, shaderCache );
     dispatcherThread = std::thread( &FrameGraphScheduler::jobDispatcherThread, this );
@@ -886,6 +914,14 @@ void FrameGraphScheduler::addAsyncComputeRenderPass( const FrameGraphRenderPass&
 
     enqueuedAsyncRenderPass[enqueuedAsyncRenderPassCount++] = RenderPassExecutionInfos( &renderPass, internalDependencies, dependencyCount );
 #endif
+}
+
+void FrameGraphScheduler::updateMaterialEdBuffer( const MaterialEdData* matEdData )
+{
+    // Make a local copy of the data (if available).
+    if ( matEdData != nullptr ) {
+        memcpy( &materialEdData, matEdData, sizeof( MaterialEdData ) );
+    }
 }
 
 void FrameGraphScheduler::dispatch( const PerViewBufferData* perViewData )
@@ -957,6 +993,7 @@ void FrameGraphScheduler::jobDispatcherThread()
         CommandList& bufferUploadCmdList = renderDevice->allocateCopyCommandList();
         bufferUploadCmdList.begin();
         bufferUploadCmdList.updateBuffer( *perViewBuffer, &perViewBufferData, sizeof( PerViewBufferData ) );
+        bufferUploadCmdList.updateBuffer( *materialEditorBuffer, &materialEdData, sizeof( MaterialEdData ) );
         bufferUploadCmdList.end();
         renderDevice->submitCommandList( bufferUploadCmdList );
 

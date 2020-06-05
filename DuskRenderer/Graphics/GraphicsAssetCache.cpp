@@ -95,6 +95,7 @@ Image* GraphicsAssetCache::getImage( const dkChar_t* assetName, const bool force
     const bool alreadyExists = ( mapIterator != imageMap.end() );
 
     if ( alreadyExists && !forceReload ) {
+        file->close();
         return mapIterator->second;
     }
 

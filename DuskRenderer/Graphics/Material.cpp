@@ -93,10 +93,31 @@ void Material::deserialize( FileSystemObject* object )
 
                     switch ( type.Type ) {
                     case TypeAST::RENDER_SCENARIO: {
-                        if ( dk::core::ExpectKeyword( name.StreamPointer, 14, "Default_Editor" ) ) {
+                        if ( dk::core::ExpectKeyword( name.StreamPointer, 14, "Editor_Default" ) ) {
                             ParseScenario( defaultEditorScenario, type );
-                        } else if ( dk::core::ExpectKeyword( name.StreamPointer, 7, "Default" ) ) {
+                        } 
+
+                        if ( dk::core::ExpectKeyword( name.StreamPointer, 7, "Default" ) ) {
                             ParseScenario( defaultScenario, type );
+                        }
+                    } break;
+                    case TypeAST::MATERIAL_PARAMETER: {
+                        const u32 parameterCount = static_cast<u32>( type.Names.size() );
+
+                        for ( u32 i = 0; i < parameterCount; i++ ) {
+                            dkStringHash_t key = dk::core::CRC32( type.Names[i].StreamPointer, type.Names[i].Length );
+                            std::string value( type.Values[i].StreamPointer, type.Values[i].Length );
+
+                            MutableParameter param;
+                            if ( value.front() == '{' && value.back() == '}' ) {
+                                param.Type = MutableParameter::ParamType::Float3;
+                                param.Float3Value = dk::io::StringTo3DVector( value );
+                            } else {
+                                param.Type = MutableParameter::ParamType::Texture2D;
+                                param.Value = value;
+                            }
+
+                            mutableParameters.insert( std::make_pair( key, param ) );
                         }
                     } break;
                     }
@@ -113,6 +134,7 @@ PipelineState* Material::bindForScenario( const RenderScenario scenario, Command
 
     switch ( scenario ) {
     case RenderScenario::Default:
+    case RenderScenario::Default_Editor:
     {
         PipelineStateDesc DefaultPipelineState( PipelineStateDesc::GRAPHICS );
         DefaultPipelineState.PrimitiveTopology = ePrimitiveTopology::PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -131,7 +153,8 @@ PipelineState* Material::bindForScenario( const RenderScenario scenario, Command
         DefaultPipelineState.InputLayout.Entry[2] = { 0, VIEW_FORMAT_R32G32_FLOAT, 0, 2, 0, true, "TEXCOORD" };
         DefaultPipelineState.depthClearValue = 0.0f;
 
-        scenarioPso = psoCache->getOrCreatePipelineState( DefaultPipelineState, defaultScenario.PsoShaderBinding, invalidateCachedStates );
+        const PipelineStateCache::ShaderBinding& shaderBinding = ( ( scenario == RenderScenario::Default_Editor ) ? defaultEditorScenario : defaultScenario ).PsoShaderBinding;
+        scenarioPso = psoCache->getOrCreatePipelineState( DefaultPipelineState, shaderBinding, invalidateCachedStates );
     } break;
     default:
         break;
@@ -140,7 +163,16 @@ PipelineState* Material::bindForScenario( const RenderScenario scenario, Command
     // Reset flags.
     invalidateCachedStates = false;
 
+    // Set pipeline states.
     cmdList->bindPipelineState( scenarioPso );
+
+    // Lazily bind resources to the pipeline.
+    // TODO Check which resource should be binded (e.g. don't bind the basecolor map during a depth only pass...).
+    for ( auto& mutableParam : mutableParameters ) {
+        if ( mutableParam.second.Type == MutableParameter::ParamType::Texture2D ) {
+            cmdList->bindImage( mutableParam.first, mutableParam.second.CachedImageAsset );
+        }
+    }
 
     return scenarioPso;
 }
@@ -158,4 +190,13 @@ bool Material::isParameterMutable( const dkStringHash_t parameterHashcode ) cons
 void Material::invalidateCache()
 {
     invalidateCachedStates = true;
+}
+
+void Material::updateResourceStreaming( GraphicsAssetCache* graphicsAssetCache )
+{
+    for ( auto& mutableParam : mutableParameters ) {
+        if ( mutableParam.second.Type == MutableParameter::ParamType::Texture2D ) {
+            mutableParam.second.CachedImageAsset = graphicsAssetCache->getImage( StringToWideString( mutableParam.second.Value ).c_str() );
+        }
+    }
 }

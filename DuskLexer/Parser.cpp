@@ -220,6 +220,34 @@ void Parser::parseMaterial()
                         }
                     }
                 }
+            } else if ( dk::core::ExpectKeyword( token.streamReference.StreamPointer, 10, "parameters" ) ) {
+                // Parameters format: parameters { %key = %value; [...] }
+                if ( !lexer.expectToken( Token::OPEN_BRACE, token ) ) {
+                    return;
+                }
+
+                TypeAST& paramType = types[typesCount++];
+                paramType.Name = name;
+                paramType.Type = TypeAST::MATERIAL_PARAMETER;
+                paramType.Exportable = true;
+
+                type.Names.push_back( name );
+                type.Types.push_back( &paramType );
+
+                while ( !lexer.equalToken( Token::CLOSE_BRACE, token ) ) {
+                    // %key = %value
+                    if ( token.type == Token::STRING ) {
+                        Token::StreamRef keyRef = token.streamReference;
+
+                        if ( lexer.expectToken( Token::EQUALS, token ) 
+                          && lexer.expectToken( Token::STRING, token ) ) {
+                            Token::StreamRef valueRef = token.streamReference;
+
+                            paramType.Names.push_back( keyRef );
+                            paramType.Values.push_back( valueRef );
+                        }
+                    }
+                }
             } else {
                 // Parse flags/typeless variables.
                 parseVariable( token.streamReference, type, true );

@@ -9,6 +9,8 @@
 
 #include "EditableMaterial.h"
 
+#include <Graphics/RenderPasses/Headers/MaterialRuntimeEd.h>
+
 class BaseAllocator;
 class GraphicsAssetCache;
 class Material;
@@ -35,6 +37,10 @@ public:
     // Return a pointer to the material instance being edited (null if no material is being edited).
     Material*           getActiveMaterial() const;
 
+    // Return a pointer to the editor buffer updated data.
+    // Return null if there is no active material binded to the editor.
+    MaterialEdData*     getRuntimeEditionData();
+
 private:
     // True if the editor window is opened in the editor workspace.
     bool                isOpened;
@@ -56,6 +62,9 @@ private:
 
     // Instance of the material generator.
     MaterialGenerator*  materialGenerator;
+
+    // Material editor data.
+    MaterialEdData      bufferData;
 
 private:
     // The maximum length of a code piece attribute (in characters count).
