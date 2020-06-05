@@ -854,11 +854,11 @@ void BindCBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hash
 
     auto it = bindingSet.find( hashcode );
     DUSK_DEV_ASSERT( ( it != bindingSet.end() ), "Unknown resource hashcode! (shader source might have been updated?)" )
-
-    PipelineState::ResourceEntry* resource = it->second;
-    if ( it == bindingSet.end() || resource == nullptr ) {
+    if ( it == bindingSet.end() || it->second == nullptr ) {
         return;
     }
+
+    PipelineState::ResourceEntry* resource = it->second;
 
     for ( i32 i = 0; i < resource->activeStageCount; i++ ) {
         PipelineState::ResourceEntry::StageBinding* stageBinding = resource->activeBindings[i];
