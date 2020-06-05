@@ -24,6 +24,7 @@ struct Material
     // Material emissivity factor.
     float   Emissivity;
     
+    // Layer Blend Mask.
     float   BlendMask;
 };
 
@@ -31,7 +32,7 @@ float3 BRDF_Default( const float3 L, const float3 V, const float3 N, const Mater
 {
     const float3 H = normalize( V + L );
     const float LoH = saturate( dot( L, H ) );
-    const float NoL = saturate( dot( N, L ) );
+    const float NoL = max( 0.00001f, dot( N, L ) ); // Avoid division per zero and NaN...
     const float NoV = saturate( dot( N, V ) );
     const float NoH = saturate( dot( N, H ) );
     
