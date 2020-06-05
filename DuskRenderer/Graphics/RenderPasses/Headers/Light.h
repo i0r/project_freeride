@@ -5,6 +5,12 @@
 #ifndef __LIGHTS_DATA_H__
 #define __LIGHTS_DATA_H__ 1
 
+#ifdef __cplusplus
+#include "HLSLCppInterop.h"
+#else
+#define DUSK_IS_MEMORY_ALIGNED_STATIC( x, y )
+#endif
+
 // Header shared between CPU and GPU. 
 // It should only contain shading-critical attributes (higher level stuff
 // should be stored in scene nodes or in the editor).
@@ -22,21 +28,6 @@
 
 #define MAX_IBL_PROBE_COUNT                 ( MAX_LOCAL_IBL_PROBE_COUNT + MAX_GLOBAL_IBL_PROBE_COUNT )
 #define IBL_PROBE_DIMENSION                 256
-
-#ifdef __cplusplus
-#include <Maths/Vector.h>
-#include <Maths/Matrix.h>
-
-#define float4x4 dkMat4x4f
-#define float4 dkVec4f
-#define float3 dkVec3f
-#define float2 dkVec2f
-#define uint u32
-#else
-#define DUSK_IS_MEMORY_ALIGNED_STATIC( x, y )
-#endif
-
-#include <Shared.h>
 
 // A distant source light that is infinitely far away (e.g. the sun).
 struct DirectionalLightGPU 
