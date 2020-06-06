@@ -127,7 +127,13 @@ ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_
             perPassBufferDesc.StrideInBytes = 0;
             passData.PerPassBuffer = builder.allocateBuffer( perPassBufferDesc, SHADER_STAGE_VERTEX | SHADER_STAGE_PIXEL );
 
-            passData.Output = builder.readImage( renderTarget );
+            ImageDesc outputDesc;
+            outputDesc.dimension = ImageDesc::DIMENSION_2D;
+            outputDesc.format = eViewFormat::VIEW_FORMAT_R16G16B16A16_FLOAT;
+            outputDesc.usage = RESOURCE_USAGE_DEFAULT;
+            outputDesc.bindFlags = RESOURCE_BIND_RENDER_TARGET_VIEW | RESOURCE_BIND_SHADER_RESOURCE;
+
+            passData.Output = builder.allocateImage( outputDesc, FrameGraphBuilder::eImageFlags::USE_SCREEN_SIZE );
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
             // Spin Until the main thread has finished the RenderList update.

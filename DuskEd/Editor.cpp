@@ -532,6 +532,8 @@ void MainLoop()
     sr.Left = 0;
     sr.Right = ScreenSize.x;
 
+    dkVec2f viewportSize = dkVec2f( static_cast<f32>( ScreenSize.x ), static_cast< f32 >( ScreenSize.y ) );
+
     FbxParser fbxParser;
     fbxParser.create( g_GlobalAllocator );
     fbxParser.load( "../../Assets/geometry/box.fbx" );
@@ -591,6 +593,7 @@ void MainLoop()
         // Wait for previous frame completion
         FrameGraph& frameGraph = g_WorldRenderer->prepareFrameGraph( vp, sr, &g_FreeCamera->getData() );
         frameGraph.acquireCurrentMaterialEdData( g_MaterialEditor->getRuntimeEditionData() );
+        frameGraph.setScreenSize( ScreenSize );
 
 #if DUSK_USE_IMGUI
         if ( g_IsDevMenuVisible ) {
@@ -717,11 +720,35 @@ void MainLoop()
 
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
             if ( ImGui::Begin( "Viewport", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar ) ) {
+                static ImVec2 prevWinSize = ImGui::GetWindowSize();
+                static bool isResizing = false;
+
                 ImVec2 winSize = ImGui::GetWindowSize();
 
-                g_IsMouseOverViewportWindow = ImGui::IsWindowHovered();
+                if ( !isResizing && ( winSize.x != prevWinSize.x || winSize.y != prevWinSize.y ) ) {
+                    isResizing = true;
+                } else if ( isResizing ) {
+                    f32 deltaX = ( winSize.x - prevWinSize.x );
+                    f32 deltaY = ( winSize.y - prevWinSize.y );
 
-                //g_FreeCamera->setProjectionMatrix( DefaultCameraFov, winSize.x, winSize.y );
+                    // Wait until the drag is over to resize stuff internally.
+                    if ( deltaX == 0.0f && deltaY == 0.0f ) {
+                        viewportSize.x = winSize.x;
+                        viewportSize.y = winSize.y;
+                        g_FreeCamera->setProjectionMatrix( DefaultCameraFov, viewportSize.x, viewportSize.y );
+
+                        vp.Width = static_cast<i32>( viewportSize.x );
+                        vp.Height = static_cast< i32 >( viewportSize.y );
+
+                        sr.Right = static_cast< i32 >( viewportSize.x );
+                        sr.Bottom = static_cast< i32 >( viewportSize.y );
+
+                        isResizing = false;
+                    }
+                }
+                prevWinSize = winSize;
+
+                g_IsMouseOverViewportWindow = ImGui::IsWindowHovered();
 
                 winSize.x -= 32;
                 winSize.y -= 32;
@@ -761,11 +788,11 @@ void MainLoop()
         }
        
         // Glare Rendering.
-        FFTPassOutput frequencyDomainRt = AddFFTComputePass( frameGraph, presentRt, static_cast< f32 >( ScreenSize.x ), static_cast< f32 >( ScreenSize.y ) );
+        FFTPassOutput frequencyDomainRt = AddFFTComputePass( frameGraph, presentRt, static_cast< f32 >( viewportSize.x ), static_cast< f32 >( viewportSize.y ) );
         FFTPassOutput convolutedFFT = g_WorldRenderer->GlareRendering->addGlareComputePass( frameGraph, frequencyDomainRt );
-        ResHandle_t inverseFFT = AddInverseFFTComputePass( frameGraph, convolutedFFT, static_cast< f32 >( ScreenSize.x ), static_cast< f32 >( ScreenSize.y ) );
+        ResHandle_t inverseFFT = AddInverseFFTComputePass( frameGraph, convolutedFFT, static_cast< f32 >( viewportSize.x ), static_cast< f32 >( viewportSize.y ) );
 
-        g_WorldRenderer->AutomaticExposure->computeExposure( frameGraph, presentRt, ScreenSize );
+        g_WorldRenderer->AutomaticExposure->computeExposure( frameGraph, presentRt, dkVec2u( static_cast<u32>( viewportSize.x ), static_cast< u32 >( viewportSize.y ) ) );
         presentRt = AddFinalPostFxRenderPass( frameGraph, presentRt, inverseFFT );
         presentRt = g_WorldRenderer->TextRendering->renderText( frameGraph, presentRt );
 

@@ -51,8 +51,24 @@ void AddPresentRenderPass( FrameGraph& frameGraph, ResHandle_t imageToPresent )
             cmdList->pushEventMarker( BuiltIn::PresentPass_EventName );
             cmdList->bindPipelineState( passPipelineState );
 
-            cmdList->setViewport( *resources->getMainViewport() );
-            cmdList->setScissor( *resources->getMainScissorRegion() );
+            dkVec2u screenSize = resources->getScreenSize();
+
+            Viewport screenVp;
+            screenVp.X = 0;
+            screenVp.Y = 0;
+            screenVp.Width = static_cast<i32>( screenSize.x );
+            screenVp.Height = static_cast< i32 >( screenSize.y );
+            screenVp.MinDepth = 0.0f;
+            screenVp.MaxDepth = 1.0f;
+
+            ScissorRegion screenSr;
+            screenSr.Top = 0;
+            screenSr.Left = 0;
+            screenSr.Right = static_cast< i32 >( screenSize.x );
+            screenSr.Bottom = static_cast< i32 >( screenSize.y );
+
+            cmdList->setViewport( screenVp );
+            cmdList->setScissor( screenSr );
 
             cmdList->transitionImage( *inputTarget, eResourceState::RESOURCE_STATE_PIXEL_BINDED_RESOURCE );
             cmdList->transitionImage( *outputTarget, eResourceState::RESOURCE_STATE_SWAPCHAIN_BUFFER );
