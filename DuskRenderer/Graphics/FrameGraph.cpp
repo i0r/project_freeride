@@ -22,6 +22,7 @@ static constexpr dkStringHash_t MATERIALED_BUFFER_RESOURCE_HASHCODE = DUSK_STRIN
 FrameGraphBuilder::FrameGraphBuilder()
     : frameSamplerCount( 1 )
     , frameImageQuality( 1.0f )
+    , frameScreenSize( dkVec2u::Zero )
     , renderPassCount( 0 )
     , imageCount( 0 )
     , bufferCount( 0 )
@@ -152,6 +153,9 @@ void FrameGraphBuilder::ApplyImageDescriptionFlags( ImageDesc& description, cons
     } else if ( imageFlags & FrameGraphBuilder::eImageFlags::USE_PIPELINE_DIMENSIONS ) {
         description.width = static_cast< u32 >( frameViewport.Width * frameImageQuality );
         description.height = static_cast< u32 >( frameViewport.Height * frameImageQuality );
+    } else if ( imageFlags & FrameGraphBuilder::eImageFlags::USE_SCREEN_SIZE ) {
+        description.width = frameScreenSize.x;
+        description.height = frameScreenSize.y;
     }
 
     if ( imageFlags & FrameGraphBuilder::eImageFlags::USE_PIPELINE_SAMPLER_COUNT ) {
@@ -321,6 +325,7 @@ FrameGraphResources::FrameGraphResources( BaseAllocator* allocator )
     , deltaTime( 0.0f )
     , allocatedBuffersCount( 0 )
     , allocatedImageCount( 0 )
+    , activeScreenSize( dkVec2u::Zero )
     , instanceBufferData( nullptr )
 {
     memset( drawCmdBuckets, 0, sizeof( DrawCmdBucket ) * 3 * 4 );
@@ -484,6 +489,16 @@ const ScissorRegion* FrameGraphResources::getMainScissorRegion() const
     return &activeScissor;
 }
 
+void FrameGraphResources::setScreenSize( const dkVec2u& screenSize )
+{
+    activeScreenSize = screenSize;
+}
+
+const dkVec2u& FrameGraphResources::getScreenSize() const
+{
+    return activeScreenSize;
+}
+
 void FrameGraphResources::updateDeltaTime( const float dt )
 {
     deltaTime = dt;
@@ -597,6 +612,7 @@ FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevi
     : memoryAllocator( allocator )
     , renderPassCount( 0 )
     , pipelineImageQuality( 1.0f )
+    , graphScreenSize( dkVec2u::Zero )
     , activeCamera( nullptr )
     , hasViewportChanged( false )
     , lastFrameRenderTarget( nullptr )
@@ -754,6 +770,14 @@ void FrameGraph::setViewport( const Viewport& viewport, const ScissorRegion& sci
 void FrameGraph::setMSAAQuality( const uint32_t samplerCount )
 {
     graphBuilder.setMSAAQuality( samplerCount );
+}
+
+void FrameGraph::setScreenSize( const dkVec2u& screenSize )
+{
+    graphBuilder.setScreenSize( screenSize );
+    graphResources.setScreenSize( screenSize );
+
+    graphScreenSize = screenSize;
 }
 
 void FrameGraph::acquireCurrentMaterialEdData( const MaterialEdData* matEdData )

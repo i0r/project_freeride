@@ -311,6 +311,9 @@ public:
 
         // Use builder viewport dimensions with image quality set to 1.0 (override width/height).
         USE_PIPELINE_DIMENSIONS_ONE = 1 << 3,
+
+        // Use ScreenSize (THIS IS NOT THE VIEWPORT SIZE, this is the display surface size) (override width/height).
+        USE_SCREEN_SIZE = 1 << 4,
     };
 
     // Maximum of RenderPass count (per frame).
@@ -328,6 +331,10 @@ public:
 
     // Set FrameGraph default sampler count for image allocation.
     DUSK_INLINE void setMSAAQuality( const u32 samplerCount = 1 )       { frameSamplerCount = samplerCount; }
+
+    DUSK_INLINE const dkVec2u& getScreenSize() const                    { return frameScreenSize; }
+
+    DUSK_INLINE void setScreenSize( const dkVec2u& screenSize )         { frameScreenSize = screenSize; }
 
     // Set FrameGraph default super scaling scale (e.g. 2.0 mean that image resolution will use a scale factor of 2).
     DUSK_INLINE void setImageQuality( const float imageQuality = 1.0f ) { frameImageQuality = imageQuality; }
@@ -416,6 +423,8 @@ private:
 
     // FrameGraph active image quality (SSAA).
     float           frameImageQuality;
+
+    dkVec2u         frameScreenSize;
 
     // Recorded render pass count.
     i32             renderPassCount;
@@ -511,6 +520,9 @@ public:
     const Viewport*         getMainViewport() const;
     const ScissorRegion*    getMainScissorRegion() const;
 
+    void                    setScreenSize( const dkVec2u& screenSize );
+    const dkVec2u&          getScreenSize() const;
+
     void                    updateDeltaTime( const float dt );
     f32                     getDeltaTime() const;
 
@@ -553,6 +565,7 @@ private:
     f32                     deltaTime;
     i32                     allocatedBuffersCount;
     i32                     allocatedImageCount;
+    dkVec2u                 activeScreenSize;
 
     void*                   instanceBufferData;
 
@@ -598,6 +611,7 @@ public:
     void    submitAndDispatchDrawCmds( DrawCmd* drawCmds, const size_t drawCmdCount );
     void    setViewport( const Viewport& viewport, const ScissorRegion& scissorRegion, const CameraData* camera = nullptr );
     void    setMSAAQuality( const uint32_t samplerCount = 1 );
+    void    setScreenSize( const dkVec2u& screenSize );
 
     void    acquireCurrentMaterialEdData( const MaterialEdData* matEdData );
 
@@ -656,6 +670,7 @@ private:
 
     i32                                 renderPassCount;
     f32                                 pipelineImageQuality;
+    dkVec2u                             graphScreenSize;
 
     const CameraData*                   activeCamera;
     Viewport                            activeViewport;
