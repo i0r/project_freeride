@@ -15,7 +15,6 @@ struct Buffer;
 class FrameGraph;
 class RenderDevice;
 class GraphicsAssetCache;
-class ShaderCache;
 
 namespace
 {
@@ -35,7 +34,7 @@ public:
     void                destroy( RenderDevice& renderDevice );
     ResHandle_t         renderText( FrameGraph& frameGraph, ResHandle_t output );
 
-    void                loadCachedResources( RenderDevice& renderDevice, ShaderCache& shaderCache, GraphicsAssetCache& graphicsAssetCache );
+    void                loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache );
     void                addOutlinedText( const char* text, f32 size, f32 x, f32 y, const dkVec4f& textColor = dkVec4f( 0.8f, 0.8f, 0.8f, 1.0f ), const f32 outlineThickness = 0.80f );
 
 private:
@@ -47,9 +46,6 @@ private:
 
     void                        lockVertexBufferRendering();
     void                        unlockVertexBufferRendering();
-
-    bool                        canUpdateVertexBuffer();
-    bool                        canUploadVertexBuffer();
 
 private:
     Image*                      fontAtlas;

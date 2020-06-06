@@ -139,8 +139,6 @@ ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_
             // Spin Until the main thread has finished the RenderList update.
             while ( !isRenderListAvailable() );
 
-            isRenderListRendering.store( true );
-
             Buffer* parametersBuffer = resources->getBuffer( passData.PerPassBuffer );
             Image* outputTarget = resources->getImage( passData.Output );
 
@@ -209,7 +207,7 @@ ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_
 
             cmdList->popEventMarker();
 
-            isRenderListRendering.store( false );
+            isRenderListRendering.store( false, std::memory_order_release );
         }
     );
 
@@ -219,13 +217,11 @@ ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_
 void ImGuiRenderModule::lockRenderList()
 {
     while ( !isRenderListUploadDone() );
-
-    isRenderListLocked.store( true );
 }
 
 void ImGuiRenderModule::unlockRenderList()
 {
-    isRenderListLocked.store( false );
+    isRenderListLocked.store( false, std::memory_order_release );
 }
 
 void ImGuiRenderModule::update( CommandList& cmdList )
@@ -265,13 +261,13 @@ void ImGuiRenderModule::update( CommandList& cmdList )
 bool ImGuiRenderModule::isRenderListAvailable()
 {
     bool lockState = false;
-    return isRenderListLocked.compare_exchange_weak( lockState, false );
+    return isRenderListLocked.compare_exchange_weak( lockState, true, std::memory_order_acquire );
 }
 
 bool ImGuiRenderModule::isRenderListUploadDone()
 {
     bool lockState = false;
-    return isRenderListRendering.compare_exchange_weak( lockState, false );
+    return isRenderListRendering.compare_exchange_weak( lockState, true, std::memory_order_acquire );
 }
 #endif
 #endif

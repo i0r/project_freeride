@@ -74,14 +74,12 @@ public:
     {
         // Spin until the ownership of this file has been released.
         while ( !canAcquireOwnership() );
-
-        fileOwnership.store( true, std::memory_order::memory_order_release );
     }
 
     // Release the ownership of this file. Must be called as soon as the thread has finished its operations on this object.
     void releaseOwnership()
     {
-        fileOwnership.store( false );
+        fileOwnership.store( false, std::memory_order_release );
     }
 
 protected:
@@ -96,6 +94,6 @@ private:
     DUSK_INLINE bool canAcquireOwnership()
     {
         bool expected = false;
-        return fileOwnership.compare_exchange_weak( expected, false );
+        return fileOwnership.compare_exchange_weak( expected, true, std::memory_order_acquire );
     }
 };

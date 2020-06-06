@@ -5,7 +5,6 @@
 #pragma once
 
 class FrameGraph;
-class ShaderCache;
 class GraphicsAssetCache;
 class RenderDevice;
 
@@ -29,7 +28,7 @@ public:
     void                        destroy( RenderDevice& renderDevice );
 
     // Load cached resource from the harddrive and pre-allocate resources for this module.
-    void                        loadCachedResources( RenderDevice& renderDevice, ShaderCache& shaderCache, GraphicsAssetCache& graphicsAssetCache );
+    void                        loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache );
     
     // Transform the active glare pattern into frequency domain.    
     void                        precomputePipelineResources( FrameGraph& frameGraph );

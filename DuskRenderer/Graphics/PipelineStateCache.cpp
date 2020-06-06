@@ -17,11 +17,11 @@ static constexpr size_t PSO_BLOB_CACHE_SIZE = ( 4 << 20 ); // Size (in bytes) of
 
 DUSK_DEV_VAR_PERSISTENT( DisablePipelineCache, true, bool ); // "Disables Pipeline State (+Root signature on D3D12) caching." [false/true]
 
-PipelineStateCache::PipelineStateCache( BaseAllocator* allocator, RenderDevice* activeRenderDevice, VirtualFileSystem* activeVFS, ShaderCache* activeShaderCache )
+PipelineStateCache::PipelineStateCache( BaseAllocator* allocator, RenderDevice* activeRenderDevice, VirtualFileSystem* activeVFS )
     : memoryAllocator( allocator )
     , renderDevice( activeRenderDevice )
     , virtualFs( activeVFS )
-    , shaderCache( activeShaderCache )
+    , shaderCache( dk::core::allocate<ShaderCache>( allocator, allocator, activeRenderDevice, activeVFS ) )
     , cachedPipelineStateCount( 0 )
 {
     memset( pipelineHashes, 0, sizeof( Hash128 ) * MAX_CACHE_ELEMENT_COUNT );
@@ -35,6 +35,8 @@ PipelineStateCache::~PipelineStateCache()
     for ( i32 i = 0; i < cachedPipelineStateCount; i++ ) {
         renderDevice->destroyPipelineState( pipelineStates[i] );
     }
+
+    dk::core::free( memoryAllocator, shaderCache );
 
     cachedPipelineStateCount = 0;
     memset( pipelineHashes, 0, sizeof( Hash128 ) * MAX_CACHE_ELEMENT_COUNT );

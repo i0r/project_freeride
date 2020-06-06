@@ -27,12 +27,12 @@ namespace dk
     namespace io
     {
         // Helper to load a raw binary file into a vector
-        DUSK_INLINE void LoadBinaryFile( FileSystemObject* stream, std::vector<u8>& bytesVector )
+        DUSK_INLINE static void LoadBinaryFile( FileSystemObject* stream, std::vector<u8>& bytesVector )
         {
             const u64 contentLength = stream->getSize();
             bytesVector.resize( contentLength, '\0' );
 
-            stream->read( bytesVector.data(), contentLength * sizeof( u8 ) );
+            stream->read( const_cast<u8*>( bytesVector.data() ), contentLength * sizeof( u8 ) );
         }
     }
 }

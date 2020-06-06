@@ -93,6 +93,7 @@ Shader* RenderDevice::createShader( const eShaderStage stage, const void* byteco
 
     if ( FAILED( operationResult ) ) {
         DUSK_LOG_ERROR( "Failed to load precompiled shader (error code: 0x%x)\n", operationResult );
+        DUSK_TRIGGER_BREAKPOINT;
         return nullptr;
     }
 

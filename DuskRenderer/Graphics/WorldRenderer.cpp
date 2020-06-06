@@ -18,7 +18,6 @@
 #include "RenderModules/MSAAResolvePass.h"
 #include "RenderModules/FinalPostFxRenderPass.h"
 #include "RenderModules/AutomaticExposure.h"
-#include "RenderModules/BlurPyramid.h"
 #include "RenderModules/TextRenderingModule.h"
 #include "RenderModules/GlareRenderModule.h"
 
@@ -121,22 +120,20 @@ void WorldRenderer::destroy( RenderDevice* renderDevice )
     AutomaticExposure->destroy( *renderDevice );
     TextRendering->destroy( *renderDevice );
     GlareRendering->destroy( *renderDevice );
-
-    FreeCachedResourcesBP( *renderDevice );
 }
 
 void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache* shaderCache, GraphicsAssetCache* graphicsAssetCache, VirtualFileSystem* virtualFileSystem )
 {
-    frameGraph = dk::core::allocate<FrameGraph>( memoryAllocator, memoryAllocator, renderDevice, virtualFileSystem, shaderCache );
+    frameGraph = dk::core::allocate<FrameGraph>( memoryAllocator, memoryAllocator, renderDevice, virtualFileSystem );
 
-    primitiveCache->loadCachedResources( renderDevice, shaderCache, graphicsAssetCache );
+    primitiveCache->createCachedGeometry( renderDevice );
     
+    // TODO Deprecate old Bruneton sky module so that we can get rid of the global shader cache dependency...
     BrunetonSky->loadCachedResources( *renderDevice, *shaderCache, *graphicsAssetCache );
-    AutomaticExposure->loadCachedResources( *renderDevice, *shaderCache, *graphicsAssetCache );
-    TextRendering->loadCachedResources( *renderDevice, *shaderCache, *graphicsAssetCache );
-    GlareRendering->loadCachedResources( *renderDevice, *shaderCache, *graphicsAssetCache );
 
-    LoadCachedResourcesBP( *renderDevice, *shaderCache );
+    AutomaticExposure->loadCachedResources( *renderDevice );
+    TextRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
+    GlareRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
 
     // Precompute resources (might worth being done offline?).
     FrameGraph& graph = *frameGraph;
@@ -144,6 +141,7 @@ void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache
 
     GlareRendering->precomputePipelineResources( graph );
 
+    // Execute precompute step.
     graph.execute( renderDevice, 0.0f );
 }
 

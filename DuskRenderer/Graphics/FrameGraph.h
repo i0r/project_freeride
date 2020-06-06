@@ -147,7 +147,7 @@ public:
     static constexpr i32        MAX_RENDERPASS_COUNT = 10;
 
 public:
-                                FrameGraphRenderThread( BaseAllocator* allocator, RenderDevice* renderDevice, VirtualFileSystem* virtualFileSys, ShaderCache* shaderCache );
+                                FrameGraphRenderThread( BaseAllocator* allocator, RenderDevice* renderDevice, VirtualFileSystem* virtualFileSys );
                                 FrameGraphRenderThread( FrameGraphRenderThread& ) = default;
                                 FrameGraphRenderThread& operator = ( FrameGraphRenderThread& ) = default;
                                 ~FrameGraphRenderThread();
@@ -209,7 +209,7 @@ public:
     DUSK_INLINE Buffer*         getMaterialEdPersistentBuffer() const { return materialEditorBuffer; }
 
 public:
-                                FrameGraphScheduler( BaseAllocator* allocator, RenderDevice* renderDevice, VirtualFileSystem* virtualFileSys, ShaderCache* shaderCache );
+                                FrameGraphScheduler( BaseAllocator* allocator, RenderDevice* renderDevice, VirtualFileSystem* virtualFileSys );
                                 FrameGraphScheduler( FrameGraphScheduler& ) = default;
                                 FrameGraphScheduler& operator = ( FrameGraphScheduler& ) = default;
                                 ~FrameGraphScheduler();
@@ -594,7 +594,7 @@ private:
 class FrameGraph
 {
 public:
-            FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevice, VirtualFileSystem* activeVfs, ShaderCache* activeShaderCache );
+            FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevice, VirtualFileSystem* activeVfs );
             FrameGraph( FrameGraph& ) = default;
             FrameGraph& operator = ( FrameGraph& ) = default;
             ~FrameGraph();

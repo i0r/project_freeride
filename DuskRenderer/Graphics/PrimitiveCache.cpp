@@ -30,7 +30,7 @@ void PrimitiveCache::destroy( RenderDevice* renderDevice )
     renderDevice->destroyBuffer( indiceBuffer );
 }
 
-void PrimitiveCache::loadCachedResources( RenderDevice* renderDevice, ShaderCache* shaderCache, GraphicsAssetCache* graphicsAssetCache )
+void PrimitiveCache::createCachedGeometry( RenderDevice* renderDevice )
 {
     u32 vertexCount = 0;
     u32 indiceCount = 0;

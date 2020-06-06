@@ -99,14 +99,16 @@ Shader* ShaderCache::getOrUploadStage( const dkChar_t* shaderHashcode, const boo
 
     // Load precompiled shader
     {
+        DUSK_LOG_DEBUG( "Instance 0x%x : reading from filestream 0x%x\n", this, file );
+
         std::vector<uint8_t> precompiledShader;
         dk::io::LoadBinaryFile( file, precompiledShader );
-        file->close();
-
         cachedStages[fileHashcode] = renderDevice->createShader( stageType, precompiledShader.data(), precompiledShader.size() );
     }
 
     Shader* cachedStage = cachedStages[fileHashcode];
+    file->close();
+
     cacheLock.store( false );
 
     return cachedStage;
@@ -145,5 +147,5 @@ Shader* ShaderCache::getOrUploadStageDynamic( const char* shadernameWithPermutat
 bool ShaderCache::canAccessCache()
 {
     bool expected = false;
-    return cacheLock.compare_exchange_weak( expected, false );
+    return cacheLock.compare_exchange_strong( expected, false );
 }

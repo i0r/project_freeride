@@ -131,7 +131,7 @@ ResHandle_t TextRenderingModule::renderText( FrameGraph& frameGraph, ResHandle_t
     return data.Output;
 }
 
-void TextRenderingModule::loadCachedResources( RenderDevice& renderDevice, ShaderCache& shaderCache, GraphicsAssetCache& graphicsAssetCache )
+void TextRenderingModule::loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache )
 {
     // Load Default Font
     fontDescriptor = graphicsAssetCache.getFont( DUSK_STRING( "GameData/fonts/SegoeUI.fnt" ) );
@@ -280,36 +280,26 @@ void TextRenderingModule::addOutlinedText( const char* text, f32 size, f32 x, f3
 
 void TextRenderingModule::lockVertexBuffer()
 {
-    while ( !canUpdateVertexBuffer() );
-
-    vertexBufferLock.store( true );
+    bool expected = false;
+    while ( !vertexBufferRenderingLock.compare_exchange_weak( expected, true, std::memory_order_acquire ) ) {
+        expected = false;
+    }
 }
 
 void TextRenderingModule::unlockVertexBuffer()
 {
-    vertexBufferLock.store( false );
+    vertexBufferLock.store( false, std::memory_order_release );
 }
 
 void TextRenderingModule::lockVertexBufferRendering()
 {
-    while ( !canUploadVertexBuffer() );
-
-    vertexBufferRenderingLock.store( true );
+    bool expected = false;
+    while ( !vertexBufferLock.compare_exchange_weak( expected, true, std::memory_order_acquire ) ) {
+        expected = false;
+    }
 }
 
 void TextRenderingModule::unlockVertexBufferRendering()
 {
-    vertexBufferRenderingLock.store( false );
-}
-
-bool TextRenderingModule::canUpdateVertexBuffer()
-{
-    bool expected = false;
-    return vertexBufferRenderingLock.compare_exchange_weak( expected, false );
-}
-
-bool TextRenderingModule::canUploadVertexBuffer()
-{
-    bool expected = false;
-    return vertexBufferLock.compare_exchange_weak( expected, false );
+    vertexBufferRenderingLock.store( false, std::memory_order_release );
 }

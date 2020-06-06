@@ -608,7 +608,7 @@ bool FrameGraphResources::isPersistentBufferAvailable( const dkStringHash_t reso
     return ( persistentBuffersMap.find( resourceHashcode ) != persistentBuffersMap.end() );
 }
 
-FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevice, VirtualFileSystem* activeVfs, ShaderCache* activeShaderCache )
+FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevice, VirtualFileSystem* activeVfs )
     : memoryAllocator( allocator )
     , renderPassCount( 0 )
     , pipelineImageQuality( 1.0f )
@@ -619,7 +619,7 @@ FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevi
     , presentRenderTarget( nullptr )
     , graphResources( allocator )
     , graphBuilder()
-    , graphScheduler( allocator, activeRenderDevice, activeVfs, activeShaderCache )
+    , graphScheduler( allocator, activeRenderDevice, activeVfs )
     , graphicsProfiler( nullptr )
 {
     memset( renderPasses, 0, sizeof( FrameGraphRenderPass ) * 48 );
@@ -867,7 +867,7 @@ Image* FrameGraph::getPresentRenderTarget() const
     return presentRenderTarget;
 }
 
-FrameGraphScheduler::FrameGraphScheduler( BaseAllocator* allocator, RenderDevice* renderDevice, VirtualFileSystem* virtualFileSys, ShaderCache* shaderCache )
+FrameGraphScheduler::FrameGraphScheduler( BaseAllocator* allocator, RenderDevice* renderDevice, VirtualFileSystem* virtualFileSys )
     : memoryAllocator( allocator )
     , renderDevice( renderDevice )
     , perViewBuffer( nullptr )
@@ -890,7 +890,7 @@ FrameGraphScheduler::FrameGraphScheduler( BaseAllocator* allocator, RenderDevice
 
     materialEditorBuffer = renderDevice->createBuffer( matEdBufferDesc );
 
-    workers = dk::core::allocateArray<FrameGraphRenderThread>( memoryAllocator, RENDER_THREAD_COUNT, memoryAllocator, renderDevice, virtualFileSys, shaderCache );
+    workers = dk::core::allocateArray<FrameGraphRenderThread>( memoryAllocator, RENDER_THREAD_COUNT, memoryAllocator, renderDevice, virtualFileSys );
     dispatcherThread = std::thread( &FrameGraphScheduler::jobDispatcherThread, this );
 
     memset( enqueuedRenderPass, 0, sizeof( RenderPassExecutionInfos ) * MAX_RENDERPASS_PER_FRAME );
@@ -1067,7 +1067,7 @@ void FrameGraphScheduler::spinUntilCompletion()
     } while ( !isReady );
 }
 
-FrameGraphRenderThread::FrameGraphRenderThread( BaseAllocator* allocator, RenderDevice* renderDevice, VirtualFileSystem* virtualFileSys, ShaderCache* shaderCache )
+FrameGraphRenderThread::FrameGraphRenderThread( BaseAllocator* allocator, RenderDevice* renderDevice, VirtualFileSystem* virtualFileSys )
     : memoryAllocator( allocator )
     , threadHandle( &FrameGraphRenderThread::workerThread, this )
     , pipelineStateCache( nullptr )
@@ -1075,7 +1075,7 @@ FrameGraphRenderThread::FrameGraphRenderThread( BaseAllocator* allocator, Render
     , currentState( FGRAPH_THREAD_STATE_READY )
     , rpToExecuteCount( 0u )
 {
-    pipelineStateCache = dk::core::allocate<PipelineStateCache>( memoryAllocator, memoryAllocator, renderDevice, virtualFileSys, shaderCache );
+    pipelineStateCache = dk::core::allocate<PipelineStateCache>( memoryAllocator, memoryAllocator, renderDevice, virtualFileSys );
     memset( renderpassToExecute, 0, sizeof( RenderPassExecutionInfos* ) * MAX_RENDERPASS_COUNT );
 }
 
@@ -1149,18 +1149,18 @@ void FrameGraphRenderThread::workerThread()
         for ( u32 jobIdx = 0; jobIdx < jobCount; jobIdx++ ) {
             RenderPassExecutionInfos& renderPass = *renderpassToExecute[jobIdx];
 
-            //// Wait for dependencies
-            //if ( renderPass.DependencyCount != 0u ) {
-            //    RenderPassExecutionInfos::State dependencyState = RenderPassExecutionInfos::RP_EXECUTION_STATE_DONE;
-            //    do {
-            //        dependencyState = RenderPassExecutionInfos::RP_EXECUTION_STATE_DONE;
-            //        for ( u32 depIdx = 0; depIdx < renderPass.DependencyCount; depIdx++ ) {
-            //            if ( !renderPass.Dependencies[depIdx]->compare_exchange_weak( dependencyState, RenderPassExecutionInfos::RP_EXECUTION_STATE_DONE ) ) {
-            //                break;
-            //            }
-            //        }
-            //    } while ( dependencyState != RenderPassExecutionInfos::RP_EXECUTION_STATE_DONE );
-            //}
+            // Wait for dependencies
+            if ( renderPass.DependencyCount != 0u ) {
+                RenderPassExecutionInfos::State dependencyState = RenderPassExecutionInfos::RP_EXECUTION_STATE_DONE;
+                do {
+                    dependencyState = RenderPassExecutionInfos::RP_EXECUTION_STATE_DONE;
+                    for ( u32 depIdx = 0; depIdx < renderPass.DependencyCount; depIdx++ ) {
+                        if ( !renderPass.Dependencies[depIdx]->compare_exchange_weak( dependencyState, RenderPassExecutionInfos::RP_EXECUTION_STATE_DONE ) ) {
+                            break;
+                        }
+                    }
+                } while ( dependencyState != RenderPassExecutionInfos::RP_EXECUTION_STATE_DONE );
+            }
 
             renderPass.ExecutionState.store( RenderPassExecutionInfos::RP_EXECUTION_STATE_IN_PROGRESS );
             renderPass.RenderPass->Execute( commandList, pipelineStateCache );

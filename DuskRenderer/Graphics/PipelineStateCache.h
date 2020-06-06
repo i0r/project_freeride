@@ -53,7 +53,7 @@ public:
     };
 
 public:
-                                                        PipelineStateCache( BaseAllocator* allocator, RenderDevice* activeRenderDevice, VirtualFileSystem* activeVFS, ShaderCache* activeShaderCache );
+                                                        PipelineStateCache( BaseAllocator* allocator, RenderDevice* activeRenderDevice, VirtualFileSystem* activeVFS );
                                                         PipelineStateCache( PipelineStateCache& ) = delete;
                                                         PipelineStateCache& operator = ( PipelineStateCache& ) = delete;
                                                         ~PipelineStateCache();

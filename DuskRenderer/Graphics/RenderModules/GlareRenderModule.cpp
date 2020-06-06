@@ -98,7 +98,7 @@ void GlareRenderModule::destroy( RenderDevice& renderDevice )
     }
 }
 
-void GlareRenderModule::loadCachedResources( RenderDevice& renderDevice, ShaderCache& shaderCache, GraphicsAssetCache& graphicsAssetCache )
+void GlareRenderModule::loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache )
 {
     glarePatternTexture = graphicsAssetCache.getImage( DUSK_STRING( "GameData/textures/default_glare_pattern.png" ) );
 

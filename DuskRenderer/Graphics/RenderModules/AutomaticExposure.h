@@ -28,7 +28,7 @@ public:
     ResHandle_t         computeExposure( FrameGraph& frameGraph, ResHandle_t lightRenderTarget, const dkVec2u& screenSize );
 
     void                destroy( RenderDevice& renderDevice );
-    void                loadCachedResources( RenderDevice& renderDevice, ShaderCache& shaderCache, GraphicsAssetCache& graphicsAssetCache );
+    void                loadCachedResources( RenderDevice& renderDevice );
 
 private:
     struct AutoExposureInfo {

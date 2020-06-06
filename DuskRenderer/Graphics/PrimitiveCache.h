@@ -7,8 +7,6 @@
 #include <Core/Types.h>
 
 class RenderDevice;
-class ShaderCache;
-class GraphicsAssetCache;
 
 struct Buffer;
 
@@ -32,7 +30,7 @@ public:
             ~PrimitiveCache();
 
     void    destroy( RenderDevice* renderDevice );
-    void    loadCachedResources( RenderDevice* renderDevice, ShaderCache* shaderCache, GraphicsAssetCache* graphicsAssetCache );
+    void    createCachedGeometry( RenderDevice* renderDevice );
 
 private:
     Buffer* vertexAttributesBuffer[3];

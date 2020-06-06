@@ -26,7 +26,6 @@
 #include "Graphics/RenderModules/MSAAResolvePass.h"
 #include "Graphics/RenderModules/FinalPostFxRenderPass.h"
 #include "Graphics/RenderModules/AutomaticExposure.h"
-#include "Graphics/RenderModules/BlurPyramid.h"
 #include "Graphics/RenderModules/TextRenderingModule.h"
 #include "Graphics/RenderModules/PrimitiveLightingTest.h"
 #include "Graphics/RenderModules/GlareRenderModule.h"
@@ -721,7 +720,7 @@ void MainLoop()
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
             if ( ImGui::Begin( "Viewport", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar ) ) {
                 static ImVec2 prevWinSize = ImGui::GetWindowSize();
-                static bool isResizing = false;
+                static bool isResizing = true;
 
                 ImVec2 winSize = ImGui::GetWindowSize();
 

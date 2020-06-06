@@ -59,7 +59,7 @@ void AutomaticExposureModule::destroy( RenderDevice& renderDevice )
     }
 }
 
-void AutomaticExposureModule::loadCachedResources( RenderDevice& renderDevice, ShaderCache& shaderCache, GraphicsAssetCache& graphicsAssetCache )
+void AutomaticExposureModule::loadCachedResources( RenderDevice& renderDevice )
 {
     // Create Ping-Pong Auto Exposure Buffers
     BufferDesc autoExposureBufferDescription;
