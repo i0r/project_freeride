@@ -43,11 +43,16 @@ struct PerViewBufferData
 {
     dkMat4x4f   ViewProjectionMatrix;
     dkMat4x4f   InverseViewProjectionMatrix;
+    dkMat4x4f   PreviousViewProjectionMatrix;
     dkVec2f     ScreenSize;
     dkVec2f     InverseScreenSize;
     dkVec3f     WorldPosition;
     i32         FrameIndex;
+    dkVec2f     CameraJitteringOffset;
+    f32         ImageQuality;
+    u32         __PADDING__;
 };
+DUSK_IS_MEMORY_ALIGNED_STATIC( PerViewBufferData, 16 );
 
 struct FrameGraphRenderPass
 {

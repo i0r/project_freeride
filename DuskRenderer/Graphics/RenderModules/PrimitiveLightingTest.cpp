@@ -25,6 +25,7 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest,
 {
     struct PassData {
         ResHandle_t output;
+        ResHandle_t velocityBuffer;
         ResHandle_t depthBuffer;
         ResHandle_t PerPassBuffer;
         ResHandle_t PerViewBuffer;
@@ -52,6 +53,14 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest,
 
             passData.depthBuffer = builder.allocateImage( zBufferRenderTargetDesc, FrameGraphBuilder::USE_PIPELINE_DIMENSIONS | FrameGraphBuilder::USE_PIPELINE_SAMPLER_COUNT );
 
+            ImageDesc velocityRtDesc;
+            velocityRtDesc.dimension = ImageDesc::DIMENSION_2D;
+            velocityRtDesc.format = eViewFormat::VIEW_FORMAT_R16G16_FLOAT;
+            velocityRtDesc.usage = RESOURCE_USAGE_DEFAULT;
+            velocityRtDesc.bindFlags = RESOURCE_BIND_RENDER_TARGET_VIEW | RESOURCE_BIND_SHADER_RESOURCE;
+
+            passData.velocityBuffer = builder.allocateImage( velocityRtDesc, FrameGraphBuilder::USE_PIPELINE_DIMENSIONS | FrameGraphBuilder::USE_PIPELINE_SAMPLER_COUNT );
+
             BufferDesc perPassBuffer;
             perPassBuffer.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
             perPassBuffer.Usage = RESOURCE_USAGE_DYNAMIC;
@@ -65,6 +74,7 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest,
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
             Image* outputTarget = resources->getImage( passData.output );
+            Image* velocityTarget = resources->getImage( passData.velocityBuffer );
             Image* zbufferTarget = resources->getImage( passData.depthBuffer );
             Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
             Buffer* perViewBuffer = resources->getPersistentBuffer( passData.PerViewBuffer );
@@ -91,7 +101,8 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest,
                 cmdList->bindConstantBuffer( MaterialEditorBufferHashcode, materialEdBuffer );
             }
             
-            cmdList->setupFramebuffer( &outputTarget, zbufferTarget );
+            Image* Framebuffer[2] = { outputTarget, velocityTarget };
+            cmdList->setupFramebuffer( Framebuffer, zbufferTarget );
             cmdList->prepareAndBindResourceList( pipelineState );
             
             const Model::LevelOfDetail& lod = modelTest->getLevelOfDetailByIndex( 0 );

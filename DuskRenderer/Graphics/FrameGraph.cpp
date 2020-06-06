@@ -628,10 +628,13 @@ FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevi
     // Setup PerView Buffer (persistent buffer shared between workers)
     perViewData.ViewProjectionMatrix = dkMat4x4f::Identity;
     perViewData.InverseViewProjectionMatrix = dkMat4x4f::Identity;
+    perViewData.PreviousViewProjectionMatrix = dkMat4x4f::Identity;
     perViewData.ScreenSize = dkVec2f( 0.0f, 0.0f );
     perViewData.InverseScreenSize = dkVec2f( 0.0f, 0.0f );
     perViewData.WorldPosition = dkVec3f( 0.0f, 0.0f, 0.0f );
     perViewData.FrameIndex = 0;
+    perViewData.CameraJitteringOffset = dkVec2f( 0.0f, 0.0f );
+    perViewData.ImageQuality = 1.0f;
 }
 
 FrameGraph::~FrameGraph()
@@ -734,10 +737,13 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
     if ( activeCamera != nullptr ) {
         perViewData.ViewProjectionMatrix = activeCamera->viewProjectionMatrix;
         perViewData.InverseViewProjectionMatrix = activeCamera->inverseViewProjectionMatrix;
+        perViewData.PreviousViewProjectionMatrix = activeCamera->previousViewProjectionMatrix;
         perViewData.ScreenSize = activeCamera->viewportSize;
         perViewData.InverseScreenSize = activeCamera->inverseViewportSize;
         perViewData.WorldPosition = activeCamera->worldPosition;
         perViewData.FrameIndex = activeCamera->cameraFrameNumber;
+        perViewData.CameraJitteringOffset = activeCamera->jitteringOffset;
+        perViewData.ImageQuality = activeCamera->imageQuality;
     }
     
     graphScheduler.updateMaterialEdBuffer( &localMaterialEdData );

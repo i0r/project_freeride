@@ -1099,10 +1099,13 @@ void RenderLibraryGenerator::appendSharedShaderHeader( std::string& hlslSource )
     hlslSource.append( "cbuffer PerViewBuffer : register( b0 )\n{\n" );
     hlslSource.append( "\tfloat4x4         g_ViewProjectionMatrix;\n" );
     hlslSource.append( "\tfloat4x4         g_InverseViewProjectionMatrix;\n" );
+    hlslSource.append( "\tfloat4x4         g_PreviousViewProjectionMatrix;\n" );
     hlslSource.append( "\tfloat2           g_ScreenSize;\n" );
     hlslSource.append( "\tfloat2           g_InverseScreenSize;\n" );
     hlslSource.append( "\tfloat3           g_WorldPosition;\n" );
     hlslSource.append( "\tint              g_FrameIndex;\n" );
+    hlslSource.append( "\tfloat2           g_CameraJitteringOffset;\n" );
+    hlslSource.append( "\tfloat            g_ImageQuality;\n" );
     hlslSource.append( "};\n" );
 
     // PerWorldBuffer
@@ -1110,17 +1113,17 @@ void RenderLibraryGenerator::appendSharedShaderHeader( std::string& hlslSource )
     hlslSource.append( "#include <Light.h>\n\n" );
 
     hlslSource.append( "cbuffer PerWorldBuffer : register( b2 )\n{\n" );
-    hlslSource.append( "\tDirectionalLightGPU g_DirectionalLight;\n" );
-    hlslSource.append( "\tfloat3	        g_ClustersScale;\n" );
-    hlslSource.append( "\tfloat	        g_SceneAABBMinX;\n" );
+    hlslSource.append( "\tDirectionalLightGPU   g_DirectionalLight;\n" );
+    hlslSource.append( "\tfloat3	            g_ClustersScale;\n" );
+    hlslSource.append( "\tfloat	                g_SceneAABBMinX;\n" );
 
-    hlslSource.append( "\tfloat3	        g_ClustersInverseScale;\n" );
-    hlslSource.append( "\tfloat	        g_SceneAABBMinY;\n" );
+    hlslSource.append( "\tfloat3	            g_ClustersInverseScale;\n" );
+    hlslSource.append( "\tfloat	                g_SceneAABBMinY;\n" );
 
-    hlslSource.append( "\tfloat3	        g_ClustersBias;\n" );
-    hlslSource.append( "\tfloat	        g_SceneAABBMinZ;\n" );
+    hlslSource.append( "\tfloat3	            g_ClustersBias;\n" );
+    hlslSource.append( "\tfloat	                g_SceneAABBMinZ;\n" );
 
-    hlslSource.append( "\tfloat3	        g_SceneAABBMax;\n" );
+    hlslSource.append( "\tfloat3	            g_SceneAABBMax;\n" );
     //hlslSource.append( "\tuint	            PADDING;\n" );
 
     //hlslSource.append( "\tPointLightGPU       g_PointLights[MAX_POINT_LIGHT_COUNT];\n" );
