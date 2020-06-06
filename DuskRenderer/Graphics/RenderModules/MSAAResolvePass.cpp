@@ -12,6 +12,7 @@
 #include <Rendering/CommandList.h>
 
 #include "Generated/AntiAliasing.generated.h"
+#include "Generated/BuiltIn.generated.h"
 
 // MSAA off and TAA on.
 ResHandle_t AddTAAResolveRenderPass( FrameGraph& frameGraph,
@@ -299,4 +300,60 @@ ResHandle_t AddMSAAResolveRenderPass(
             ? AddTAAResolveRenderPass( frameGraph, inputImage, inputVelocityImage, inputDepthImage ) 
             : inputImage;
     }
+}
+
+ResHandle_t AddSSAAResolveRenderPass( FrameGraph& frameGraph, ResHandle_t inputImage )
+{
+    constexpr PipelineStateDesc DefaultPipelineStateDesc = PipelineStateDesc(
+        PipelineStateDesc::GRAPHICS,
+        ePrimitiveTopology::PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+        DepthStencilStateDesc(),
+        RasterizerStateDesc( CULL_MODE_BACK ),
+        RenderingHelpers::BS_Disabled,
+        FramebufferLayoutDesc( FramebufferLayoutDesc::AttachmentDesc( FramebufferLayoutDesc::WRITE_COLOR, FramebufferLayoutDesc::DONT_CARE, eViewFormat::VIEW_FORMAT_R16G16B16A16_FLOAT ) ),
+        { { RenderingHelpers::S_BilinearClampEdge }, 1 }
+    );
+
+    struct PassData {
+        ResHandle_t Input;
+        ResHandle_t Output;
+    };
+
+    PassData& downscaleData = frameGraph.addRenderPass<PassData>(
+        BuiltIn::CopyImagePass_Name,
+        [&]( FrameGraphBuilder& builder, PassData& passData ) {
+            passData.Input = builder.readReadOnlyImage( inputImage );
+
+            ImageDesc outputDesc;
+            outputDesc.dimension = ImageDesc::DIMENSION_2D;
+            outputDesc.format = eViewFormat::VIEW_FORMAT_R16G16B16A16_FLOAT;
+            outputDesc.usage = RESOURCE_USAGE_DEFAULT;
+            outputDesc.bindFlags = RESOURCE_BIND_RENDER_TARGET_VIEW | RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
+
+            passData.Output = builder.allocateImage( outputDesc, FrameGraphBuilder::eImageFlags::USE_PIPELINE_DIMENSIONS_ONE );
+        },
+        [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+            Image* output = resources->getImage( passData.Output );
+            Image* input = resources->getImage( passData.Input );
+
+            PipelineState* pso = psoCache->getOrCreatePipelineState( DefaultPipelineStateDesc, BuiltIn::CopyImagePass_ShaderBinding );
+
+            cmdList->pushEventMarker( BuiltIn::CopyImagePass_EventName );
+            cmdList->bindPipelineState( pso );
+
+            cmdList->setViewport( *resources->getMainViewport() );
+
+            // Bind resources
+            cmdList->bindImage( BuiltIn::CopyImagePass_InputRenderTarget_Hashcode, input );
+
+            cmdList->prepareAndBindResourceList( pso );
+            cmdList->setupFramebuffer( &output );
+
+            cmdList->draw( 3, 1 );
+
+            cmdList->popEventMarker();
+        }
+    );
+
+    return downscaleData.Output;
 }

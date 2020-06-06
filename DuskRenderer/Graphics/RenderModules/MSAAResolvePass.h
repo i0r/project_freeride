@@ -10,11 +10,16 @@ class ShaderCache;
 
 using ResHandle_t = uint32_t;
 
-ResHandle_t AddMSAAResolveRenderPass( 
+ResHandle_t AddMSAAResolveRenderPass(
     FrameGraph& frameGraph,
-    ResHandle_t inputImage, 
-    ResHandle_t inputVelocityImage, 
-    ResHandle_t inputDepthImage, 
-    const u32   sampleCount = 1, 
-    const bool  enableTAA = false 
+    ResHandle_t inputImage,
+    ResHandle_t inputVelocityImage,
+    ResHandle_t inputDepthImage,
+    const u32   sampleCount = 1,
+    const bool  enableTAA = false
+);
+
+ResHandle_t AddSSAAResolveRenderPass(
+    FrameGraph& frameGraph,
+    ResHandle_t inputImage 
 );

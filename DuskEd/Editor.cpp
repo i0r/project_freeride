@@ -782,6 +782,11 @@ void MainLoop()
             presentRt = g_WorldRenderer->BrunetonSky->renderSky( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
         }
 
+        // Rescale geometry rts if SSAA is enabled.
+        if ( ImageQuality != 1.0f ) {
+            presentRt = AddSSAAResolveRenderPass( frameGraph, presentRt );
+        }
+
         if ( MSAASamplerCount > 1 ) {
             presentRt = AddMSAAResolveRenderPass( frameGraph, presentRt, -1, -1, MSAASamplerCount, false );
         }
