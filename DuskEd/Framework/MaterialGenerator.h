@@ -11,12 +11,23 @@ class FileSystemObject;
 #include <Graphics/Material.h>
 #include "EditableMaterial.h"
 
+// Material Layer HLSL name.
+// Root layer has the same name as the blended result since we use it as a base.
+static constexpr const char* MaterialLayerNames[Material::MAX_LAYER_COUNT] = {
+    "BlendedMaterial",
+    "MaterialLayer0",
+    "MaterialLayer1",
+    "MaterialLayer2"
+};
+
 class MaterialGenerator 
 {
 public:
                         MaterialGenerator( BaseAllocator* allocator, VirtualFileSystem* virtualFileSystem );
                         ~MaterialGenerator();
 
+    static std::string  buildTextureLayerName( const char* attributeName, const char* layerName );
+    
     // Create an editable material instance from a previously generated material instance.
     EditableMaterial    createEditableMaterial( const Material* material );
 
@@ -48,6 +59,10 @@ private:
 
     // The string building the resource list for attribute fetching.
     std::string         materialResourcesCode;
+
+    // The string building the HLSL macro to fetch baked texture samplers during interactive
+    // material edition.
+    std::string         bakedTextureCode;
 
     // Array of mutable parameters required for the given rendering scenario.
     std::vector<MutableParameter> mutableParameters;
@@ -90,23 +105,49 @@ private:
 
     // Append the HLSL code to retrieve a given Material layer.
     // It only does the retrieval; layers blending is not included!
-    void                appendLayerRead( const char* layerName, const EditableMaterialLayer& layer );
+    void                appendLayerRead( const i32 layerIndex, const EditableMaterialLayer& layer );
+
+    void                appendTextureSampling( std::string& output, const std::string& resourceName, const std::string& samplingOffset, const std::string& samplingScale, const char* uvMapName = "$TEXCOORD0" );
 
     // Append the HLSL code to retrieve a given MaterialAttribute 1D value depending on its type (either 
     // hardcoded static value, sample a given texture or fetch cbuffer attribute if mutable).
-    void                appendAttributeFetch1D( const char* attributeName, const char* layerName, const MaterialAttribute& attribute );
+    void                appendAttributeFetch1D( 
+        const i32 attributeIndex,
+        const i32 layerIndex,
+        const MaterialAttribute& attribute, 
+        const dkVec2f& samplingScale = dkVec2f( 1.0f, 1.0f ),
+        const dkVec2f& samplingOffset = dkVec2f( 0.0f, 0.0f ) 
+    );
 
     // Append the HLSL code to retrieve a given MaterialAttribute 2D value depending on its type (either 
     // hardcoded static value, sample a given texture or fetch cbuffer attribute if mutable).
-    void                appendAttributeFetch2D( const char* attributeName, const char* layerName, const MaterialAttribute& attribute );
+    void                appendAttributeFetch2D(
+        const i32 attributeIndex,
+        const i32 layerIndex,
+        const MaterialAttribute& attribute,
+        const dkVec2f& samplingScale = dkVec2f( 1.0f, 1.0f ),
+        const dkVec2f& samplingOffset = dkVec2f( 0.0f, 0.0f )
+    );
 
     // Append the HLSL code to retrieve a given MaterialAttribute 3D value depending on its type (either 
     // hardcoded static value, sample a given texture or fetch cbuffer attribute if mutable).
-    void                appendAttributeFetch3D( const char* attributeName, const char* layerName, const MaterialAttribute& attribute );
+    void                appendAttributeFetch3D(
+        const i32 attributeIndex,
+        const i32 layerIndex,
+        const MaterialAttribute& attribute,
+        const dkVec2f& samplingScale = dkVec2f( 1.0f, 1.0f ),
+        const dkVec2f& samplingOffset = dkVec2f( 0.0f, 0.0f )
+    );
 
     // Append the HLSL code to retrieve a given MaterialAttribute 4D value depending on its type (either 
     // hardcoded static value, sample a given texture or fetch cbuffer attribute if mutable).
-    void                appendAttributeFetch4D( const char* attributeName, const char* layerName, const MaterialAttribute& attribute );
+    void                appendAttributeFetch4D(
+        const i32 attributeIndex,
+        const i32 layerIndex,
+        const MaterialAttribute& attribute,
+        const dkVec2f& samplingScale = dkVec2f( 1.0f, 1.0f ),
+        const dkVec2f& samplingOffset = dkVec2f( 0.0f, 0.0f )
+    );
 
 private:
     // Version of the MaterialCompiler. Should be bumped whenever a change has been made to the code.

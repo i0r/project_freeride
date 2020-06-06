@@ -18,7 +18,7 @@ cbuffer MaterialEditorBuffer : register( b5 )
     MaterialEdData  MaterialEditor;
 };
 
-float FetchAttribute1D( MaterialEdAttribute attribute )
+float FetchAttribute1D( MaterialEdAttribute attribute, float2 uvMapTexCoords, int layerIndex, int attributeIndex, float2 scale, float2 offset )
 {
     if ( attribute.Type == ATTRIB_UNDEFINED ) {
         return 0.0f;
@@ -30,13 +30,13 @@ float FetchAttribute1D( MaterialEdAttribute attribute )
         return attribute.Input.x;
     }
     
-    return 0.0f;
+    return FetchBakedTextureSampler( uvMapTexCoords, layerIndex, attributeIndex, scale, offset ).r;
 }
 
-float3 FetchAttribute3D( MaterialEdAttribute attribute )
+float3 FetchAttribute3D( MaterialEdAttribute attribute, float2 uvMapTexCoords, int layerIndex, int attributeIndex, float2 scale, float2 offset )
 {
     if ( attribute.Type == ATTRIB_UNDEFINED ) {
-        return float3( 1, 1, 0 );
+        return float3( 1, 0, 1 );
     } else if ( attribute.Type == ATTRIB_FLOAT ) {
         return attribute.Input.xxx;
     } else if ( attribute.Type == ATTRIB_FLOAT2 ) {
@@ -45,7 +45,7 @@ float3 FetchAttribute3D( MaterialEdAttribute attribute )
         return attribute.Input.xyz;
     }
     
-    return float3( 0, 0, 0 );
+    return FetchBakedTextureSampler( uvMapTexCoords, layerIndex, attributeIndex, scale, offset ).rgb;
 }
 
 float3 BlendAdditive3D( float3 bottom, float3 top, float mask, float contribution )
@@ -68,16 +68,16 @@ float BlendMultiplicative1D( float bottom, float top, float mask, float contribu
     return lerp( bottom, bottom * top, mask * contribution );
 }
 
-Material FetchMaterialEdLayer( MaterialEdLayer layer )
+Material FetchMaterialEdLayer( MaterialEdLayer layer, int layerIndex, float2 uvMapTexCoords )
 {
     Material builtLayer;
-    builtLayer.BaseColor = FetchAttribute3D( layer.BaseColor );
-    builtLayer.Reflectance = FetchAttribute1D( layer.Reflectance );
-    builtLayer.Roughness = FetchAttribute1D( layer.Roughness );
-    builtLayer.Metalness = FetchAttribute1D( layer.Metalness );
-    builtLayer.AmbientOcclusion = FetchAttribute1D( layer.AmbientOcclusion );
-    builtLayer.Emissivity = FetchAttribute1D( layer.Emissivity );
-    builtLayer.BlendMask = FetchAttribute1D( layer.BlendMask ); 
+    builtLayer.BaseColor = FetchAttribute3D( layer.BaseColor, uvMapTexCoords, layerIndex, 0, layer.LayerScale, layer.LayerOffset );
+    builtLayer.Reflectance = FetchAttribute1D( layer.Reflectance, uvMapTexCoords, layerIndex, 1, layer.LayerScale, layer.LayerOffset );
+    builtLayer.Roughness = FetchAttribute1D( layer.Roughness, uvMapTexCoords, layerIndex, 2, layer.LayerScale, layer.LayerOffset );
+    builtLayer.Metalness = FetchAttribute1D( layer.Metalness, uvMapTexCoords, layerIndex, 3, layer.LayerScale, layer.LayerOffset );
+    builtLayer.AmbientOcclusion = FetchAttribute1D( layer.AmbientOcclusion, uvMapTexCoords, layerIndex, 4, layer.LayerScale, layer.LayerOffset );
+    builtLayer.Emissivity = FetchAttribute1D( layer.Emissivity, uvMapTexCoords, layerIndex, 5, layer.LayerScale, layer.LayerOffset );
+    builtLayer.BlendMask = FetchAttribute1D( layer.BlendMask, uvMapTexCoords, layerIndex, 6, layer.LayerScale, layer.LayerOffset );
     return builtLayer;
 }
 
@@ -96,12 +96,12 @@ void BlendMaterials( inout Material blendedMaterial, Material otherMaterial, Mat
     }
 }
 
-Material FetchMaterialAttributes()
+Material FetchMaterialAttributes( float2 uvMapTexCoords )
 {
-    Material generatedMaterial = FetchMaterialEdLayer( MaterialEditor.Layers[0] );
+    Material generatedMaterial = FetchMaterialEdLayer( MaterialEditor.Layers[0], 0, uvMapTexCoords );
     
     for ( int layerIdx = 1; layerIdx < MaterialEditor.LayerCount; layerIdx++ ) {
-        Material layerMaterial = FetchMaterialEdLayer( MaterialEditor.Layers[layerIdx] );
+        Material layerMaterial = FetchMaterialEdLayer( MaterialEditor.Layers[layerIdx], layerIdx, uvMapTexCoords );
         BlendMaterials( generatedMaterial, layerMaterial, MaterialEditor.Layers[layerIdx].Contribution );
     }
     

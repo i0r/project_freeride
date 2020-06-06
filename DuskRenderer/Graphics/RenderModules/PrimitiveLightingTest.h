@@ -10,6 +10,8 @@ class ShaderCache;
 class Model;
 class Material;
 
+#include <Graphics/Material.h>
+
 using ResHandle_t = uint32_t;
 
 struct LightPassOutput {
@@ -17,4 +19,4 @@ struct LightPassOutput {
     ResHandle_t	OutputDepthTarget;
 };
 
-LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest, Material* materialTest, ResHandle_t perSceneBuffer );
+LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest, Material* materialTest, ResHandle_t perSceneBuffer, Material::RenderScenario scenario );

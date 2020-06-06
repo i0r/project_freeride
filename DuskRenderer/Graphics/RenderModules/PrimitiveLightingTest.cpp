@@ -21,7 +21,7 @@ struct PerPassData
     dkMat4x4f PerModelMatrix;
 };
 
-LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest, Material* materialTest, ResHandle_t perSceneBuffer )
+LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest, Material* materialTest, ResHandle_t perSceneBuffer, Material::RenderScenario scenario )
 {
     struct PassData {
         ResHandle_t output;
@@ -80,15 +80,16 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest,
 
             // for each DrawCall to render
             /* Material* cmdMat = getDrawCmd().Material */;
-            PipelineState* pipelineState = materialTest->bindForScenario( Material::RenderScenario::Default, cmdList, psoCache, resources->getMainCamera()->msaaSamplerCount );
+            PipelineState* pipelineState = materialTest->bindForScenario( scenario, cmdList, psoCache, resources->getMainCamera()->msaaSamplerCount );
 
             // TODO We need to rebind the cbuffer every time the pso might have changed... this is bad.
             cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
             cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
             cmdList->bindConstantBuffer( PerWorldBufferHashcode, perWorldBuffer );
 
-            // todo something like: if ( isInMaterialEditor )
-            //cmdList->bindConstantBuffer( MaterialEditorBufferHashcode, materialEdBuffer );
+            if ( scenario == Material::RenderScenario::Default_Editor ) {
+                cmdList->bindConstantBuffer( MaterialEditorBufferHashcode, materialEdBuffer );
+            }
             
             cmdList->setupFramebuffer( &outputTarget, zbufferTarget );
             cmdList->prepareAndBindResourceList( pipelineState );

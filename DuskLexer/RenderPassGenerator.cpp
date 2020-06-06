@@ -385,6 +385,8 @@ static void PreprocessShaderSource( const std::string& bodySource, const i32 sta
                 }
             } else if ( tokenValue == "endif" ) {
                 srcCodeLine.append( "endif\n" );
+            } else if ( tokenValue == "define" ) {
+                srcCodeLine.append( "define " );
             } else if ( tokenValue == "else" ) {
                 srcCodeLine.append( "else\n" );
             } else if ( tokenValue == "ifdef" || tokenValue == "ifndef" ) {
@@ -1014,12 +1016,12 @@ void RenderLibraryGenerator::processShaderStage( const i32 stageIndex, const std
     // Write per renderpass/view cbuffers and parse compile-time flags
     WriteConstantBufferDecl( propertiesNode, "PerPassBuffer", 1, constantMap, generatedShader.GeneratedSource );
 
+    // Create resource list
+    WriteResourceList( resourceListNode, propertiesNode, generatedShader.GeneratedSource );
+
     // NOTE We want the shared header first in the hlsl source (since it might add includes to the file
     // used by the resource list)
     PreprocessShaderSource( sharedShaderBody, stageIndex, constantMap, generatedShader.GeneratedSource, semanticInput, semanticOutput );
-
-    // Create resource list
-    WriteResourceList( resourceListNode, propertiesNode, generatedShader.GeneratedSource );
 
     // Preprocess shader source code
     std::string processedSource;

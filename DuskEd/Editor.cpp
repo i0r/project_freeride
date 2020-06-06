@@ -750,7 +750,9 @@ void MainLoop()
         if ( g_MaterialEditor->getActiveMaterial() == nullptr ) {
             presentRt = g_WorldRenderer->BrunetonSky->renderSky( frameGraph, -1, -1 );
         } else {
-            auto primRenderPass = AddPrimitiveLightTest( frameGraph, testModel, g_MaterialEditor->getActiveMaterial(), lightGridData.PerSceneBuffer );
+
+            Material::RenderScenario scenario = ( g_MaterialEditor->isUsingInteractiveMode() ) ? Material::RenderScenario::Default_Editor : Material::RenderScenario::Default;
+            auto primRenderPass = AddPrimitiveLightTest( frameGraph, testModel, g_MaterialEditor->getActiveMaterial(), lightGridData.PerSceneBuffer, scenario );
             presentRt = g_WorldRenderer->BrunetonSky->renderSky( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
         }
 

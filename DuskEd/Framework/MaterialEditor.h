@@ -41,9 +41,15 @@ public:
     // Return null if there is no active material binded to the editor.
     MaterialEdData*     getRuntimeEditionData();
 
+    // Return true if interactive mode is enabled; false otherwise.
+    bool                isUsingInteractiveMode() const;
+
 private:
     // True if the editor window is opened in the editor workspace.
     bool                isOpened;
+
+    // True if interactive mode is enabled.
+    bool                useInteractiveMode;
 
     // Editable instance of the active material.
     EditableMaterial    editedMaterial;
@@ -74,5 +80,5 @@ private:
     // Display GUI for a given Material Attribute.
     // SaturateInput can be used to clamp the input between 0 and 1 (for scalar and integer inputs).
     template<bool SaturateInput>
-    void                displayMaterialAttribute( const char* displayName, MaterialAttribute& attribute );
+    void                displayMaterialAttribute( const i32 LayerIndex, const char* displayName, MaterialAttribute& attribute );
 };

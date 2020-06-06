@@ -60,6 +60,8 @@ public:
     // Ensure resources required to render this material are loaded in memory.
     void            updateResourceStreaming( GraphicsAssetCache* graphicsAssetCache );
 
+    void            setParameterAsTexture2D( const dkStringHash_t parameterHashcode, const std::string& imagePath );
+
 private:
     struct MutableParameter {
         // Cached Parameter value converted to Float3.

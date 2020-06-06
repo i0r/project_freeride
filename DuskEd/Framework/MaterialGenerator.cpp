@@ -61,16 +61,17 @@ void SerializeScenario( FileSystemObject* stream, const char* scenarioName, cons
     stream->writeString( "\t}\n" );
 }
 
-DUSK_INLINE std::string BuildTextureLayerName( const char* attributeName, const char* layerName )
-{
-    // Format each attribute texture name (since each layer can have its own attribute texture).
-    std::string resourceName = "Texture_";
-    resourceName.append( layerName );
-    resourceName.append( "_" );
-    resourceName.append( attributeName );
-
-    return resourceName;
-}
+// Material Layer HLSL name.
+// Root layer has the same name as the blended result since we use it as a base.
+constexpr const char* AttributesNames[7] = {
+    "BaseColor",
+    "Reflectance",
+    "Roughness",
+    "Metalness",
+    "AmbientOcclusion",
+    "Emissivity",
+    "BlendMask"
+};
 
 MaterialGenerator::MaterialGenerator( BaseAllocator* allocator, VirtualFileSystem* virtualFileSystem )
     : attributeGetterCount( 0 )
@@ -87,6 +88,17 @@ MaterialGenerator::~MaterialGenerator()
 
 }
 
+std::string MaterialGenerator::buildTextureLayerName( const char* attributeName, const char* layerName )
+{
+    // Format each attribute texture name (since each layer can have its own attribute texture).
+    std::string resourceName = "Texture_";
+    resourceName.append( layerName );
+    resourceName.append( "_" );
+    resourceName.append( attributeName );
+
+    return resourceName;
+}
+
 EditableMaterial MaterialGenerator::createEditableMaterial( const Material* material )
 {
     EditableMaterial editableMat;
@@ -98,21 +110,12 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
 {
     resetMaterialTemporaryOutput();
 
-    // Material Layer HLSL name.
-    // Root layer has the same name as the blended result since we use it as a base.
-    constexpr const char* MaterialLayerNames[Material::MAX_LAYER_COUNT] = {
-        "BlendedMaterial",
-        "MaterialLayer0",
-        "MaterialLayer1",
-        "MaterialLayer2"
-    };
-
     // We read each material layer first.
     for ( i32 layerIdx = 0; layerIdx < editableMaterial.LayerCount; layerIdx++ ) {
         const EditableMaterialLayer& layer = editableMaterial.Layers[layerIdx];
         const char* layerName = MaterialLayerNames[layerIdx];
 
-        appendLayerRead( layerName, layer );
+        appendLayerRead( layerIdx, layer );
         buildMaterialParametersMap( layerName, layer );
     }
 
@@ -140,6 +143,8 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
     dk::core::ReplaceWord( assetStr, "DUSK_LAYERS_RESOURCES;", materialResourcesCode );
     dk::core::ReplaceWord( assetStr, "DUSK_LAYERS_FUNCTIONS;", materialSharedCode );
     dk::core::ReplaceWord( assetStr, "DUSK_LAYERS_GET;", materialLayersGetter );
+    dk::core::ReplaceWord( assetStr, "DUSK_BAKED_TEXTURE_FETCH;", bakedTextureCode );
+   
     dk::core::ReplaceWord( assetStr, "pass ", std::string( "pass " ) + editableMaterial.Name );
 
     // Generate permutations for this material.
@@ -252,6 +257,7 @@ void MaterialGenerator::resetMaterialTemporaryOutput()
     materialLayersGetter.clear();
     materialSharedCode.clear();
     materialResourcesCode.clear();
+    bakedTextureCode.clear();
 
     mutableParameters.clear();
 
@@ -285,7 +291,7 @@ void MaterialGenerator::processAttributeParameter( const char* layerName, const 
     switch ( attribute.Type ) {
     case MaterialAttribute::Texture_2D:
     {
-        const std::string resourceName = BuildTextureLayerName( attributeName, layerName );
+        const std::string resourceName = buildTextureLayerName( attributeName, layerName );
         const std::string resourceValue = WideStringToString( attribute.AsTexture.PathToTextureAsset );
 
         mutableParameters.push_back( MutableParameter( resourceName.c_str(), resourceValue.c_str() ) );
@@ -360,49 +366,75 @@ void MaterialGenerator::appendAttributeBlendMultiplicative( const char* attribut
     materialLayersGetter.append( ");\n" );
 }
 
-void MaterialGenerator::appendLayerRead( const char* layerName, const EditableMaterialLayer& layer )
+void MaterialGenerator::appendLayerRead( const i32 layerIndex, const EditableMaterialLayer& layer )
 {
+    const char* layerName = MaterialLayerNames[layerIndex];
+
     materialLayersGetter.append( "Material " );
     materialLayersGetter.append( layerName );
     materialLayersGetter.append( ";\n" );
 
     materialLayersGetter.append( layerName );
     materialLayersGetter.append( ".BaseColor=" );
-    appendAttributeFetch3D( "BaseColor", layerName, layer.BaseColor );
+    appendAttributeFetch3D( 0, layerIndex, layer.BaseColor, layer.Scale, layer.Offset );
     materialLayersGetter.append( ";\n" );
 
     materialLayersGetter.append( layerName );
     materialLayersGetter.append( ".Reflectance=" );
-    appendAttributeFetch1D( "Reflectance", layerName, layer.Reflectance );
+    appendAttributeFetch1D( 1, layerIndex, layer.Reflectance, layer.Scale, layer.Offset );
     materialLayersGetter.append( ";\n" );
 
     materialLayersGetter.append( layerName );
     materialLayersGetter.append( ".Roughness=" );
-    appendAttributeFetch1D( "Roughness", layerName, layer.Roughness );
+    appendAttributeFetch1D( 2, layerIndex, layer.Roughness, layer.Scale, layer.Offset );
     materialLayersGetter.append( ";\n" );
 
     materialLayersGetter.append( layerName );
     materialLayersGetter.append( ".Metalness=" );
-    appendAttributeFetch1D( "Metalness", layerName, layer.Metalness );
+    appendAttributeFetch1D( 3, layerIndex, layer.Metalness, layer.Scale, layer.Offset );
     materialLayersGetter.append( ";\n" );
 
     materialLayersGetter.append( layerName );
     materialLayersGetter.append( ".AmbientOcclusion=" );
-    appendAttributeFetch1D( "AmbientOcclusion", layerName, layer.AmbientOcclusion );
+    appendAttributeFetch1D( 4, layerIndex, layer.AmbientOcclusion, layer.Scale, layer.Offset );
     materialLayersGetter.append( ";\n" );
 
     materialLayersGetter.append( layerName );
     materialLayersGetter.append( ".Emissivity=" );
-    appendAttributeFetch1D( "Emissivity", layerName, layer.Emissivity );
+    appendAttributeFetch1D( 5, layerIndex, layer.Emissivity, layer.Scale, layer.Offset );
     materialLayersGetter.append( ";\n" );
 
     materialLayersGetter.append( layerName );
     materialLayersGetter.append( ".BlendMask=" );
-    appendAttributeFetch1D( "BlendMask", layerName, layer.BlendMask );
+    appendAttributeFetch1D( 6, layerIndex, layer.BlendMask, layer.Scale, layer.Offset );
     materialLayersGetter.append( ";\n" );
 }
 
-void MaterialGenerator::appendAttributeFetch1D( const char* attributeName, const char* layerName, const MaterialAttribute& attribute )
+void MaterialGenerator::appendTextureSampling( std::string& output, const std::string& resourceName, const std::string& samplingOffset, const std::string& samplingScale, const char* uvMapName )
+{
+    output.append( resourceName );
+    output.append( ".Sample(TextureSampler, ( " );
+    output.append( uvMapName );
+    output.append( " + " );
+    output.append( samplingOffset );
+    output.append( " ) * " );
+    output.append( samplingScale );
+    output.append( " )" );
+}
+
+DUSK_INLINE std::string DuskVector2ToHLSLFloat2( const dkVec2f& inVec )
+{
+    std::string str;
+    str.append( "float2( " );
+    str.append( std::to_string( inVec.x ) );
+    str.append( ", " );
+    str.append( std::to_string( inVec.y ) );
+    str.append( ")" );
+
+    return str;
+}
+
+void MaterialGenerator::appendAttributeFetch1D( const i32 attributeIndex, const i32 layerIndex, const MaterialAttribute& attribute, const dkVec2f& samplingScale, const dkVec2f& samplingOffset )
 {
     switch ( attribute.Type ) {
     case MaterialAttribute::Constant_1D:
@@ -418,15 +450,28 @@ void MaterialGenerator::appendAttributeFetch1D( const char* attributeName, const
     } break;
     case MaterialAttribute::Texture_2D:
     {
-        // Format each attribute texture name (since each layer can have its own attribute texture).
-        const std::string resourceName = BuildTextureLayerName( attributeName, layerName );
+        const char* layerName = MaterialLayerNames[layerIndex];
+        const char* attributeName = AttributesNames[attributeIndex];
 
-        materialLayersGetter.append( resourceName );
-        materialLayersGetter.append( ".Sample(TextureSampler, $TEXCOORD0).r" );
+        // Format each attribute texture name (since each layer can have its own attribute texture).
+        const std::string resourceName = buildTextureLayerName( attributeName, layerName );
+        std::string samplingOffsetString = DuskVector2ToHLSLFloat2( samplingOffset );
+        std::string samplingScaleString = DuskVector2ToHLSLFloat2( samplingScale );
+        appendTextureSampling( materialLayersGetter, resourceName, samplingOffsetString, samplingScaleString );
+        materialLayersGetter.append( ".r" );
 
         // Declare texture in the resource list.
         // TODO Might need refactoring to implement atlas/shared texture correctly.
         materialResourcesCode.append( "Texture2D " + resourceName + "{\nswizzle = float;\n}\n" );
+
+        // Create interactive material texture fetch call.
+        bakedTextureCode.append( "if ( layerIndex == " );
+        bakedTextureCode.append( std::to_string( layerIndex ) );
+        bakedTextureCode.append( " && attributeIndex == " );
+        bakedTextureCode.append( std::to_string( attributeIndex ) );
+        bakedTextureCode.append( ") return " );
+        appendTextureSampling( bakedTextureCode, resourceName, "offset", "scale", "uvMapTexCoords" );
+        bakedTextureCode.append( ".rrrr;" );
     } break;
 
     case MaterialAttribute::Code_Piece:
@@ -444,7 +489,7 @@ void MaterialGenerator::appendAttributeFetch1D( const char* attributeName, const
     }
 }
     
-void MaterialGenerator::appendAttributeFetch2D( const char* attributeName, const char* layerName, const MaterialAttribute& attribute )
+void MaterialGenerator::appendAttributeFetch2D( const i32 attributeIndex, const i32 layerIndex, const MaterialAttribute& attribute, const dkVec2f& samplingScale, const dkVec2f& samplingOffset )
 {
     switch ( attribute.Type ) {
     case MaterialAttribute::Constant_1D:
@@ -468,15 +513,28 @@ void MaterialGenerator::appendAttributeFetch2D( const char* attributeName, const
     } break;
     case MaterialAttribute::Texture_2D:
     {
-        // Format each attribute texture name (since each layer can have its own attribute texture).
-        const std::string resourceName = BuildTextureLayerName( attributeName, layerName );
+        const char* layerName = MaterialLayerNames[layerIndex];
+        const char* attributeName = AttributesNames[attributeIndex];
 
-        materialLayersGetter.append( resourceName );
-        materialLayersGetter.append( ".Sample(TextureSampler, $TEXCOORD0).rg" );
+        // Format each attribute texture name (since each layer can have its own attribute texture).
+        const std::string resourceName = buildTextureLayerName( attributeName, layerName );
+        std::string samplingOffsetString = DuskVector2ToHLSLFloat2( samplingOffset );
+        std::string samplingScaleString = DuskVector2ToHLSLFloat2( samplingScale );
+        appendTextureSampling( materialLayersGetter, resourceName, samplingOffsetString, samplingScaleString );
+        materialLayersGetter.append( ".rg" );
 
         // Declare texture in the resource list.
         // TODO Might need refactoring to implement atlas/shared texture correctly.
         materialResourcesCode.append( "Texture2D " + resourceName + "{\nswizzle = float2;\n}\n" );
+
+        // Create interactive material texture fetch call.
+        bakedTextureCode.append( "if ( layerIndex == " );
+        bakedTextureCode.append( std::to_string( layerIndex ) );
+        bakedTextureCode.append( " && attributeIndex == " );
+        bakedTextureCode.append( std::to_string( attributeIndex ) );
+        bakedTextureCode.append( ") return " );
+        appendTextureSampling( bakedTextureCode, resourceName, "offset", "scale", "uvMapTexCoords" );
+        bakedTextureCode.append( ".rgrg;\n" );
     } break;
 
     case MaterialAttribute::Code_Piece:
@@ -494,7 +552,7 @@ void MaterialGenerator::appendAttributeFetch2D( const char* attributeName, const
     }
 }
     
-void MaterialGenerator::appendAttributeFetch3D( const char* attributeName, const char* layerName, const MaterialAttribute& attribute )
+void MaterialGenerator::appendAttributeFetch3D( const i32 attributeIndex, const i32 layerIndex, const MaterialAttribute& attribute, const dkVec2f& samplingScale, const dkVec2f& samplingOffset )
 {
     switch ( attribute.Type ) {
     case MaterialAttribute::Constant_1D:
@@ -522,15 +580,28 @@ void MaterialGenerator::appendAttributeFetch3D( const char* attributeName, const
     } break;
     case MaterialAttribute::Texture_2D:
     {
-        // Format each attribute texture name (since each layer can have its own attribute texture).
-        const std::string resourceName = BuildTextureLayerName( attributeName, layerName );
+        const char* layerName = MaterialLayerNames[layerIndex];
+        const char* attributeName = AttributesNames[attributeIndex];
 
-        materialLayersGetter.append( resourceName );
-        materialLayersGetter.append( ".Sample(TextureSampler, $TEXCOORD0).rgb" );
+        // Format each attribute texture name (since each layer can have its own attribute texture).
+        const std::string resourceName = buildTextureLayerName( attributeName, layerName );
+        std::string samplingOffsetString = DuskVector2ToHLSLFloat2( samplingOffset );
+        std::string samplingScaleString = DuskVector2ToHLSLFloat2( samplingScale );
+        appendTextureSampling( materialLayersGetter, resourceName, samplingOffsetString, samplingScaleString );
+        materialLayersGetter.append( ".rgb" );
 
         // Declare texture in the resource list.
         // TODO Might need refactoring to implement atlas/shared texture correctly.
         materialResourcesCode.append( "Texture2D " + resourceName + "{\nswizzle = float3;\n}\n" );
+
+        // Create interactive material texture fetch call.
+        bakedTextureCode.append( "if ( layerIndex == " );
+        bakedTextureCode.append( std::to_string( layerIndex ) );
+        bakedTextureCode.append( " && attributeIndex == " );
+        bakedTextureCode.append( std::to_string( attributeIndex ) );
+        bakedTextureCode.append( ") return " );
+        appendTextureSampling( bakedTextureCode, resourceName, "offset", "scale", "uvMapTexCoords" );
+        bakedTextureCode.append( ".rgbr;" );
     } break;
 
     case MaterialAttribute::Code_Piece:
@@ -548,7 +619,7 @@ void MaterialGenerator::appendAttributeFetch3D( const char* attributeName, const
     }
 }
 
-void MaterialGenerator::appendAttributeFetch4D( const char* attributeName, const char* layerName, const MaterialAttribute& attribute )
+void MaterialGenerator::appendAttributeFetch4D( const i32 attributeIndex, const i32 layerIndex, const MaterialAttribute& attribute, const dkVec2f& samplingScale, const dkVec2f& samplingOffset )
 {
     switch ( attribute.Type ) {
     case MaterialAttribute::Constant_1D:
@@ -578,15 +649,28 @@ void MaterialGenerator::appendAttributeFetch4D( const char* attributeName, const
     } break;
     case MaterialAttribute::Texture_2D:
     {
-        // Format each attribute texture name (since each layer can have its own attribute texture).
-        const std::string resourceName = BuildTextureLayerName( attributeName, layerName );
+        const char* layerName = MaterialLayerNames[layerIndex];
+        const char* attributeName = AttributesNames[attributeIndex];
 
-        materialLayersGetter.append( resourceName );
-        materialLayersGetter.append( ".Sample(TextureSampler, $TEXCOORD0).rgba" );
+        // Format each attribute texture name (since each layer can have its own attribute texture).
+        const std::string resourceName = buildTextureLayerName( attributeName, layerName );
+        std::string samplingOffsetString = DuskVector2ToHLSLFloat2( samplingOffset );
+        std::string samplingScaleString = DuskVector2ToHLSLFloat2( samplingScale );
+        appendTextureSampling( materialLayersGetter, resourceName, samplingOffsetString, samplingScaleString );
+        materialLayersGetter.append( ".rgba" );
 
         // Declare texture in the resource list.
         // TODO Might need refactoring to implement atlas/shared texture correctly.
         materialResourcesCode.append( "Texture2D " + resourceName + "{\nswizzle = float4;\n}\n" );
+
+        // Create interactive material texture fetch call.
+        bakedTextureCode.append( "if ( layerIndex == " );
+        bakedTextureCode.append( std::to_string( layerIndex ) );
+        bakedTextureCode.append( " && attributeIndex == " );
+        bakedTextureCode.append( std::to_string( attributeIndex ) );
+        bakedTextureCode.append( ") return " );
+        appendTextureSampling( bakedTextureCode, resourceName, "offset", "scale", "uvMapTexCoords" );
+        bakedTextureCode.append( ".rgba;" );
     } break;
 
     case MaterialAttribute::Code_Piece:

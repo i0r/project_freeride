@@ -153,6 +153,8 @@ PipelineState* Material::bindForScenario( const RenderScenario scenario, Command
         DefaultPipelineState.InputLayout.Entry[2] = { 0, VIEW_FORMAT_R32G32_FLOAT, 0, 2, 0, true, "TEXCOORD" };
         DefaultPipelineState.depthClearValue = 0.0f;
 
+        DefaultPipelineState.addStaticSampler( RenderingHelpers::S_BilinearWrap );
+
         const PipelineStateCache::ShaderBinding& shaderBinding = ( ( scenario == RenderScenario::Default_Editor ) ? defaultEditorScenario : defaultScenario ).PsoShaderBinding;
         scenarioPso = psoCache->getOrCreatePipelineState( DefaultPipelineState, shaderBinding, invalidateCachedStates );
     } break;
@@ -199,4 +201,12 @@ void Material::updateResourceStreaming( GraphicsAssetCache* graphicsAssetCache )
             mutableParam.second.CachedImageAsset = graphicsAssetCache->getImage( StringToWideString( mutableParam.second.Value ).c_str() );
         }
     }
+}
+
+void Material::setParameterAsTexture2D( const dkStringHash_t parameterHashcode, const std::string& imagePath )
+{
+    MutableParameter& parameter = mutableParameters[parameterHashcode];
+
+    parameter.Type = MutableParameter::ParamType::Texture2D;
+    parameter.Value = imagePath;
 }

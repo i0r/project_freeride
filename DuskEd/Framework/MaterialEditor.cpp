@@ -65,6 +65,7 @@ void FillRuntimeMaterialLayer( const EditableMaterialLayer& layer, MaterialEdLay
 
 MaterialEditor::MaterialEditor( BaseAllocator* allocator, GraphicsAssetCache* gfxCache, VirtualFileSystem* vfs )
     : isOpened( false )
+    , useInteractiveMode( false )
     , editedMaterial()
     , activeMaterial( nullptr )
     , memoryAllocator( allocator )
@@ -104,6 +105,20 @@ isMaterialDirty = true;\
             if ( activeMaterial != nullptr ) {
                 activeMaterial->invalidateCache();
                 activeMaterial->updateResourceStreaming( graphicsAssetCache );
+            }
+        }
+
+        ImGui::SameLine();
+
+        if ( ImGui::Checkbox( "Interactive Mode", &useInteractiveMode ) ) {
+            // If the interactive mode has been disabled, make sure the baked version matches the interactive one.
+            if ( !useInteractiveMode ) {
+                activeMaterial = materialGenerator->createMaterial( editedMaterial );
+
+                if ( activeMaterial != nullptr ) {
+                    activeMaterial->invalidateCache();
+                    activeMaterial->updateResourceStreaming( graphicsAssetCache );
+                }
             }
         }
 
@@ -181,15 +196,15 @@ isMaterialDirty = true;\
             ImGui::SameLine();
 
             if ( ImGui::TreeNode( LayerNames[layerIdx] ) ) {
-                displayMaterialAttribute<true>( "BaseColor", layer.BaseColor );
-                displayMaterialAttribute<true>( "Reflectance", layer.Reflectance );
-                displayMaterialAttribute<true>( "Roughness", layer.Roughness );
-                displayMaterialAttribute<true>( "Metalness", layer.Metalness );
-                displayMaterialAttribute<true>( "AmbientOcclusion", layer.AmbientOcclusion );
-                displayMaterialAttribute<false>( "Normal", layer.Normal );
+                displayMaterialAttribute<true>( layerIdx, "BaseColor", layer.BaseColor );
+                displayMaterialAttribute<true>( layerIdx, "Reflectance", layer.Reflectance );
+                displayMaterialAttribute<true>( layerIdx, "Roughness", layer.Roughness );
+                displayMaterialAttribute<true>( layerIdx, "Metalness", layer.Metalness );
+                displayMaterialAttribute<true>( layerIdx, "AmbientOcclusion", layer.AmbientOcclusion );
+                displayMaterialAttribute<false>( layerIdx, "Normal", layer.Normal );
 
                 if ( editedMaterial.IsAlphaTested ) {
-                    displayMaterialAttribute<true>( "AlphaMask", layer.AlphaMask );
+                    displayMaterialAttribute<true>( layerIdx, "AlphaMask", layer.AlphaMask );
                     ImGui::DragFloat( "AlphaCutoff", &layer.AlphaCutoff );
                 }
 
@@ -199,7 +214,7 @@ isMaterialDirty = true;\
                         "Multiplicative"
                     };
 
-                    displayMaterialAttribute<true>( "BlendMask", layer.BlendMask );
+                    displayMaterialAttribute<true>( layerIdx, "BlendMask", layer.BlendMask );
 
                     ImGui::Combo( "Blend Mode", reinterpret_cast< i32* >( &layer.BlendMode ), BlendModeString, LayerBlendMode::BlendModeCount );
 
@@ -261,8 +276,13 @@ MaterialEdData* MaterialEditor::getRuntimeEditionData()
     return &bufferData;
 }
 
+bool MaterialEditor::isUsingInteractiveMode() const
+{
+    return useInteractiveMode;
+}
+
 template<bool SaturateInput>
-void MaterialEditor::displayMaterialAttribute( const char* displayName, MaterialAttribute& attribute )
+void MaterialEditor::displayMaterialAttribute( const i32 layerIndex, const char* displayName, MaterialAttribute& attribute )
 {
     constexpr const char* SlotInputTypeLabels[MaterialAttribute::InputType::Count] = {
         "None",
@@ -309,6 +329,8 @@ void MaterialEditor::displayMaterialAttribute( const char* displayName, Material
         {
             Image* textureInstance = attribute.AsTexture.TextureInstance;
 
+            dkStringHash_t parameterHashcode = dk::core::CRC32( MaterialGenerator::buildTextureLayerName( displayName, MaterialLayerNames[layerIndex] ) );
+
             bool hasTextureBound = ( textureInstance != nullptr );
             bool buttonHasBeenPressed = ( hasTextureBound )
                 ? ImGui::ImageButton( static_cast< ImTextureID >( textureInstance ), ImVec2( 64, 64 ) )
@@ -337,6 +359,13 @@ void MaterialEditor::displayMaterialAttribute( const char* displayName, Material
                     }
 
                     attribute.AsTexture.TextureInstance = graphicsAssetCache->getImage( attribute.AsTexture.PathToTextureAsset.c_str(), true );
+
+                    if ( useInteractiveMode && activeMaterial != nullptr ) {
+                        activeMaterial->setParameterAsTexture2D( parameterHashcode, WideStringToString( attribute.AsTexture.PathToTextureAsset ) );
+
+                        activeMaterial->invalidateCache();
+                        activeMaterial->updateResourceStreaming( graphicsAssetCache );
+                    }
                 }
             }
             ImGui::SameLine();

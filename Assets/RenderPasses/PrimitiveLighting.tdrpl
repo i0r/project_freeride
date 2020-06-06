@@ -33,6 +33,17 @@ lib PrimitiveLighting {
         #include <Material.hlsli>
         
         #ifdef $MaterialEditor
+        
+        // Injected at Material compile-time. Bakes texture sampling for interactive material
+        // edition.
+        float4 FetchBakedTextureSampler( float2 uvMapTexCoords, int layerIndex, int attributeIndex, float2 scale, float2 offset )
+        {
+            DUSK_BAKED_TEXTURE_FETCH;
+            
+            // Dummy value to avoid compiler complains if the active material has no texture.
+            return float4( 1, 0, 1, 1 );
+        }
+
         #include <MaterialEditor.hlsli>
         #endif
         
@@ -82,15 +93,17 @@ lib PrimitiveLighting {
             float4x4 ModelMatrix = PerModelMatrix;
         #endif
         
-        $TEXCOORD0 = $TEXCOORD;
         $POSITION0 = mul( ModelMatrix, float4( $POSITION.xyz, 1.0f ) );
+        $TEXCOORD0 = $TEXCOORD;
         $NORMAL0 = normalize( mul( ModelMatrix, float4( $NORMAL.xyz, 0.0f ) ) );
         $SV_POSITION =  mul( g_ViewProjectionMatrix, float4( $POSITION0.xyz, 1.0f ) );
     }
     
     shader PrimitivePS {
+        float2 UvMap0 = $TEXCOORD0;
+        
         #ifdef $MaterialEditor
-            Material BlendedMaterial = FetchMaterialAttributes();
+            Material BlendedMaterial = FetchMaterialAttributes( UvMap0 );
         #else
             // Injected at Material compile-time. DO NOT REMOVE.
             // Return a ready to use material named BlendedMaterial.
