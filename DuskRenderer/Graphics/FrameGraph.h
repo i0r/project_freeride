@@ -398,6 +398,9 @@ public:
     // Retrieve the post-fx output image for the current frame being recorded.
     ResHandle_t retrievePresentImage();
 
+    // Retrieve last frame image (pre post-fx and post resolve).
+    ResHandle_t retrieveLastFrameImage();
+
     // Retrieve the PerView buffer for the current frame being recorded.
     // The data should be immutable (the buffer is updated at the beginning of the frame once).
     ResHandle_t retrievePerViewBuffer();
@@ -627,8 +630,11 @@ public:
     void    importPersistentImage( const dkStringHash_t resourceHashcode, Image* image );
     void    importPersistentBuffer( const dkStringHash_t resourceHashcode, Buffer* buffer );
 
-    // Copy the input rendertarget and store it in the persistent resource Present RenderTarget.
-    void    copyAsPresentRenderTarget( ResHandle_t inputRenderTarget );
+    // Copy the input rendertarget and store it in a given persistent resource.
+    void    savePresentRenderTarget( ResHandle_t inputRenderTarget );
+
+    // Copy the input rendertarget and store it in a given persistent resource.
+    void    saveLastFrameRenderTarget( ResHandle_t inputRenderTarget );
 
     template<typename T>
     T& addRenderPass( const char* name, dkPassSetup_t<T> setup, dkPassCallback_t<T> execute ) {
@@ -697,4 +703,9 @@ private:
     FrameGraphScheduler                 graphScheduler;
 
     GraphicsProfiler*                   graphicsProfiler;
+
+private:
+    // Destroy and re-create persistent resources for this graph. Can be used when the application context has changed
+    // (e.g. screen resize, graphics quality changes, etc.).
+    void                                recreatePersistentResources( RenderDevice* renderDevice );
 };

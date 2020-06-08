@@ -40,12 +40,12 @@ lib AntiAliasing {
     
     shared {
         #include <Shared.hlsli>
-        #include <AutoExposure/Shared.hlsli>
         #include <Photometry.hlsli>
         #include <ColorSpaces.hlsli>
         
+#if $SamplerCount == 8
         // MSAA x8
-        static const float2 g_SampleOffsets8[8] = {
+        static const float2 g_SampleOffsets[8] = {
             float2(0.580f, 0.298f),
             float2(0.419f, 0.698f),
             float2(0.819f, 0.580f),
@@ -55,33 +55,44 @@ lib AntiAliasing {
             float2(0.698f, 0.941f),
             float2(0.941f, 0.058f),
         };
-        
+#elif $SamplerCount == 4
         // MSAA x4
-        static const float2 g_SampleOffsets4[4] = {
+        static const float2 g_SampleOffsets[4] = {
             float2( 0.380f, 0.141f ),
             float2( 0.859f, 0.380f ),
             float2( 0.141f, 0.620f ),
             float2( 0.619f, 0.859f ),
         };
-        
+#elif $SamplerCount == 2
         // MSAA x2
-        static const float2 g_SampleOffsets2[2] = {
+        static const float2 g_SampleOffsets[2] = {
             float2( 0.741f, 0.741f ),
             float2( 0.258f, 0.258f ),
         };
-        
-        float2 GetSampleOffset( in uint subSampleIdx )
+#else
+        // MSAA x1
+        static const float2 g_SampleOffsets[1] = {
+            float2( 0.500f, 0.500f ),
+        };
+#endif
+    
+        float FilterBlackmanHarris(in float x)
         {
-            if ( $SamplerCount == 8 ) {
-                return g_SampleOffsets8[subSampleIdx];
-            } else if ( $SamplerCount == 4 ) {
-                return g_SampleOffsets4[subSampleIdx];
-            } else if ( $SamplerCount == 2 ) {
-                return g_SampleOffsets2[subSampleIdx];
-            }
+            x = 1.0f - x;
+
+            const float a0 = 0.35875f;
+            const float a1 = 0.48829f;
+            const float a2 = 0.14128f;
+            const float a3 = 0.01168f;
+            return saturate(a0 - a1 * cos(PI * x) + a2 * cos(2 * PI * x) - a3 * cos(3 * PI * x));
         }
         
-        float3 ReprojectMSAA( in float2 pixelPos, in float exposure, in Texture2DMS<float4> velocityTex, in Texture2DMS<float4> depthTex, in Texture2D lastFrameTex ) {       
+        float CalcLuminance( float3 color )
+        {
+            return dot( color, float3( 0.299f, 0.587f, 0.114f ) );
+        }
+        
+        float3 ReprojectMSAA( in float2 pixelPos, in float exposure ) {       
             // Find closest depth pixel (assuming input depth buffer is reversed)
             float2 velocity = 0.0f;
             float closestDepth = 0.0f;
@@ -92,10 +103,10 @@ lib AntiAliasing {
                     for(uint vsIdx = 0; vsIdx < $SamplerCount; ++vsIdx) {
                         int2 samplePos = pixelPos + int2( vx, vy );
                         
-                        float2 neighborVelocity = velocityTex.Load( samplePos, vsIdx ).rg;
-                        float neighborDepth = depthTex.Load( samplePos, vsIdx ).r;
+                        float2 neighborVelocity = VelocityTexture.Load( samplePos, vsIdx ).rg;
+                        float neighborDepth = DepthBuffer.Load( samplePos, vsIdx ).r;
                         
-                        if ( neighborDepth > closestDepth ) {
+                        if ( neighborDepth >= closestDepth ) {
                             velocity = neighborVelocity;
                             closestDepth = neighborDepth;
                         }
@@ -111,14 +122,14 @@ lib AntiAliasing {
             for(int ty = -1; ty <= 2; ++ty) {
                 for(int tx = -1; tx <= 2; ++tx) {
                     float2 samplePos = floor(reprojectedPos + float2(tx, ty)) + 0.5f;
-                    float3 reprojectedSample = lastFrameTex[int2(samplePos)].xyz;
+                    float3 reprojectedSample = LastFrameInputTexture[int2(samplePos)].xyz;
 
                     float2 sampleDist = abs(samplePos - reprojectedPos);
-                    float filterWeight = ( 1.0f - smoothstep( 0.0f, 1.0f, sampleDist.x ) ) * ( 1.0f - smoothstep( 0.0f, 1.0f, sampleDist.y ) );
-
-                    float sampleLum = RGBToLuminance( reprojectedSample ) * exposure;
-                    filterWeight *= 1.0f / (1.0f + sampleLum);
-
+                    float filterWeight = FilterBlackmanHarris(sampleDist.x) * FilterBlackmanHarris(sampleDist.y);
+                    
+                    float sampleLum = CalcLuminance( reprojectedSample ) / ( exposure * 100.0f );
+                    filterWeight *= 1.0f / ( 1.0f + sampleLum );
+                    
                     sum += reprojectedSample * filterWeight;
                     totalWeight += filterWeight;
                 }
@@ -142,38 +153,9 @@ lib AntiAliasing {
             return (ma_unit > 1.0) ? ( p_clip + v_clip / ma_unit ) : prevSample;
         }
         
-        float max3(float x, float y, float z) { return max(x, max(y, z)); }
-
-        // Apply this to tonemap linear HDR color "c" after a sample is fetched in the resolve.
-        // Note "c" 1.0 maps to the expected limit of low-dynamic-range monitor output.
-        float3 Tonemap(float3 c) { return c * rcp(max3(c.r, c.g, c.b) + 1.0); }
-
-        // When the filter kernel is a weighted sum of fetched colors,
-        // it is more optimal to fold the weighting into the tonemap operation.
-        float3 TonemapWithWeight(float3 c, float w) { return c * (w * rcp(max3(c.r, c.g, c.b) + 1.0)); }
-
-        // Apply this to restore the linear HDR color before writing out the result of the resolve.
-        float3 TonemapInvert(float3 c) { return c * rcp(1.0 - max3(c.r, c.g, c.b)); }
-
         float3 SampleInputMSAA( Texture2DMS<float4> textureInput, float2 samplePos, uint subSampleIdx )
         {
             return textureInput.Load( samplePos, subSampleIdx ).xyz;
-        }
-        
-        float FilterBlackmanHarris(in float x)
-        {
-            x = 1.0f - x;
-
-            const float a0 = 0.35875f;
-            const float a1 = 0.48829f;
-            const float a2 = 0.14128f;
-            const float a3 = 0.01168f;
-            return saturate(a0 - a1 * cos(PI * x) + a2 * cos(2 * PI * x) - a3 * cos(3 * PI * x));
-        }
-        
-        float CalcLuminance( float3 color )
-        {
-            return dot( color, float3( 0.299f, 0.587f, 0.114f ) );
         }
     }
     
@@ -188,7 +170,7 @@ lib AntiAliasing {
         float3 m1 = 0.0f;
         float3 m2 = 0.0f;
         float mWeight = 0.0f;
-            
+        
         if ( $SamplerCount >= 2 ) {
             float3 sum = 0.0f;
             float totalWeight = 0.0f;
@@ -206,7 +188,7 @@ lib AntiAliasing {
                     [unroll]
                     for ( uint subSampleIdx = 0; subSampleIdx < $SamplerCount; ++subSampleIdx ) {
                       
-                        float2 subSampleOffset = GetSampleOffset( subSampleIdx );
+                        float2 subSampleOffset = g_SampleOffsets[subSampleIdx];
                         float2 sampleDist = abs(sampleOffset + subSampleOffset) / (FilterSize / 2.0f);
 
                         [branch]
@@ -245,7 +227,7 @@ lib AntiAliasing {
         
         #ifdef $UseTemporalAA
             float3 currColor = output;         
-            float3 prevColor = ReprojectMSAA( pixelPos, exposure, VelocityTexture, DepthBuffer, LastFrameInputTexture );
+            float3 prevColor = ReprojectMSAA( pixelPos, exposure );
             
             float3 mu = m1 / mWeight;
             float3 sigma = sqrt(abs(m2 / mWeight - mu * mu));

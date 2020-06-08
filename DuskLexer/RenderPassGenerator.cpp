@@ -440,17 +440,17 @@ static void PreprocessShaderSource( const std::string& bodySource, const i32 sta
                         if ( flagIt != constantMap.end() ) {
                             std::string flagValue( flagIt->second->StreamPointer, flagIt->second->Length );
 
-                            static i32 ProxyCount = 0;
+                         /*   static i32 ProxyCount = 0;
                             
                             std::string defineProxyName = "PROXY_" + std::to_string( ProxyCount++ );
 
-                            if ( flagValue == "true" ) {
-                                processedSource.append( "#define " );
-                                processedSource.append( defineProxyName );
-                                processedSource.append( "\n" );
-                            }
+                            processedSource.append( "#define " );
+                            processedSource.append( defineProxyName );
+                            processedSource.append( " " );
+                            processedSource.append( flagValue );
+                            processedSource.append( "\n" );*/
 
-                            srcCodeLine.append( defineProxyName );
+                            srcCodeLine.append( flagValue );
                         } else {
                             DUSK_LOG_WARN( "Unknown cflag specified by preprocessor guards: '%s'\n", semanticName.c_str() );
                         }
@@ -1095,6 +1095,9 @@ void RenderLibraryGenerator::resetGeneratedContent()
 
 void RenderLibraryGenerator::appendSharedShaderHeader( std::string& hlslSource ) const
 {
+    // TODO Find a way to conditionally add this (e.g. not required for screenspace stuff).
+    hlslSource.append( "#include <AutoExposure/Shared.hlsli>\n\n" );
+
     // PerViewBuffer
     hlslSource.append( "cbuffer PerViewBuffer : register( b0 )\n{\n" );
     hlslSource.append( "\tfloat4x4         g_ViewProjectionMatrix;\n" );

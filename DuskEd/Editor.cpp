@@ -773,42 +773,52 @@ void MainLoop()
         
         LightGrid::Data lightGridData = g_LightGrid->updateClusters( frameGraph );
         
-        ResHandle_t presentRt;
-        if ( g_MaterialEditor->getActiveMaterial() == nullptr ) {
-            presentRt = g_WorldRenderer->BrunetonSky->renderSky( frameGraph, -1, -1 );
-        } else {
+        Material::RenderScenario scenario = ( g_MaterialEditor->isUsingInteractiveMode() ) ? Material::RenderScenario::Default_Editor : Material::RenderScenario::Default;
 
-            Material::RenderScenario scenario = ( g_MaterialEditor->isUsingInteractiveMode() ) ? Material::RenderScenario::Default_Editor : Material::RenderScenario::Default;
-            auto primRenderPass = AddPrimitiveLightTest( frameGraph, testModel, g_MaterialEditor->getActiveMaterial(), lightGridData.PerSceneBuffer, scenario );
-            presentRt = g_WorldRenderer->BrunetonSky->renderSky( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
+        // LightPass.
+        LightPassOutput primRenderPass = AddPrimitiveLightTest( frameGraph, testModel, g_MaterialEditor->getActiveMaterial(), lightGridData.PerSceneBuffer, scenario );
+
+        // Sky Rendering.
+        ResHandle_t presentRt = g_WorldRenderer->BrunetonSky->renderSky( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
+
+        // AntiAliasing resolve. (we merge both TAA and MSAA in a single pass to avoid multiple dispatch). 
+        if ( MSAASamplerCount > 1 || EnableTAA ) {
+            presentRt = AddMSAAResolveRenderPass( frameGraph, presentRt, primRenderPass.OutputVelocityTarget, primRenderPass.OutputDepthTarget, MSAASamplerCount, EnableTAA );
         }
 
-        // Rescale geometry rts if SSAA is enabled.
+        if ( EnableTAA ) {
+            frameGraph.saveLastFrameRenderTarget( presentRt );
+        }
+
+        // Rescale the main render target for post-fx (if SSAA is used to down/upscale).
         if ( ImageQuality != 1.0f ) {
             presentRt = AddSSAAResolveRenderPass( frameGraph, presentRt );
         }
 
-        if ( MSAASamplerCount > 1 ) {
-            presentRt = AddMSAAResolveRenderPass( frameGraph, presentRt, -1, -1, MSAASamplerCount, false );
-        }
-       
         // Glare Rendering.
         FFTPassOutput frequencyDomainRt = AddFFTComputePass( frameGraph, presentRt, static_cast< f32 >( viewportSize.x ), static_cast< f32 >( viewportSize.y ) );
         FFTPassOutput convolutedFFT = g_WorldRenderer->GlareRendering->addGlareComputePass( frameGraph, frequencyDomainRt );
         ResHandle_t inverseFFT = AddInverseFFTComputePass( frameGraph, convolutedFFT, static_cast< f32 >( viewportSize.x ), static_cast< f32 >( viewportSize.y ) );
 
+        // Automatic Exposure.
         g_WorldRenderer->AutomaticExposure->computeExposure( frameGraph, presentRt, dkVec2u( static_cast<u32>( viewportSize.x ), static_cast< u32 >( viewportSize.y ) ) );
+        
+        // Frame composition.
         presentRt = AddFinalPostFxRenderPass( frameGraph, presentRt, inverseFFT );
+
+        // HUD Text.
         presentRt = g_WorldRenderer->TextRendering->renderText( frameGraph, presentRt );
 
 #if DUSK_USE_IMGUI
+        // ImGui Editor GUI.
         if ( g_IsDevMenuVisible ) {
-            frameGraph.copyAsPresentRenderTarget( presentRt );
+            frameGraph.savePresentRenderTarget( presentRt );
             
             presentRt = g_ImGuiRenderModule->render( frameGraph, presentRt );
         }
 #endif
 
+        // Copy to swapchain buffer.
         AddPresentRenderPass( frameGraph, presentRt );
         // TEST TEST TEST TEST
 

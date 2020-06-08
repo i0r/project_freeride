@@ -48,7 +48,7 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest,
             zBufferRenderTargetDesc.dimension = ImageDesc::DIMENSION_2D;
             zBufferRenderTargetDesc.format = eViewFormat::VIEW_FORMAT_R32_TYPELESS;
             zBufferRenderTargetDesc.usage = RESOURCE_USAGE_DEFAULT;
-            zBufferRenderTargetDesc.bindFlags = RESOURCE_BIND_DEPTH_STENCIL;
+            zBufferRenderTargetDesc.bindFlags = RESOURCE_BIND_DEPTH_STENCIL | RESOURCE_BIND_SHADER_RESOURCE;
             zBufferRenderTargetDesc.DefaultView.ViewFormat = eViewFormat::VIEW_FORMAT_D32_FLOAT;
 
             passData.depthBuffer = builder.allocateImage( zBufferRenderTargetDesc, FrameGraphBuilder::USE_PIPELINE_DIMENSIONS | FrameGraphBuilder::USE_PIPELINE_SAMPLER_COUNT );
@@ -84,9 +84,30 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest,
             cmdList->pushEventMarker( DUSK_STRING( "Forward+ Light Pass" ) );
 
             cmdList->updateBuffer( *perPassBuffer, &dkMat4x4f::Identity, sizeof( dkMat4x4f ) );
+            // Update viewport (using image quality scaling)
+            const CameraData* camera = resources->getMainCamera();
 
-            cmdList->setViewport( *resources->getMainViewport() );
-            cmdList->setScissor( *resources->getMainScissorRegion() );
+            dkVec2f scaledViewportSize = camera->viewportSize * camera->imageQuality;
+
+            Viewport vp;
+            vp.X = 0;
+            vp.Y = 0;
+            vp.Width = static_cast< i32 >( scaledViewportSize.x );
+            vp.Height = static_cast< i32 >( scaledViewportSize.y );
+            vp.MinDepth = 0.0f;
+            vp.MaxDepth = 1.0f;
+
+            ScissorRegion sr;
+            sr.Top = 0;
+            sr.Left = 0;
+            sr.Right = static_cast< i32 >( scaledViewportSize.x );
+            sr.Bottom = static_cast< i32 >( scaledViewportSize.y );
+
+            cmdList->setViewport( vp );
+            cmdList->setScissor( sr );
+
+            // TEST CRAP
+            if ( materialTest == nullptr ) return;
 
             // for each DrawCall to render
             /* Material* cmdMat = getDrawCmd().Material */;
@@ -124,5 +145,7 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest,
     LightPassOutput output;
     output.OutputRenderTarget = data.output;
     output.OutputDepthTarget = data.depthBuffer;
+    output.OutputVelocityTarget = data.velocityBuffer;
+
     return output;
 }

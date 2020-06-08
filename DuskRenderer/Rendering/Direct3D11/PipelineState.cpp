@@ -659,7 +659,8 @@ void UpdateSRVRegister( RenderContext* renderContext, const i32 shaderStageIndex
     renderContext->SrvRegisters[shaderStageIndex][srvRegisterIndex] = srv;
     renderContext->SrvRegisterUpdateStart[shaderStageIndex] = Min( renderContext->SrvRegisterUpdateStart[shaderStageIndex], srvRegisterIndex );
 
-    i32 updateCount = ( srvRegisterIndex - renderContext->SrvRegisterUpdateStart[shaderStageIndex] ) + 1;
+    i32 registersDiff = ( srvRegisterIndex - renderContext->SrvRegisterUpdateStart[shaderStageIndex] );
+    i32 updateCount = dk::maths::abs( registersDiff ) + 1;
     renderContext->SrvRegisterUpdateCount[shaderStageIndex] = Max( renderContext->SrvRegisterUpdateCount[shaderStageIndex], updateCount );
 }
 
@@ -668,7 +669,8 @@ void UpdateUAVRegister( RenderContext* renderContext, const u32 uavRegisterIndex
     renderContext->CsUavRegisters[uavRegisterIndex] = uav;
     renderContext->CsUavRegisterUpdateStart = Min( renderContext->CsUavRegisterUpdateStart, uavRegisterIndex );
 
-    i32 updateCount = ( uavRegisterIndex - renderContext->CsUavRegisterUpdateStart ) + 1;
+    i32 registersDiff = ( uavRegisterIndex - renderContext->CsUavRegisterUpdateStart );
+    i32 updateCount = dk::maths::abs( registersDiff ) + 1;
     renderContext->CsUavRegisterUpdateCount = Max( renderContext->CsUavRegisterUpdateCount, updateCount );
 }
 
@@ -677,7 +679,8 @@ void UpdateCBufferRegister( RenderContext* renderContext, const i32 shaderStageI
     renderContext->CBufferRegisters[shaderStageIndex][cbufferRegisterIndex] = cbuffer;
     renderContext->CBufferRegisterUpdateStart[shaderStageIndex] = Min( renderContext->CBufferRegisterUpdateStart[shaderStageIndex], cbufferRegisterIndex );
 
-    i32 updateCount = ( cbufferRegisterIndex - renderContext->CBufferRegisterUpdateStart[shaderStageIndex] ) + 1;
+    i32 registersDiff = ( cbufferRegisterIndex - renderContext->CBufferRegisterUpdateStart[shaderStageIndex] );
+    i32 updateCount = dk::maths::abs( registersDiff ) + 1;
     renderContext->CBufferRegisterUpdateCount[shaderStageIndex] = Max( renderContext->CBufferRegisterUpdateCount[shaderStageIndex], updateCount );
 }
 

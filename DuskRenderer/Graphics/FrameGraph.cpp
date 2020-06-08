@@ -285,6 +285,12 @@ ResHandle_t FrameGraphBuilder::retrievePresentImage()
     return persitentImageCount++;
 }
 
+ResHandle_t FrameGraphBuilder::retrieveLastFrameImage()
+{
+    persitentImages[persitentImageCount] = LAST_FRAME_IMAGE_RESOURCE_HASHCODE;
+    return persitentImageCount++;
+}
+
 ResHandle_t FrameGraphBuilder::retrievePerViewBuffer()
 {
     persitentBuffers[persitentBufferCount] = PERVIEW_BUFFER_RESOURCE_HASHCODE;
@@ -679,42 +685,7 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
 {
     // Check if we need to reallocate persistent resources
     if ( hasViewportChanged ) {
-        // Last Frame Render Target
-        if ( lastFrameRenderTarget != nullptr ) {
-            renderDevice->destroyImage( lastFrameRenderTarget );
-        }
-
-        ImageDesc lastFrameDesc = {};
-        lastFrameDesc.dimension = ImageDesc::DIMENSION_2D;
-        lastFrameDesc.format = eViewFormat::VIEW_FORMAT_R16G16B16A16_FLOAT;
-        lastFrameDesc.width = static_cast< uint32_t >( activeViewport.Width * pipelineImageQuality );
-        lastFrameDesc.height = static_cast< uint32_t >( activeViewport.Height * pipelineImageQuality );
-        lastFrameDesc.depth = 1;
-        lastFrameDesc.mipCount = 1;
-        lastFrameDesc.samplerCount = 1;
-        lastFrameDesc.usage = RESOURCE_USAGE_DEFAULT;
-        lastFrameDesc.bindFlags = RESOURCE_BIND_RENDER_TARGET_VIEW | RESOURCE_BIND_SHADER_RESOURCE;
-
-        lastFrameRenderTarget = renderDevice->createImage( lastFrameDesc );
-
-        // Present Render Target
-        if ( presentRenderTarget != nullptr ) {
-            renderDevice->destroyImage( presentRenderTarget );
-        }
-
-        ImageDesc postPostFxDesc = {};
-        postPostFxDesc.dimension = ImageDesc::DIMENSION_2D;
-        postPostFxDesc.format = eViewFormat::VIEW_FORMAT_R16G16B16A16_FLOAT;
-        postPostFxDesc.width = static_cast< uint32_t >( activeViewport.Width );
-        postPostFxDesc.height = static_cast< uint32_t >( activeViewport.Height );
-        postPostFxDesc.depth = 1;
-        postPostFxDesc.mipCount = 1;
-        postPostFxDesc.samplerCount = 1;
-        postPostFxDesc.usage = RESOURCE_USAGE_DEFAULT;
-        postPostFxDesc.bindFlags = RESOURCE_BIND_RENDER_TARGET_VIEW | RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
-
-        presentRenderTarget = renderDevice->createImage( postPostFxDesc );
-
+        recreatePersistentResources( renderDevice );
         hasViewportChanged = false;
     }
 
@@ -813,7 +784,16 @@ void FrameGraph::importPersistentBuffer( const dkStringHash_t resourceHashcode, 
     graphResources.importPersistentBuffer( resourceHashcode, buffer );
 }
 
-void FrameGraph::copyAsPresentRenderTarget( ResHandle_t inputRenderTarget )
+enum class CopyImageTarget  
+{
+    LastFrameImage,
+    PresentImage
+};
+
+// Copy a FrameGraph image to a persistent image owned by the same FrameGraph (see CopyImageTarget or extend it
+// if you need to).
+template<CopyImageTarget OuputTarget>
+DUSK_INLINE void AddCopyImagePass( FrameGraph& frameGraph, ResHandle_t inputRenderTarget )
 { 
     constexpr PipelineStateDesc DefaultPipelineStateDesc = PipelineStateDesc( 
         PipelineStateDesc::GRAPHICS,
@@ -827,16 +807,27 @@ void FrameGraph::copyAsPresentRenderTarget( ResHandle_t inputRenderTarget )
         
     struct PassData {
         ResHandle_t inputImage;
+        ResHandle_t outputImage;
     };
 
-    PassData& downscaleData = addRenderPass<PassData>(
+    PassData& downscaleData = frameGraph.addRenderPass<PassData>(
         "FrameGraph::copyAsPresentRenderTarget",
         [&]( FrameGraphBuilder& builder, PassData& passData ) {
             builder.setUncullablePass();
+
             passData.inputImage = builder.readReadOnlyImage( inputRenderTarget );
+
+            switch ( OuputTarget ) {
+            case CopyImageTarget::LastFrameImage:
+                passData.outputImage = builder.retrieveLastFrameImage();
+                break;
+            case CopyImageTarget::PresentImage:
+                passData.outputImage = builder.retrievePresentImage();
+                break;
+            };
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
-            Image* output = presentRenderTarget;
+            Image* output = resources->getPersitentImage( passData.outputImage );
             Image* input = resources->getImage( passData.inputImage );
 
             PipelineState* pso = psoCache->getOrCreatePipelineState( DefaultPipelineStateDesc, BuiltIn::CopyImagePass_ShaderBinding );
@@ -844,7 +835,27 @@ void FrameGraph::copyAsPresentRenderTarget( ResHandle_t inputRenderTarget )
             cmdList->pushEventMarker( BuiltIn::CopyImagePass_EventName );
             cmdList->bindPipelineState( pso );
 
-            cmdList->setViewport( *resources->getMainViewport() );
+            switch ( OuputTarget ) {
+            case CopyImageTarget::LastFrameImage: {
+                // Update viewport (using image quality scaling)
+                const CameraData* camera = resources->getMainCamera();
+
+                dkVec2f scaledViewportSize = camera->viewportSize * camera->imageQuality;
+
+                Viewport vp;
+                vp.X = 0;
+                vp.Y = 0;
+                vp.Width = static_cast< i32 >( scaledViewportSize.x );
+                vp.Height = static_cast< i32 >( scaledViewportSize.y );
+                vp.MinDepth = 0.0f;
+                vp.MaxDepth = 1.0f;
+
+                cmdList->setViewport( vp );
+            } break;
+            default:
+                cmdList->setViewport( *resources->getMainViewport() );
+                break;
+            };
 
             // Bind resources
             cmdList->bindImage( BuiltIn::CopyImagePass_InputRenderTarget_Hashcode, input );
@@ -859,6 +870,16 @@ void FrameGraph::copyAsPresentRenderTarget( ResHandle_t inputRenderTarget )
     );
 }
 
+void FrameGraph::savePresentRenderTarget( ResHandle_t inputRenderTarget )
+{
+    AddCopyImagePass<CopyImageTarget::PresentImage>( *this, inputRenderTarget );
+}
+
+void FrameGraph::saveLastFrameRenderTarget( ResHandle_t inputRenderTarget )
+{
+    AddCopyImagePass<CopyImageTarget::LastFrameImage>( *this, inputRenderTarget );
+}
+
 #if DUSK_DEVBUILD
 const char* FrameGraph::getProfilingSummary() const
 {
@@ -871,6 +892,45 @@ const char* FrameGraph::getProfilingSummary() const
 Image* FrameGraph::getPresentRenderTarget() const
 {
     return presentRenderTarget;
+}
+
+void FrameGraph::recreatePersistentResources( RenderDevice* renderDevice )
+{
+    // Last Frame Render Target
+    if ( lastFrameRenderTarget != nullptr ) {
+        renderDevice->destroyImage( lastFrameRenderTarget );
+    }
+
+    ImageDesc lastFrameDesc = {};
+    lastFrameDesc.dimension = ImageDesc::DIMENSION_2D;
+    lastFrameDesc.format = eViewFormat::VIEW_FORMAT_R16G16B16A16_FLOAT;
+    lastFrameDesc.width = static_cast< uint32_t >( activeViewport.Width * pipelineImageQuality );
+    lastFrameDesc.height = static_cast< uint32_t >( activeViewport.Height * pipelineImageQuality );
+    lastFrameDesc.depth = 1;
+    lastFrameDesc.mipCount = 1;
+    lastFrameDesc.samplerCount = 1;
+    lastFrameDesc.usage = RESOURCE_USAGE_DEFAULT;
+    lastFrameDesc.bindFlags = RESOURCE_BIND_RENDER_TARGET_VIEW | RESOURCE_BIND_SHADER_RESOURCE;
+
+    lastFrameRenderTarget = renderDevice->createImage( lastFrameDesc );
+
+    // Present Render Target
+    if ( presentRenderTarget != nullptr ) {
+        renderDevice->destroyImage( presentRenderTarget );
+    }
+
+    ImageDesc postPostFxDesc = {};
+    postPostFxDesc.dimension = ImageDesc::DIMENSION_2D;
+    postPostFxDesc.format = eViewFormat::VIEW_FORMAT_R16G16B16A16_FLOAT;
+    postPostFxDesc.width = static_cast< uint32_t >( activeViewport.Width );
+    postPostFxDesc.height = static_cast< uint32_t >( activeViewport.Height );
+    postPostFxDesc.depth = 1;
+    postPostFxDesc.mipCount = 1;
+    postPostFxDesc.samplerCount = 1;
+    postPostFxDesc.usage = RESOURCE_USAGE_DEFAULT;
+    postPostFxDesc.bindFlags = RESOURCE_BIND_RENDER_TARGET_VIEW | RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
+
+    presentRenderTarget = renderDevice->createImage( postPostFxDesc );
 }
 
 FrameGraphScheduler::FrameGraphScheduler( BaseAllocator* allocator, RenderDevice* renderDevice, VirtualFileSystem* virtualFileSys )

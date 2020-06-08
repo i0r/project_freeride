@@ -110,6 +110,7 @@ static ID3D11ShaderResourceView* CreateImageShaderResourceView( ID3D11Device* de
 
     switch ( shaderResourceViewDesc.Format ) {
     case DXGI_FORMAT_R32_TYPELESS:
+    case DXGI_FORMAT_D32_FLOAT:
         shaderResourceViewDesc.Format = DXGI_FORMAT_R32_FLOAT;
         break;
     case DXGI_FORMAT_D24_UNORM_S8_UINT:

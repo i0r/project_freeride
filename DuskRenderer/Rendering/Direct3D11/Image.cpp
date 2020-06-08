@@ -493,7 +493,18 @@ void CommandList::setupFramebuffer( Image** renderTargetViews, Image* depthStenc
 void SetupFramebuffer_Replay( RenderContext* renderContext, Image** renderTargetViews, Image* depthStencilView )
 {
     ID3D11RenderTargetView* RenderTargets[8] = { nullptr };
-    ID3D11DepthStencilView* DepthStencilView = ( depthStencilView != nullptr ) ? depthStencilView->DefaultDepthStencilView : nullptr;
+    ID3D11DepthStencilView* DepthStencilView = nullptr;
+    
+    if ( depthStencilView != nullptr ) {
+        if ( renderContext->FramebufferDepthBuffer != nullptr ) {
+            renderContext->FramebufferDepthBuffer->IsBindedToFBO = false;
+        }
+
+        DepthStencilView = depthStencilView->DefaultDepthStencilView;
+        depthStencilView->IsBindedToFBO = true;
+
+        renderContext->FramebufferDepthBuffer = depthStencilView;
+    }
 
     const PipelineState* bindedPipelineState = renderContext->BindedPipelineState;
     const i32 rtvCount = bindedPipelineState->rtvCount;

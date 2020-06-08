@@ -17,6 +17,7 @@ using ResHandle_t = uint32_t;
 struct LightPassOutput {
     ResHandle_t	OutputRenderTarget;
     ResHandle_t	OutputDepthTarget;
+    ResHandle_t	OutputVelocityTarget;
 };
 
 LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest, Material* materialTest, ResHandle_t perSceneBuffer, Material::RenderScenario scenario );
