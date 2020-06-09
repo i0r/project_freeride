@@ -1,6 +1,7 @@
 lib HUD {
     properties {
         float4x4 ProjectionMatrix;
+        float2   ScreenSize;
     }
     
     resources {
@@ -76,6 +77,29 @@ lib HUD {
         $SV_TARGET0 = $COLOR0 * FontAtlasTexture.Sample( LinearSampler, $TEXCOORD0 );
     }
     
+    shader LineVertex {
+        float4 screenPosition =  mul( float4( $POSITION.xyz, 1.0f), ProjectionMatrix );
+        $SV_Position = screenPosition;
+        
+        float2 lineCenter = 0.5f * ( screenPosition.xy + float2( 1, 1 ) ) * g_ScreenSize;
+        $POSITION0 = float4( lineCenter, $POSITION.w, 1.5f );
+        $COLOR0 = $COLOR;
+    }
+    
+    shader LinePixel {
+        float4 lineColor = $COLOR0;
+        float2 lineCenter = $POSITION0.xy;
+        
+        float d = length( lineCenter - $SV_Position.xy );
+        float w = $POSITION0.z;     
+        float blendFactor = $POSITION0.w;
+        
+        float alphaAA = min( d - w, 0.0f ) * pow( ( w - d ) / w, blendFactor );
+        lineColor.a *= alphaAA;
+        
+        $SV_TARGET0 = lineColor;
+    }
+    
     pass RenderText {
         vertex        = TextRenderingVertex;    
         pixel         = TextRenderingPixel;
@@ -85,6 +109,12 @@ lib HUD {
     pass ImGui {
         vertex        = ImguiVertex;    
         pixel         = ImguiPixel;
+        rendertargets = { OutputRenderTarget };
+    }
+    
+    pass LineRendering {
+        vertex        = LineVertex;    
+        pixel         = LinePixel;
         rendertargets = { OutputRenderTarget };
     }
 }
