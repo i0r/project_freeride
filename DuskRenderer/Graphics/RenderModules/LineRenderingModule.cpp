@@ -15,91 +15,6 @@
 
 #include "Generated/HUD.generated.h"
 
-//ResHandle_t LineRenderingModule::addLineRenderPass( RenderPipeline* renderPipeline, ResHandle_t output )
-//{
-//    struct PassData {
-//        MutableResHandle_t  output;
-//
-//        ResHandle_t         screenBuffer;
-//    };
-//
-//    PassData& data = renderPipeline->addRenderPass<PassData>(
-//        "Line Rendering Pass",
-//        [&]( RenderPipelineBuilder& renderPipelineBuilder, PassData& passData ) {
-//        renderPipelineBuilder.setUncullablePass();
-//
-//            // Passthrough rendertarget
-//            passData.output = renderPipelineBuilder.readRenderTarget( output );
-//
-//            BufferDesc screenBufferDesc;
-//            screenBufferDesc.type = BufferDesc::CONSTANT_BUFFER;
-//            screenBufferDesc.size = sizeof( nyaMat4x4f );
-//
-//            passData.screenBuffer = renderPipelineBuilder.allocateBuffer( screenBufferDesc, SHADER_STAGE_VERTEX );
-//        },
-//        [=]( const PassData& passData, const RenderPipelineResources& renderPipelineResources, RenderDevice* renderDevice ) {
-//            // Render Pass
-//            RenderTarget* outputTarget = renderPipelineResources.getRenderTarget( passData.output );
-//
-//            RenderPass renderPass;
-//            renderPass.attachement[0] = { outputTarget, 0, 0 };
-//
-//            Buffer* screenBuffer = renderPipelineResources.getBuffer( passData.screenBuffer );
-//
-//            const CameraData* cameraData = renderPipelineResources.getMainCamera();
-//
-//            Viewport vp;
-//            vp.X = 0;
-//            vp.Y = 0;
-//            vp.Width = static_cast<int>( cameraData->viewportSize.x );
-//            vp.Height = static_cast<int>( cameraData->viewportSize.y );
-//            vp.MinDepth = 0.0f;
-//            vp.MaxDepth = 1.0f;
-//
-//            nyaMat4x4f orthoMatrix = nya::maths::MakeOrtho( 0.0f, cameraData->viewportSize.x, cameraData->viewportSize.y, 0.0f, -1.0f, 1.0f );
-//
-//            ResourceList resourceList;
-//            resourceList.resource[0].buffer = screenBuffer;
-//            renderDevice->updateResourceList( renderLinePso, resourceList );
-//
-//            CommandList& cmdList = renderDevice->allocateGraphicsCommandList();
-//            {
-//                cmdList.begin();
-//
-//                cmdList.setViewport( vp );
-//
-//                cmdList.updateBuffer( screenBuffer, &orthoMatrix, sizeof( nyaMat4x4f ) );
-//                cmdList.updateBuffer( lineVertexBuffers[vertexBufferIndex], buffer, static_cast<size_t>( bufferIndex ) * sizeof( float ) );
-//
-//                // Pipeline State
-//                cmdList.beginRenderPass( renderLinePso, renderPass );
-//                {
-//                    cmdList.bindVertexBuffer( lineVertexBuffers[vertexBufferIndex] );
-//                    cmdList.bindIndiceBuffer( lineIndiceBuffer );
-//
-//                    cmdList.bindPipelineState( renderLinePso );
-//
-//                    cmdList.draw( static_cast< unsigned int >( indiceCount ) );
-//                }
-//                cmdList.endRenderPass();
-//
-//                cmdList.end();
-//            }
-//
-//            renderDevice->submitCommandList( &cmdList );
-//
-//            // Swap buffers
-//            vertexBufferIndex = ( vertexBufferIndex == 0 ) ? 1 : 0;
-//
-//            // Reset buffers
-//            indiceCount = 0;
-//            bufferIndex = 0;
-//        } 
-//    );
-//
-//    return data.output;
-//}
-
 static constexpr i32 LINE_RENDERING_MAX_LINE_COUNT = 32000;
 
 LineRenderingModule::LineRenderingModule( BaseAllocator* allocator )
@@ -173,6 +88,41 @@ ResHandle_t LineRenderingModule::renderLines( FrameGraph& frameGraph, ResHandle_
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
             lockVertexBufferRendering();
+
+            Image* outputTarget = resources->getImage( passData.Output );
+            Buffer* perViewBuffer = resources->getPersistentBuffer( passData.PerViewBuffer );
+
+            PipelineState* pipelineState = psoCache->getOrCreatePipelineState( PipelineStateDefault, HUD::LineRendering_ShaderBinding );
+
+            const Viewport* pipelineDimensions = resources->getMainViewport();
+            const ScissorRegion* pipelineScissor = resources->getMainScissorRegion();
+
+            cmdList->pushEventMarker( HUD::LineRendering_EventName );
+            cmdList->bindPipelineState( pipelineState );
+
+            cmdList->setViewport( *pipelineDimensions );
+            cmdList->setScissor( *pipelineScissor );
+
+            cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
+            cmdList->updateBuffer( *lineVertexBuffers[vertexBufferWriteIndex], buffer, static_cast< size_t >( bufferIndex ) * sizeof( f32 ) );
+
+            const Buffer* VertexBuffer[1] = { lineVertexBuffers[vertexBufferWriteIndex] };
+            cmdList->bindVertexBuffer( VertexBuffer );
+
+            cmdList->prepareAndBindResourceList( pipelineState );
+
+            cmdList->setupFramebuffer( &outputTarget, nullptr );
+
+            cmdList->draw( static_cast<u32>( indiceCount ), 1u );
+
+            cmdList->popEventMarker();
+
+            // Swap buffers
+            vertexBufferWriteIndex = ( vertexBufferWriteIndex == 0 ) ? 1 : 0;
+            
+            // Reset buffers
+            indiceCount = 0;
+            bufferIndex = 0;
 
             unlockVertexBufferRendering();
         } 
@@ -267,9 +217,11 @@ void LineRenderingModule::createPersistentResources( RenderDevice& renderDevice 
 void LineRenderingModule::lockVertexBuffer()
 {
     bool expected = false;
-    while ( !vertexBufferRenderingLock.compare_exchange_weak( expected, true, std::memory_order_acquire ) ) {
+    while ( !vertexBufferRenderingLock.compare_exchange_weak( expected, false ) ) {
         expected = false;
     }
+
+    vertexBufferLock.store( true, std::memory_order_acquire );
 }
 
 void LineRenderingModule::unlockVertexBuffer()
@@ -280,12 +232,15 @@ void LineRenderingModule::unlockVertexBuffer()
 void LineRenderingModule::lockVertexBufferRendering()
 {
     bool expected = false;
-    while ( !vertexBufferLock.compare_exchange_weak( expected, true, std::memory_order_acquire ) ) {
+    while ( !vertexBufferLock.compare_exchange_weak( expected, false ) ) {
         expected = false;
     }
+
+    vertexBufferRenderingLock.store( true, std::memory_order_acquire );
 }
 
 void LineRenderingModule::unlockVertexBufferRendering()
 {
     vertexBufferRenderingLock.store( false, std::memory_order_release );
 }
+

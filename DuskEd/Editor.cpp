@@ -30,6 +30,7 @@
 #include "Graphics/RenderModules/PrimitiveLightingTest.h"
 #include "Graphics/RenderModules/GlareRenderModule.h"
 #include "Graphics/RenderModules/FFTRenderPass.h"
+#include "Graphics/RenderModules/LineRenderingModule.h"
 #include "Graphics/Material.h"
 // END TEMP
 
@@ -108,6 +109,7 @@ static bool                    g_IsGamePaused = false;
 static bool                    g_IsFirstLaunch = false;
 static bool                    g_IsMouseOverViewportWindow = false;
 static bool                    g_CanMoveCamera = false;
+static bool                    g_IsResizing = true;
 
 DUSK_ENV_VAR( EnableVSync, true, bool ); // "Enable Vertical Synchronisation [false/true]"
 DUSK_ENV_VAR( EnableTAA, false, bool ); // "Enable Temporal AntiAliasing [false/true]"
@@ -165,6 +167,7 @@ void RegisterInputContexts()
     g_InputMapper->addCallback( [&]( MappedInput & input, float frameTime ) {
         if ( input.Actions.find( DUSK_STRING_HASH( "OpenDevMenu" ) ) != input.Actions.end() ) {
             g_IsDevMenuVisible = !g_IsDevMenuVisible;
+            g_IsResizing = true;
 
             g_ImGuiManager->setVisible( g_IsDevMenuVisible );
 
@@ -721,13 +724,12 @@ void MainLoop()
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
             if ( ImGui::Begin( "Viewport", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar ) ) {
                 static ImVec2 prevWinSize = ImGui::GetWindowSize();
-                static bool isResizing = true;
 
                 ImVec2 winSize = ImGui::GetWindowSize();
 
-                if ( !isResizing && ( winSize.x != prevWinSize.x || winSize.y != prevWinSize.y ) ) {
-                    isResizing = true;
-                } else if ( isResizing ) {
+                if ( !g_IsResizing && ( winSize.x != prevWinSize.x || winSize.y != prevWinSize.y ) ) {
+                    g_IsResizing = true;
+                } else if ( g_IsResizing ) {
                     f32 deltaX = ( winSize.x - prevWinSize.x );
                     f32 deltaY = ( winSize.y - prevWinSize.y );
 
@@ -737,13 +739,13 @@ void MainLoop()
                         viewportSize.y = winSize.y;
                         g_FreeCamera->setProjectionMatrix( DefaultCameraFov, viewportSize.x, viewportSize.y );
 
-                        vp.Width = static_cast<i32>( viewportSize.x );
+                        vp.Width = static_cast< i32 >( viewportSize.x );
                         vp.Height = static_cast< i32 >( viewportSize.y );
 
                         sr.Right = static_cast< i32 >( viewportSize.x );
                         sr.Bottom = static_cast< i32 >( viewportSize.y );
 
-                        isResizing = false;
+                        g_IsResizing = false;
                     }
                 }
                 prevWinSize = winSize;
@@ -764,11 +766,28 @@ void MainLoop()
             g_ImGuiRenderModule->unlockRenderList();
         }
 #endif
+        // Update viewport if we hide Editor GUI.
+        if ( !g_IsDevMenuVisible ) {
+            if ( g_IsResizing ) {
+                viewportSize.x = static_cast< f32 >( ScreenSize.x );
+                viewportSize.x = static_cast< f32 >( ScreenSize.y );
+                g_FreeCamera->setProjectionMatrix( DefaultCameraFov, viewportSize.x, viewportSize.y );
+
+                vp.Width = static_cast< i32 >( viewportSize.x );
+                vp.Height = static_cast< i32 >( viewportSize.y );
+
+                sr.Right = static_cast< i32 >( viewportSize.x );
+                sr.Bottom = static_cast< i32 >( viewportSize.y );
+
+                g_IsResizing = false;
+            }
+        }
 
         // Rendering
 
         // TEST TEST TEST TEST
         g_WorldRenderer->TextRendering->addOutlinedText( str.c_str(), 0.4f, 8.0f, 8.0f, dkVec4f( 1, 1, 1, 1 ) );
+
         g_WorldRenderer->AutomaticExposure->importResourcesToGraph( frameGraph );
         
         LightGrid::Data lightGridData = g_LightGrid->updateClusters( frameGraph );
@@ -802,7 +821,10 @@ void MainLoop()
 
         // Automatic Exposure.
         g_WorldRenderer->AutomaticExposure->computeExposure( frameGraph, presentRt, dkVec2u( static_cast<u32>( viewportSize.x ), static_cast< u32 >( viewportSize.y ) ) );
-        
+
+        // Line Rendering.
+        presentRt = g_WorldRenderer->LineRendering->renderLines( frameGraph, presentRt );
+
         // Frame composition.
         presentRt = AddFinalPostFxRenderPass( frameGraph, presentRt, inverseFFT );
 

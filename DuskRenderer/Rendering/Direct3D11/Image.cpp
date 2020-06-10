@@ -494,15 +494,16 @@ void SetupFramebuffer_Replay( RenderContext* renderContext, Image** renderTarget
 {
     ID3D11RenderTargetView* RenderTargets[8] = { nullptr };
     ID3D11DepthStencilView* DepthStencilView = nullptr;
-    
+
+    if ( renderContext->FramebufferDepthBuffer != nullptr ) {
+        renderContext->FramebufferDepthBuffer->IsBindedToFBO = false;
+        renderContext->FramebufferDepthBuffer = nullptr;
+    }
+
     if ( depthStencilView != nullptr ) {
-        if ( renderContext->FramebufferDepthBuffer != nullptr ) {
-            renderContext->FramebufferDepthBuffer->IsBindedToFBO = false;
-        }
-
         DepthStencilView = depthStencilView->DefaultDepthStencilView;
-        depthStencilView->IsBindedToFBO = true;
 
+        depthStencilView->IsBindedToFBO = true;
         renderContext->FramebufferDepthBuffer = depthStencilView;
     }
 
@@ -524,15 +525,15 @@ void SetupFramebuffer_Replay( RenderContext* renderContext, Image** renderTarget
             needSrvFlush = true;
         }
 
-        renderTargetViews[attachmentIdx]->IsBindedToFBO = true;
-
-        RenderTargets[attachmentIdx] = renderTargetViews[attachmentIdx]->DefaultRenderTargetView;
-
-        if ( renderContext->FramebufferAttachment[attachmentIdx] != nullptr ) {
+        if ( renderContext->FramebufferAttachment[attachmentIdx] != nullptr 
+          && renderContext->FramebufferAttachment[attachmentIdx]->IsBindedToFBO ) {
             renderContext->FramebufferAttachment[attachmentIdx]->IsBindedToFBO = false;
         }
 
         renderContext->FramebufferAttachment[attachmentIdx] = renderTargetViews[attachmentIdx];
+        renderContext->FramebufferAttachment[attachmentIdx]->IsBindedToFBO = true;
+
+        RenderTargets[attachmentIdx] = renderTargetViews[attachmentIdx]->DefaultRenderTargetView;
 
         if ( bindedPipelineState->clearRtv[attachmentIdx] ) {
             immediateCtx->ClearRenderTargetView( RenderTargets[attachmentIdx], bindedPipelineState->colorClearValue );
@@ -541,7 +542,8 @@ void SetupFramebuffer_Replay( RenderContext* renderContext, Image** renderTarget
 
     // Clear FBO attachments
     for ( ; attachmentIdx < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; attachmentIdx++ ) {
-        if ( renderContext->FramebufferAttachment[attachmentIdx] != nullptr ) {
+        if ( renderContext->FramebufferAttachment[attachmentIdx] != nullptr
+          && renderContext->FramebufferAttachment[attachmentIdx]->IsBindedToFBO ) {
             renderContext->FramebufferAttachment[attachmentIdx]->IsBindedToFBO = false;
             renderContext->FramebufferAttachment[attachmentIdx] = nullptr;
         }

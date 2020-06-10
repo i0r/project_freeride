@@ -7,6 +7,8 @@
 
 #include <Io/TextStreamHelpers.h>
 #include <DuskLexer/Parser.h>
+#include <Rendering/CommandList.h>
+#include <Graphics/GraphicsAssetCache.h>
 
 void ParseScenario( Material::RenderScenarioBinding& binding, const TypeAST& node )
 {

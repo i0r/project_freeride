@@ -21,6 +21,7 @@ class BrunetonSkyRenderModule;
 class TextRenderingModule;
 class AutomaticExposureModule;
 class GlareRenderModule;
+class LineRenderingModule;
 
 template <typename Precision, int RowCount, int ColumnCount>
 struct Matrix;
@@ -124,6 +125,7 @@ public:
     AutomaticExposureModule* AutomaticExposure;
     TextRenderingModule*     TextRendering;
     GlareRenderModule*       GlareRendering;
+    LineRenderingModule*     LineRendering;
 
 public:
                      WorldRenderer( BaseAllocator* allocator );

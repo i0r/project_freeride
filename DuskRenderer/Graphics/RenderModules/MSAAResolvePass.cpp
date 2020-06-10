@@ -3,7 +3,7 @@
     Copyright (C) 2019 Prevost Baptiste
 */
 #include <Shared.h>
-#include "PresentRenderPass.h"
+#include "MSAAResolvePass.h"
 
 #include <Graphics/ShaderCache.h>
 #include <Graphics/FrameGraph.h>

@@ -19,6 +19,8 @@
 
 #include "PipelineState.h"
 
+#include <Maths/Helpers.h>
+
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
@@ -604,6 +606,8 @@ void CommandList::bindImage( const dkStringHash_t hashcode, Image* image, const 
 
 void CommandList::bindBuffer( const dkStringHash_t hashcode, Buffer* buffer, const eViewFormat viewFormat )
 {
+    DUSK_DEV_ASSERT( buffer, "Buffer is null!" );
+
     CommandPacket::BindResource* commandPacket = dk::core::allocate<CommandPacket::BindResource>( nativeCommandList->CommandPacketAllocator );
     commandPacket->Identifier = CPI_BIND_BUFFER;
     commandPacket->BufferObject = buffer;
@@ -757,10 +761,12 @@ void ClearFBO( RenderContext* renderContext )
     for ( i32 i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; i++ ) {
         if ( renderContext->FramebufferAttachment[i] != nullptr ) {
             renderContext->FramebufferAttachment[i]->IsBindedToFBO = false;
+            renderContext->FramebufferAttachment[i] = nullptr;
         }
     }
     if ( renderContext->FramebufferDepthBuffer != nullptr ) {
         renderContext->FramebufferDepthBuffer->IsBindedToFBO = false;
+        renderContext->FramebufferDepthBuffer = nullptr;
     }
 
     // Clear framebuffer
@@ -791,13 +797,15 @@ void BindBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hashc
     if ( resource == nullptr ) {
         return;
     }
+    
+    ClearBufferUAVRegister( renderContext, buffer );
+    FlushUAVRegisterUpdate( renderContext );
+
+    ClearBufferSRVRegister( renderContext, buffer );
+    FlushSRVRegisterUpdate( renderContext );
 
     if ( resource->type == PipelineState::InternalResourceType::RESOURCE_TYPE_SHADER_RESOURCE_VIEW ) {
         ID3D11ShaderResourceView* srv = buffer->DefaultShaderResourceView;
-
-        if ( ClearBufferUAVRegister( renderContext, buffer ) ) {
-            FlushUAVRegisterUpdate( renderContext );
-        }
 
         for ( i32 i = 0; i < resource->activeStageCount; i++ ) {
             PipelineState::ResourceEntry::StageBinding* stageBinding = resource->activeBindings[i];
@@ -807,7 +815,7 @@ void BindBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hashc
 
             // Update RenderContext register data
             RenderContext::RegisterData& registerData = renderContext->SrvRegistersInfo[shaderStageIndex][srvRegisterIndex];
-
+            
             if ( registerData.ResourceType == RenderContext::RegisterData::Type::BUFFER_RESOURCE ) {
                 registerData.BufferObject->SRVRegisterIndex[shaderStageIndex] = ~0;
             } else if ( registerData.ResourceType == RenderContext::RegisterData::Type::IMAGE_RESOURCE ) {
@@ -820,14 +828,10 @@ void BindBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hashc
             // Update Persistent register view
             UpdateSRVRegister( renderContext, shaderStageIndex, srvRegisterIndex, srv );
 
-            buffer->SRVRegisterIndex[stageBinding->ShaderStageIndex] = stageBinding->RegisterIndex;
+            buffer->SRVRegisterIndex[shaderStageIndex] = srvRegisterIndex;
         }
     } else if ( resource->type == PipelineState::InternalResourceType::RESOURCE_TYPE_UNORDERED_ACCESS_VIEW ) {
         ID3D11UnorderedAccessView* uav = buffer->DefaultUnorderedAccessView;
-
-        if ( ClearBufferSRVRegister( renderContext, buffer ) ) {
-            FlushSRVRegisterUpdate( renderContext );
-        }
 
         for ( i32 i = 0; i < resource->activeStageCount; i++ ) {
             PipelineState::ResourceEntry::StageBinding* stageBinding = resource->activeBindings[i];
@@ -887,13 +891,15 @@ void BindImage_Replay( RenderContext* renderContext, const dkStringHash_t hashco
 
     ClearImageFBOAttachment( renderContext, image );
 
+    ClearImageUAVRegister( renderContext, image );
+    FlushUAVRegisterUpdate( renderContext );
+
+    ClearImageSRVRegister( renderContext, image );
+    FlushSRVRegisterUpdate( renderContext );
+
     if ( resource->type == PipelineState::InternalResourceType::RESOURCE_TYPE_SHADER_RESOURCE_VIEW ) {
         // TODO Custom Image view support
         ID3D11ShaderResourceView* srv = image->DefaultShaderResourceView;
-
-        if ( ClearImageUAVRegister( renderContext, image ) ) {
-            FlushUAVRegisterUpdate( renderContext );
-        }
 
         for ( i32 i = 0; i < resource->activeStageCount; i++ ) {
             PipelineState::ResourceEntry::StageBinding* stageBinding = resource->activeBindings[i];
@@ -920,12 +926,6 @@ void BindImage_Replay( RenderContext* renderContext, const dkStringHash_t hashco
     } else if ( resource->type == PipelineState::InternalResourceType::RESOURCE_TYPE_UNORDERED_ACCESS_VIEW ) {
         // TODO Custom Image view support
         ID3D11UnorderedAccessView* uav = image->DefaultUnorderedAccessView;
-
-        if ( ClearImageSRVRegister( renderContext, image ) ) {
-            FlushSRVRegisterUpdate( renderContext );
-        }
-        
-        ClearFBO( renderContext );
 
         for ( i32 i = 0; i < resource->activeStageCount; i++ ) {
             PipelineState::ResourceEntry::StageBinding* stageBinding = resource->activeBindings[i];

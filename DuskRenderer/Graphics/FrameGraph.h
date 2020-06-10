@@ -44,6 +44,7 @@ struct PerViewBufferData
     dkMat4x4f   ViewProjectionMatrix;
     dkMat4x4f   InverseViewProjectionMatrix;
     dkMat4x4f   PreviousViewProjectionMatrix;
+    dkMat4x4f   OrthoProjectionMatrix;
     dkVec2f     ScreenSize;
     dkVec2f     InverseScreenSize;
     dkVec3f     WorldPosition;

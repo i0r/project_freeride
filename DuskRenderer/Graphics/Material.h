@@ -6,7 +6,10 @@
 
 #include <unordered_map>
 
+#include <Maths/Vector.h>
 #include <Graphics/PipelineStateCache.h>
+
+class GraphicsAssetCache;
 
 class Material 
 {

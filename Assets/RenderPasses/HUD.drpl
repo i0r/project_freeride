@@ -78,25 +78,25 @@ lib HUD {
     }
     
     shader LineVertex {
-        float4 screenPosition =  mul( float4( $POSITION.xyz, 1.0f), ProjectionMatrix );
-        $SV_Position = screenPosition;
+        float4 screenPosition =  mul( g_OrthoProjectionMatrix, float4( $POSITION.xy, 0.0f, 1.0f ) );
+        
+        $COLOR0 = $COLOR;
         
         float2 lineCenter = 0.5f * ( screenPosition.xy + float2( 1, 1 ) ) * g_ScreenSize;
         $POSITION0 = float4( lineCenter, $POSITION.w, 1.5f );
-        $COLOR0 = $COLOR;
+        $SV_Position = float4( screenPosition.xy, 0, 1 );
     }
     
     shader LinePixel {
         float4 lineColor = $COLOR0;
         float2 lineCenter = $POSITION0.xy;
         
-        float d = length( lineCenter - $SV_Position.xy );
+        float d = length( $SV_Position.xy - lineCenter );
         float w = $POSITION0.z;     
-        float blendFactor = $POSITION0.w;
+        float blendFactor = $POSITION0.w; // 1.5f .. 2.5f (TODO Expose as 0..1 range and remap to 1.5 2.5 range)
         
-        float alphaAA = min( d - w, 0.0f ) * pow( ( w - d ) / w, blendFactor );
-        lineColor.a *= alphaAA;
-        
+        lineColor.a = smoothstep( 0.0f, w, d * blendFactor );
+            
         $SV_TARGET0 = lineColor;
     }
     

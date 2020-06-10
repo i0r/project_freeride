@@ -281,9 +281,11 @@ void TextRenderingModule::addOutlinedText( const char* text, f32 size, f32 x, f3
 void TextRenderingModule::lockVertexBuffer()
 {
     bool expected = false;
-    while ( !vertexBufferRenderingLock.compare_exchange_weak( expected, true, std::memory_order_acquire ) ) {
+    while ( !vertexBufferRenderingLock.compare_exchange_weak( expected, false ) ) {
         expected = false;
     }
+
+    vertexBufferLock.store( true, std::memory_order_acquire );
 }
 
 void TextRenderingModule::unlockVertexBuffer()
@@ -294,9 +296,11 @@ void TextRenderingModule::unlockVertexBuffer()
 void TextRenderingModule::lockVertexBufferRendering()
 {
     bool expected = false;
-    while ( !vertexBufferLock.compare_exchange_weak( expected, true, std::memory_order_acquire ) ) {
+    while ( !vertexBufferLock.compare_exchange_weak( expected, false ) ) {
         expected = false;
     }
+
+    vertexBufferRenderingLock.store( true, std::memory_order_acquire );
 }
 
 void TextRenderingModule::unlockVertexBufferRendering()

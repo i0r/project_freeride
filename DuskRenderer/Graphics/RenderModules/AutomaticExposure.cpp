@@ -215,9 +215,9 @@ ResHandle_t AutomaticExposureModule::addExposureComputePass( FrameGraph& frameGr
             cmdList->bindPipelineState( pipelineState );
 
             cmdList->bindConstantBuffer( PerPassBufferHashcode, parametersBuffer );
-            cmdList->bindBuffer( AutoExposure::TileHistogramCompute_WAutoExposureBuffer_Hashcode, bufferToWrite, VIEW_FORMAT_R32_UINT );
-            cmdList->bindBuffer( AutoExposure::TileHistogramCompute_RAutoExposureBuffer_Hashcode, bufferToRead, VIEW_FORMAT_R32_UINT );
             cmdList->bindBuffer( AutoExposure::TileHistogramCompute_Histogram_Hashcode, inputBuffer, VIEW_FORMAT_R32_UINT );
+            cmdList->bindBuffer( AutoExposure::TileHistogramCompute_RAutoExposureBuffer_Hashcode, bufferToRead, VIEW_FORMAT_R32_UINT );
+            cmdList->bindBuffer( AutoExposure::TileHistogramCompute_WAutoExposureBuffer_Hashcode, bufferToWrite, VIEW_FORMAT_R32_UINT );
 
             cmdList->prepareAndBindResourceList( pipelineState );
 

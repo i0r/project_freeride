@@ -9,6 +9,7 @@
 #include "PipelineStateCache.h"
 
 #include <Rendering/RenderDevice.h>
+#include <Maths/MatrixTransformations.h>
 
 #include <Graphics/RenderModules/Generated/BuiltIn.generated.h>
 
@@ -635,6 +636,7 @@ FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevi
     perViewData.ViewProjectionMatrix = dkMat4x4f::Identity;
     perViewData.InverseViewProjectionMatrix = dkMat4x4f::Identity;
     perViewData.PreviousViewProjectionMatrix = dkMat4x4f::Identity;
+    perViewData.OrthoProjectionMatrix = dkMat4x4f::Identity;
     perViewData.ScreenSize = dkVec2f( 0.0f, 0.0f );
     perViewData.InverseScreenSize = dkVec2f( 0.0f, 0.0f );
     perViewData.WorldPosition = dkVec3f( 0.0f, 0.0f, 0.0f );
@@ -709,6 +711,7 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
         perViewData.ViewProjectionMatrix = activeCamera->viewProjectionMatrix;
         perViewData.InverseViewProjectionMatrix = activeCamera->inverseViewProjectionMatrix;
         perViewData.PreviousViewProjectionMatrix = activeCamera->previousViewProjectionMatrix;
+        perViewData.OrthoProjectionMatrix = dk::maths::MakeOrtho( 0.0f, activeCamera->viewportSize.x, activeCamera->viewportSize.y, 0.0f, -1.0f, 1.0f );
         perViewData.ScreenSize = activeCamera->viewportSize;
         perViewData.InverseScreenSize = activeCamera->inverseViewportSize;
         perViewData.WorldPosition = activeCamera->worldPosition;

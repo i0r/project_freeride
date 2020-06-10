@@ -20,6 +20,7 @@
 #include "RenderModules/AutomaticExposure.h"
 #include "RenderModules/TextRenderingModule.h"
 #include "RenderModules/GlareRenderModule.h"
+#include "RenderModules/LineRenderingModule.h"
 
 static constexpr size_t MAX_DRAW_CMD_COUNT = 4096;
 
@@ -90,6 +91,7 @@ WorldRenderer::WorldRenderer( BaseAllocator* allocator )
     , AutomaticExposure( dk::core::allocate<AutomaticExposureModule>( allocator ) )
     , TextRendering( dk::core::allocate<TextRenderingModule>( allocator ) )
     , GlareRendering( dk::core::allocate<GlareRenderModule>( allocator ) )
+    , LineRendering( dk::core::allocate<LineRenderingModule>( allocator, allocator ) )
     , memoryAllocator( allocator )
     , primitiveCache( dk::core::allocate<PrimitiveCache>( allocator ) )
     , drawCmdAllocator( dk::core::allocate<LinearAllocator>( allocator, sizeof( DrawCmd )* MAX_DRAW_CMD_COUNT, allocator->allocate( sizeof( DrawCmd ) * MAX_DRAW_CMD_COUNT ) ) )
@@ -104,6 +106,8 @@ WorldRenderer::~WorldRenderer()
     dk::core::free( memoryAllocator, BrunetonSky );
     dk::core::free( memoryAllocator, AutomaticExposure );
     dk::core::free( memoryAllocator, TextRendering );
+    dk::core::free( memoryAllocator, GlareRendering );
+    dk::core::free( memoryAllocator, LineRendering );
     dk::core::free( memoryAllocator, primitiveCache );
     dk::core::free( memoryAllocator, drawCmdAllocator );
     dk::core::free( memoryAllocator, frameGraph );
@@ -120,6 +124,7 @@ void WorldRenderer::destroy( RenderDevice* renderDevice )
     AutomaticExposure->destroy( *renderDevice );
     TextRendering->destroy( *renderDevice );
     GlareRendering->destroy( *renderDevice );
+    LineRendering->destroy( *renderDevice );
 }
 
 void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache* shaderCache, GraphicsAssetCache* graphicsAssetCache, VirtualFileSystem* virtualFileSystem )
@@ -134,6 +139,7 @@ void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache
     AutomaticExposure->loadCachedResources( *renderDevice );
     TextRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
     GlareRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
+    LineRendering->createPersistentResources( *renderDevice );
 
     // Precompute resources (might worth being done offline?).
     FrameGraph& graph = *frameGraph;
