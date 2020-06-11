@@ -39,7 +39,10 @@ struct TypeAST {
         PRIMITIVE_TYPE_SAMPLER,
         PRIMITIVE_TYPE_STRING,
         PRIMITIVE_TYPE_FLOAT4X4,
-        PRIMITIVE_TYPE_CINT,
+		PRIMITIVE_TYPE_CINT,
+        // TODO Anything below this line is temporary and should be DATA DRIVEN
+        // since it has nothing todo with the parser itself.
+		PRIMITIVE_TYPE_LINEINFO,
         PRIMITIVE_TYPE_NONE,
         PRIMITIVE_TYPE_COUNT
     };
@@ -112,6 +115,7 @@ static constexpr const char* PRIMITIVE_TYPES[TypeAST::ePrimitiveType::PRIMITIVE_
     "string",
     "float4x4",
     "cint",
+    "LineInfos",
     ""
 };
 
@@ -147,6 +151,7 @@ static constexpr size_t PRIMITIVE_TYPE_SIZE[TypeAST::ePrimitiveType::PRIMITIVE_T
     0,
     16,
     4,
+    48,
     0,
 };
 
