@@ -11,6 +11,25 @@ class FileSystemObject;
 class FreeCamera
 {
 public:
+    // Return this camera up vector (normalized).
+    DUSK_INLINE dkVec3f getUpVector() const
+    {
+        return dkVec3f::cross( rightVector, eyeDirection ).normalize();
+    }
+
+    // Return this camera right vector (normalized).
+    DUSK_INLINE dkVec3f getRightVector() const
+    {
+        return rightVector;
+    }
+
+    // Return this camera forward vector (normalized).
+    DUSK_INLINE dkVec3f getForwardVector() const
+    {
+        return dkVec3f::cross( rightVector, getUpVector() ).normalize();
+    }
+
+public:
                     FreeCamera( const f32 camSpeed = 50.0f );
                     FreeCamera( FreeCamera& camera ) = default;
                     ~FreeCamera() = default;

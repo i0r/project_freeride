@@ -56,9 +56,8 @@ void FreeCamera::update( const f32 frameTime )
     };
     rightVector = rightVector.normalize();
 
-    dkVec3f upVector = dkVec3f::cross( rightVector, eyeDirection );
-    upVector = upVector.normalize();
-
+    dkVec3f upVector = getUpVector();
+    
     // Update world position
     dkVec3f nextWorldPosition = data.worldPosition + eyeDirection * speedX;
     data.worldPosition = lerp( data.worldPosition, nextWorldPosition, frameTime );
