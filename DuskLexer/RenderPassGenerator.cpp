@@ -182,6 +182,7 @@ static void WriteConstantBufferDecl( const TypeAST* bufferData, const char* buff
             entry.SizeInBytes = typeSize;
             entry.Entry = bufferData->Types[i];
             entry.Name = &bufferData->Names[i];
+            entry.Value = &bufferData->Values[i];
 
             bool hasDataBeenAdded = AddDataInCBufferLine( cbufferLines, entry );
 
@@ -210,6 +211,14 @@ static void WriteConstantBufferDecl( const TypeAST* bufferData, const char* buff
             hlslSourceOutput.append( PRIMITIVE_TYPES[entry.Entry->PrimitiveType] );
             hlslSourceOutput.append( " " );
             hlslSourceOutput.append( entry.Name->StreamPointer, entry.Name->Length );
+
+            // Ignore initializer values (for now).
+            if ( entry.Value != nullptr && entry.Value->StreamPointer != nullptr ) {
+                if ( entry.Value->StreamPointer[0] == '[' ) {
+                    hlslSourceOutput.append( entry.Value->StreamPointer, entry.Value->Length );
+                }
+            }
+
             hlslSourceOutput.append( ";\n" );
         }
     }
@@ -848,7 +857,7 @@ void RenderLibraryGenerator::processRenderPassNode( const Token::StreamRef& astN
 
                 propertyDecl.append( " " );
                 propertyDecl.append( propertyName );
-                if ( entry.Value != nullptr ) {
+                if ( entry.Value != nullptr && entry.Value->StreamPointer[0] != '[' ) {
                     propertyDecl.append( " = " );
                     propertyDecl.append( entry.Value->StreamPointer, entry.Value->Length );
                 }

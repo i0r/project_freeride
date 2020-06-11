@@ -465,7 +465,9 @@ void Parser::parseVariable( const Token::StreamRef& typeName, TypeAST& type, con
     lexer.nextToken( token );
 
     // Variable has an initializer value
-    if ( token.type == Token::EQUALS ) {
+    if ( token.type == Token::OPEN_ANGLE_BRACKET ) {
+        value = token.streamReference;
+    } else if ( token.type == Token::EQUALS ) {
         lexer.nextToken( token );
         value = token.streamReference;
     }
