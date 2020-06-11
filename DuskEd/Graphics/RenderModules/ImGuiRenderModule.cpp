@@ -16,7 +16,7 @@
 #include <Rendering/RenderDevice.h>
 #include <Rendering/CommandList.h>
 
-#include <Graphics/RenderModules/Generated/HUD.generated.h>
+#include <Graphics/RenderModules/Generated/dkImGui.generated.h>
 
 #include <imgui/imgui.h>
 
@@ -118,11 +118,11 @@ ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_
     );
 
     PassData& passData = frameGraph.addRenderPass<PassData>(
-        HUD::ImGui_Name,
+        dkImGui::ImGui_Name,
         [&]( FrameGraphBuilder& builder, PassData& passData ) {
             BufferDesc perPassBufferDesc;
             perPassBufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
-            perPassBufferDesc.SizeInBytes = sizeof( HUD::ImGuiRuntimeProperties );
+            perPassBufferDesc.SizeInBytes = sizeof( dkImGui::ImGuiRuntimeProperties );
             perPassBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
             perPassBufferDesc.StrideInBytes = 0;
             passData.PerPassBuffer = builder.allocateBuffer( perPassBufferDesc, SHADER_STAGE_VERTEX | SHADER_STAGE_PIXEL );
@@ -145,8 +145,8 @@ ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_
             // Update ImGui internal resources
             update( *cmdList );
 
-            PipelineState* pipelineState = psoCache->getOrCreatePipelineState( PipelineDesc, HUD::ImGui_ShaderBinding );
-            cmdList->pushEventMarker( HUD::ImGui_EventName );
+            PipelineState* pipelineState = psoCache->getOrCreatePipelineState( PipelineDesc, dkImGui::ImGui_ShaderBinding );
+            cmdList->pushEventMarker( dkImGui::ImGui_EventName );
             cmdList->bindPipelineState( pipelineState );
 
             // Do the render pass
@@ -160,12 +160,12 @@ ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_
             cmdList->setViewport( vp );
 
             cmdList->bindConstantBuffer( PerPassBufferHashcode, parametersBuffer );
-            cmdList->bindImage( HUD::ImGui_FontAtlasTexture_Hashcode, fontAtlas );
+            cmdList->bindImage( dkImGui::ImGui_FontAtlasTexture_Hashcode, fontAtlas );
             cmdList->prepareAndBindResourceList( pipelineState );
 
             cmdList->setupFramebuffer( &outputTarget, nullptr );
 
-            cmdList->updateBuffer( *parametersBuffer, &HUD::ImGuiProperties, sizeof( HUD::ImGuiRuntimeProperties ) );
+            cmdList->updateBuffer( *parametersBuffer, &dkImGui::ImGuiProperties, sizeof( dkImGui::ImGuiRuntimeProperties ) );
 
             const Buffer* vbos[1] = { vertexBuffer };
             cmdList->bindVertexBuffer( vbos );
@@ -192,7 +192,7 @@ ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_
                     ImTextureID cmdTexId = static_cast< ImTextureID >( pcmd->TextureId );
                     if ( cmdTexId != activeTexId ) {
                         Image* cmdImage = static_cast< Image* >( pcmd->TextureId );
-                        cmdList->bindImage( HUD::ImGui_FontAtlasTexture_Hashcode, cmdImage );
+                        cmdList->bindImage( dkImGui::ImGui_FontAtlasTexture_Hashcode, cmdImage );
                         cmdList->prepareAndBindResourceList( pipelineState );
 
                         activeTexId = static_cast< ImTextureID >( cmdImage );
@@ -239,7 +239,7 @@ void ImGuiRenderModule::update( CommandList& cmdList )
     cmdList.unmapBuffer( *indiceBuffer );
     cmdList.unmapBuffer( *vertexBuffer );
 
-    HUD::ImGuiProperties.ProjectionMatrix = dk::maths::MakeOrtho(
+    dkImGui::ImGuiProperties.ProjectionMatrix = dk::maths::MakeOrtho(
         draw_data->DisplayPos.x,
         draw_data->DisplayPos.x + draw_data->DisplaySize.x,
         draw_data->DisplayPos.y + draw_data->DisplaySize.y,
