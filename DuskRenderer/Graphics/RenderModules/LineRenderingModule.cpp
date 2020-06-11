@@ -15,43 +15,32 @@
 
 #include "Generated/HUD.generated.h"
 
-static constexpr i32 LINE_RENDERING_MAX_LINE_COUNT = 32000;
+#include <Graphics/RenderPasses/Headers/Light.h>
 
 LineRenderingModule::LineRenderingModule( BaseAllocator* allocator )
     : memoryAllocator( allocator )
-    , indiceCount( 0 )
-    , vertexBufferWriteIndex( 0 )
-    , bufferIndex( 0 )
-    , lineVertexBuffers{ nullptr, nullptr }
-    , lineIndiceBuffer( nullptr )
-    , buffer( nullptr )
+    , linePointsConstantBuffer( nullptr )
+    , linePointsToRender( nullptr )
+    , lineCount( 0 )
+    , cbufferLock( false )
+    , cbufferRenderingLock( false )
 {
-    vertexBufferLock.store( false );
-    vertexBufferRenderingLock.store( false );
-
-    buffer = dk::core::allocateArray<f32>( memoryAllocator, LINE_RENDERING_MAX_LINE_COUNT );
-    memset( buffer, 0, sizeof( f32 ) * LINE_RENDERING_MAX_LINE_COUNT );
+    linePointsToRender = dk::core::allocateArray<LineInfos>( memoryAllocator, LINE_RENDERING_MAX_LINE_COUNT );
+    memset( linePointsToRender, 0, sizeof( LineInfos ) * LINE_RENDERING_MAX_LINE_COUNT );
 }
 
 LineRenderingModule::~LineRenderingModule()
 {
-    indiceCount = 0;
-    vertexBufferWriteIndex = 0;  
-    bufferIndex = 0;
+    lineCount = 0;
 
-    dk::core::freeArray( memoryAllocator, buffer );
+    dk::core::freeArray( memoryAllocator, linePointsToRender );
     memoryAllocator = nullptr;
 }
 
 void LineRenderingModule::destroy( RenderDevice& renderDevice )
 {
-    for ( i32 i = 0; i < BUFFER_COUNT; i++ ) {
-        renderDevice.destroyBuffer( lineVertexBuffers[i] );
-        lineVertexBuffers[i] = nullptr;
-    }
-
-    renderDevice.destroyBuffer( lineIndiceBuffer );
-    lineIndiceBuffer = nullptr;
+    renderDevice.destroyBuffer( linePointsConstantBuffer );
+    linePointsConstantBuffer = nullptr;
 }
 
 ResHandle_t LineRenderingModule::renderLines( FrameGraph& frameGraph, ResHandle_t output )
@@ -63,21 +52,11 @@ ResHandle_t LineRenderingModule::renderLines( FrameGraph& frameGraph, ResHandle_
 
     constexpr PipelineStateDesc PipelineStateDefault = PipelineStateDesc(
         PipelineStateDesc::GRAPHICS,
-        ePrimitiveTopology::PRIMITIVE_TOPOLOGY_LINELIST,
+        ePrimitiveTopology::PRIMITIVE_TOPOLOGY_POINTLIST,
         DepthStencilStateDesc(),
         RasterizerStateDesc(),
-        BlendStateDesc(
-            true, true, false,
-            false, false, false, false,
-            { eBlendSource::BLEND_SOURCE_SRC_ALPHA, eBlendSource::BLEND_SOURCE_INV_SRC_ALPHA, eBlendOperation::BLEND_OPERATION_ADD },
-            { eBlendSource::BLEND_SOURCE_INV_DEST_ALPHA, eBlendSource::BLEND_SOURCE_ONE, eBlendOperation::BLEND_OPERATION_ADD }
-        ),
-        FramebufferLayoutDesc( FramebufferLayoutDesc::AttachmentDesc( FramebufferLayoutDesc::WRITE_COLOR, FramebufferLayoutDesc::DONT_CARE, VIEW_FORMAT_R16G16B16A16_FLOAT ) ),
-        { { RenderingHelpers::S_BilinearClampEdge }, 1 },
-        { {
-            { 0, VIEW_FORMAT_R32G32B32A32_FLOAT, 0, 0, 0, true, "POSITION" },
-            { 0, VIEW_FORMAT_R32G32B32A32_FLOAT, 0, 0, 0, true, "COLOR" }
-        } }
+        BlendStateDesc(),
+        FramebufferLayoutDesc( FramebufferLayoutDesc::AttachmentDesc( FramebufferLayoutDesc::WRITE_COLOR, FramebufferLayoutDesc::DONT_CARE, VIEW_FORMAT_R16G16B16A16_FLOAT ) )
     );
 
     PassData& data = frameGraph.addRenderPass<PassData>(
@@ -98,31 +77,27 @@ ResHandle_t LineRenderingModule::renderLines( FrameGraph& frameGraph, ResHandle_
             const ScissorRegion* pipelineScissor = resources->getMainScissorRegion();
 
             cmdList->pushEventMarker( HUD::LineRendering_EventName );
+
             cmdList->bindPipelineState( pipelineState );
 
             cmdList->setViewport( *pipelineDimensions );
             cmdList->setScissor( *pipelineScissor );
 
-            cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
-            cmdList->updateBuffer( *lineVertexBuffers[vertexBufferWriteIndex], buffer, static_cast< size_t >( bufferIndex ) * sizeof( f32 ) );
+            cmdList->updateBuffer( *linePointsConstantBuffer, linePointsToRender, static_cast< size_t >( lineCount ) * sizeof( LineInfos ) );
 
-            const Buffer* VertexBuffer[1] = { lineVertexBuffers[vertexBufferWriteIndex] };
-            cmdList->bindVertexBuffer( VertexBuffer );
+            cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
+            cmdList->bindConstantBuffer( PerPassBufferHashcode, linePointsConstantBuffer );
 
             cmdList->prepareAndBindResourceList( pipelineState );
 
             cmdList->setupFramebuffer( &outputTarget, nullptr );
 
-            cmdList->draw( static_cast<u32>( indiceCount ), 1u );
+            cmdList->draw( 6u, lineCount );
 
             cmdList->popEventMarker();
 
-            // Swap buffers
-            vertexBufferWriteIndex = ( vertexBufferWriteIndex == 0 ) ? 1 : 0;
-            
             // Reset buffers
-            indiceCount = 0;
-            bufferIndex = 0;
+            lineCount = 0;
 
             unlockVertexBufferRendering();
         } 
@@ -135,112 +110,62 @@ void LineRenderingModule::addLine( const dkVec3f& p0, const dkVec4f& p0Color, co
 {
     lockVertexBuffer();
 
-    if ( ( bufferIndex + 16 ) >= LINE_RENDERING_MAX_LINE_COUNT ) {
+    if ( lineCount >= LINE_RENDERING_MAX_LINE_COUNT ) {
+        unlockVertexBuffer();
         return;
     }
 
-    buffer[bufferIndex++] = ( p0.x );
-    buffer[bufferIndex++] = ( p0.y );
-    buffer[bufferIndex++] = ( p0.z );
-    buffer[bufferIndex++] = ( lineThickness );
+    LineInfos& infos = linePointsToRender[lineCount];
+    infos.P0 = p0;
+    infos.P1 = p1;
+    infos.Color = p0Color;
+    infos.Width = lineThickness;
 
-    buffer[bufferIndex++] = ( p0Color.x );
-    buffer[bufferIndex++] = ( p0Color.y );
-    buffer[bufferIndex++] = ( p0Color.z );
-    buffer[bufferIndex++] = ( p0Color.w );
-
-    buffer[bufferIndex++] = ( p1.x );
-    buffer[bufferIndex++] = ( p1.y );
-    buffer[bufferIndex++] = ( p1.z );
-    buffer[bufferIndex++] = ( lineThickness );
-
-    buffer[bufferIndex++] = ( p1Color.x );
-    buffer[bufferIndex++] = ( p1Color.y );
-    buffer[bufferIndex++] = ( p1Color.z );
-    buffer[bufferIndex++] = ( p1Color.w );
-
-    indiceCount += 2;
+    lineCount++;
 
     unlockVertexBuffer();
 }
 
-
 void LineRenderingModule::createPersistentResources( RenderDevice& renderDevice )
 {
-    // Create static indice buffer
-    constexpr i32 IndexStride = sizeof( u32 );
-    constexpr i32 IndiceCountPerPrimitive = 2;
+    constexpr i32 BufferSize = LINE_RENDERING_MAX_LINE_COUNT * sizeof( LineInfos );
 
-    // Indices per line (2 triangles; 3 indices per triangle)
-    constexpr i32 IndexBufferLength = LINE_RENDERING_MAX_LINE_COUNT * IndiceCountPerPrimitive;
-    constexpr i32 IndexBufferSize = IndexBufferLength * IndexStride;
+    BufferDesc linePointsBufferDesc;
+    linePointsBufferDesc.SizeInBytes = BufferSize;
+    linePointsBufferDesc.StrideInBytes = 0;
+    linePointsBufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
+    linePointsBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
 
-    // TODO This sucks (we trash the memory and create fragmentation if allocating from the global application
-    // allocator). Create a module-local allocator to avoid this.
-    u32* indexBufferData = dk::core::allocateArray<u32>( memoryAllocator, IndexBufferLength );
-
-    DUSK_RAISE_FATAL_ERROR( indexBufferData, "Memory allocation failed! (the application ran out of memory)" );
-
-    for ( u32 c = 0; c < LINE_RENDERING_MAX_LINE_COUNT; c++ ) {
-        indexBufferData[c * 2] = c;
-        indexBufferData[( c * 2 ) + 1] = ( c + 1 );
-    }
-
-    BufferDesc indiceBufferDescription;
-    indiceBufferDescription.BindFlags = RESOURCE_BIND_INDICE_BUFFER;
-    indiceBufferDescription.SizeInBytes = IndexBufferSize;
-    indiceBufferDescription.Usage = RESOURCE_USAGE_STATIC;
-    indiceBufferDescription.StrideInBytes = IndexStride;
-
-    lineIndiceBuffer = renderDevice.createBuffer( indiceBufferDescription, indexBufferData );
-
-    dk::core::freeArray( memoryAllocator, indexBufferData );
-
-    // Create dynamic vertex buffer.
-    constexpr u32 VertexSize = static_cast<u32>( sizeof( f32 ) * 8 );
-
-    // XYZW Position + RGBA Color (w/ 2 vertices per line)
-    constexpr u32 VertexBufferSize = static_cast< u32 >( VertexSize * LINE_RENDERING_MAX_LINE_COUNT * 2 );
-
-    BufferDesc bufferDescription;
-    bufferDescription.BindFlags = RESOURCE_BIND_VERTEX_BUFFER;
-    bufferDescription.SizeInBytes = VertexBufferSize;
-    bufferDescription.StrideInBytes = VertexSize;
-    bufferDescription.Usage = RESOURCE_USAGE_DYNAMIC;
-
-    for ( i32 i = 0; i < BUFFER_COUNT; i++ ) {
-        lineVertexBuffers[i] = renderDevice.createBuffer( bufferDescription );
-    }
-
+    linePointsConstantBuffer = renderDevice.createBuffer( linePointsBufferDesc );
 }
 
 void LineRenderingModule::lockVertexBuffer()
 {
     bool expected = false;
-    while ( !vertexBufferRenderingLock.compare_exchange_weak( expected, false ) ) {
+    while ( !cbufferRenderingLock.compare_exchange_weak( expected, false ) ) {
         expected = false;
     }
 
-    vertexBufferLock.store( true, std::memory_order_acquire );
+    cbufferLock.store( true, std::memory_order_acquire );
 }
 
 void LineRenderingModule::unlockVertexBuffer()
 {
-    vertexBufferLock.store( false, std::memory_order_release );
+    cbufferLock.store( false, std::memory_order_release );
 }
 
 void LineRenderingModule::lockVertexBufferRendering()
 {
     bool expected = false;
-    while ( !vertexBufferLock.compare_exchange_weak( expected, false ) ) {
+    while ( !cbufferLock.compare_exchange_weak( expected, false ) ) {
         expected = false;
     }
 
-    vertexBufferRenderingLock.store( true, std::memory_order_acquire );
+    cbufferRenderingLock.store( true, std::memory_order_acquire );
 }
 
 void LineRenderingModule::unlockVertexBufferRendering()
 {
-    vertexBufferRenderingLock.store( false, std::memory_order_release );
+    cbufferRenderingLock.store( false, std::memory_order_release );
 }
 

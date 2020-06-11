@@ -788,6 +788,16 @@ void MainLoop()
         // TEST TEST TEST TEST
         g_WorldRenderer->TextRendering->addOutlinedText( str.c_str(), 0.4f, 8.0f, 8.0f, dkVec4f( 1, 1, 1, 1 ) );
 
+        dkVec3f UpVector = g_FreeCamera->getUpVector();
+        dkVec3f RightVector = g_FreeCamera->getRightVector();
+        dkVec3f FwdVector = g_FreeCamera->getForwardVector();
+
+        dkVec3f GuizmoLinesOrigin = dkVec3f( 32.0f, viewportSize.y - 32.0f, 0 );
+
+        g_WorldRenderer->LineRendering->addLine( GuizmoLinesOrigin, dkVec4f( 1, 0, 0, 1 ), GuizmoLinesOrigin - RightVector * 32.0f, dkVec4f( 1, 0, 0, 1 ), 20.0f );
+        g_WorldRenderer->LineRendering->addLine( GuizmoLinesOrigin, dkVec4f( 0, 1, 0, 1 ), GuizmoLinesOrigin - UpVector * 32.0f, dkVec4f( 0, 1, 0, 1 ), 20.0f );
+        g_WorldRenderer->LineRendering->addLine( GuizmoLinesOrigin, dkVec4f( 0, 0, 1, 1 ), GuizmoLinesOrigin - FwdVector * 32.0f, dkVec4f( 0, 0, 1, 1 ), 20.0f );
+
         g_WorldRenderer->AutomaticExposure->importResourcesToGraph( frameGraph );
         
         LightGrid::Data lightGridData = g_LightGrid->updateClusters( frameGraph );

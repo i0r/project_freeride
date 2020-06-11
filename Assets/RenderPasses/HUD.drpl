@@ -1,7 +1,9 @@
 lib HUD {
     properties {
-        float4x4 ProjectionMatrix;
-        float2   ScreenSize;
+        float4x4  ProjectionMatrix;
+        float2    ScreenSize;
+        
+        LineInfos Lines[LINE_RENDERING_MAX_LINE_COUNT];
     }
     
     resources {
@@ -28,6 +30,15 @@ lib HUD {
         {
             return Contour( 0.5f, Atlas.SampleLevel( AtlasS, uv, 0 ).a, w );
         }
+        
+        static const float2 LineQuadVertices[6] = {
+            float2(0, -0.5),
+            float2(1, -0.5),
+            float2(1,  0.5),
+            float2(0, -0.5),
+            float2(1,  0.5),
+            float2(0,  0.5)
+        };
     }
     
     shader TextRenderingVertex {
@@ -78,25 +89,24 @@ lib HUD {
     }
     
     shader LineVertex {
-        float4 screenPosition =  mul( g_OrthoProjectionMatrix, float4( $POSITION.xy, 0.0f, 1.0f ) );
+        float2 OriginShift = float2( -0.5f, -0.5f ) * g_ScreenSize;
         
-        $COLOR0 = $COLOR;
+        LineInfos Line = Lines[$SV_InstanceID];
         
-        float2 lineCenter = 0.5f * ( screenPosition.xy + float2( 1, 1 ) ) * g_ScreenSize;
-        $POSITION0 = float4( lineCenter, $POSITION.w, 1.5f );
-        $SV_Position = float4( screenPosition.xy, 0, 1 );
+        float2 BasisX = Line.P1 - Line.P0;
+        float2 BasisY = normalize( float2( -BasisX.y, BasisX.x ) );
+        
+        float2 QuadPoint = LineQuadVertices[$SV_VertexID];
+        float2 LinePoint = Line.P0 + BasisX * QuadPoint.x + BasisY * Line.Width * QuadPoint.y;
+        
+        float4 ScreenPosition =  mul( g_OrthoProjectionMatrix, float4( LinePoint + OriginShift, 0.0f, 1.0f ) );
+        
+        $COLOR0 = Line.Color;
+        $SV_Position = float4( ScreenPosition.xy, 0.0f, 1.0f );
     }
     
     shader LinePixel {
         float4 lineColor = $COLOR0;
-        float2 lineCenter = $POSITION0.xy;
-        
-        float d = length( $SV_Position.xy - lineCenter );
-        float w = $POSITION0.z;     
-        float blendFactor = $POSITION0.w; // 1.5f .. 2.5f (TODO Expose as 0..1 range and remap to 1.5 2.5 range)
-        
-        lineColor.a = smoothstep( 0.0f, w, d * blendFactor );
-            
         $SV_TARGET0 = lineColor;
     }
     

@@ -29,6 +29,28 @@
 #define MAX_IBL_PROBE_COUNT                 ( MAX_LOCAL_IBL_PROBE_COUNT + MAX_GLOBAL_IBL_PROBE_COUNT )
 #define IBL_PROBE_DIMENSION                 256
 
+#define LINE_RENDERING_MAX_LINE_COUNT       1024
+
+struct LineInfos 
+{
+    // Line start (in screen space units).
+    float2 P0;
+
+    // Line end (in screen space units).
+    float2 P1;
+
+    // Line color (with explicit alpha opacity).
+    float4 Color;
+
+    // Line width (in screen space units).
+    float     Width;
+
+    // Reserved for future use.
+    uint     __PADDING__[3];
+};
+DUSK_IS_MEMORY_ALIGNED_STATIC( LineInfos, 16 );
+
+
 // A distant source light that is infinitely far away (e.g. the sun).
 struct DirectionalLightGPU 
 {
