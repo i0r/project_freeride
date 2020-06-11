@@ -29,7 +29,7 @@
 #define MAX_IBL_PROBE_COUNT                 ( MAX_LOCAL_IBL_PROBE_COUNT + MAX_GLOBAL_IBL_PROBE_COUNT )
 #define IBL_PROBE_DIMENSION                 256
 
-#define LINE_RENDERING_MAX_LINE_COUNT       1024
+#define LINE_RENDERING_MAX_LINE_COUNT       256
 
 struct LineInfos 
 {
@@ -40,13 +40,10 @@ struct LineInfos
     float2 P1;
 
     // Line color (with explicit alpha opacity).
-    float4 Color;
+	float3 Color;
 
     // Line width (in screen space units).
-    float     Width;
-
-    // Reserved for future use.
-    uint     __PADDING__[3];
+	float     Width;
 };
 DUSK_IS_MEMORY_ALIGNED_STATIC( LineInfos, 16 );
 

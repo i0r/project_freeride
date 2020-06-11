@@ -799,9 +799,9 @@ void MainLoop()
 
         dkVec3f GuizmoLinesOrigin = dkVec3f( 32.0f, viewportSize.y - 32.0f, 0 );
 
-        g_WorldRenderer->LineRendering->addLine( GuizmoLinesOrigin, dkVec4f( 1, 0, 0, 1 ), GuizmoLinesOrigin - RightVector * 32.0f, dkVec4f( 1, 0, 0, 1 ), 20.0f );
-        g_WorldRenderer->LineRendering->addLine( GuizmoLinesOrigin, dkVec4f( 0, 1, 0, 1 ), GuizmoLinesOrigin - UpVector * 32.0f, dkVec4f( 0, 1, 0, 1 ), 20.0f );
-        g_WorldRenderer->LineRendering->addLine( GuizmoLinesOrigin, dkVec4f( 0, 0, 1, 1 ), GuizmoLinesOrigin - FwdVector * 32.0f, dkVec4f( 0, 0, 1, 1 ), 20.0f );
+        g_WorldRenderer->LineRendering->addLine( GuizmoLinesOrigin, dkVec4f( 1, 0, 0, 1 ), GuizmoLinesOrigin - RightVector * 32.0f, dkVec4f( 1, 0, 0, 1 ), 4.0f );
+        g_WorldRenderer->LineRendering->addLine( GuizmoLinesOrigin, dkVec4f( 0, 1, 0, 1 ), GuizmoLinesOrigin - UpVector * 32.0f, dkVec4f( 0, 1, 0, 1 ), 4.0f );
+        g_WorldRenderer->LineRendering->addLine( GuizmoLinesOrigin, dkVec4f( 0, 0, 1, 1 ), GuizmoLinesOrigin - FwdVector * 32.0f, dkVec4f( 0, 0, 1, 1 ), 4.0f );
 
         g_WorldRenderer->AutomaticExposure->importResourcesToGraph( frameGraph );
         

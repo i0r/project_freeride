@@ -52,7 +52,7 @@ ResHandle_t LineRenderingModule::renderLines( FrameGraph& frameGraph, ResHandle_
 
     constexpr PipelineStateDesc PipelineStateDefault = PipelineStateDesc(
         PipelineStateDesc::GRAPHICS,
-        ePrimitiveTopology::PRIMITIVE_TOPOLOGY_POINTLIST,
+        ePrimitiveTopology::PRIMITIVE_TOPOLOGY_TRIANGLELIST,
         DepthStencilStateDesc(),
         RasterizerStateDesc(),
         BlendStateDesc(),
