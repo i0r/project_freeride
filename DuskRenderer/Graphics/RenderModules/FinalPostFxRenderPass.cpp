@@ -15,7 +15,18 @@
 
 #include "AutomaticExposure.h"
 
-ResHandle_t AddFinalPostFxRenderPass( FrameGraph& frameGraph, ResHandle_t input, ResHandle_t glareInput )
+FrameCompositionModule::FrameCompositionModule()
+    : colorGradingLUT( nullptr )
+{
+
+}
+
+FrameCompositionModule::~FrameCompositionModule()
+{
+    colorGradingLUT = nullptr;
+}
+
+ResHandle_t FrameCompositionModule::addFrameCompositionPass( FrameGraph& frameGraph, ResHandle_t input, ResHandle_t glareInput )
 {
     struct PassData {
         ResHandle_t input;
@@ -71,6 +82,7 @@ ResHandle_t AddFinalPostFxRenderPass( FrameGraph& frameGraph, ResHandle_t input,
             cmdList->bindImage( PostEffects::Default_InputRenderTarget_Hashcode, inputTarget );
             cmdList->bindImage( PostEffects::Default_GlareRenderTarget_Hashcode, glareTarget );
             cmdList->bindImage( PostEffects::Default_OutputRenderTarget_Hashcode, outputTarget );
+            cmdList->bindImage( PostEffects::Default_ColorGradingLUT_Hashcode, colorGradingLUT );
             cmdList->bindBuffer( PostEffects::Default_AutoExposureBuffer_Hashcode, autoExposureBuffer );
 
             cmdList->updateBuffer( *passBuffer, &PostEffects::DefaultProperties, sizeof( PostEffects::DefaultRuntimeProperties ) );
@@ -86,4 +98,9 @@ ResHandle_t AddFinalPostFxRenderPass( FrameGraph& frameGraph, ResHandle_t input,
     );
 
     return passData.output;
+}
+
+void FrameCompositionModule::loadCachedResources( GraphicsAssetCache& graphicsAssetCache )
+{
+    colorGradingLUT = graphicsAssetCache.getImage( DUSK_STRING( "GameData/textures/ColorGrading/LUT_Default.png" ) );
 }

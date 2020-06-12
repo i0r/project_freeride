@@ -22,6 +22,7 @@ class TextRenderingModule;
 class AutomaticExposureModule;
 class GlareRenderModule;
 class LineRenderingModule;
+class FrameCompositionModule;
 
 template <typename Precision, int RowCount, int ColumnCount>
 struct Matrix;
@@ -126,6 +127,7 @@ public:
     TextRenderingModule*     TextRendering;
     GlareRenderModule*       GlareRendering;
     LineRenderingModule*     LineRendering;
+    FrameCompositionModule*  FrameComposition;
 
 public:
                      WorldRenderer( BaseAllocator* allocator );

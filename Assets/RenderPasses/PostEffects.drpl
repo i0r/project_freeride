@@ -2,10 +2,15 @@ lib PostEffects {
     properties {
         float BloomStrength = 0.0005f;
         cflag ApplyDither = true;
-        cflag EnableBloom = true;    
+        cflag EnableBloom = true;
+        cflag EnableColorCorrection = true;
     }
     
     resources {
+        Texture2D ColorGradingLUT {
+            swizzle = float4;
+        }
+
         Texture2D InputRenderTarget {
             swizzle = float4;
         }
@@ -33,13 +38,37 @@ lib PostEffects {
             return frac( magic.z * frac( dot( uv, magic.xy ) ) );
         }
 
-        float3 computeBloomLuminance( float3 bloomColor, float bloomEC, float currentEV ) {
+        float3 ComputeBloomLuminance( float3 bloomColor, float bloomEC, float currentEV ) {
             // currentEV is the value calculated at the previous frame
             float bloomEV = currentEV + bloomEC;
 
             // convert to luminance
             // See equation (12) for explanation about converting EV to luminance
             return bloomColor * pow( 2, bloomEV - 3 );
+        }
+        
+        float3 ApplyColorCorrection( float3 inputColor, Texture2D colorCorrectionLUT) {
+            float BlueColor = inputColor.b * 63.0f;
+            
+            float BlueFloor = floor( BlueColor );
+            float BlueCeil = ceil( BlueColor );
+            
+            float QuadFloorY = floor( BlueFloor / 8.0f );
+            float QuadCeilY = floor( BlueCeil / 8.0f );
+            
+            float4 Quad = float4( BlueFloor - QuadFloorY * 8.0f, QuadFloorY, BlueCeil - QuadCeilY * 8.0f, QuadCeilY );
+            float4 TexCoords = float4( 
+                ( Quad.x * 0.125f ) + 0.5f / 512.0f + ( ( 0.125f - 1.0f / 512.0f ) * inputColor.r ),
+                ( Quad.y * 0.125f ) + 0.5f / 512.0f + ( ( 0.125f - 1.0f / 512.0f ) * inputColor.g ),
+                ( Quad.z * 0.125f ) + 0.5f / 512.0f + ( ( 0.125f - 1.0f / 512.0f ) * inputColor.r ),
+                ( Quad.w * 0.125f ) + 0.5f / 512.0f + ( ( 0.125f - 1.0f / 512.0f ) * inputColor.g )
+            );
+            
+            float4 CorrectedColorLow = colorCorrectionLUT[TexCoords.xy];
+            float4 CorrectedColorHigh = colorCorrectionLUT[TexCoords.zw];
+            float CorrectionInterp = frac( BlueColor );
+            
+            return lerp( CorrectedColorLow, CorrectedColorHigh, CorrectionInterp );
         }
     }
     
@@ -52,12 +81,16 @@ lib PostEffects {
         
         if ( $EnableBloom ) {
             float3 glareColor = GlareRenderTarget.Load( $SV_DispatchThreadId );
-            float3 glareLuminance = computeBloomLuminance( glareColor, 0.0f, currentEV );
+            float3 glareLuminance = ComputeBloomLuminance( glareColor, 0.0f, currentEV );
             finalColor.rgb = lerp( finalColor.rgb, glareLuminance, BloomStrength );            
         }
     
         float3 color = ACESFilmic( finalColor.rgb * exposure );    
         color = accurateLinearToSRGB( color );
+
+        if ( $EnableColorCorrection ) {
+            color = ApplyColorCorrection( color, ColorGradingLUT );
+        }
 
         if ( $ApplyDither ) {
             // Add a dithering pattern to attenuate color banding

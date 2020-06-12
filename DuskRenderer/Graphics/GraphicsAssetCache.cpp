@@ -207,6 +207,8 @@ Image* GraphicsAssetCache::getImage( const dkChar_t* assetName, const bool force
         int comp;
         unsigned char* image = stbi_load_from_callbacks( &callbacks, file, &w, &h, &comp, STBI_default );
 
+        DUSK_DEV_ASSERT( image != nullptr, "STBI failed to load the given image!" );
+
         if ( alreadyExists ) {
             renderDevice->destroyImage( imageMap[assetHashcode] );
         }

@@ -21,6 +21,7 @@
 #include "RenderModules/TextRenderingModule.h"
 #include "RenderModules/GlareRenderModule.h"
 #include "RenderModules/LineRenderingModule.h"
+#include "RenderModules/FinalPostFxRenderPass.h"
 
 static constexpr size_t MAX_DRAW_CMD_COUNT = 4096;
 
@@ -92,6 +93,7 @@ WorldRenderer::WorldRenderer( BaseAllocator* allocator )
     , TextRendering( dk::core::allocate<TextRenderingModule>( allocator ) )
     , GlareRendering( dk::core::allocate<GlareRenderModule>( allocator ) )
     , LineRendering( dk::core::allocate<LineRenderingModule>( allocator, allocator ) )
+    , FrameComposition( dk::core::allocate<FrameCompositionModule>( allocator ) )
     , memoryAllocator( allocator )
     , primitiveCache( dk::core::allocate<PrimitiveCache>( allocator ) )
     , drawCmdAllocator( dk::core::allocate<LinearAllocator>( allocator, sizeof( DrawCmd )* MAX_DRAW_CMD_COUNT, allocator->allocate( sizeof( DrawCmd ) * MAX_DRAW_CMD_COUNT ) ) )
@@ -140,11 +142,12 @@ void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache
     TextRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
     GlareRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
     LineRendering->createPersistentResources( *renderDevice );
+    FrameComposition->loadCachedResources( *graphicsAssetCache );
 
     // Precompute resources (might worth being done offline?).
     FrameGraph& graph = *frameGraph;
     graph.waitPendingFrameCompletion();
-
+    
     GlareRendering->precomputePipelineResources( graph );
 
     // Execute precompute step.

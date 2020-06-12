@@ -854,7 +854,7 @@ void MainLoop()
         g_WorldRenderer->AutomaticExposure->computeExposure( frameGraph, presentRt, dkVec2u( static_cast<u32>( viewportSize.x ), static_cast< u32 >( viewportSize.y ) ) );
 
         // Frame composition.
-        presentRt = AddFinalPostFxRenderPass( frameGraph, presentRt, inverseFFT );
+        presentRt = g_WorldRenderer->FrameComposition->addFrameCompositionPass( frameGraph, presentRt, inverseFFT );
 
         // HUD Text.
         presentRt = g_WorldRenderer->TextRendering->renderText( frameGraph, presentRt );
