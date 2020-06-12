@@ -73,14 +73,26 @@ ResHandle_t LineRenderingModule::renderLines( FrameGraph& frameGraph, ResHandle_
 
             PipelineState* pipelineState = psoCache->getOrCreatePipelineState( PipelineStateDefault, HUD::LineRendering_ShaderBinding );
 
-            const Viewport* pipelineDimensions = resources->getMainViewport();
             const ScissorRegion* pipelineScissor = resources->getMainScissorRegion();
 
             cmdList->pushEventMarker( HUD::LineRendering_EventName );
 
             cmdList->bindPipelineState( pipelineState );
 
-            cmdList->setViewport( *pipelineDimensions );
+            // Update viewport (using image quality scaling)
+            const CameraData* camera = resources->getMainCamera();
+
+            dkVec2f scaledViewportSize = camera->viewportSize * camera->imageQuality;
+
+            Viewport vp;
+            vp.X = 0;
+            vp.Y = 0;
+            vp.Width = static_cast< i32 >( scaledViewportSize.x );
+            vp.Height = static_cast< i32 >( scaledViewportSize.y );
+            vp.MinDepth = 0.0f;
+            vp.MaxDepth = 1.0f;
+
+            cmdList->setViewport( vp );
             cmdList->setScissor( *pipelineScissor );
 
             cmdList->updateBuffer( *linePointsConstantBuffer, linePointsToRender, static_cast< size_t >( lineCount ) * sizeof( LineInfos ) );
