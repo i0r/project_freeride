@@ -95,7 +95,7 @@ RenderDevice::~RenderDevice()
     dk::core::free( memoryAllocator, renderContext );
 }
 
-void RenderDevice::create( DisplaySurface& displaySurface, const bool useDebugContext )
+void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefreshRate, const bool useDebugContext )
 {
     IDXGIFactory1* factory = nullptr;
     CreateDXGIFactory1( __uuidof( IDXGIFactory1 ), ( void** )&factory );
@@ -162,17 +162,30 @@ void RenderDevice::create( DisplaySurface& displaySurface, const bool useDebugCo
 
     NativeDisplaySurface* surface = displaySurface.getNativeDisplaySurface();
 
+    DUSK_LOG_INFO( "Available Refresh Rate:\n" );
     for ( u32 i = 0; i < outputDisplayModeCount; ++i ) {
         UINT refreshRate = ( displayModeList[i].RefreshRate.Numerator / displayModeList[i].RefreshRate.Denominator );
 
         if ( displayModeList[i].Width == surface->WindowWidth
-            && displayModeList[i].Height == surface->WindowHeight
-            && refreshRate > vsyncRefreshRate ) {
-            vsyncNumerator = displayModeList[i].RefreshRate.Numerator;
-            vsyncDenominator = displayModeList[i].RefreshRate.Denominator;
-            vsyncRefreshRate = refreshRate;
+          && displayModeList[i].Height == surface->WindowHeight ) {
+            DUSK_LOG_INFO( "\t- %u Hz\n", refreshRate );
+
+            // If we have a refresh rate matching the one desired; stop here.
+            if ( desiredRefreshRate != -1 && refreshRate == desiredRefreshRate ) {
+                vsyncNumerator = displayModeList[i].RefreshRate.Numerator;
+                vsyncDenominator = displayModeList[i].RefreshRate.Denominator;
+                vsyncRefreshRate = refreshRate;
+                break;
+            } else if ( refreshRate > vsyncRefreshRate ) {
+                vsyncNumerator = displayModeList[i].RefreshRate.Numerator;
+                vsyncDenominator = displayModeList[i].RefreshRate.Denominator;
+                vsyncRefreshRate = refreshRate;
+            }
         }
     }
+
+    // Update this device refresh rate
+    this->refreshRate = vsyncRefreshRate;
 
     DUSK_LOG_INFO( "Selected Display Mode >> %ux%u @ %uHz\n",
         surface->WindowWidth, surface->WindowHeight, vsyncRefreshRate );

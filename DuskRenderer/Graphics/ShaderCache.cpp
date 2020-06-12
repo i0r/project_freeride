@@ -99,7 +99,7 @@ Shader* ShaderCache::getOrUploadStage( const dkChar_t* shaderHashcode, const boo
 
     // Load precompiled shader
     {
-        DUSK_LOG_DEBUG( "Instance 0x%x : reading from filestream 0x%x\n", this, file );
+        //DUSK_LOG_DEBUG( "Instance 0x%x : reading from filestream 0x%x\n", this, file );
 
         std::vector<uint8_t> precompiledShader;
         dk::io::LoadBinaryFile( file, precompiledShader );

@@ -11,6 +11,7 @@ RenderDevice::RenderDevice( BaseAllocator* allocator )
     , renderContext( nullptr )
     , swapChainImage( nullptr )
     , frameIndex( 0ull )
+    , refreshRate( -1 )
 {
     memset( graphicsCmdListAllocator, 0, sizeof( LinearAllocator* ) * PENDING_FRAME_COUNT );
     memset( computeCmdListAllocator, 0, sizeof( LinearAllocator* ) * PENDING_FRAME_COUNT );
@@ -24,4 +25,9 @@ size_t RenderDevice::getFrameIndex() const
 Image* RenderDevice::getSwapchainBuffer()
 {
     return swapChainImage;
+}
+
+u32 RenderDevice::getActiveRefreshRate() const
+{
+    return refreshRate;
 }

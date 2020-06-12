@@ -116,6 +116,7 @@ DUSK_ENV_VAR( EnableTAA, false, bool ); // "Enable Temporal AntiAliasing [false/
 DUSK_ENV_VAR( ScreenSize, dkVec2u( 1280, 720 ), dkVec2u ); // "Defines application screen size [0..N]"
 DUSK_ENV_VAR( MSAASamplerCount, 1, u32 ) // "MSAA sampler count [1..N]"
 DUSK_ENV_VAR( ImageQuality, 1.0f, f32 ) // "Image Quality factor [0.1..N]"
+DUSK_ENV_VAR( RefreshRate, -1, u32 ) // "Refresh rate. If -1, the application will find the highest refresh rate possible and use it"
 DUSK_ENV_VAR( DefaultCameraFov, 90.0f, f32 ) // "Default Field Of View set to a new Camera"
 DUSK_DEV_VAR_PERSISTENT( UseDebugLayer, false, bool ); // "Enable render debug context/layers" [false/true]
 DUSK_DEV_VAR_PERSISTENT( UseRenderDocCapture, false, bool );// "Use RenderDoc frame capture tool [false/true]"
@@ -434,8 +435,20 @@ void InitializeRenderSubsystems()
     DUSK_LOG_INFO( "Creating RenderDevice (%s)...\n", RenderDevice::getBackendName() );
 
     g_RenderDevice = dk::core::allocate<RenderDevice>( g_GlobalAllocator, g_GlobalAllocator );
-    g_RenderDevice->create( *g_DisplaySurface, UseDebugLayer );
+    g_RenderDevice->create( *g_DisplaySurface, RefreshRate, UseDebugLayer );
     g_RenderDevice->enableVerticalSynchronisation( EnableVSync );
+
+    if ( RefreshRate == -1 ) {
+        // Update configuration file with the highest refresh rate possible.
+        RefreshRate = g_RenderDevice->getActiveRefreshRate();
+
+        DUSK_LOG_INFO( "RenderDevice returned default refresh rate: %uHz\n", RefreshRate );
+
+        // Update Configuration file.
+        FileSystemObject* newEnvConfigurationFile = g_VirtualFileSystem->openFile( DUSK_STRING( "SaveData/environment.cfg" ), eFileOpenMode::FILE_OPEN_MODE_WRITE );
+        EnvironmentVariables::serialize( newEnvConfigurationFile );
+        newEnvConfigurationFile->close();
+    }
 
 #if DUSK_DEVBUILD
 #if DUSK_USE_RENDERDOC
@@ -797,11 +810,11 @@ void MainLoop()
         dkVec3f RightVector = g_FreeCamera->getRightVector();
         dkVec3f FwdVector = g_FreeCamera->getForwardVector();
 
-        dkVec3f GuizmoLinesOrigin = dkVec3f( 32.0f, viewportSize.y - 32.0f, 0 );
+        dkVec3f GuizmoLinesOrigin = dkVec3f( 40.0f, viewportSize.y - 32.0f, 0 );
 
-        g_WorldRenderer->LineRendering->addLine( GuizmoLinesOrigin, dkVec4f( 1, 0, 0, 1 ), GuizmoLinesOrigin - RightVector * 32.0f, dkVec4f( 1, 0, 0, 1 ), 4.0f );
-        g_WorldRenderer->LineRendering->addLine( GuizmoLinesOrigin, dkVec4f( 0, 1, 0, 1 ), GuizmoLinesOrigin - UpVector * 32.0f, dkVec4f( 0, 1, 0, 1 ), 4.0f );
-        g_WorldRenderer->LineRendering->addLine( GuizmoLinesOrigin, dkVec4f( 0, 0, 1, 1 ), GuizmoLinesOrigin - FwdVector * 32.0f, dkVec4f( 0, 0, 1, 1 ), 4.0f );
+        g_WorldRenderer->LineRendering->addLine( GuizmoLinesOrigin, dkVec4f( 1, 0, 0, 1 ), GuizmoLinesOrigin - RightVector * 32.0f, dkVec4f( 1, 0, 0, 1 ), 2.0f );
+        g_WorldRenderer->LineRendering->addLine( GuizmoLinesOrigin, dkVec4f( 0, 1, 0, 1 ), GuizmoLinesOrigin - UpVector * 32.0f, dkVec4f( 0, 1, 0, 1 ), 2.0f );
+        g_WorldRenderer->LineRendering->addLine( GuizmoLinesOrigin, dkVec4f( 0, 0, 1, 1 ), GuizmoLinesOrigin - FwdVector * 32.0f, dkVec4f( 0, 0, 1, 1 ), 2.0f );
 
         g_WorldRenderer->AutomaticExposure->importResourcesToGraph( frameGraph );
         
@@ -814,6 +827,9 @@ void MainLoop()
 
         // Sky Rendering.
         ResHandle_t presentRt = g_WorldRenderer->BrunetonSky->renderSky( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
+
+        // Line Rendering.
+        presentRt = g_WorldRenderer->LineRendering->renderLines( frameGraph, presentRt );
 
         // AntiAliasing resolve. (we merge both TAA and MSAA in a single pass to avoid multiple dispatch). 
         if ( MSAASamplerCount > 1 || EnableTAA ) {
@@ -836,9 +852,6 @@ void MainLoop()
 
         // Automatic Exposure.
         g_WorldRenderer->AutomaticExposure->computeExposure( frameGraph, presentRt, dkVec2u( static_cast<u32>( viewportSize.x ), static_cast< u32 >( viewportSize.y ) ) );
-
-        // Line Rendering.
-        presentRt = g_WorldRenderer->LineRendering->renderLines( frameGraph, presentRt );
 
         // Frame composition.
         presentRt = AddFinalPostFxRenderPass( frameGraph, presentRt, inverseFFT );

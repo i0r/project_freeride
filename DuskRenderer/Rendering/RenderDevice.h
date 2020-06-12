@@ -911,7 +911,7 @@ public:
                                 RenderDevice& operator = ( RenderDevice& ) = delete;
                                 ~RenderDevice();
 
-    void                        create( DisplaySurface& displaySurface, const bool useDebugContext = false );
+    void                        create( DisplaySurface& displaySurface, const u32 desiredRefreshRate, const bool useDebugContext = false );
     void                        enableVerticalSynchronisation( const bool enabled );
     void                        present();
 
@@ -928,6 +928,7 @@ public:
 
     size_t                      getFrameIndex() const;
     Image*                      getSwapchainBuffer();
+    u32                         getActiveRefreshRate() const;
 
     Image*                      createImage( const ImageDesc& description, const void* initialData = nullptr, const size_t initialDataSize = 0 );
     Buffer*                     createBuffer( const BufferDesc& description, const void* initialData = nullptr );
@@ -956,7 +957,8 @@ private:
     RenderContext*              renderContext;
     Image*                      swapChainImage;
     size_t                      frameIndex;
-
+    u32                         refreshRate;
+    
     LinearAllocator*            graphicsCmdListAllocator[PENDING_FRAME_COUNT];
     LinearAllocator*            computeCmdListAllocator[PENDING_FRAME_COUNT];
 };
