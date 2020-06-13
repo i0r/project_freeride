@@ -1,18 +1,5 @@
 /*
     Dusk Source Code
-    Copyright (C) 2019 Prevost Baptiste
-*/
-#pragma once
-//
-//class FrameGraph;
-//class RenderDevice;
-//class ShaderCache;
-//
-//using ResHandle_t = uint32_t;
-//
-//ResHandle_t AddFinalPostFxRenderPass( FrameGraph& frameGraph, ResHandle_t input, ResHandle_t glareInput );
-/*
-    Dusk Source Code
     Copyright (C) 2020 Prevost Baptiste
 */
 #pragma once
@@ -22,6 +9,8 @@ class GraphicsAssetCache;
 class RenderDevice;
 
 struct Image;
+
+using ResHandle_t = u32;
 
 class FrameCompositionModule 
 {
