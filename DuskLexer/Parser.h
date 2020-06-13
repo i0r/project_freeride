@@ -42,7 +42,8 @@ struct TypeAST {
 		PRIMITIVE_TYPE_CINT,
         // TODO Anything below this line is temporary and should be DATA DRIVEN
         // since it has nothing todo with the parser itself.
-		PRIMITIVE_TYPE_LINEINFO,
+        PRIMITIVE_TYPE_LINEINFO,
+        PRIMITIVE_TYPE_ATMOSPHERE_PARAMS,
         PRIMITIVE_TYPE_NONE,
         PRIMITIVE_TYPE_COUNT
     };
@@ -116,6 +117,7 @@ static constexpr const char* PRIMITIVE_TYPES[TypeAST::ePrimitiveType::PRIMITIVE_
     "float4x4",
     "cint",
     "LineInfos",
+    "AtmosphereParameters",
     ""
 };
 
@@ -152,6 +154,7 @@ static constexpr size_t PRIMITIVE_TYPE_SIZE[TypeAST::ePrimitiveType::PRIMITIVE_T
     16,
     4,
     48,
+    16,
     0,
 };
 

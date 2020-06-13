@@ -21,6 +21,7 @@
 #include "RenderModules/TextRenderingModule.h"
 #include "RenderModules/GlareRenderModule.h"
 #include "RenderModules/LineRenderingModule.h"
+#include "RenderModules/AtmosphereLUTComputeModule.h"
 
 static constexpr size_t MAX_DRAW_CMD_COUNT = 4096;
 
@@ -93,6 +94,7 @@ WorldRenderer::WorldRenderer( BaseAllocator* allocator )
     , GlareRendering( dk::core::allocate<GlareRenderModule>( allocator ) )
     , LineRendering( dk::core::allocate<LineRenderingModule>( allocator, allocator ) )
     , FrameComposition( dk::core::allocate<FrameCompositionModule>( allocator ) )
+    , AtmosphereLUTCompute( dk::core::allocate<AtmosphereLUTComputeModule>( allocator ) )  
     , memoryAllocator( allocator )
     , primitiveCache( dk::core::allocate<PrimitiveCache>( allocator ) )
     , drawCmdAllocator( dk::core::allocate<LinearAllocator>( allocator, sizeof( DrawCmd )* MAX_DRAW_CMD_COUNT, allocator->allocate( sizeof( DrawCmd ) * MAX_DRAW_CMD_COUNT ) ) )
@@ -142,6 +144,7 @@ void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache
     GlareRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
     LineRendering->createPersistentResources( *renderDevice );
     FrameComposition->loadCachedResources( *graphicsAssetCache );
+    AtmosphereLUTCompute->loadCachedResources( *renderDevice, *graphicsAssetCache );
 
     // Precompute resources (might worth being done offline?).
     FrameGraph& graph = *frameGraph;

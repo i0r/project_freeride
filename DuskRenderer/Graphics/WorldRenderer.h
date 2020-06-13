@@ -23,6 +23,7 @@ class AutomaticExposureModule;
 class GlareRenderModule;
 class LineRenderingModule;
 class FrameCompositionModule;
+class AtmosphereLUTComputeModule;
 
 template <typename Precision, int RowCount, int ColumnCount>
 struct Matrix;
@@ -128,6 +129,7 @@ public:
     GlareRenderModule*       GlareRendering;
     LineRenderingModule*     LineRendering;
     FrameCompositionModule*  FrameComposition;
+    AtmosphereLUTComputeModule* AtmosphereLUTCompute;
 
 public:
                      WorldRenderer( BaseAllocator* allocator );
