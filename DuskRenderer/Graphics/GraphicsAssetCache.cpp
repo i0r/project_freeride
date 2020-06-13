@@ -128,7 +128,7 @@ Image* GraphicsAssetCache::getImage( const dkChar_t* assetName, const bool force
         desc.height = ddsData.TextureDescription.Height;
         desc.depth = ddsData.TextureDescription.Depth;
         desc.arraySize = ddsData.TextureDescription.ArraySize;
-        desc.mipCount = ddsData.TextureDescription.MipCount;
+        desc.mipCount = Max( 1u, ddsData.TextureDescription.MipCount );
         desc.samplerCount = 1;
         desc.format = ddsData.TextureDescription.Format;
         desc.bindFlags = RESOURCE_BIND_SHADER_RESOURCE;

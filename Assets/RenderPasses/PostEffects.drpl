@@ -4,10 +4,11 @@ lib PostEffects {
         cflag ApplyDither = true;
         cflag EnableBloom = true;
         cflag EnableColorCorrection = true;
+        cflag EnableVignette = false;
     }
     
     resources {
-        Texture2D ColorGradingLUT {
+        Texture3D ColorGradingLUT {
             swizzle = float4;
         }
 
@@ -25,6 +26,10 @@ lib PostEffects {
 
         StructuredBuffer AutoExposureBuffer {
             swizzle = AutoExposureInfos;
+        }
+        
+        sampler VolumetricLUTSampler {
+            format = BilinearClampEdge;
         }
     }
     
@@ -46,29 +51,19 @@ lib PostEffects {
             // See equation (12) for explanation about converting EV to luminance
             return bloomColor * pow( 2, bloomEV - 3 );
         }
-        
-        float3 ApplyColorCorrection( float3 inputColor, Texture2D colorCorrectionLUT) {
-            float BlueColor = inputColor.b * 63.0f;
+                
+        float ApplyVignette( in float2 texCoord ) {
+            return ( 0.3 + 0.7 * pow(16.0 * texCoord.x * texCoord.y * (1.0 - texCoord.x) * (1.0 - texCoord.y), 0.2));
+        }
+
+        float3 LUTlookup(in float3 InputColor, in Texture3D LUT) {
+            static const float3 Scale = 15.0f / 16.0f;
+            static const float3 Offset = 1.0f / 32.0f;
             
-            float BlueFloor = floor( BlueColor );
-            float BlueCeil = ceil( BlueColor );
+            float3 TexCoords = Scale * InputColor + Offset;
             
-            float QuadFloorY = floor( BlueFloor / 8.0f );
-            float QuadCeilY = floor( BlueCeil / 8.0f );
-            
-            float4 Quad = float4( BlueFloor - QuadFloorY * 8.0f, QuadFloorY, BlueCeil - QuadCeilY * 8.0f, QuadCeilY );
-            float4 TexCoords = float4( 
-                ( Quad.x * 0.125f ) + 0.5f / 512.0f + ( ( 0.125f - 1.0f / 512.0f ) * inputColor.r ),
-                ( Quad.y * 0.125f ) + 0.5f / 512.0f + ( ( 0.125f - 1.0f / 512.0f ) * inputColor.g ),
-                ( Quad.z * 0.125f ) + 0.5f / 512.0f + ( ( 0.125f - 1.0f / 512.0f ) * inputColor.r ),
-                ( Quad.w * 0.125f ) + 0.5f / 512.0f + ( ( 0.125f - 1.0f / 512.0f ) * inputColor.g )
-            );
-            
-            float4 CorrectedColorLow = colorCorrectionLUT[TexCoords.xy];
-            float4 CorrectedColorHigh = colorCorrectionLUT[TexCoords.zw];
-            float CorrectionInterp = frac( BlueColor );
-            
-            return lerp( CorrectedColorLow, CorrectedColorHigh, CorrectionInterp );
+            float4 CorrectedColor = LUT.SampleLevel( VolumetricLUTSampler, TexCoords, 0.0f );
+            return CorrectedColor.rgb;
         }
     }
     
@@ -77,6 +72,7 @@ lib PostEffects {
         float currentEV = computeEV100FromAvgLuminance( currentExposure.EngineLuminanceFactor );       
         float exposure = exp2( ( convertEV100ToExposure( currentEV ) ) );
         
+        float2 texCoords = float2( $SV_DispatchThreadId.xy ) / g_ScreenSize;
         float4 finalColor = InputRenderTarget.Load( $SV_DispatchThreadId );
         
         if ( $EnableBloom ) {
@@ -85,11 +81,15 @@ lib PostEffects {
             finalColor.rgb = lerp( finalColor.rgb, glareLuminance, BloomStrength );            
         }
     
-        float3 color = ACESFilmic( finalColor.rgb * exposure );    
+        if ( $EnableVignette ) {
+            finalColor.rgb *= ApplyVignette( texCoords );
+        }
+        
+        float3 color = ACESFilmic( finalColor.rgb * exposure );
         color = accurateLinearToSRGB( color );
-
+        
         if ( $EnableColorCorrection ) {
-            color = ApplyColorCorrection( color, ColorGradingLUT );
+            color = LUTlookup( color, ColorGradingLUT );
         }
 
         if ( $ApplyDither ) {
