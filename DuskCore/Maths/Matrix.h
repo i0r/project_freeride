@@ -214,6 +214,109 @@ struct Matrix<Precision, 4, 4>
 };
 
 template<typename Precision>
+struct Matrix<Precision, 3, 3>
+{
+    static constexpr i32        ROW_COUNT       = 3;
+    static constexpr i32        COLUMN_COUNT    = 3;
+    static constexpr i32        SCALAR_COUNT    = ( ROW_COUNT * COLUMN_COUNT );
+
+    static const Matrix         Zero;
+    static const Matrix         Identity;
+
+    union
+    {
+        struct {
+            Precision   _00, _10, _20,
+                        _01, _11, _21,
+                        _02, _12, _22;
+        };
+
+        Vector<Vector<Precision, COLUMN_COUNT>, ROW_COUNT> rows;
+    };
+
+    // Constructors
+    constexpr Matrix() = default;
+
+    // Fill diagonal with x
+    constexpr Matrix( const Precision x ) 
+        : rows( { x, 0, 0 }, 
+                { 0, x, 0 }, 
+                { 0, 0, x } )
+    {
+
+    }
+
+    constexpr Matrix(
+        const Precision& m00, const Precision& m10, const Precision& m20,
+        const Precision& m01, const Precision& m11, const Precision& m21,
+        const Precision& m02, const Precision& m12, const Precision& m22 ) noexcept
+        : rows( { m00, m10, m20 }, 
+                { m01, m11, m21 }, 
+                { m02, m12, m22 } )
+    {
+
+    }
+
+    constexpr Matrix( const Vector<Precision, COLUMN_COUNT>& c0,
+                      const Vector<Precision, COLUMN_COUNT>& c1,
+                      const Vector<Precision, COLUMN_COUNT>& c2 ) 
+        : rows( c0, c1, c2 ) 
+    {
+
+    }
+
+    constexpr Matrix( const Matrix<Precision, 4, 4>& m ) noexcept 
+        : rows{ { m.rows[0][0], m.rows[0][1], m.rows[0][2] },
+                 { m.rows[1][0], m.rows[1][1], m.rows[1][2] },
+                 { m.rows[2][0], m.rows[2][1], m.rows[2][2] } }
+    {
+
+    }
+
+    template<typename PrecisionR>
+    constexpr explicit Matrix( const Matrix<PrecisionR, ROW_COUNT, COLUMN_COUNT>& r ) noexcept 
+        : rows( r.v ) 
+    {
+
+    }
+
+    constexpr Precision* toArray()
+    {
+        return &_00;
+    }
+
+    constexpr const Vector<Precision, COLUMN_COUNT>& operator[] ( const u32 index ) const
+    {
+        return rows[index];
+    }
+
+    constexpr Vector<Precision, COLUMN_COUNT>& operator[] ( const u32 index )
+    {
+        return rows[index];
+    }
+
+    constexpr Precision& operator[] ( const Vector<i32, 2> index2d ) const
+    {
+        return rows[index2d.y][index2d.x];
+    }
+
+    constexpr Precision& operator[] ( const Vector<i32, 2> index2d )
+    {
+        return rows[index2d.y][index2d.x];
+    }
+
+    constexpr Matrix operator + () const
+    {
+        return *this;
+    }
+
+    constexpr Matrix operator - () const
+    {
+        return Matrix( -rows );
+    }
+};
+
+template<typename Precision>
 static constexpr Matrix<Precision, 4, 4> operator * ( const Matrix<Precision, 4, 4>& l, const Matrix<Precision, 4, 4>& r )
 {
     return Matrix<Precision, 4, 4>(
