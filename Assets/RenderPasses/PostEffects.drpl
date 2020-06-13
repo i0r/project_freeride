@@ -1,10 +1,12 @@
 lib PostEffects { 
     properties {
         float BloomStrength = 0.0005f;
+        float FilmGrainStrength = 8.0f;
         cflag ApplyDither = true;
         cflag EnableBloom = true;
         cflag EnableColorCorrection = true;
         cflag EnableVignette = false;
+        cflag EnableFilmGrain = true;
     }
     
     resources {
@@ -65,6 +67,14 @@ lib PostEffects {
             float4 CorrectedColor = LUT.SampleLevel( VolumetricLUTSampler, TexCoords, 0.0f );
             return CorrectedColor.rgb;
         }
+        
+        float FilmGrain( in float2 texCoord ) {
+            float x = ( texCoord.x + 4.0 ) * ( texCoord.y + 4.0 ) * 10.0f;
+            float g = fmod( ( fmod( x, 13.0 ) + 1.0 ) * ( fmod( x, 123.0 ) + 1.0 ), 0.01 ) - 0.005;
+            
+            float grain = 1.0f - ( g * FilmGrainStrength );
+            return grain;
+        }
     }
     
     shader FinalPass {
@@ -80,9 +90,13 @@ lib PostEffects {
             float3 glareLuminance = ComputeBloomLuminance( glareColor, 0.0f, currentEV );
             finalColor.rgb = lerp( finalColor.rgb, glareLuminance, BloomStrength );            
         }
-    
+
         if ( $EnableVignette ) {
             finalColor.rgb *= ApplyVignette( texCoords );
+        }
+        
+        if ( $EnableFilmGrain ) {
+            finalColor.rgb *= FilmGrain( texCoords );
         }
         
         float3 color = ACESFilmic( finalColor.rgb * exposure );
