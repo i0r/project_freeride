@@ -24,7 +24,7 @@
 #include "Graphics/RenderModules/PresentRenderPass.h"
 #include "Graphics/RenderModules/BrunetonSkyModel.h"
 #include "Graphics/RenderModules/MSAAResolvePass.h"
-#include "Graphics/RenderModules/FinalPostFxRenderPass.h"
+#include "Graphics/RenderModules/FrameCompositionModule.h"
 #include "Graphics/RenderModules/AutomaticExposure.h"
 #include "Graphics/RenderModules/TextRenderingModule.h"
 #include "Graphics/RenderModules/PrimitiveLightingTest.h"

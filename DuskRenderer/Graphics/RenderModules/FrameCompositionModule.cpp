@@ -3,7 +3,7 @@
     Copyright (C) 2019 Prevost Baptiste
 */
 #include <Shared.h>
-#include "FinalPostFxRenderPass.h"
+#include "FrameCompositionModule.h"
 
 #include <Graphics/ShaderCache.h>
 #include <Graphics/FrameGraph.h>

@@ -16,12 +16,11 @@
 #include "RenderModules/BrunetonSkyModel.h"
 #include "RenderModules/PresentRenderPass.h"
 #include "RenderModules/MSAAResolvePass.h"
-#include "RenderModules/FinalPostFxRenderPass.h"
+#include "RenderModules/FrameCompositionModule.h"
 #include "RenderModules/AutomaticExposure.h"
 #include "RenderModules/TextRenderingModule.h"
 #include "RenderModules/GlareRenderModule.h"
 #include "RenderModules/LineRenderingModule.h"
-#include "RenderModules/FinalPostFxRenderPass.h"
 
 static constexpr size_t MAX_DRAW_CMD_COUNT = 4096;
 
