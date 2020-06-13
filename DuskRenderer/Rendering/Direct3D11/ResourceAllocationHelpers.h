@@ -257,7 +257,7 @@ static ID3D11UnorderedAccessView* CreateImageUnorderedAccessView( ID3D11Device* 
     {
         unorderedAccessViewDesc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE3D;
         unorderedAccessViewDesc.Texture3D.FirstWSlice = viewDesc.StartImageIndex;
-        unorderedAccessViewDesc.Texture3D.WSize = viewDesc.ImageCount;
+        unorderedAccessViewDesc.Texture3D.WSize = imgCount;
 
         unorderedAccessViewDesc.Texture3D.MipSlice = viewDesc.StartMipIndex;
     } break;
