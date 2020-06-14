@@ -410,16 +410,16 @@ void AtmosphereLUTComputeModule::precomputePipelineResources( FrameGraph& frameG
     constexpr f64 kGroundAlbedo = 0.1;
     const f64 max_sun_zenith_angle = ( use_half_precision_ ? 102.0 : 120.0 ) / 180.0 * dk::maths::PI<f64>();
 
-    DensityProfileLayer rayleigh_layer = { 0.0f, 1.0f, -1.0f / static_cast< f32 >( kRayleighScaleHeight ), 0.0f, 0.0f };
-    DensityProfileLayer mie_layer = { 0.0f, 1.0f, -1.0f / static_cast< f32 >( kMieScaleHeight ), 0.0f, 0.0f };
+    DensityProfileLayer rayleigh_layer = { 0.0f / static_cast<f32>( kLengthUnitInMeters ), 1.0f, static_cast< f32 >( -1.0 / kRayleighScaleHeight ) * static_cast<f32>( kLengthUnitInMeters ), 0.0f * static_cast<f32>( kLengthUnitInMeters ), dkVec3f(0, 0, 0), 0.0f };
+    DensityProfileLayer mie_layer = { 0.0f / static_cast<f32>( kLengthUnitInMeters ), 1.0f, static_cast< f32 >( -1.0 / kMieScaleHeight ) * static_cast<f32>( kLengthUnitInMeters ), 0.0f * static_cast<f32>( kLengthUnitInMeters ), dkVec3f( 0, 0, 0 ), 0.0f };
 
     // Density profile increasing linearly from 0 to 1 between 10 and 25km, and
     // decreasing linearly from 1 to 0 between 25 and 40km. This is an approximate
     // profile from http://www.kln.ac.lk/science/Chemistry/Teaching_Resources/
     // Documents/Introduction%20to%20atmospheric%20chemistry.pdf (page 10).
     std::vector<DensityProfileLayer> ozone_density;
-    ozone_density.push_back( { 25000.0f, 0.0f, 0.0f, 1.0f / 15000.0f, -2.0f / 3.0f } );
-    ozone_density.push_back( { 0.0f, 0.0f, 0.0f, -1.0f / 15000.0f, 8.0f / 3.0f } );
+    ozone_density.push_back( { 25000.0f / static_cast<f32>( kLengthUnitInMeters ), 0.0f, 0.0f * static_cast<f32>( kLengthUnitInMeters ), static_cast<f32>( 1.0 / 15000.0 ) * static_cast<f32>( kLengthUnitInMeters ), dkVec3f( 0, 0, 0 ), static_cast<f32>( -2.0 / 3.0 ) } );
+    ozone_density.push_back( { 0.0f / static_cast<f32>( kLengthUnitInMeters ), 0.0f, 0.0f * static_cast<f32>( kLengthUnitInMeters ), static_cast<f32>( -1.0 / 15000.0 ) * static_cast<f32>( kLengthUnitInMeters ), dkVec3f( 0, 0, 0 ), static_cast<f32>( 8.0 / 3.0 ) } );
 
     std::vector<f64> wavelengths;
     std::vector<f64> solar_irradiance;
@@ -505,21 +505,20 @@ void AtmosphereLUTComputeModule::precomputePipelineResources( FrameGraph& frameG
         dkVec3f lambdas = dkVec3f( kLambdaR, kLambdaG, kLambdaB );
         dkMat3x3f luminance_from_radiance = dkMat3x3f::Identity;
 
-        properties.AtmosphereParams = {
-            { rayleigh_density[0], rayleigh_density[1] },
-            { mie_density[0], mie_density[1] },
-            { absorption_density[0], absorption_density[1] },
-            static_cast< f32 >( sun_angular_radius ),
-            static_cast< f32 >( top_radius / length_unit_in_meters ),
+        DensityProfileLayer DummyLayer = { 0.000000f,0.000000f,0.000000f,0.000000f, dkVec3f::Zero, 0.000000f };
+		properties.AtmosphereParams = {
+            { DummyLayer, rayleigh_density[0] },
+            { DummyLayer, mie_density[0] },
+			{ absorption_density[0], absorption_density[1] },
 
-            InterpolateWavelengths( solar_irradiance, lambdas, 1.0 ),
+			InterpolateWavelengths( solar_irradiance, lambdas, 1.0 ),
             static_cast< f32 >( mie_phase_function_g ),
 
-            InterpolateWavelengths( rayleigh_scattering, lambdas, length_unit_in_meters ),
-            0,
+			InterpolateWavelengths( rayleigh_scattering, lambdas, length_unit_in_meters ),
+			static_cast< f32 >( sun_angular_radius ),
 
-            InterpolateWavelengths( mie_scattering, lambdas, length_unit_in_meters ),
-            0,
+			InterpolateWavelengths( mie_scattering, lambdas, length_unit_in_meters ),
+			static_cast< f32 >( top_radius / length_unit_in_meters ),
 
             InterpolateWavelengths( mie_extinction, lambdas, length_unit_in_meters ),
             0,
@@ -565,31 +564,29 @@ void AtmosphereLUTComputeModule::precomputePipelineResources( FrameGraph& frameG
                 coeff( lambdas[0], 2 ), coeff( lambdas[1], 2 ), coeff( lambdas[2], 2 )
             );
 
-            properties.AtmosphereParams = {
-                { rayleigh_density[0], rayleigh_density[1] },
-                { mie_density[0], mie_density[1] },
-                { absorption_density[0], absorption_density[1] },
-                static_cast< f32 >( sun_angular_radius ),
-                static_cast< f32 >( top_radius / length_unit_in_meters ),
+			properties.AtmosphereParams = {
+				{ rayleigh_density[0], rayleigh_density[1] },
+				{ mie_density[0], mie_density[1] },
+				{ absorption_density[0], absorption_density[1] },
 
-                InterpolateWavelengths( solar_irradiance, lambdas, 1.0 ),
-                static_cast< f32 >( mie_phase_function_g ),
+				InterpolateWavelengths( solar_irradiance, lambdas, 1.0 ),
+				static_cast< f32 >( mie_phase_function_g ),
 
-                InterpolateWavelengths( rayleigh_scattering, lambdas, length_unit_in_meters ),
-                0,
+				InterpolateWavelengths( rayleigh_scattering, lambdas, length_unit_in_meters ),
+				static_cast< f32 >( sun_angular_radius ),
 
-                InterpolateWavelengths( mie_scattering, lambdas, length_unit_in_meters ),
-                0,
+				InterpolateWavelengths( mie_scattering, lambdas, length_unit_in_meters ),
+				static_cast< f32 >( top_radius / length_unit_in_meters ),
 
-                InterpolateWavelengths( mie_extinction, lambdas, length_unit_in_meters ),
-                0,
+				InterpolateWavelengths( mie_extinction, lambdas, length_unit_in_meters ),
+				0,
 
-                InterpolateWavelengths( absorption_extinction, lambdas, length_unit_in_meters ),
-                static_cast< f32 >( bottom_radius / length_unit_in_meters ),
+				InterpolateWavelengths( absorption_extinction, lambdas, length_unit_in_meters ),
+				static_cast< f32 >( bottom_radius / length_unit_in_meters ),
 
-                InterpolateWavelengths( ground_albedo, lambdas, 1.0 ),
-                static_cast< f32 >( cos( max_sun_zenith_angle ) )
-            };
+				InterpolateWavelengths( ground_albedo, lambdas, 1.0 ),
+				static_cast< f32 >( cos( max_sun_zenith_angle ) )
+			};
 
             precomputeIteration( frameGraph, lambdas, num_scattering_orders, i > 0 );
         }

@@ -100,6 +100,7 @@ struct DensityProfileLayer {
     Number exp_term;
     InverseLength exp_scale;
     InverseLength linear_term;
+    float3 PADDING;
     Number constant_term;
 };
 
@@ -111,20 +112,18 @@ struct AtmosphereParameters {
     DensityProfile rayleigh_density;
     DensityProfile mie_density;
     DensityProfile absorption_density;
-    Angle sun_angular_radius;
-    Length top_radius;
     
     IrradianceSpectrum solar_irradiance;
     Number mie_phase_function_g;
 
-    ScatteringSpectrum rayleigh_scattering;
-    uint                PADDING2;
+	ScatteringSpectrum rayleigh_scattering;
+	Angle sun_angular_radius;
 
-    ScatteringSpectrum  mie_scattering;
-    uint                PADDING;
+	ScatteringSpectrum  mie_scattering;
+	Length top_radius;
 
     ScatteringSpectrum mie_extinction;
-    uint                PADDING3;
+    uint PADDING;
 
     ScatteringSpectrum absorption_extinction;
     Length bottom_radius;

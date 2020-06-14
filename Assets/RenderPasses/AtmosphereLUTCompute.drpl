@@ -7,6 +7,10 @@ lib AtmosphereLUTCompute {
         RWTexture2D OutputRenderTarget {
             swizzle = float4;
         }
+        
+        Texture2D TransmittanceTexture {
+            swizzle = float4;
+        }
     }
     
     shared {
@@ -74,8 +78,17 @@ lib AtmosphereLUTCompute {
         OutputRenderTarget[$SV_DispatchThreadId.xy] = float4( Transmittance, 1.0f );
     }
     
+    shader ComputeDirectIrradianceCS {
+        OutputRenderTarget[$SV_DispatchThreadId.xy] = float4( ComputeDirectIrradianceTexture( AtmosphereParams, TransmittanceTexture, $SV_DispatchThreadId.xy ), 1.0f );
+    }
+    
     pass ComputeTransmittance {
         compute       = ComputeTransmittanceCS;        
+        dispatch      = { 16, 8, 1 };
+    }
+    
+    pass ComputeDirectIrradiance {    
+        compute       = ComputeDirectIrradianceCS;        
         dispatch      = { 16, 8, 1 };
     }
 }
