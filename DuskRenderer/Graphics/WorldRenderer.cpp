@@ -151,6 +151,7 @@ void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache
     graph.waitPendingFrameCompletion();
     
     GlareRendering->precomputePipelineResources( graph );
+    AtmosphereLUTCompute->precomputePipelineResources( graph );
 
     // Execute precompute step.
     graph.execute( renderDevice, 0.0f );

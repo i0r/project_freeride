@@ -108,19 +108,29 @@ struct DensityProfile {
 };
 
 struct AtmosphereParameters {
-    IrradianceSpectrum solar_irradiance;
-    Angle sun_angular_radius;
-    Length bottom_radius;
-    Length top_radius;
     DensityProfile rayleigh_density;
-    ScatteringSpectrum rayleigh_scattering;
     DensityProfile mie_density;
-    ScatteringSpectrum mie_scattering;
-    ScatteringSpectrum mie_extinction;
-    Number mie_phase_function_g;
     DensityProfile absorption_density;
+    Angle sun_angular_radius;
+    Length top_radius;
+    
+    IrradianceSpectrum solar_irradiance;
+    Number mie_phase_function_g;
+
+    ScatteringSpectrum rayleigh_scattering;
+    uint                PADDING2;
+
+    ScatteringSpectrum  mie_scattering;
+    uint                PADDING;
+
+    ScatteringSpectrum mie_extinction;
+    uint                PADDING3;
+
     ScatteringSpectrum absorption_extinction;
+    Length bottom_radius;
+
     DimensionlessSpectrum ground_albedo;
     Number mu_s_min;
 };
+DUSK_IS_MEMORY_ALIGNED_STATIC( AtmosphereParameters, 16 );
 #endif

@@ -312,6 +312,51 @@ void AtmosphereLUTComputeModule::destroy( RenderDevice& renderDevice )
 
 void AtmosphereLUTComputeModule::loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache )
 {
+    ImageDesc transmittanceDesc;
+    transmittanceDesc.dimension = ImageDesc::DIMENSION_2D;
+    transmittanceDesc.format = eViewFormat::VIEW_FORMAT_R32G32B32A32_FLOAT;
+    transmittanceDesc.width = TRANSMITTANCE_TEXTURE_WIDTH;
+    transmittanceDesc.height = TRANSMITTANCE_TEXTURE_HEIGHT;
+    transmittanceDesc.depth = 1;
+    transmittanceDesc.mipCount = 1;
+    transmittanceDesc.bindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
+    transmittanceDesc.usage = RESOURCE_USAGE_DEFAULT;
+
+    transmittance = renderDevice.createImage( transmittanceDesc );
+
+    ImageDesc irradianceDesc;
+    irradianceDesc.dimension = ImageDesc::DIMENSION_2D;
+    irradianceDesc.format = eViewFormat::VIEW_FORMAT_R32G32B32A32_FLOAT;
+    irradianceDesc.width = IRRADIANCE_TEXTURE_WIDTH;
+    irradianceDesc.height = IRRADIANCE_TEXTURE_HEIGHT;
+    irradianceDesc.depth = 1;
+    irradianceDesc.mipCount = 1;
+    irradianceDesc.bindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
+    irradianceDesc.usage = RESOURCE_USAGE_DEFAULT;
+
+    irradiance = renderDevice.createImage( irradianceDesc );
+    deltaIrradiance = renderDevice.createImage( irradianceDesc );
+
+    ImageDesc scatteringDesc;
+    scatteringDesc.dimension = ImageDesc::DIMENSION_3D;
+    scatteringDesc.format = eViewFormat::VIEW_FORMAT_R32G32B32A32_FLOAT;
+    scatteringDesc.width = SCATTERING_TEXTURE_WIDTH;
+    scatteringDesc.height = SCATTERING_TEXTURE_HEIGHT;
+    scatteringDesc.depth = SCATTERING_TEXTURE_DEPTH;
+    scatteringDesc.depth = 1;
+    scatteringDesc.mipCount = 1;
+    scatteringDesc.bindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
+    scatteringDesc.usage = RESOURCE_USAGE_DEFAULT;
+
+    scattering = renderDevice.createImage( scatteringDesc );
+
+    deltaRayleighScattering = renderDevice.createImage( scatteringDesc );
+    deltaMieScattering = renderDevice.createImage( scatteringDesc );
+    deltaScatteringDensity = renderDevice.createImage( scatteringDesc );
+}
+
+void AtmosphereLUTComputeModule::precomputePipelineResources( FrameGraph& frameGraph )
+{
     // Values from "Reference Solar Spectral Irradiance: ASTM G-173", ETR column
     // (see http://rredc.nrel.gov/solar/spectra/am1.5/ASTMG173/ASTMG173.html),
     // summed and averaged in each bin (e.g. the value for 360nm is the average
@@ -414,38 +459,12 @@ void AtmosphereLUTComputeModule::loadCachedResources( RenderDevice& renderDevice
     bool combine_scattering_textures = use_combined_textures_;
     bool half_precision = use_half_precision_;
 
-    auto to_string = [&wavelengths]( const std::vector<f64>& v,
+    auto InterpolateWavelengths = [&wavelengths]( const std::vector<f64>& v,
                                      const dkVec3f& lambdas, f64 scale ) {
         f64 r = Interpolate( wavelengths, v, lambdas[0] ) * scale;
         f64 g = Interpolate( wavelengths, v, lambdas[1] ) * scale;
         f64 b = Interpolate( wavelengths, v, lambdas[2] ) * scale;
-        return "float3(" + std::to_string( r ) + "," + std::to_string( g ) + "," +
-            std::to_string( b ) + ")";
-    };
-
-    auto density_layer =
-        [length_unit_in_meters]( const DensityProfileLayer& layer ) {
-        return "DensityProfileLayer(" +
-            std::to_string( layer.width / length_unit_in_meters ) + "," +
-            std::to_string( layer.exp_term ) + "," +
-            std::to_string( layer.exp_scale * length_unit_in_meters ) + "," +
-            std::to_string( layer.linear_term * length_unit_in_meters ) + "," +
-            std::to_string( layer.constant_term ) + ")";
-    };
-
-    auto density_profile =
-        [density_layer]( std::vector<DensityProfileLayer> layers ) {
-        constexpr i32 kLayerCount = 2;
-        while ( layers.size() < kLayerCount ) {
-            layers.insert( layers.begin(), DensityProfileLayer() );
-        }
-        std::string result = "DensityProfile(DensityProfileLayer[" +
-            std::to_string( kLayerCount ) + "](";
-        for ( i32 i = 0; i < kLayerCount; ++i ) {
-            result += density_layer( layers[i] );
-            result += i < kLayerCount - 1 ? "," : "))";
-        }
-        return result;
+        return dkVec3f( static_cast< f32 >( r ), static_cast< f32 >( g ), static_cast< f32 >( b ) );
     };
 
     // Compute the values for the SKY_RADIANCE_TO_LUMINANCE constant. In theory
@@ -468,59 +487,17 @@ void AtmosphereLUTComputeModule::loadCachedResources( RenderDevice& renderDevice
     ComputeSpectralRadianceToLuminanceFactors( wavelengths, solar_irradiance,
                                                0 /* lambda_power */, &sun_k_r, &sun_k_g, &sun_k_b );
 
-    parameters.SKY_SPECTRAL_RADIANCE_TO_LUMINANCE = dkVec3f( 
+     dkVec3f SKY_SPECTRAL_RADIANCE_TO_LUMINANCE = dkVec3f(
         static_cast< f32 >( sky_k_r ),
         static_cast< f32 >( sky_k_g ),
         static_cast< f32 >( sky_k_b )
     );
 
-    parameters.SUN_SPECTRAL_RADIANCE_TO_LUMINANCE = dkVec3f(
+    dkVec3f SUN_SPECTRAL_RADIANCE_TO_LUMINANCE = dkVec3f(
         static_cast< f32 >( sun_k_r ),
         static_cast< f32 >( sun_k_g ),
         static_cast< f32 >( sun_k_b )
     );
-
-    ImageDesc transmittanceDesc;
-    transmittanceDesc.dimension = ImageDesc::DIMENSION_2D;
-    transmittanceDesc.format = eViewFormat::VIEW_FORMAT_R32G32B32A32_FLOAT;
-    transmittanceDesc.width = TRANSMITTANCE_TEXTURE_WIDTH;
-    transmittanceDesc.height = TRANSMITTANCE_TEXTURE_HEIGHT;
-    transmittanceDesc.depth = 1;
-    transmittanceDesc.mipCount = 1;
-    transmittanceDesc.bindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
-    transmittanceDesc.usage = RESOURCE_USAGE_DEFAULT;
-
-    transmittance = renderDevice.createImage( transmittanceDesc );
-
-    ImageDesc irradianceDesc;
-    irradianceDesc.dimension = ImageDesc::DIMENSION_2D;
-    irradianceDesc.format = eViewFormat::VIEW_FORMAT_R32G32B32A32_FLOAT;
-    irradianceDesc.width = IRRADIANCE_TEXTURE_WIDTH;
-    irradianceDesc.height = IRRADIANCE_TEXTURE_HEIGHT;
-    irradianceDesc.depth = 1;
-    irradianceDesc.mipCount = 1;
-    irradianceDesc.bindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
-    irradianceDesc.usage = RESOURCE_USAGE_DEFAULT;
-
-    irradiance = renderDevice.createImage( irradianceDesc );
-    deltaIrradiance = renderDevice.createImage( irradianceDesc );
-
-    ImageDesc scatteringDesc;
-    scatteringDesc.dimension = ImageDesc::DIMENSION_3D;
-    scatteringDesc.format = eViewFormat::VIEW_FORMAT_R32G32B32A32_FLOAT;
-    scatteringDesc.width = SCATTERING_TEXTURE_WIDTH;
-    scatteringDesc.height = SCATTERING_TEXTURE_HEIGHT;
-    scatteringDesc.depth = SCATTERING_TEXTURE_DEPTH;
-    scatteringDesc.depth = 1;
-    scatteringDesc.mipCount = 1;
-    scatteringDesc.bindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
-    scatteringDesc.usage = RESOURCE_USAGE_DEFAULT;
-
-    scattering = renderDevice.createImage( scatteringDesc );
-
-    deltaRayleighScattering = renderDevice.createImage( scatteringDesc );
-    deltaMieScattering = renderDevice.createImage( scatteringDesc );
-    deltaScatteringDensity = renderDevice.createImage( scatteringDesc );
 
     // The actual precomputations depend on whether we want to store precomputed
     // irradiance or illuminance values.
@@ -528,11 +505,33 @@ void AtmosphereLUTComputeModule::loadCachedResources( RenderDevice& renderDevice
         dkVec3f lambdas = dkVec3f( kLambdaR, kLambdaG, kLambdaB );
         dkMat3x3f luminance_from_radiance = dkMat3x3f::Identity;
 
-        precompute();
-        //Precompute( fbo, delta_irradiance_texture, delta_rayleigh_scattering_texture,
-        //            delta_mie_scattering_texture, delta_scattering_density_texture,
-        //            delta_multiple_scattering_texture, lambdas, luminance_from_radiance,
-        //            false /* blend */, num_scattering_orders );
+        properties.AtmosphereParams = {
+            { rayleigh_density[0], rayleigh_density[1] },
+            { mie_density[0], mie_density[1] },
+            { absorption_density[0], absorption_density[1] },
+            static_cast< f32 >( sun_angular_radius ),
+            static_cast< f32 >( top_radius / length_unit_in_meters ),
+
+            InterpolateWavelengths( solar_irradiance, lambdas, 1.0 ),
+            static_cast< f32 >( mie_phase_function_g ),
+
+            InterpolateWavelengths( rayleigh_scattering, lambdas, length_unit_in_meters ),
+            0,
+
+            InterpolateWavelengths( mie_scattering, lambdas, length_unit_in_meters ),
+            0,
+
+            InterpolateWavelengths( mie_extinction, lambdas, length_unit_in_meters ),
+            0,
+
+            InterpolateWavelengths( absorption_extinction, lambdas, length_unit_in_meters ),
+            static_cast< f32 >( bottom_radius / length_unit_in_meters ),
+
+            InterpolateWavelengths( ground_albedo, lambdas, 1.0 ),
+            static_cast< f32 >( cos( max_sun_zenith_angle ) )
+        };
+
+        precomputeIteration( frameGraph, lambdas, num_scattering_orders, false );
     } else {
         constexpr f64 kLambdaMin = 360.0;
         constexpr f64 kLambdaMax = 830.0;
@@ -540,9 +539,9 @@ void AtmosphereLUTComputeModule::loadCachedResources( RenderDevice& renderDevice
         f64 dlambda = ( kLambdaMax - kLambdaMin ) / ( 3 * num_iterations );
         for ( i32 i = 0; i < num_iterations; ++i ) {
             dkVec3f lambdas = dkVec3f(
-                static_cast<f32>( kLambdaMin + ( 3 * i + 0.5 ) * dlambda ),
+                static_cast< f32 >( kLambdaMin + ( 3 * i + 0.5 ) * dlambda ),
                 static_cast< f32 >( kLambdaMin + ( 3 * i + 1.5 ) * dlambda ),
-                static_cast<f32>(  kLambdaMin + ( 3 * i + 2.5 ) * dlambda )
+                static_cast< f32 >( kLambdaMin + ( 3 * i + 2.5 ) * dlambda )
             );
 
             auto coeff = [dlambda]( f64 lambda, i32 component ) {
@@ -565,36 +564,77 @@ void AtmosphereLUTComputeModule::loadCachedResources( RenderDevice& renderDevice
                 coeff( lambdas[0], 1 ), coeff( lambdas[1], 1 ), coeff( lambdas[2], 1 ),
                 coeff( lambdas[0], 2 ), coeff( lambdas[1], 2 ), coeff( lambdas[2], 2 )
             );
-            
-            precompute();
 
-            //precompute( fbo, delta_irradiance_texture,
-            //            delta_rayleigh_scattering_texture, delta_mie_scattering_texture,
-            //            delta_scattering_density_texture, delta_multiple_scattering_texture,
-            //            lambdas, luminance_from_radiance, i > 0 /* blend */,
-            //            num_scattering_orders );
+            properties.AtmosphereParams = {
+                { rayleigh_density[0], rayleigh_density[1] },
+                { mie_density[0], mie_density[1] },
+                { absorption_density[0], absorption_density[1] },
+                static_cast< f32 >( sun_angular_radius ),
+                static_cast< f32 >( top_radius / length_unit_in_meters ),
+
+                InterpolateWavelengths( solar_irradiance, lambdas, 1.0 ),
+                static_cast< f32 >( mie_phase_function_g ),
+
+                InterpolateWavelengths( rayleigh_scattering, lambdas, length_unit_in_meters ),
+                0,
+
+                InterpolateWavelengths( mie_scattering, lambdas, length_unit_in_meters ),
+                0,
+
+                InterpolateWavelengths( mie_extinction, lambdas, length_unit_in_meters ),
+                0,
+
+                InterpolateWavelengths( absorption_extinction, lambdas, length_unit_in_meters ),
+                static_cast< f32 >( bottom_radius / length_unit_in_meters ),
+
+                InterpolateWavelengths( ground_albedo, lambdas, 1.0 ),
+                static_cast< f32 >( cos( max_sun_zenith_angle ) )
+            };
+
+            precomputeIteration( frameGraph, lambdas, num_scattering_orders, i > 0 );
         }
     }
-    //parameters.AtmosphereParams = {
-    //    to_string( solar_irradiance, lambdas, 1.0 ),
-    //    std::to_string( sun_angular_radius ),
-    //    std::to_string( bottom_radius / length_unit_in_meters ),
-    //    std::to_string( top_radius / length_unit_in_meters ),
-    //    density_profile( rayleigh_density ),
-    //    to_string( rayleigh_scattering, lambdas, length_unit_in_meters ),
-    //    density_profile( mie_density ),
-    //    to_string( mie_scattering, lambdas, length_unit_in_meters ),
-    //    to_string( mie_extinction, lambdas, length_unit_in_meters ),
-    //    std::to_string( mie_phase_function_g ),
-    //    density_profile( absorption_density ),
-    //    to_string(
-    //        absorption_extinction, lambdas, length_unit_in_meters ),
-    //    to_string( ground_albedo, lambdas, 1.0 ),
-    //    std::to_string( cos( max_sun_zenith_angle ) )
-    //};
 }
 
-void AtmosphereLUTComputeModule::precompute()
+void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, const dkVec3f& lambdas, const u32 num_scattering_orders, const bool enableBlending )
 {
+    struct PassData {
+        ResHandle_t PerPassBuffer;
+    };
 
+    PassData& passData = frameGraph.addRenderPass<PassData>(
+        AtmosphereLUTCompute::ComputeTransmittance_Name,
+        [&]( FrameGraphBuilder& builder, PassData& passData ) {
+            builder.useAsyncCompute();
+
+            BufferDesc passBufferDesc;
+            passBufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
+            passBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
+            passBufferDesc.SizeInBytes = sizeof( AtmosphereLUTCompute::ComputeTransmittanceRuntimeProperties );
+
+            passData.PerPassBuffer = builder.allocateBuffer( passBufferDesc, eShaderStage::SHADER_STAGE_COMPUTE );
+        },
+        [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+            Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
+
+            PipelineState* pipelineState = psoCache->getOrCreatePipelineState( RenderingHelpers::PS_Compute, AtmosphereLUTCompute::ComputeTransmittance_ShaderBinding );
+            cmdList->pushEventMarker( AtmosphereLUTCompute::ComputeTransmittance_EventName );
+
+            cmdList->bindPipelineState( pipelineState );
+
+            cmdList->bindImage( AtmosphereLUTCompute::ComputeTransmittance_OutputRenderTarget_Hashcode, transmittance );
+            cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
+
+            cmdList->updateBuffer( *perPassBuffer, &properties.AtmosphereParams, sizeof( AtmosphereLUTCompute::ComputeTransmittanceRuntimeProperties ) );
+
+            cmdList->prepareAndBindResourceList( pipelineState );
+
+            u32 ThreadCountX = TRANSMITTANCE_TEXTURE_WIDTH / AtmosphereLUTCompute::ComputeTransmittance_DispatchX;
+            u32 ThreadCountY = TRANSMITTANCE_TEXTURE_HEIGHT / AtmosphereLUTCompute::ComputeTransmittance_DispatchY;
+
+            cmdList->dispatchCompute( ThreadCountX, ThreadCountY, 1u );
+
+            cmdList->popEventMarker();
+        }
+    );
 }

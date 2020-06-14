@@ -11,6 +11,7 @@ class RenderDevice;
 struct Image;
 
 #include <Graphics/RenderPasses/Headers/Atmosphere.h>
+#include "Generated/AtmosphereLUTCompute.generated.h"
 
 class AtmosphereLUTComputeModule 
 {
@@ -26,16 +27,9 @@ public:
     // Load cached resource from the harddrive and pre-allocate resources for this module.
     void                        loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache );
 
-private:
-    struct ComputeParameters {
-        // Atmosphere used by Bruneton sky model. This is hardcoded in the sample.
-        AtmosphereParameters        AtmosphereParams;
-
-        dkVec3f                     SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
-
-        dkVec3f                     SUN_SPECTRAL_RADIANCE_TO_LUMINANCE;
-    };
-
+    // Compute atmosphere scattering LUTs. 
+    void                        precomputePipelineResources( FrameGraph& frameGraph );
+        
 private:
     // Transmittance LUT (computed at runtime).
     Image*                      transmittance;
@@ -54,9 +48,11 @@ private:
     Image*                      deltaMieScattering;
 
     Image*                      deltaScatteringDensity;
-
-    ComputeParameters           parameters;
+    
+    AtmosphereLUTCompute::ComputeTransmittanceRuntimeProperties properties;
 
 private:
-    void                        precompute();
+    // Perform a precompute iteration. The actual precomputations depend on whether we want to store precomputed
+    // irradiance or illuminance values.
+    void                        precomputeIteration( FrameGraph& frameGraph, const dkVec3f& lambdas, const u32 num_scattering_orders, const bool enableBlending = false );
 };
