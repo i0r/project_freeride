@@ -312,7 +312,24 @@ lib AtmosphereLUTCompute {
         float3 deltaIrradiance =  ComputeIndirectIrradianceTexture(AtmosphereParams, $SV_DispatchThreadId.xy, ScatteringOrder);
         
         DeltaIrradiance[$SV_DispatchThreadId.xy] = float4( deltaIrradiance, 1.0f );
-        OutputRenderTarget[$SV_DispatchThreadId.xy] =  IrradianceTextureInput[$SV_DispatchThreadId.xy] + float4( mul( LuminanceFromRadiance, deltaIrradiance ), 1.0f );
+        OutputRenderTarget[$SV_DispatchThreadId.xy] = IrradianceTextureInput[$SV_DispatchThreadId.xy] + float4( mul( LuminanceFromRadiance, deltaIrradiance ), 1.0f );
+    }
+    
+    shader ComputeMultipleScattering {
+        float3x3 LuminanceFromRadiance = float3x3(
+            LuminanceFromRadianceX,
+            LuminanceFromRadianceY,
+            LuminanceFromRadianceZ
+        );
+        
+        float nu;
+        float3 deltaMultipleScattering = ComputeMultipleScatteringTexture(AtmosphereParams, float3($SV_DispatchThreadId.xy, (float)$SV_DispatchThreadId.z + 0.5), nu);
+
+        DeltaRayleigh[$SV_DispatchThreadId.xyz] = float4( deltaMultipleScattering, 1.0f );
+        Scattering[$SV_DispatchThreadId.xyz] = g_ScatteringRO[$SV_DispatchThreadId.xyz] + float4( 
+              mul( LuminanceFromRadiance, deltaMultipleScattering ) / RayleighPhaseFunction(nu),
+              0.0f
+        );
     }
     
     pass ComputeTransmittance {

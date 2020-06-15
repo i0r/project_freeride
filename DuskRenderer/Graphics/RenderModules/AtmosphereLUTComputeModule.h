@@ -37,8 +37,9 @@ private:
     // Combined Mie/Rayleigh scattering LUT (computed at runtime).
     Image*                      scattering;
 
-    // Irradiance LUT (computed at runtime).
-    Image*                      irradiance;
+    // Irradiance LUT (computed at runtime). This is double buffered to do
+    // the scattering accumulation (the last step of the LUT calculation).
+    Image*                      irradiance[2];
 
     // Temporary textures are persistent to avoid unnecessary reallocation and to allow amortized LUT recomputing.
     Image*                      deltaIrradiance;
