@@ -343,7 +343,6 @@ void AtmosphereLUTComputeModule::loadCachedResources( RenderDevice& renderDevice
     scatteringDesc.width = SCATTERING_TEXTURE_WIDTH;
     scatteringDesc.height = SCATTERING_TEXTURE_HEIGHT;
     scatteringDesc.depth = SCATTERING_TEXTURE_DEPTH;
-    scatteringDesc.depth = 1;
     scatteringDesc.mipCount = 1;
     scatteringDesc.bindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
     scatteringDesc.usage = RESOURCE_USAGE_DEFAULT;
@@ -503,7 +502,10 @@ void AtmosphereLUTComputeModule::precomputePipelineResources( FrameGraph& frameG
     // irradiance or illuminance values.
     if ( num_precomputed_wavelengths <= 3 ) {
         dkVec3f lambdas = dkVec3f( kLambdaR, kLambdaG, kLambdaB );
-        dkMat3x3f luminance_from_radiance = dkMat3x3f::Identity;
+
+        properties.LuminanceFromRadianceX = dkVec3f( 1, 0, 0 );
+        properties.LuminanceFromRadianceY = dkVec3f( 0, 1, 0 );
+        properties.LuminanceFromRadianceZ = dkVec3f( 0, 0, 1 );
 
         DensityProfileLayer DummyLayer = { 0.000000f,0.000000f,0.000000f,0.000000f, dkVec3f::Zero, 0.000000f };
 		properties.AtmosphereParams = {
@@ -558,11 +560,9 @@ void AtmosphereLUTComputeModule::precomputePipelineResources( FrameGraph& frameG
                     XYZ_TO_SRGB[component * 3 + 2] * z ) * dlambda );
             };
 
-            dkMat3x3f luminance_from_radiance = dkMat3x3f(
-                coeff( lambdas[0], 0 ), coeff( lambdas[1], 0 ), coeff( lambdas[2], 0 ),
-                coeff( lambdas[0], 1 ), coeff( lambdas[1], 1 ), coeff( lambdas[2], 1 ),
-                coeff( lambdas[0], 2 ), coeff( lambdas[1], 2 ), coeff( lambdas[2], 2 )
-            );
+            properties.LuminanceFromRadianceX = dkVec3f( coeff( lambdas[0], 0 ), coeff( lambdas[1], 0 ), coeff( lambdas[2], 0 ) );
+            properties.LuminanceFromRadianceY = dkVec3f( coeff( lambdas[0], 1 ), coeff( lambdas[1], 1 ), coeff( lambdas[2], 1 ) );
+            properties.LuminanceFromRadianceZ = dkVec3f( coeff( lambdas[0], 2 ), coeff( lambdas[1], 2 ), coeff( lambdas[2], 2 ) );
 
 			properties.AtmosphereParams = {
 				{ rayleigh_density[0], rayleigh_density[1] },
@@ -599,7 +599,7 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
         ResHandle_t PerPassBuffer;
     };
 
-    PassData& passData = frameGraph.addRenderPass<PassData>(
+    frameGraph.addRenderPass<PassData>(
         AtmosphereLUTCompute::ComputeTransmittance_Name,
         [&]( FrameGraphBuilder& builder, PassData& passData ) {
             builder.useAsyncCompute();
@@ -626,12 +626,178 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
 
             cmdList->prepareAndBindResourceList( pipelineState );
 
-            u32 ThreadCountX = TRANSMITTANCE_TEXTURE_WIDTH / AtmosphereLUTCompute::ComputeTransmittance_DispatchX;
-            u32 ThreadCountY = TRANSMITTANCE_TEXTURE_HEIGHT / AtmosphereLUTCompute::ComputeTransmittance_DispatchY;
+            constexpr u32 ThreadCountX = TRANSMITTANCE_TEXTURE_WIDTH / AtmosphereLUTCompute::ComputeTransmittance_DispatchX;
+            constexpr u32 ThreadCountY = TRANSMITTANCE_TEXTURE_HEIGHT / AtmosphereLUTCompute::ComputeTransmittance_DispatchY;
 
             cmdList->dispatchCompute( ThreadCountX, ThreadCountY, 1u );
 
             cmdList->popEventMarker();
         }
     );
+    
+    frameGraph.addRenderPass<PassData>(
+        AtmosphereLUTCompute::ComputeDirectIrradiance_Name,
+        [&]( FrameGraphBuilder& builder, PassData& passData ) {
+            builder.useAsyncCompute();
+
+            BufferDesc passBufferDesc;
+            passBufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
+            passBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
+            passBufferDesc.SizeInBytes = sizeof( AtmosphereLUTCompute::ComputeTransmittanceRuntimeProperties );
+
+            passData.PerPassBuffer = builder.allocateBuffer( passBufferDesc, eShaderStage::SHADER_STAGE_COMPUTE );
+        },
+        [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+            Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
+
+            constexpr PipelineStateDesc DirectIrradiancePipelineDesc = PipelineStateDesc(
+                PipelineStateDesc::COMPUTE,
+                PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+                DepthStencilStateDesc(),
+                RasterizerStateDesc(),
+                BlendStateDesc(),
+                FramebufferLayoutDesc(),
+                { { RenderingHelpers::S_BilinearClampEdge }, 1 }
+            );
+
+            PipelineState* pipelineState = psoCache->getOrCreatePipelineState( DirectIrradiancePipelineDesc, AtmosphereLUTCompute::ComputeDirectIrradiance_ShaderBinding );
+            cmdList->pushEventMarker( AtmosphereLUTCompute::ComputeDirectIrradiance_EventName );
+
+            cmdList->bindPipelineState( pipelineState );
+
+            cmdList->bindImage( AtmosphereLUTCompute::ComputeDirectIrradiance_TransmittanceComputedTexture_Hashcode, transmittance );
+            cmdList->bindImage( AtmosphereLUTCompute::ComputeDirectIrradiance_OutputRenderTarget_Hashcode, irradiance );
+            cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
+
+            cmdList->updateBuffer( *perPassBuffer, &properties.AtmosphereParams, sizeof( AtmosphereLUTCompute::ComputeTransmittanceRuntimeProperties ) );
+
+            cmdList->prepareAndBindResourceList( pipelineState );
+
+            constexpr u32 ThreadCountX = IRRADIANCE_TEXTURE_WIDTH / AtmosphereLUTCompute::ComputeDirectIrradiance_DispatchX;
+            constexpr u32 ThreadCountY = IRRADIANCE_TEXTURE_HEIGHT / AtmosphereLUTCompute::ComputeDirectIrradiance_DispatchY;
+
+            cmdList->dispatchCompute( ThreadCountX, ThreadCountY, 1u );
+
+            cmdList->popEventMarker();
+        }
+    );
+    
+    frameGraph.addRenderPass<PassData>(
+        AtmosphereLUTCompute::ComputeSingleScatteringPass_Name,
+        [&]( FrameGraphBuilder& builder, PassData& passData ) {
+            builder.useAsyncCompute();
+
+            BufferDesc passBufferDesc;
+            passBufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
+            passBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
+            passBufferDesc.SizeInBytes = sizeof( AtmosphereLUTCompute::ComputeSingleScatteringPassRuntimeProperties );
+
+            passData.PerPassBuffer = builder.allocateBuffer( passBufferDesc, eShaderStage::SHADER_STAGE_COMPUTE );
+        },
+        [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+            Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
+
+            constexpr PipelineStateDesc ComputeSingleScatteringPipelineDesc = PipelineStateDesc(
+                PipelineStateDesc::COMPUTE,
+                PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+                DepthStencilStateDesc(),
+                RasterizerStateDesc(),
+                BlendStateDesc(),
+                FramebufferLayoutDesc(),
+                { { RenderingHelpers::S_BilinearClampEdge }, 1 }
+            );
+
+            PipelineState* pipelineState = psoCache->getOrCreatePipelineState( ComputeSingleScatteringPipelineDesc, AtmosphereLUTCompute::ComputeSingleScatteringPass_ShaderBinding );
+            cmdList->pushEventMarker( AtmosphereLUTCompute::ComputeSingleScatteringPass_EventName );
+
+            cmdList->bindPipelineState( pipelineState );
+
+            cmdList->bindImage( AtmosphereLUTCompute::ComputeSingleScatteringPass_TransmittanceComputedTexture_Hashcode, transmittance );
+            cmdList->bindImage( AtmosphereLUTCompute::ComputeSingleScatteringPass_DeltaRayleigh_Hashcode, deltaRayleighScattering );
+            cmdList->bindImage( AtmosphereLUTCompute::ComputeSingleScatteringPass_DeltaMie_Hashcode, deltaMieScattering );
+            cmdList->bindImage( AtmosphereLUTCompute::ComputeSingleScatteringPass_Scattering_Hashcode, scattering );
+
+            cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
+
+            cmdList->updateBuffer( *perPassBuffer, &properties.AtmosphereParams, sizeof( AtmosphereLUTCompute::ComputeTransmittanceRuntimeProperties ) );
+
+            cmdList->prepareAndBindResourceList( pipelineState );
+
+            constexpr u32 ThreadCountX = SCATTERING_TEXTURE_WIDTH / AtmosphereLUTCompute::ComputeSingleScatteringPass_DispatchX;
+            constexpr u32 ThreadCountY = SCATTERING_TEXTURE_HEIGHT / AtmosphereLUTCompute::ComputeSingleScatteringPass_DispatchY;
+            constexpr u32 ThreadCountZ = SCATTERING_TEXTURE_DEPTH / AtmosphereLUTCompute::ComputeSingleScatteringPass_DispatchZ;
+
+            cmdList->dispatchCompute( ThreadCountX, ThreadCountY, ThreadCountZ );
+
+            cmdList->popEventMarker();
+        }
+    );
+
+    for ( u32 scattering_order = 2u; scattering_order <= num_scattering_orders; ++scattering_order ) {
+        properties.ScatteringOrder = scattering_order;
+        
+        frameGraph.addRenderPass<PassData>(
+            AtmosphereLUTCompute::ComputeScatteringDensity_Name,
+            [&]( FrameGraphBuilder& builder, PassData& passData ) {
+                builder.useAsyncCompute();
+
+                BufferDesc passBufferDesc;
+                passBufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
+                passBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
+                passBufferDesc.SizeInBytes = sizeof( AtmosphereLUTCompute::ComputeScatteringDensityRuntimeProperties );
+
+                passData.PerPassBuffer = builder.allocateBuffer( passBufferDesc, eShaderStage::SHADER_STAGE_COMPUTE );
+            },
+            [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+                Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
+
+                constexpr PipelineStateDesc ComputeScatteringDensityPipelineDesc = PipelineStateDesc(
+                    PipelineStateDesc::COMPUTE,
+                    PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+                    DepthStencilStateDesc(),
+                    RasterizerStateDesc(),
+                    BlendStateDesc(),
+                    FramebufferLayoutDesc(),
+                    { { RenderingHelpers::S_BilinearClampEdge }, 1 }
+                );
+
+                PipelineState* pipelineState = psoCache->getOrCreatePipelineState( ComputeScatteringDensityPipelineDesc, AtmosphereLUTCompute::ComputeScatteringDensity_ShaderBinding );
+                cmdList->pushEventMarker( AtmosphereLUTCompute::ComputeScatteringDensity_EventName );
+
+                cmdList->bindPipelineState( pipelineState );
+
+                cmdList->bindImage( AtmosphereLUTCompute::ComputeScatteringDensity_TransmittanceComputedTexture_Hashcode, transmittance );
+                cmdList->bindImage( AtmosphereLUTCompute::ComputeScatteringDensity_SingleRayleighScatteringTexture_Hashcode, deltaRayleighScattering );
+                cmdList->bindImage( AtmosphereLUTCompute::ComputeScatteringDensity_SingleMieScatteringTexture_Hashcode, deltaMieScattering );
+                cmdList->bindImage( AtmosphereLUTCompute::ComputeScatteringDensity_IrradianceTextureInput_Hashcode, irradiance );
+                cmdList->bindImage( AtmosphereLUTCompute::ComputeScatteringDensity_ScatteringDensity_Hashcode, deltaScatteringDensity );
+
+                cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
+
+                cmdList->updateBuffer( *perPassBuffer, &properties.AtmosphereParams, sizeof( AtmosphereLUTCompute::ComputeScatteringDensityRuntimeProperties ) );
+
+                cmdList->prepareAndBindResourceList( pipelineState );
+
+                constexpr u32 ThreadCountX = SCATTERING_TEXTURE_WIDTH / AtmosphereLUTCompute::ComputeScatteringDensity_DispatchX;
+                constexpr u32 ThreadCountY = SCATTERING_TEXTURE_HEIGHT / AtmosphereLUTCompute::ComputeScatteringDensity_DispatchY;
+                constexpr u32 ThreadCountZ = SCATTERING_TEXTURE_DEPTH / AtmosphereLUTCompute::ComputeScatteringDensity_DispatchZ;
+
+                cmdList->dispatchCompute( ThreadCountX, ThreadCountY, ThreadCountZ );
+
+                cmdList->popEventMarker();
+            }
+        );
+
+        // IRRADIANCE_TEXTURE_WIDTH / 16, IRRADIANCE_TEXTURE_HEIGHT / 8, 1 );
+
+        /*  resourceList.resource[0].buffer = deltaIrradianceRenderTarget;
+            resourceList.resource[1].buffer = irradianceRenderTarget;
+            resourceList.resource[2].buffer = deltaRayleighScatteringRenderTarget;
+            resourceList.resource[3].buffer = deltaMieScatteringRenderTarget;
+            resourceList.resource[4].buffer = deltaScatteringDensityRenderTarget;
+            resourceList.resource[5].buffer = passBuffer;
+            resourceList.resource[6].sampler = bilinearSampler;
+            resourceList.resource[7].buffer = irradianceRenderTarget;
+            renderDevice.updateResourceList( *computeIndirectIrradiancePso, resourceList );*/
+    }
 }
