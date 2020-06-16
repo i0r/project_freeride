@@ -28,6 +28,8 @@ public:
     void                        setSunSphericalPosition( const f32 verticalAngleRads, const f32 horizontalAngleRads );
     dkVec2f                     getSunSphericalPosition();
 
+    void                        setLookUpTables( Image* transmittance, Image* scattering, Image* irradiance );
+
 private:
     PipelineState*              skyRenderPso[5];
     PipelineState*              skyRenderNoSunFixedExposurePso[5];

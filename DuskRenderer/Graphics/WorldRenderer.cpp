@@ -155,6 +155,8 @@ void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache
 
     // Execute precompute step.
     graph.execute( renderDevice, 0.0f );
+
+    AtmosphereLUTCompute->bindLUTs( BrunetonSky );
 }
 
 void WorldRenderer::drawDebugSphere( CommandList& cmdList )

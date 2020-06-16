@@ -244,6 +244,13 @@ dkVec2f BrunetonSkyRenderModule::getSunSphericalPosition()
     return dkVec2f( sunVerticalAngle, sunHorizontalAngle );
 }
 
+void BrunetonSkyRenderModule::setLookUpTables( Image* transmittance, Image* scattering, Image* irradiance )
+{
+    transmittanceTexture = transmittance;
+    scatteringTexture = scattering;
+    irradianceTexture = irradiance;
+}
+
 PipelineState* BrunetonSkyRenderModule::getPipelineStatePermutation( const u32 samplerCount, const bool renderSunDisk, const bool useAutomaticExposure )
 {
     switch ( samplerCount ) {
