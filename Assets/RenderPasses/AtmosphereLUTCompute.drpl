@@ -13,6 +13,10 @@ lib AtmosphereLUTCompute {
             swizzle = float4;
         }
         
+        RWTexture2D OutputRenderTarget2 {
+            swizzle = float4;
+        }
+        
         RWTexture3D DeltaRayleigh {
             swizzle = float4;
         }
@@ -53,6 +57,10 @@ lib AtmosphereLUTCompute {
             swizzle = float4;
         }
        
+        Texture3D ScatteringAccumulate  {
+            swizzle = float4;
+        }
+        
         sampler LUTSampler {
             format = BilinearClampEdge;
         }
@@ -316,6 +324,7 @@ lib AtmosphereLUTCompute {
         float2 PixelCoordinates = float2( $SV_DispatchThreadId.xy ) + float2( 0.5f, 0.5f );
         
         OutputRenderTarget[$SV_DispatchThreadId.xy] = float4( ComputeDirectIrradianceTexture( AtmosphereParams, PixelCoordinates ), 1.0f );
+        OutputRenderTarget2[$SV_DispatchThreadId.xy] = float4( 0, 0, 0, 1.0f );
     }
     
     shader ComputeSingleScatteringCS {
@@ -379,7 +388,7 @@ lib AtmosphereLUTCompute {
         float3 deltaMultipleScattering = ComputeMultipleScatteringTexture(AtmosphereParams, PixelCoordinates, nu);
 
         DeltaRayleigh[$SV_DispatchThreadId.xyz] = float4( deltaMultipleScattering, 1.0f );
-        Scattering[$SV_DispatchThreadId.xyz] = ScatteringTextureInput[$SV_DispatchThreadId.xyz] + float4( 
+        Scattering[$SV_DispatchThreadId.xyz] = ScatteringAccumulate[$SV_DispatchThreadId.xyz] + float4( 
               mul( LuminanceFromRadiance, deltaMultipleScattering ) / RayleighPhaseFunction(nu),
               0.0f
         );

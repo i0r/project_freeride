@@ -37,7 +37,7 @@ private:
     Image*                      transmittance;
 
     // Combined Mie/Rayleigh scattering LUT (computed at runtime).
-    Image*                      scattering;
+    Image*                      scattering[2];
 
     // Irradiance LUT (computed at runtime). This is double buffered to do
     // the scattering accumulation (the last step of the LUT calculation).

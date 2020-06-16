@@ -224,10 +224,10 @@ void BrunetonSkyRenderModule::loadCachedResources( RenderDevice& renderDevice, S
         samplerCount *= 2u;
     }
 
-    // Load precomputed table and shaders
-    transmittanceTexture = graphicsAssetCache.getImage( ATMOSPHERE_TRANSMITTANCE_TEXTURE_NAME );
-    scatteringTexture = graphicsAssetCache.getImage( ATMOSPHERE_SCATTERING_TEXTURE_NAME );
-    irradianceTexture = graphicsAssetCache.getImage( ATMOSPHERE_IRRADIANCE_TEXTURE_NAME );
+    //// Load precomputed table and shaders
+    //transmittanceTexture = graphicsAssetCache.getImage( ATMOSPHERE_TRANSMITTANCE_TEXTURE_NAME );
+    //scatteringTexture = graphicsAssetCache.getImage( ATMOSPHERE_SCATTERING_TEXTURE_NAME );
+    //irradianceTexture = graphicsAssetCache.getImage( ATMOSPHERE_IRRADIANCE_TEXTURE_NAME );
 
     // Set Default Parameters
     parameters.EarthCenter = dkVec3f( 0.0, 0.0, -kBottomRadius / kLengthUnitInMeters );
