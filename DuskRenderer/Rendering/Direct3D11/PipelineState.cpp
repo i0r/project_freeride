@@ -568,7 +568,7 @@ void RenderDevice::destroyPipelineStateCache( PipelineState* pipelineState )
 
 void CommandList::begin()
 {
-
+    nativeCommandList->CommandPacketAllocator->clear();
 }
 
 void CommandList::bindPipelineState( PipelineState* pipelineState )

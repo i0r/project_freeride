@@ -12,7 +12,7 @@
 #include <d3d11_1.h>
 
 // Memory allocated for commands buffering (in bytes).
-static constexpr i32 COMMAND_PACKET_SIZE = 512 << 4;
+static constexpr i32 COMMAND_PACKET_SIZE = 1024 << 4;
 
 CommandList::CommandList( const CommandList::Type cmdListType )
     : memoryAllocator( nullptr )

@@ -71,8 +71,8 @@ namespace CommandPacket
     {
         u32             Identifier;
         ID3D11Buffer*   BufferObject;
-        const void*     Data;
         size_t          DataSize;
+        void*           Data;
     };
 
     struct SetupFramebuffer

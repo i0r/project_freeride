@@ -117,8 +117,9 @@ void CommandList::updateBuffer( Buffer& buffer, const void* data, const size_t d
     CommandPacket::UpdateBuffer* commandPacket = dk::core::allocate<CommandPacket::UpdateBuffer>( nativeCommandList->CommandPacketAllocator );
     commandPacket->Identifier = CPI_UPDATE_BUFFER;
     commandPacket->BufferObject = buffer.BufferObject;
-    commandPacket->Data = data;
     commandPacket->DataSize = dataSize;
+    commandPacket->Data = dk::core::allocateArray<u8>( nativeCommandList->CommandPacketAllocator, dataSize );
+    memcpy( commandPacket->Data, data, dataSize );
 
     nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
