@@ -2,9 +2,9 @@ lib AtmosphereLUTCompute {
     properties {
         AtmosphereParameters        AtmosphereParams;
         cflag                       UseBlending = false;
-        float3                      LuminanceFromRadianceX;
-        float3                      LuminanceFromRadianceY;
-        float3                      LuminanceFromRadianceZ;
+        float4                      LuminanceFromRadianceX;
+        float4                      LuminanceFromRadianceY;
+        float4                      LuminanceFromRadianceZ;
         int                         ScatteringOrder;
     }
     
@@ -41,10 +41,6 @@ lib AtmosphereLUTCompute {
             swizzle = float4;
         }
         
-        Texture3D ScatteringRO {
-            swizzle = float4;
-        }
-        
         Texture3D SingleRayleighScatteringTexture  {
             swizzle = float4;
         }
@@ -53,6 +49,10 @@ lib AtmosphereLUTCompute {
             swizzle = float4;
         }
         
+        Texture3D ScatteringTextureInput  {
+            swizzle = float4;
+        }
+       
         sampler LUTSampler {
             format = BilinearClampEdge;
         }
@@ -261,33 +261,81 @@ lib AtmosphereLUTCompute {
               atmosphere, frag_coord / IRRADIANCE_TEXTURE_SIZE, r, mu_s);
           return ComputeIndirectIrradiance(atmosphere, r, mu_s);
         }
+        RadianceSpectrum ComputeMultipleScattering(
+            IN(AtmosphereParameters) atmosphere,
+            Length r, Number mu, Number mu_s, Number nu,
+            bool ray_r_mu_intersects_ground) {
+          static const int SAMPLE_COUNT = 50;
+          Length dx =
+              DistanceToNearestAtmosphereBoundary(
+                  atmosphere, r, mu, ray_r_mu_intersects_ground) /
+                      Number(SAMPLE_COUNT);
+          RadianceSpectrum rayleigh_mie_sum =
+              RadianceSpectrum(0.0 * watt_per_square_meter_per_sr_per_nm, 0.0 * watt_per_square_meter_per_sr_per_nm, 0.0 * watt_per_square_meter_per_sr_per_nm);
+          for (int i = 0; i <= SAMPLE_COUNT; ++i) {
+            Length d_i = Number(i) * dx;
+            Length r_i =
+                ClampRadius(atmosphere, sqrt(d_i * d_i + 2.0 * r * mu * d_i + r * r));
+            Number mu_i = ClampCosine((r * mu + d_i) / r_i);
+            Number mu_s_i = ClampCosine((r * mu_s + d_i * nu) / r_i);
+            RadianceSpectrum rayleigh_mie_i =
+                GetScattering(
+                    atmosphere, ScatteringTextureInput, LUTSampler, r_i, mu_i, mu_s_i, nu,
+                    ray_r_mu_intersects_ground) *
+                GetTransmittance(
+                    atmosphere, TransmittanceComputedTexture, LUTSampler, r, mu, d_i,
+                    ray_r_mu_intersects_ground) *
+                dx;
+            Number weight_i = (i == 0 || i == SAMPLE_COUNT) ? 0.5 : 1.0;
+            rayleigh_mie_sum += rayleigh_mie_i * weight_i;
+          }
+          return rayleigh_mie_sum;
+        }
+
+        RadianceSpectrum ComputeMultipleScatteringTexture(
+            IN(AtmosphereParameters) atmosphere,
+            IN(float3) frag_coord, OUT(Number) nu) {
+          Length r;
+          Number mu;
+          Number mu_s;
+          bool ray_r_mu_intersects_ground;
+          GetRMuMuSNuFromScatteringTextureFragCoord(atmosphere, frag_coord,
+              r, mu, mu_s, nu, ray_r_mu_intersects_ground);
+          return ComputeMultipleScattering(atmosphere, r, mu, mu_s, nu, ray_r_mu_intersects_ground);
+        }
     }
     
     shader ComputeTransmittanceCS {
-        float3 Transmittance = ComputeTransmittanceToTopAtmosphereBoundaryTexture( AtmosphereParams, float2( $SV_DispatchThreadId.xy ) );
+        float2 PixelCoordinates = float2( $SV_DispatchThreadId.xy ) + float2( 0.5f, 0.5f );
+        
+        float3 Transmittance = ComputeTransmittanceToTopAtmosphereBoundaryTexture( AtmosphereParams, PixelCoordinates );
         OutputRenderTarget[$SV_DispatchThreadId.xy] = float4( Transmittance, 1.0f );
     }
     
     shader ComputeDirectIrradianceCS {
-        OutputRenderTarget[$SV_DispatchThreadId.xy] = float4( ComputeDirectIrradianceTexture( AtmosphereParams, float2( $SV_DispatchThreadId.xy ) ), 1.0f );
+        float2 PixelCoordinates = float2( $SV_DispatchThreadId.xy ) + float2( 0.5f, 0.5f );
+        
+        OutputRenderTarget[$SV_DispatchThreadId.xy] = float4( ComputeDirectIrradianceTexture( AtmosphereParams, PixelCoordinates ), 1.0f );
     }
     
     shader ComputeSingleScatteringCS {
         float3x3 LuminanceFromRadiance = float3x3(
-            LuminanceFromRadianceX,
-            LuminanceFromRadianceY,
-            LuminanceFromRadianceZ
+            LuminanceFromRadianceX.xyz,
+            LuminanceFromRadianceY.xyz,
+            LuminanceFromRadianceZ.xyz
         );
              
+        float3 PixelCoordinates = float3( $SV_DispatchThreadId.xyz ) + float3( 0.5f, 0.5f, 0.5f );
+        
         float3 deltaRayleigh;
         float3 deltaMie;
-        ComputeSingleScatteringTexture( AtmosphereParams, float3( $SV_DispatchThreadId.xy, (float)$SV_DispatchThreadId.z + 0.5f ), deltaRayleigh, deltaMie );
+        ComputeSingleScatteringTexture( AtmosphereParams, PixelCoordinates, deltaRayleigh, deltaMie );
 
         DeltaRayleigh[$SV_DispatchThreadId.xyz] = float4( deltaRayleigh, 1.0f );
         DeltaMie[$SV_DispatchThreadId.xyz] = float4( deltaMie, 1.0f );
         
 #if $UseBlending
-        Scattering[$SV_DispatchThreadId.xyz] = ScatteringRO[$SV_DispatchThreadId.xyz] 
+        Scattering[$SV_DispatchThreadId.xyz] = ScatteringTextureInput[$SV_DispatchThreadId.xyz] 
                                        + float4( mul( LuminanceFromRadiance, deltaRayleigh ).rgb, mul( LuminanceFromRadiance, deltaMie ).r );
 #else
         Scattering[$SV_DispatchThreadId.xyz] = float4( 
@@ -298,35 +346,40 @@ lib AtmosphereLUTCompute {
     }
     
     shader ComputeScatteringDensityCS {
-        float3 density = ComputeScatteringDensityTexture(AtmosphereParams, float3($SV_DispatchThreadId.xy, (float)$SV_DispatchThreadId.z + 0.5f), ScatteringOrder);
+        float3 PixelCoordinates = float3( $SV_DispatchThreadId.xyz ) + float3( 0.5f, 0.5f, 0.5f );
+        
+        float3 density = ComputeScatteringDensityTexture(AtmosphereParams, PixelCoordinates, ScatteringOrder);
         ScatteringDensity[$SV_DispatchThreadId.xyz] = float4( density, 1.0f );
     }
     
     shader ComputeIndirectIrradianceCS {
         float3x3 LuminanceFromRadiance = float3x3(
-            LuminanceFromRadianceX,
-            LuminanceFromRadianceY,
-            LuminanceFromRadianceZ
+            LuminanceFromRadianceX.xyz,
+            LuminanceFromRadianceY.xyz,
+            LuminanceFromRadianceZ.xyz
         );
         
-        float3 deltaIrradiance =  ComputeIndirectIrradianceTexture(AtmosphereParams, $SV_DispatchThreadId.xy, ScatteringOrder);
+        float2 PixelCoordinates = float2( $SV_DispatchThreadId.xy ) + float2( 0.5f, 0.5f );
+        
+        float3 deltaIrradiance =  ComputeIndirectIrradianceTexture(AtmosphereParams, PixelCoordinates, ScatteringOrder);
         
         DeltaIrradiance[$SV_DispatchThreadId.xy] = float4( deltaIrradiance, 1.0f );
         OutputRenderTarget[$SV_DispatchThreadId.xy] = IrradianceTextureInput[$SV_DispatchThreadId.xy] + float4( mul( LuminanceFromRadiance, deltaIrradiance ), 1.0f );
     }
     
-    shader ComputeMultipleScattering {
+    shader ComputeMultipleScatteringCS {
         float3x3 LuminanceFromRadiance = float3x3(
-            LuminanceFromRadianceX,
-            LuminanceFromRadianceY,
-            LuminanceFromRadianceZ
+            LuminanceFromRadianceX.xyz,
+            LuminanceFromRadianceY.xyz,
+            LuminanceFromRadianceZ.xyz
         );
+        float3 PixelCoordinates = float3( $SV_DispatchThreadId.xyz ) + float3( 0.5f, 0.5f, 0.5f );
         
         float nu;
-        float3 deltaMultipleScattering = ComputeMultipleScatteringTexture(AtmosphereParams, float3($SV_DispatchThreadId.xy, (float)$SV_DispatchThreadId.z + 0.5), nu);
+        float3 deltaMultipleScattering = ComputeMultipleScatteringTexture(AtmosphereParams, PixelCoordinates, nu);
 
         DeltaRayleigh[$SV_DispatchThreadId.xyz] = float4( deltaMultipleScattering, 1.0f );
-        Scattering[$SV_DispatchThreadId.xyz] = g_ScatteringRO[$SV_DispatchThreadId.xyz] + float4( 
+        Scattering[$SV_DispatchThreadId.xyz] = ScatteringTextureInput[$SV_DispatchThreadId.xyz] + float4( 
               mul( LuminanceFromRadiance, deltaMultipleScattering ) / RayleighPhaseFunction(nu),
               0.0f
         );
@@ -362,5 +415,10 @@ lib AtmosphereLUTCompute {
     pass ComputeIndirectIrradiance {    
         compute       = ComputeIndirectIrradianceCS;        
         dispatch      = { 16, 8, 1 };
+    }
+    
+    pass ComputeMultipleScattering {    
+        compute       = ComputeMultipleScatteringCS;        
+        dispatch      = { 8, 8, 8 };
     }
 }

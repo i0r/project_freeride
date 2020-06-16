@@ -30,6 +30,8 @@ public:
     // Compute atmosphere scattering LUTs. 
     void                        precomputePipelineResources( FrameGraph& frameGraph );
         
+    void                        bindLUTs( BrunetonSkyRenderModule* runtimeRenderModule );
+
 private:
     // Transmittance LUT (computed at runtime).
     Image*                      transmittance;

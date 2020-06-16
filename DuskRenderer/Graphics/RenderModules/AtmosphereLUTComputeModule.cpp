@@ -22,6 +22,8 @@
 //constexpr f64 kLambdaB = 440.0;
 #include "AtmosphereSettings.h" // TODO REMOVE THIS INCLUDE ONCE THE NEW TECH IS IMPLEMENTED
 
+#include "BrunetonSkyModel.h"
+
 // Values from "Reference Solar Spectral Irradiance: ASTM G-173", ETR column
 // (see http://rredc.nrel.gov/solar/spectra/am1.5/ASTMG173/ASTMG173.html),
 // summed and averaged in each bin (e.g. the value for 360nm is the average
@@ -514,9 +516,9 @@ void AtmosphereLUTComputeModule::precomputePipelineResources( FrameGraph& frameG
     if ( num_precomputed_wavelengths <= 3 ) {
         dkVec3f lambdas = dkVec3f( kLambdaR, kLambdaG, kLambdaB );
 
-        properties.LuminanceFromRadianceX = dkVec3f( 1, 0, 0 );
-        properties.LuminanceFromRadianceY = dkVec3f( 0, 1, 0 );
-        properties.LuminanceFromRadianceZ = dkVec3f( 0, 0, 1 );
+        properties.LuminanceFromRadianceX = dkVec4f( 1, 0, 0, 0 );
+        properties.LuminanceFromRadianceY = dkVec4f( 0, 1, 0, 0 );
+        properties.LuminanceFromRadianceZ = dkVec4f( 0, 0, 1, 0 );
 
         DensityProfileLayer DummyLayer = { 0.000000f,0.000000f,0.000000f,0.000000f, dkVec3f::Zero, 0.000000f };
 		properties.AtmosphereParams = {
@@ -571,9 +573,9 @@ void AtmosphereLUTComputeModule::precomputePipelineResources( FrameGraph& frameG
                     XYZ_TO_SRGB[component * 3 + 2] * z ) * dlambda );
             };
 
-            properties.LuminanceFromRadianceX = dkVec3f( coeff( lambdas[0], 0 ), coeff( lambdas[1], 0 ), coeff( lambdas[2], 0 ) );
-            properties.LuminanceFromRadianceY = dkVec3f( coeff( lambdas[0], 1 ), coeff( lambdas[1], 1 ), coeff( lambdas[2], 1 ) );
-            properties.LuminanceFromRadianceZ = dkVec3f( coeff( lambdas[0], 2 ), coeff( lambdas[1], 2 ), coeff( lambdas[2], 2 ) );
+            properties.LuminanceFromRadianceX = dkVec4f( coeff( lambdas[0], 0 ), coeff( lambdas[1], 0 ), coeff( lambdas[2], 0 ), 0 );
+            properties.LuminanceFromRadianceY = dkVec4f( coeff( lambdas[0], 1 ), coeff( lambdas[1], 1 ), coeff( lambdas[2], 1 ), 0 );
+            properties.LuminanceFromRadianceZ = dkVec4f( coeff( lambdas[0], 2 ), coeff( lambdas[1], 2 ), coeff( lambdas[2], 2 ), 0 );
 
 			properties.AtmosphereParams = {
 				{ rayleigh_density[0], rayleigh_density[1] },
@@ -602,6 +604,11 @@ void AtmosphereLUTComputeModule::precomputePipelineResources( FrameGraph& frameG
             precomputeIteration( frameGraph, lambdas, num_scattering_orders, i > 0 );
         }
     }
+}
+
+void AtmosphereLUTComputeModule::bindLUTs( BrunetonSkyRenderModule* runtimeRenderModule )
+{
+    runtimeRenderModule->setLookUpTables( transmittance, scattering, irradiance[0] );
 }
 
 void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, const dkVec3f& lambdas, const u32 num_scattering_orders, const bool enableBlending )
@@ -634,7 +641,14 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
             cmdList->bindImage( AtmosphereLUTCompute::ComputeTransmittance_OutputRenderTarget_Hashcode, transmittance );
             cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
 
-            cmdList->updateBuffer( *perPassBuffer, &properties.AtmosphereParams, sizeof( AtmosphereLUTCompute::ComputeTransmittanceRuntimeProperties ) );
+            AtmosphereLUTCompute::ComputeDirectIrradianceRuntimeProperties parameters;
+            parameters.AtmosphereParams = properties.AtmosphereParams;
+            parameters.LuminanceFromRadianceX = properties.LuminanceFromRadianceX;
+            parameters.LuminanceFromRadianceY = properties.LuminanceFromRadianceY;
+            parameters.LuminanceFromRadianceZ = properties.LuminanceFromRadianceZ;
+            parameters.ScatteringOrder = 0;
+
+            cmdList->updateBuffer( *perPassBuffer, &parameters, sizeof( AtmosphereLUTCompute::ComputeTransmittanceRuntimeProperties ) );
 
             cmdList->prepareAndBindResourceList( pipelineState );
 
@@ -664,7 +678,7 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
             passData.PerPassBuffer = builder.allocateBuffer( passBufferDesc, eShaderStage::SHADER_STAGE_COMPUTE );
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
-            Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
+           Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
 
             constexpr PipelineStateDesc DirectIrradiancePipelineDesc = PipelineStateDesc(
                 PipelineStateDesc::COMPUTE,
@@ -685,7 +699,14 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
             cmdList->bindImage( AtmosphereLUTCompute::ComputeDirectIrradiance_OutputRenderTarget_Hashcode, deltaIrradiance );
             cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
 
-            cmdList->updateBuffer( *perPassBuffer, &properties.AtmosphereParams, sizeof( AtmosphereLUTCompute::ComputeTransmittanceRuntimeProperties ) );
+            AtmosphereLUTCompute::ComputeDirectIrradianceRuntimeProperties parameters;
+            parameters.AtmosphereParams = properties.AtmosphereParams;
+            parameters.LuminanceFromRadianceX = properties.LuminanceFromRadianceX;
+            parameters.LuminanceFromRadianceY = properties.LuminanceFromRadianceY;
+            parameters.LuminanceFromRadianceZ = properties.LuminanceFromRadianceZ;
+            parameters.ScatteringOrder = 0;
+
+            cmdList->updateBuffer( *perPassBuffer, &parameters, sizeof( AtmosphereLUTCompute::ComputeTransmittanceRuntimeProperties ) );
 
             cmdList->prepareAndBindResourceList( pipelineState );
 
@@ -739,7 +760,14 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
 
             cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
 
-            cmdList->updateBuffer( *perPassBuffer, &properties.AtmosphereParams, sizeof( AtmosphereLUTCompute::ComputeTransmittanceRuntimeProperties ) );
+            AtmosphereLUTCompute::ComputeDirectIrradianceRuntimeProperties parameters;
+            parameters.AtmosphereParams = properties.AtmosphereParams;
+            parameters.LuminanceFromRadianceX = properties.LuminanceFromRadianceX;
+            parameters.LuminanceFromRadianceY = properties.LuminanceFromRadianceY;
+            parameters.LuminanceFromRadianceZ = properties.LuminanceFromRadianceZ;
+            parameters.ScatteringOrder = 0;
+
+            cmdList->updateBuffer( *perPassBuffer, &parameters, sizeof( AtmosphereLUTCompute::ComputeTransmittanceRuntimeProperties ) );
 
             cmdList->prepareAndBindResourceList( pipelineState );
 
@@ -769,9 +797,7 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
                 passData.PerPassBuffer = builder.allocateBuffer( passBufferDesc, eShaderStage::SHADER_STAGE_COMPUTE );
             },
 			[=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
-				properties.ScatteringOrder = scattering_order;
-
-                Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
+				Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
 
                 constexpr PipelineStateDesc ComputeScatteringDensityPipelineDesc = PipelineStateDesc(
                     PipelineStateDesc::COMPUTE,
@@ -790,13 +816,20 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
 
                 cmdList->bindImage( AtmosphereLUTCompute::ComputeScatteringDensity_TransmittanceComputedTexture_Hashcode, transmittance );
                 cmdList->bindImage( AtmosphereLUTCompute::ComputeScatteringDensity_SingleRayleighScatteringTexture_Hashcode, deltaRayleighScattering );
-                cmdList->bindImage( AtmosphereLUTCompute::ComputeScatteringDensity_SingleMieScatteringTexture_Hashcode, deltaMieScattering );
                 cmdList->bindImage( AtmosphereLUTCompute::ComputeScatteringDensity_IrradianceTextureInput_Hashcode, deltaIrradiance );
+                cmdList->bindImage( AtmosphereLUTCompute::ComputeScatteringDensity_SingleMieScatteringTexture_Hashcode, deltaMieScattering );
                 cmdList->bindImage( AtmosphereLUTCompute::ComputeScatteringDensity_ScatteringDensity_Hashcode, deltaScatteringDensity );
 
                 cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
 
-                cmdList->updateBuffer( *perPassBuffer, &properties.AtmosphereParams, sizeof( AtmosphereLUTCompute::ComputeScatteringDensityRuntimeProperties ) );
+                AtmosphereLUTCompute::ComputeDirectIrradianceRuntimeProperties parameters;
+                parameters.AtmosphereParams = properties.AtmosphereParams;
+                parameters.LuminanceFromRadianceX = properties.LuminanceFromRadianceX;
+                parameters.LuminanceFromRadianceY = properties.LuminanceFromRadianceY;
+                parameters.LuminanceFromRadianceZ = properties.LuminanceFromRadianceZ;
+                parameters.ScatteringOrder = scattering_order;
+
+                cmdList->updateBuffer( *perPassBuffer, &parameters, sizeof( AtmosphereLUTCompute::ComputeScatteringDensityRuntimeProperties ) );
 
                 cmdList->prepareAndBindResourceList( pipelineState );
 
@@ -825,9 +858,7 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
 			    passData.PerPassBuffer = builder.allocateBuffer( passBufferDesc, eShaderStage::SHADER_STAGE_COMPUTE );
 		    },
 			[=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
-				properties.ScatteringOrder = scattering_order - 1;
-
-                i32 irradianceWriteIndex = ( scattering_order % 2 == 0 ) ? 0 : 1;
+				i32 irradianceWriteIndex = ( scattering_order % 2 == 0 ) ? 0 : 1;
                 i32 irradianceReadIndex = ( irradianceWriteIndex == 0 ) ? 1 : 0;
                 
 			    Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
@@ -856,7 +887,14 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
                 
 			    cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
 
-			    cmdList->updateBuffer( *perPassBuffer, &properties.AtmosphereParams, sizeof( AtmosphereLUTCompute::ComputeIndirectIrradianceRuntimeProperties ) );
+                AtmosphereLUTCompute::ComputeDirectIrradianceRuntimeProperties parameters;
+                parameters.AtmosphereParams = properties.AtmosphereParams;
+                parameters.LuminanceFromRadianceX = properties.LuminanceFromRadianceX;
+                parameters.LuminanceFromRadianceY = properties.LuminanceFromRadianceY;
+                parameters.LuminanceFromRadianceZ = properties.LuminanceFromRadianceZ;
+                parameters.ScatteringOrder = scattering_order - 1;
+
+			    cmdList->updateBuffer( *perPassBuffer, &parameters, sizeof( AtmosphereLUTCompute::ComputeIndirectIrradianceRuntimeProperties ) );
 
 			    cmdList->prepareAndBindResourceList( pipelineState );
 
@@ -870,14 +908,70 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
 		    }
 		);
 
-        /*  resourceList.resource[0].buffer = deltaIrradianceRenderTarget;
-            resourceList.resource[1].buffer = irradianceRenderTarget;
-            resourceList.resource[2].buffer = deltaRayleighScatteringRenderTarget;
-            resourceList.resource[3].buffer = deltaMieScatteringRenderTarget;
-            resourceList.resource[4].buffer = deltaScatteringDensityRenderTarget;
-            resourceList.resource[5].buffer = passBuffer;
-            resourceList.resource[6].sampler = bilinearSampler;
-            resourceList.resource[7].buffer = irradianceRenderTarget;
-            renderDevice.updateResourceList( *computeIndirectIrradiancePso, resourceList );*/
+
+        // Compute the multiple scattering, store it in
+        // delta_multiple_scattering_texture, and accumulate it in
+        // scattering_texture_.
+        // 
+        frameGraph.addRenderPass<PassData>(
+			AtmosphereLUTCompute::ComputeMultipleScattering_Name,
+			[&]( FrameGraphBuilder& builder, PassData& passData ) {
+			    builder.useAsyncCompute();
+
+			    BufferDesc passBufferDesc;
+			    passBufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
+			    passBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
+			    passBufferDesc.SizeInBytes = sizeof( AtmosphereLUTCompute::ComputeMultipleScatteringRuntimeProperties );
+
+			    passData.PerPassBuffer = builder.allocateBuffer( passBufferDesc, eShaderStage::SHADER_STAGE_COMPUTE );
+		    },
+			[=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+				i32 irradianceWriteIndex = ( scattering_order % 2 == 0 ) ? 0 : 1;
+                i32 irradianceReadIndex = ( irradianceWriteIndex == 0 ) ? 1 : 0;
+                
+			    Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
+
+			    constexpr PipelineStateDesc ComputeScatteringDensityPipelineDesc = PipelineStateDesc(
+				    PipelineStateDesc::COMPUTE,
+				    PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+				    DepthStencilStateDesc(),
+				    RasterizerStateDesc(),
+				    BlendStateDesc(),
+				    FramebufferLayoutDesc(),
+				    { { RenderingHelpers::S_BilinearClampEdge }, 1 }
+			    );
+
+			    PipelineState* pipelineState = psoCache->getOrCreatePipelineState( ComputeScatteringDensityPipelineDesc, AtmosphereLUTCompute::ComputeMultipleScattering_ShaderBinding );
+			    cmdList->pushEventMarker( AtmosphereLUTCompute::ComputeMultipleScattering_EventName );
+
+			    cmdList->bindPipelineState( pipelineState );
+
+                cmdList->bindImage( AtmosphereLUTCompute::ComputeMultipleScattering_DeltaRayleigh_Hashcode, deltaRayleighScattering );
+                cmdList->bindImage( AtmosphereLUTCompute::ComputeMultipleScattering_TransmittanceComputedTexture_Hashcode, transmittance );
+                cmdList->bindImage( AtmosphereLUTCompute::ComputeMultipleScattering_ScatteringTextureInput_Hashcode, deltaScatteringDensity );
+                cmdList->bindImage( AtmosphereLUTCompute::ComputeMultipleScattering_Scattering_Hashcode, scattering );
+
+			    cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
+
+                AtmosphereLUTCompute::ComputeDirectIrradianceRuntimeProperties parameters;
+                parameters.AtmosphereParams = properties.AtmosphereParams;
+                parameters.LuminanceFromRadianceX = properties.LuminanceFromRadianceX;
+                parameters.LuminanceFromRadianceY = properties.LuminanceFromRadianceY;
+                parameters.LuminanceFromRadianceZ = properties.LuminanceFromRadianceZ;
+                parameters.ScatteringOrder = scattering_order - 1;
+
+			    cmdList->updateBuffer( *perPassBuffer, &parameters, sizeof( AtmosphereLUTCompute::ComputeMultipleScatteringRuntimeProperties ) );
+
+			    cmdList->prepareAndBindResourceList( pipelineState );
+
+			    constexpr u32 ThreadCountX = SCATTERING_TEXTURE_WIDTH / AtmosphereLUTCompute::ComputeMultipleScattering_DispatchX;
+			    constexpr u32 ThreadCountY = SCATTERING_TEXTURE_HEIGHT / AtmosphereLUTCompute::ComputeMultipleScattering_DispatchY;
+			    constexpr u32 ThreadCountZ = SCATTERING_TEXTURE_DEPTH / AtmosphereLUTCompute::ComputeMultipleScattering_DispatchZ;
+
+			    cmdList->dispatchCompute( ThreadCountX, ThreadCountY, ThreadCountZ );
+
+			    cmdList->popEventMarker();
+		    }
+		);
     }
 }
