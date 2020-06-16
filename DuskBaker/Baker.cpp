@@ -131,10 +131,11 @@ void dk::baker::Start( const char* cmdLineArgs )
 
     g_DataFS = dk::core::allocate<FileSystemNative>( g_GlobalAllocator, g_AssetsPath );
 
-    dkString_t compileShaderPathWide = StringToWideString( compiledShadersPath );
-    dk::core::CreateFolderImpl( compileShaderPathWide + DUSK_STRING( "sm5/" ) );
-    dk::core::CreateFolderImpl( compileShaderPathWide + DUSK_STRING( "sm6/" ) );
-    dk::core::CreateFolderImpl( compileShaderPathWide + DUSK_STRING( "spirv/" ) );
+	dkString_t compileShaderPathWide = StringToWideString( compiledShadersPath );
+	dk::core::CreateFolderImpl( compileShaderPathWide );
+    dk::core::CreateFolderImpl( compileShaderPathWide + DUSK_STRING( "/sm5/" ) );
+    dk::core::CreateFolderImpl( compileShaderPathWide + DUSK_STRING( "/sm6/" ) );
+    dk::core::CreateFolderImpl( compileShaderPathWide + DUSK_STRING( "/spirv/" ) );
 
     // Search for every drpl (DuskRenderPassLibrary)
     //  for each drpl, parse its content and generate the library
