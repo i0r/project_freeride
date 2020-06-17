@@ -69,15 +69,15 @@ lib AtmosphereLUTCompute {
     shared {
         #include <AtmosphereFunctions.hlsli>
         
-        Length ComputeOpticalLengthToTopAtmosphereBoundary(AtmosphereParameters atmosphere, DensityProfile profile, Length r, Number mu) 
+        float ComputeOpticalLengthToTopAtmosphereBoundary(AtmosphereParameters atmosphere, DensityProfile profile, float r, Number mu) 
         {
             static const int SAMPLE_COUNT = 500;
-            Length dx = DistanceToTopAtmosphereBoundary(atmosphere, r, mu) / Number(SAMPLE_COUNT);
-            Length result = 0.0 * m;
+            float dx = DistanceToTopAtmosphereBoundary(atmosphere, r, mu) / Number(SAMPLE_COUNT);
+            float result = 0.0 * m;
 
             for (int i = 0; i <= SAMPLE_COUNT; ++i) {
-                Length d_i = Number(i) * dx;
-                Length r_i = sqrt(d_i * d_i + 2.0 * r * mu * d_i + r * r);
+                float d_i = Number(i) * dx;
+                float r_i = sqrt(d_i * d_i + 2.0 * r * mu * d_i + r * r);
                 Number y_i = GetProfileDensity(profile, r_i - atmosphere.bottom_radius);
                 Number weight_i = i == 0 || i == SAMPLE_COUNT ? 0.5 : 1.0;
                 result += y_i * weight_i * dx;
@@ -86,7 +86,7 @@ lib AtmosphereLUTCompute {
             return result;
         }
 
-        DimensionlessSpectrum ComputeTransmittanceToTopAtmosphereBoundary(AtmosphereParameters atmosphere, Length r, Number mu) 
+        DimensionlessSpectrum ComputeTransmittanceToTopAtmosphereBoundary(AtmosphereParameters atmosphere, float r, Number mu) 
         {
             return exp(-(
               atmosphere.rayleigh_scattering *
@@ -100,16 +100,16 @@ lib AtmosphereLUTCompute {
                       atmosphere, atmosphere.absorption_density, r, mu)));
         }
         
-        void GetRMuFromTransmittanceTextureUv(AtmosphereParameters atmosphere, float2 uv, inout Length r, inout Number mu) 
+        void GetRMuFromTransmittanceTextureUv(AtmosphereParameters atmosphere, float2 uv, inout float r, inout Number mu) 
         {
             Number x_mu = GetUnitRangeFromTextureCoord(uv.x, TRANSMITTANCE_TEXTURE_WIDTH);
             Number x_r = GetUnitRangeFromTextureCoord(uv.y, TRANSMITTANCE_TEXTURE_HEIGHT);
-            Length H = sqrt(atmosphere.top_radius * atmosphere.top_radius - atmosphere.bottom_radius * atmosphere.bottom_radius);
-            Length rho = H * x_r;
+            float H = sqrt(atmosphere.top_radius * atmosphere.top_radius - atmosphere.bottom_radius * atmosphere.bottom_radius);
+            float rho = H * x_r;
             r = sqrt(rho * rho + atmosphere.bottom_radius * atmosphere.bottom_radius);
-            Length d_min = atmosphere.top_radius - r;
-            Length d_max = rho + H;
-            Length d = d_min + x_mu * (d_max - d_min);
+            float d_min = atmosphere.top_radius - r;
+            float d_max = rho + H;
+            float d = d_min + x_mu * (d_max - d_min);
             mu = d == 0.0 * m ? Number(1.0) : (H * H - rho * rho - d * d) / (2.0 * r * d);
             mu = ClampCosine(mu);
         }
@@ -118,14 +118,14 @@ lib AtmosphereLUTCompute {
         {
             static const float2 TRANSMITTANCE_TEXTURE_SIZE = float2(TRANSMITTANCE_TEXTURE_WIDTH, TRANSMITTANCE_TEXTURE_HEIGHT);
             
-            Length r;
+            float r;
             Number mu;
             GetRMuFromTransmittanceTextureUv(atmosphere, frag_coord / TRANSMITTANCE_TEXTURE_SIZE, r, mu);
             
             return ComputeTransmittanceToTopAtmosphereBoundary(atmosphere, r, mu);
         }
         
-        IrradianceSpectrum ComputeDirectIrradiance(AtmosphereParameters atmosphere, Length r, Number mu_s) 
+        IrradianceSpectrum ComputeDirectIrradiance(AtmosphereParameters atmosphere, float r, Number mu_s) 
         {
           Number alpha_s = atmosphere.sun_angular_radius / rad;
           Number average_cosine_factor = mu_s < -alpha_s ? 0.0 : (mu_s > alpha_s ? mu_s : (mu_s + alpha_s) * (mu_s + alpha_s) / (4.0 * alpha_s));
@@ -135,7 +135,7 @@ lib AtmosphereLUTCompute {
         
         IrradianceSpectrum ComputeDirectIrradianceTexture(AtmosphereParameters atmosphere, float2 frag_coord) 
         {
-            Length r;
+            float r;
             Number mu_s;
             GetRMuSFromIrradianceTextureUv(atmosphere, frag_coord / IRRADIANCE_TEXTURE_SIZE, r, mu_s);
             
@@ -143,7 +143,7 @@ lib AtmosphereLUTCompute {
         }
                 
         void ComputeSingleScatteringTexture(AtmosphereParameters atmosphere, float3 frag_coord, inout IrradianceSpectrum rayleigh, inout IrradianceSpectrum mie) {
-            Length r;
+            float r;
             Number mu;
             Number mu_s;
             Number nu;
@@ -161,7 +161,7 @@ lib AtmosphereLUTCompute {
             IN(ScatteringTexture) multiple_scattering_texture,
             IN(IrradianceTexture) irradiance_texture,
             sampler transmittance_sampler,
-            Length r, Number mu, Number mu_s, Number nu, int scattering_order) {
+            float r, Number mu, Number mu_s, Number nu, int scattering_order) {
           float3 zenith_direction = float3(0.0, 0.0, 1.0);
           float3 omega = float3(sqrt(1.0 - mu * mu), 0.0, mu);
           Number sun_dir_x = omega.x == 0.0 ? 0.0 : (nu - mu * mu_s) / omega.x;
@@ -178,7 +178,7 @@ lib AtmosphereLUTCompute {
             Number sin_theta = sin(theta);
             bool ray_r_theta_intersects_ground =
                 RayIntersectsGround(atmosphere, r, cos_theta);
-            Length distance_to_ground = 0.0 * m;
+            float distance_to_ground = 0.0 * m;
             DimensionlessSpectrum transmittance_to_ground = DimensionlessSpectrum(0.0, 0.0, 0.0);
             DimensionlessSpectrum ground_albedo = DimensionlessSpectrum(0.0, 0.0, 0.0);
             if (ray_r_theta_intersects_ground) {
@@ -222,7 +222,7 @@ lib AtmosphereLUTCompute {
           return rayleigh_mie;
         }
         RadianceDensitySpectrum ComputeScatteringDensityTexture(IN(AtmosphereParameters) atmosphere, IN(float3) frag_coord, int scattering_order) {
-          Length r;
+          float r;
           Number mu;
           Number mu_s;
           Number nu;
@@ -234,7 +234,7 @@ lib AtmosphereLUTCompute {
               SingleRayleighScatteringTexture, IrradianceTextureInput, LUTSampler, r, mu, mu_s, nu, scattering_order);
         }
         
-        IrradianceSpectrum ComputeIndirectIrradiance(IN(AtmosphereParameters) atmosphere,Length r, Number mu_s) {
+        IrradianceSpectrum ComputeIndirectIrradiance(IN(AtmosphereParameters) atmosphere,float r, Number mu_s) {
           static const int SAMPLE_COUNT = 32;
           
           const Angle dphi = pi / Number(SAMPLE_COUNT);
@@ -263,7 +263,7 @@ lib AtmosphereLUTCompute {
         IrradianceSpectrum ComputeIndirectIrradianceTexture(
             IN(AtmosphereParameters) atmosphere,
             IN(float2) frag_coord, int scattering_order) {
-          Length r;
+          float r;
           Number mu_s;
           GetRMuSFromIrradianceTextureUv(
               atmosphere, frag_coord / IRRADIANCE_TEXTURE_SIZE, r, mu_s);
@@ -271,18 +271,18 @@ lib AtmosphereLUTCompute {
         }
         RadianceSpectrum ComputeMultipleScattering(
             IN(AtmosphereParameters) atmosphere,
-            Length r, Number mu, Number mu_s, Number nu,
+            float r, Number mu, Number mu_s, Number nu,
             bool ray_r_mu_intersects_ground) {
           static const int SAMPLE_COUNT = 50;
-          Length dx =
+          float dx =
               DistanceToNearestAtmosphereBoundary(
                   atmosphere, r, mu, ray_r_mu_intersects_ground) /
                       Number(SAMPLE_COUNT);
           RadianceSpectrum rayleigh_mie_sum =
               RadianceSpectrum(0.0 * watt_per_square_meter_per_sr_per_nm, 0.0 * watt_per_square_meter_per_sr_per_nm, 0.0 * watt_per_square_meter_per_sr_per_nm);
           for (int i = 0; i <= SAMPLE_COUNT; ++i) {
-            Length d_i = Number(i) * dx;
-            Length r_i =
+            float d_i = Number(i) * dx;
+            float r_i =
                 ClampRadius(atmosphere, sqrt(d_i * d_i + 2.0 * r * mu * d_i + r * r));
             Number mu_i = ClampCosine((r * mu + d_i) / r_i);
             Number mu_s_i = ClampCosine((r * mu_s + d_i * nu) / r_i);
@@ -303,7 +303,7 @@ lib AtmosphereLUTCompute {
         RadianceSpectrum ComputeMultipleScatteringTexture(
             IN(AtmosphereParameters) atmosphere,
             IN(float3) frag_coord, OUT(Number) nu) {
-          Length r;
+          float r;
           Number mu;
           Number mu_s;
           bool ray_r_mu_intersects_ground;

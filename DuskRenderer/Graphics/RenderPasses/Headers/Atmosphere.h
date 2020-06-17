@@ -33,7 +33,6 @@ static const float PI = dk::maths::PI<float>();
 
 #define COMBINED_SCATTERING_TEXTURES
 
-#define Length float
 #define Wavelength float
 #define Angle float
 #define SolidAngle float
@@ -42,7 +41,6 @@ static const float PI = dk::maths::PI<float>();
 #define Number float
 #define InverseLength float
 #define Area float
-#define Volume float
 #define NumberDensity float
 #define Irradiance float
 #define Radiance float
@@ -72,15 +70,15 @@ static const float PI = dk::maths::PI<float>();
 #define ScatteringDensityTexture Texture3D
 #define IrradianceTexture Texture2D
 
-static const Length m = 1.0;
+static const float m = 1.0;
 static const Wavelength nm = 1.0;
 static const Angle rad = 1.0;
 static const SolidAngle sr = 1.0;
 static const Power watt = 1.0;
 static const LuminousPower lm = 1.0;
-static const Length km = 1000.0 * m;
+static const float km = 1000.0 * m;
 static const Area m2 = m * m;
-static const Volume m3 = m * m * m;
+static const float m3 = m * m * m;
 static const Angle pi = PI * rad;
 static const Angle deg = pi / 180.0f;
 static const Irradiance watt_per_square_meter = watt / m2;
@@ -96,7 +94,7 @@ static const float cd_per_square_meter = cd / m2;
 static const float kcd_per_square_meter = kcd / m2;
 
 struct DensityProfileLayer {
-    Length width;
+    float width;
     Number exp_term;
     InverseLength exp_scale;
     InverseLength linear_term;
@@ -120,13 +118,13 @@ struct AtmosphereParameters {
 	Angle sun_angular_radius;
 
 	ScatteringSpectrum  mie_scattering;
-	Length top_radius;
+	float top_radius;
 
     ScatteringSpectrum mie_extinction;
     uint PADDING;
 
     ScatteringSpectrum absorption_extinction;
-    Length bottom_radius;
+    float bottom_radius;
 
     DimensionlessSpectrum ground_albedo;
     Number mu_s_min;

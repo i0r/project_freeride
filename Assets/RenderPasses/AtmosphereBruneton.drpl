@@ -54,11 +54,11 @@ lib AtmosphereBruneton {
             IN(ReducedScatteringTexture) scattering_texture,
             IN(ReducedScatteringTexture) single_mie_scattering_texture,
             sampler transmittance_sampler,
-            Position camera, IN(Direction) view_ray, Length shadow_length,
+            Position camera, IN(Direction) view_ray, float shadow_length,
             IN(Direction) sun_direction, OUT(DimensionlessSpectrum) transmittance) {
-          Length r = length(camera);
-          Length rmu = dot(camera, view_ray);
-          Length distance_to_top_atmosphere_boundary = -rmu -
+          float r = length(camera);
+          float rmu = dot(camera, view_ray);
+          float distance_to_top_atmosphere_boundary = -rmu -
               sqrt(rmu * rmu - r * r + atmosphere.top_radius * atmosphere.top_radius);
           if (distance_to_top_atmosphere_boundary > 0.0 * m) {
             camera = camera + view_ray * distance_to_top_atmosphere_boundary;
@@ -83,8 +83,8 @@ lib AtmosphereBruneton {
                 r, mu, mu_s, nu, ray_r_mu_intersects_ground,
                 single_mie_scattering);
           } else {
-            Length d = shadow_length;
-            Length r_p =
+            float d = shadow_length;
+            float r_p =
                 ClampRadius(atmosphere, sqrt(d * d + 2.0 * r * mu * d + r * r));
             Number mu_p = (r * mu + d) / r_p;
             Number mu_s_p = (r * mu_s + d * nu) / r_p;
@@ -107,12 +107,12 @@ lib AtmosphereBruneton {
             IN(ReducedScatteringTexture) scattering_texture,
             IN(ReducedScatteringTexture) single_mie_scattering_texture,
             sampler lutSampler,
-            Position camera, IN(Position) point_, Length shadow_length,
+            Position camera, IN(Position) point_, float shadow_length,
             IN(Direction) sun_direction, OUT(DimensionlessSpectrum) transmittance) {
           Direction view_ray = normalize(point_ - camera);
-          Length r = length(camera);
-          Length rmu = dot(camera, view_ray);
-          Length distance_to_top_atmosphere_boundary = -rmu -
+          float r = length(camera);
+          float rmu = dot(camera, view_ray);
+          float distance_to_top_atmosphere_boundary = -rmu -
               sqrt(rmu * rmu - r * r + atmosphere.top_radius * atmosphere.top_radius);
           if (distance_to_top_atmosphere_boundary > 0.0 * m) {
             camera = camera + view_ray * distance_to_top_atmosphere_boundary;
@@ -122,7 +122,7 @@ lib AtmosphereBruneton {
           Number mu = rmu / r;
           Number mu_s = dot(camera, sun_direction) / r;
           Number nu = dot(view_ray, sun_direction);
-          Length d = length(point_ - camera);
+          float d = length(point_ - camera);
           bool ray_r_mu_intersects_ground = RayIntersectsGround(atmosphere, r, mu);
           transmittance = GetTransmittance(atmosphere, transmittance_texture, lutSampler,
               r, mu, d, ray_r_mu_intersects_ground);
@@ -132,7 +132,7 @@ lib AtmosphereBruneton {
               r, mu, mu_s, nu, ray_r_mu_intersects_ground,
               single_mie_scattering);
           d = max(d - shadow_length, 0.0 * m);
-          Length r_p = ClampRadius(atmosphere, sqrt(d * d + 2.0 * r * mu * d + r * r));
+          float r_p = ClampRadius(atmosphere, sqrt(d * d + 2.0 * r * mu * d + r * r));
           Number mu_p = (r * mu + d) / r_p;
           Number mu_s_p = (r * mu_s + d * nu) / r_p;
           IrradianceSpectrum single_mie_scattering_p;
@@ -162,7 +162,7 @@ lib AtmosphereBruneton {
             sampler lutSampler,
             IN(Position) point_, IN(Direction) normal, IN(Direction) sun_direction,
             OUT(IrradianceSpectrum) sky_irradiance) {
-          Length r = length(point_);
+          float r = length(point_);
           Number mu_s = dot(point_, sun_direction) / r;
           sky_irradiance = GetIrradiance(atmosphere, irradiance_texture, lutSampler, r, mu_s) *
               (1.0 + dot(normal, point_) / r) * 0.5;
@@ -176,14 +176,14 @@ lib AtmosphereBruneton {
               (PI * AtmosphereParams.sun_angular_radius * AtmosphereParams.sun_angular_radius);
         }
         RadianceSpectrum GetSkyRadiance(
-            Position camera, Direction view_ray, Length shadow_length,
+            Position camera, Direction view_ray, float shadow_length,
             Direction sun_direction, out DimensionlessSpectrum transmittance) {
           return GetSkyRadiance(AtmosphereParams, TransmittanceTextureInput,
               ScatteringTextureInput, MieScatteringTextureInput, DefaultSampler,
               camera, view_ray, shadow_length, sun_direction, transmittance);
         }
         RadianceSpectrum GetSkyRadianceToPoint(
-            Position camera, Position point_, Length shadow_length,
+            Position camera, Position point_, float shadow_length,
             Direction sun_direction, out DimensionlessSpectrum transmittance) {
           return GetSkyRadianceToPoint(AtmosphereParams, TransmittanceTextureInput,
               ScatteringTextureInput, MieScatteringTextureInput, DefaultSampler,
@@ -201,7 +201,7 @@ lib AtmosphereBruneton {
               SUN_SPECTRAL_RADIANCE_TO_LUMINANCE;
         }
         Luminance3 GetSkyLuminance(
-            Position camera, Direction view_ray, Length shadow_length,
+            Position camera, Direction view_ray, float shadow_length,
             Direction sun_direction, out DimensionlessSpectrum transmittance) {
           return GetSkyRadiance(AtmosphereParams, TransmittanceTextureInput,
               ScatteringTextureInput, MieScatteringTextureInput, DefaultSampler,
@@ -209,7 +209,7 @@ lib AtmosphereBruneton {
               SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
         }
         Luminance3 GetSkyLuminanceToPoint(
-            Position camera, Position point_, Length shadow_length,
+            Position camera, Position point_, float shadow_length,
             Direction sun_direction, out DimensionlessSpectrum transmittance) {
           return GetSkyRadianceToPoint(AtmosphereParams, TransmittanceTextureInput,
               ScatteringTextureInput, MieScatteringTextureInput, DefaultSampler,

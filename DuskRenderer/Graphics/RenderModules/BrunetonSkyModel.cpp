@@ -294,17 +294,19 @@ ResHandle_t AtmosphereRenderModule::renderAtmosphere( FrameGraph& frameGraph, Re
         default:
             break;
         }
-    }
+	}
+
+	return -1;
 }
 
 ResHandle_t AtmosphereRenderModule::renderSky( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer )
 {
-
+    return -1;
 }
 
 ResHandle_t AtmosphereRenderModule::renderAtmoshpericFog( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer )
 {
-
+	return -1;
 }
 
 void AtmosphereRenderModule::destroy( RenderDevice& renderDevice )

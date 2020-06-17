@@ -10,28 +10,7 @@ struct Image;
 struct PipelineState;
 
 #include <Graphics/FrameGraph.h>
-
-// AtmosphereRendering
-//  
-//  triggerLUTRecompute();  
-//
-//  
-//  renderAtmosphere( Graph, RT, ZBuffer );
-//  {
-//   if ( needToRecomputeLUT || !isLUTRecomputeDone() )
-//   |
-//      if ( useAmortizedRecompute )
-//          switch( recomputeStep )
-//          case TransmittanceRecompute:
-//          (etc)
-//      else
-//          doAllTheStepAtOnce();
-//   |
-//   
-//   renderSky();
-//   applyAtmosphericFog();
-//  }
-
+#include <queue>
 #include "AtmosphereLUTComputeModule.h"
 
 class AtmosphereRenderModule 
