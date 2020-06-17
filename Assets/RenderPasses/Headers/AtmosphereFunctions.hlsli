@@ -334,7 +334,6 @@ RadianceSpectrum GetScattering(
         ray_r_mu_intersects_ground);
   }
 }
-#ifdef COMBINED_SCATTERING_TEXTURES
 float3 GetExtrapolatedSingleMieScattering(
     IN(AtmosphereParameters) atmosphere, IN(float4) scattering) {
   if (scattering.r == 0.0) {
@@ -344,7 +343,6 @@ float3 GetExtrapolatedSingleMieScattering(
 	    (atmosphere.rayleigh_scattering.r / atmosphere.mie_scattering.r) *
 	    (atmosphere.mie_scattering / atmosphere.rayleigh_scattering);
 }
-#endif
 IrradianceSpectrum GetCombinedScattering(
     IN(AtmosphereParameters) atmosphere,
     IN(ReducedScatteringTexture) scattering_texture,
@@ -362,20 +360,11 @@ IrradianceSpectrum GetCombinedScattering(
       uvwz.z, uvwz.w);
   float3 uvw1 = float3((tex_x + 1.0 + uvwz.y) / Number(SCATTERING_TEXTURE_NU_SIZE),
       uvwz.z, uvwz.w);
-#ifdef COMBINED_SCATTERING_TEXTURES
   float4 combined_scattering = scattering_texture.Sample( lutSampler, uvw0) * (1.0 - lerp) +
       scattering_texture.Sample( lutSampler, uvw1) * lerp;
   IrradianceSpectrum scattering = IrradianceSpectrum(combined_scattering.rgb);
   single_mie_scattering =
       GetExtrapolatedSingleMieScattering(atmosphere, combined_scattering);
-#else
-  IrradianceSpectrum scattering = IrradianceSpectrum(
-      scattering_texture.Sample( lutSampler, uvw0) * (1.0 - lerp) +
-      scattering_texture.Sample( lutSampler, uvw1) * lerp);
-  single_mie_scattering = IrradianceSpectrum(
-      single_mie_scattering_texture.Sample(lutSampler, uvw0) * (1.0 - lerp) +
-      single_mie_scattering_texture.Sample(lutSampler, uvw1) * lerp);
-#endif
   return scattering;
 }
 #endif
