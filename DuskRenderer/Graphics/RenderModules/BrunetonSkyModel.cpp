@@ -21,6 +21,8 @@
 #include "AtmosphereSettings.h"
 #include "AtmosphereConstants.h"
 
+#include "Generated/AtmosphereBruneton.generated.h"
+
 BrunetonSkyRenderModule::BrunetonSkyRenderModule()
     : transmittanceTexture( nullptr )
     , scatteringTexture( nullptr )
@@ -266,5 +268,60 @@ PipelineState* BrunetonSkyRenderModule::getPipelineStatePermutation( const u32 s
         return ( renderSunDisk ) ? skyRenderPso[4] : skyRenderNoSunFixedExposurePso[4];
     default:
         return ( renderSunDisk ) ? skyRenderPso[0] : skyRenderNoSunFixedExposurePso[0];
+    }
+}
+
+AtmosphereRenderModule::AtmosphereRenderModule()
+    : lutComputeModule()
+{
+
+}
+
+AtmosphereRenderModule::~AtmosphereRenderModule()
+{
+
+}
+
+ResHandle_t AtmosphereRenderModule::renderAtmosphere( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer )
+{
+    if ( !lutComputeJobTodo.empty() ) {
+        RecomputeJob& job = lutComputeJobTodo.front();
+        lutComputeJobTodo.pop();
+
+        switch ( job.Step ) {
+        case RecomputeStep::CompleteRecompute:
+            break;
+        default:
+            break;
+        }
+    }
+}
+
+ResHandle_t AtmosphereRenderModule::renderSky( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer )
+{
+
+}
+
+ResHandle_t AtmosphereRenderModule::renderAtmoshpericFog( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer )
+{
+
+}
+
+void AtmosphereRenderModule::destroy( RenderDevice& renderDevice )
+{
+    lutComputeModule.destroy( renderDevice );
+}
+
+void AtmosphereRenderModule::loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache )
+{
+    lutComputeModule.loadCachedResources( renderDevice, graphicsAssetCache );
+}
+
+void AtmosphereRenderModule::triggerLutRecompute( const bool forceImmediateRecompute /*= false */ )
+{
+    if ( forceImmediateRecompute ) {
+        lutComputeJobTodo.push( RecomputeJob() );
+    } else {
+        // TODO Amortized recompute support
     }
 }
