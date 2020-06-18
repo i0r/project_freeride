@@ -18,86 +18,77 @@
 #include <Maths/Helpers.h>
 #include <Maths/MatrixTransformations.h>
 
-#include "AtmosphereSettings.h"
-#include "AtmosphereConstants.h"
-
 #include "Generated/AtmosphereBruneton.generated.h"
 
-BrunetonSkyRenderModule::BrunetonSkyRenderModule()
-    : transmittanceTexture( nullptr )
-    , scatteringTexture( nullptr )
-    , irradianceTexture( nullptr )
-    , sunVerticalAngle( 1.000f )
+AtmosphereRenderModule::AtmosphereRenderModule()
+    : lutComputeModule()
     , sunHorizontalAngle( 0.5f )
-    , sunAngularRadius( static_cast<f32>( kSunAngularRadius ) )
+    , sunVerticalAngle( 0.5f )
+    , transmittanceLut( nullptr )
+    , irradianceLut( nullptr )
+    , scatteringLut( nullptr )
+    , mieScatteringLut( nullptr )
 {
 
 }
 
-BrunetonSkyRenderModule::~BrunetonSkyRenderModule()
+AtmosphereRenderModule::~AtmosphereRenderModule()
 {
-    transmittanceTexture = nullptr;
-    scatteringTexture = nullptr;
-    irradianceTexture = nullptr;
+
 }
 
-ResHandle_t BrunetonSkyRenderModule::renderSky( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer, const bool renderSunDisk, const bool useAutomaticExposure )
+ResHandle_t AtmosphereRenderModule::renderAtmosphere( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer )
+{
+    if ( !lutComputeJobTodo.empty() ) {
+        RecomputeJob& job = lutComputeJobTodo.front();
+        lutComputeJobTodo.pop();
+
+        switch ( job.Step ) {
+        case RecomputeStep::CompleteRecompute:
+            lutComputeModule.precomputePipelineResources( frameGraph );
+
+            // TODO We'll need to either copy those to a local image or double buffer images in the lut compute module.
+            transmittanceLut = lutComputeModule.getTransmittanceLut();
+            scatteringLut = lutComputeModule.getScatteringLut();
+            irradianceLut = lutComputeModule.getIrradianceLut();
+            mieScatteringLut = lutComputeModule.getMieScatteringLut();
+
+            parameters = lutComputeModule.getAtmosphereParameters();
+            break;
+        default:
+            break;
+        }
+	}
+
+    ResHandle_t skyRendering = renderSky( frameGraph, renderTarget, depthBuffer );
+	return skyRendering;
+}
+
+ResHandle_t AtmosphereRenderModule::renderSky( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer )
 {
     struct PassData {
-        ResHandle_t         output;
-        ResHandle_t         depthBuffer;
+        ResHandle_t         Output;
+        ResHandle_t         DepthBuffer;
+        ResHandle_t         AutoExposureBuffer;
 
-        ResHandle_t         parametersBuffer;
-        ResHandle_t         cameraBuffer;
-        ResHandle_t         autoExposureBuffer;
+        ResHandle_t         PerPassBuffer;
+        ResHandle_t         PerViewBuffer;
     };
 
     PassData& passData = frameGraph.addRenderPass<PassData>(
-        "Sky Render Pass",
+        AtmosphereBruneton::BrunetonSky_Name,
         [&]( FrameGraphBuilder& builder, PassData& passData ) {
-            builder.setUncullablePass();
+            passData.Output = builder.readImage( renderTarget );
+            passData.DepthBuffer = builder.readImage( depthBuffer );
+            passData.AutoExposureBuffer = builder.retrievePersistentBuffer( DUSK_STRING_HASH( "AutoExposure/ReadBuffer" ) );
 
-            BufferDesc skyBufferDesc;
-            skyBufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
-            skyBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
-            skyBufferDesc.SizeInBytes = sizeof( parameters );
+            BufferDesc perPassBufferDesc;
+            perPassBufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
+            perPassBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
+            perPassBufferDesc.SizeInBytes = sizeof( AtmosphereBruneton::BrunetonSkyRuntimeProperties );
+            passData.PerPassBuffer = builder.allocateBuffer( perPassBufferDesc, SHADER_STAGE_VERTEX | SHADER_STAGE_PIXEL );
 
-            passData.parametersBuffer = builder.allocateBuffer( skyBufferDesc, SHADER_STAGE_VERTEX | SHADER_STAGE_PIXEL );
-
-            BufferDesc cameraBufferDesc;
-            cameraBufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
-            cameraBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
-            cameraBufferDesc.SizeInBytes = sizeof( CameraData );
-
-            passData.cameraBuffer = builder.allocateBuffer( cameraBufferDesc, SHADER_STAGE_VERTEX );
-
-            // Render Targets
-            if ( renderTarget == RES_HANDLE_INVALID ) {
-                ImageDesc rtDesc;
-                rtDesc.dimension = ImageDesc::DIMENSION_2D;
-                rtDesc.format = eViewFormat::VIEW_FORMAT_R16G16B16A16_FLOAT;
-                rtDesc.usage = RESOURCE_USAGE_DEFAULT;
-                rtDesc.bindFlags = RESOURCE_BIND_RENDER_TARGET_VIEW | RESOURCE_BIND_SHADER_RESOURCE;
-
-                passData.output = builder.allocateImage( rtDesc, FrameGraphBuilder::USE_PIPELINE_DIMENSIONS | FrameGraphBuilder::USE_PIPELINE_SAMPLER_COUNT );
-            } else {
-                passData.output = builder.readImage( renderTarget );
-            }
-
-            if ( depthBuffer == RES_HANDLE_INVALID ) {
-                ImageDesc zBufferRenderTargetDesc;
-                zBufferRenderTargetDesc.dimension = ImageDesc::DIMENSION_2D;
-                zBufferRenderTargetDesc.format = eViewFormat::VIEW_FORMAT_D32_FLOAT;
-                zBufferRenderTargetDesc.usage = RESOURCE_USAGE_DEFAULT;
-                zBufferRenderTargetDesc.bindFlags = RESOURCE_BIND_DEPTH_STENCIL;
-
-                passData.depthBuffer = builder.allocateImage( zBufferRenderTargetDesc, FrameGraphBuilder::USE_PIPELINE_DIMENSIONS | FrameGraphBuilder::USE_PIPELINE_SAMPLER_COUNT );
-            } else {
-                passData.depthBuffer = builder.readImage( depthBuffer );
-            }
-           
-            if ( useAutomaticExposure )
-                passData.autoExposureBuffer = builder.retrievePersistentBuffer( DUSK_STRING_HASH( "AutoExposure/ReadBuffer" ) );
+            passData.PerViewBuffer = builder.retrievePerViewBuffer();
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
             // Update viewport (using image quality scaling)
@@ -119,189 +110,64 @@ ResHandle_t BrunetonSkyRenderModule::renderSky( FrameGraph& frameGraph, ResHandl
             sr.Right = static_cast< i32 >( scaledViewportSize.x );
             sr.Bottom = static_cast< i32 >( scaledViewportSize.y );
 
+            PipelineStateDesc psoDesc;
+            psoDesc.PrimitiveTopology = ePrimitiveTopology::PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+            psoDesc.RasterizerState.CullMode = eCullMode::CULL_MODE_BACK;
+            psoDesc.DepthStencilState.EnableDepthTest = true;
+            psoDesc.DepthStencilState.EnableDepthWrite = false;
+            psoDesc.DepthStencilState.DepthComparisonFunc = eComparisonFunction::COMPARISON_FUNCTION_GEQUAL;
+            psoDesc.FramebufferLayout.declareRTV( 0, eViewFormat::VIEW_FORMAT_R16G16B16A16_FLOAT );
+            psoDesc.FramebufferLayout.declareDSV( eViewFormat::VIEW_FORMAT_D32_FLOAT );
+            psoDesc.samplerCount = camera->msaaSamplerCount;
+
+            psoDesc.addStaticSampler( RenderingHelpers::S_BilinearClampEdge );
+
+            PipelineState* pipelineState = psoCache->getOrCreatePipelineState( psoDesc, AtmosphereBruneton::BrunetonSky_ShaderBinding );
+
             // Update Parameters
-            parameters.SunSizeX = tanf( sunAngularRadius );
-            parameters.SunSizeY = cosf( sunAngularRadius * 5.0f );
-            parameters.SunDirection = dk::maths::SphericalToCarthesianCoordinates( sunHorizontalAngle, sunVerticalAngle );
+            AtmosphereBruneton::BrunetonSkyProperties.EarthCenter = dkVec3f( 0.0, 0.0, -kBottomRadius / kLengthUnitInMeters );
+            AtmosphereBruneton::BrunetonSkyProperties.SunDirection = dk::maths::SphericalToCarthesianCoordinates( sunHorizontalAngle, sunVerticalAngle );
+            AtmosphereBruneton::BrunetonSkyProperties.SunSizeX = tanf( static_cast<f32>( kSunAngularRadius ) );
+            AtmosphereBruneton::BrunetonSkyProperties.SunSizeY = cosf( static_cast< f32 >( kSunAngularRadius ) * 5.0f );
+            AtmosphereBruneton::BrunetonSkyProperties.SunExponant = 2400.0f; // TODO Should be set accordingly to the ToD
+            AtmosphereBruneton::BrunetonSkyProperties.SKY_SPECTRAL_RADIANCE_TO_LUMINANCE = lutComputeModule.getSkySpectralRadianceToLuminance();
+            AtmosphereBruneton::BrunetonSkyProperties.SUN_SPECTRAL_RADIANCE_TO_LUMINANCE = lutComputeModule.getSunSpectralRadianceToLuminance();
+            AtmosphereBruneton::BrunetonSkyProperties.AtmosphereParams = parameters;
 
-            // Retrieve allocated resources
-            Buffer* skyBuffer = resources->getBuffer( passData.parametersBuffer );
-            Buffer* cameraBuffer = resources->getBuffer( passData.cameraBuffer );
-            Buffer* autoExposureBuffer = resources->getPersistentBuffer( passData.autoExposureBuffer );
-            Image* outputTarget = resources->getImage( passData.output );
-            Image* depthBufferTarget = resources->getImage( passData.depthBuffer );
+            cmdList->pushEventMarker( AtmosphereBruneton::BrunetonSky_EventName );
+            cmdList->bindPipelineState( pipelineState );
 
-            // Pipeline State
-            PipelineState* pipelineStateObject = getPipelineStatePermutation( camera->msaaSamplerCount, useAutomaticExposure, useAutomaticExposure );
-
-            cmdList->pushEventMarker( DUSK_STRING( "Bruneton Sky" ) );
-            cmdList->bindPipelineState( pipelineStateObject );
-
-            cmdList->setViewport( vp );
-            cmdList->setScissor( sr );
-
-            cmdList->transitionImage( *scatteringTexture, eResourceState::RESOURCE_STATE_PIXEL_BINDED_RESOURCE );
-            cmdList->transitionImage( *transmittanceTexture, eResourceState::RESOURCE_STATE_PIXEL_BINDED_RESOURCE );
-            cmdList->transitionImage( *outputTarget, eResourceState::RESOURCE_STATE_RENDER_TARGET );
+            Buffer* passBuffer = resources->getBuffer( passData.PerPassBuffer );
+            Buffer* viewBuffer = resources->getPersistentBuffer( passData.PerViewBuffer );
+            Image* outputImage = resources->getImage( passData.Output );
+            Image* depthBuffer = resources->getImage( passData.DepthBuffer );
+            Buffer* autoExposureBuffer = resources->getPersistentBuffer( passData.AutoExposureBuffer );
 
             // Bind resources
-            cmdList->bindConstantBuffer( DUSK_STRING_HASH( "g_ActiveCameraBuffer" ), cameraBuffer );
-            cmdList->bindConstantBuffer( DUSK_STRING_HASH( "g_AtmosphereBuffer" ), skyBuffer );
-            cmdList->bindImage( DUSK_STRING_HASH( "g__ScatteringTexture" ), scatteringTexture );
-            cmdList->bindImage( DUSK_STRING_HASH( "g__TransmittanceTexture" ), transmittanceTexture );
-            cmdList->bindImage( DUSK_STRING_HASH( "g__SingleMie_ScatteringTexture" ), scatteringTexture );
 
-            if ( useAutomaticExposure ) {
-                cmdList->bindBuffer( DUSK_STRING_HASH( "g_AutoExposureBuffer" ), autoExposureBuffer );
-            }
+            cmdList->bindImage( AtmosphereBruneton::BrunetonSky_TransmittanceTextureInput_Hashcode, transmittanceLut );
+            cmdList->bindImage( AtmosphereBruneton::BrunetonSky_IrradianceTextureInput_Hashcode, irradianceLut );
+            cmdList->bindImage( AtmosphereBruneton::BrunetonSky_ScatteringTextureInput_Hashcode, scatteringLut );
+            cmdList->bindImage( AtmosphereBruneton::BrunetonSky_MieScatteringTextureInput_Hashcode, mieScatteringLut );
 
-            cmdList->updateBuffer( *skyBuffer, &parameters, sizeof( parameters ) );
-            cmdList->updateBuffer( *cameraBuffer, camera, sizeof( CameraData ) );
+            cmdList->bindBuffer( AtmosphereBruneton::BrunetonSky_AutoExposureBuffer_Hashcode, autoExposureBuffer );
+           
+            cmdList->bindConstantBuffer( PerViewBufferHashcode, viewBuffer );
+            cmdList->bindConstantBuffer( PerPassBufferHashcode, passBuffer );
 
-            cmdList->prepareAndBindResourceList( pipelineStateObject );
-            cmdList->setupFramebuffer( &outputTarget, depthBufferTarget );
+            cmdList->prepareAndBindResourceList( pipelineState );
+
+            cmdList->updateBuffer( *passBuffer, &AtmosphereBruneton::BrunetonSkyProperties, sizeof( AtmosphereBruneton::BrunetonSkyRuntimeProperties ) );
+
+            cmdList->setupFramebuffer( &outputImage, depthBuffer );
 
             cmdList->draw( 3, 1 );
 
             cmdList->popEventMarker();
-            cmdList->transitionImage( *outputTarget, eResourceState::RESOURCE_STATE_RENDER_TARGET, 0, CommandList::TRANSITION_GRAPHICS_TO_COMPUTE );
         }
     );
 
-    return passData.output;
-}
-
-void BrunetonSkyRenderModule::destroy( RenderDevice& renderDevice )
-{
-    for ( u32 i = 0; i < 5u; i++ ) {
-        renderDevice.destroyPipelineState( skyRenderPso[i] );
-        renderDevice.destroyPipelineState( skyRenderNoSunFixedExposurePso[i] );
-    }
-}
-
-void BrunetonSkyRenderModule::loadCachedResources( RenderDevice& renderDevice, ShaderCache& shaderCache, GraphicsAssetCache& graphicsAssetCache )
-{
-    PipelineStateDesc psoDesc = {};
-    psoDesc.vertexShader = shaderCache.getOrUploadStageDynamic<SHADER_STAGE_VERTEX>( "Atmosphere/BrunetonSky" );
-    psoDesc.pixelShader = shaderCache.getOrUploadStageDynamic<SHADER_STAGE_PIXEL>( "Atmosphere/BrunetonSky+DUSK_FIXED_EXPOSURE" );
-    psoDesc.PrimitiveTopology = ePrimitiveTopology::PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-    psoDesc.RasterizerState.CullMode = eCullMode::CULL_MODE_BACK;
-    psoDesc.DepthStencilState.EnableDepthTest = true;
-    psoDesc.DepthStencilState.EnableDepthWrite = false;
-    psoDesc.DepthStencilState.DepthComparisonFunc = eComparisonFunction::COMPARISON_FUNCTION_GEQUAL;
-    //psoDesc.BlendState = RenderingHelpers::BS_AdditiveNoAlpha;
-
-    psoDesc.FramebufferLayout.declareRTV( 0, eViewFormat::VIEW_FORMAT_R16G16B16A16_FLOAT/*, FramebufferLayoutDesc::CLEAR*/ );
-    psoDesc.FramebufferLayout.declareDSV( eViewFormat::VIEW_FORMAT_D32_FLOAT );
-
-    psoDesc.addStaticSampler( RenderingHelpers::S_BilinearClampEdge );
-
-    psoDesc.samplerCount = 1u;
-
-    // RenderPass
-    skyRenderNoSunFixedExposurePso[0] = renderDevice.createPipelineState( psoDesc );
-
-    // Allocate and cache pipeline state
-    u32 samplerCount = 2u;
-    for ( u32 i = 1u; i < 5u; i++ ) {
-        psoDesc.samplerCount = samplerCount;
-
-        skyRenderNoSunFixedExposurePso[i] = renderDevice.createPipelineState( psoDesc );
-
-        samplerCount *= 2u;
-    }
-
-    psoDesc.samplerCount = 1u;
-    psoDesc.pixelShader = shaderCache.getOrUploadStageDynamic<SHADER_STAGE_PIXEL>( "Atmosphere/BrunetonSky+DUSK_RENDER_SUN_DISC" );
-
-    skyRenderPso[0] = renderDevice.createPipelineState( psoDesc );
-
-    // Allocate and cache pipeline state
-    samplerCount = 2u;
-    for ( u32 i = 1u; i < 5u; i++ ) {
-        psoDesc.samplerCount = samplerCount;
-
-        skyRenderPso[i] = renderDevice.createPipelineState( psoDesc );
-
-        samplerCount *= 2u;
-    }
-
-    //// Load precomputed table and shaders
-    //transmittanceTexture = graphicsAssetCache.getImage( ATMOSPHERE_TRANSMITTANCE_TEXTURE_NAME );
-    //scatteringTexture = graphicsAssetCache.getImage( ATMOSPHERE_SCATTERING_TEXTURE_NAME );
-    //irradianceTexture = graphicsAssetCache.getImage( ATMOSPHERE_IRRADIANCE_TEXTURE_NAME );
-
-    // Set Default Parameters
-    parameters.EarthCenter = dkVec3f( 0.0, 0.0, -kBottomRadius / kLengthUnitInMeters );
-}
-
-void BrunetonSkyRenderModule::setSunSphericalPosition( const f32 verticalAngleRads, const f32 horizontalAngleRads )
-{
-    sunVerticalAngle = verticalAngleRads;
-    sunHorizontalAngle = horizontalAngleRads;
-}
-
-dkVec2f BrunetonSkyRenderModule::getSunSphericalPosition()
-{
-    return dkVec2f( sunVerticalAngle, sunHorizontalAngle );
-}
-
-void BrunetonSkyRenderModule::setLookUpTables( Image* transmittance, Image* scattering, Image* irradiance )
-{
-    transmittanceTexture = transmittance;
-    scatteringTexture = scattering;
-    irradianceTexture = irradiance;
-}
-
-PipelineState* BrunetonSkyRenderModule::getPipelineStatePermutation( const u32 samplerCount, const bool renderSunDisk, const bool useAutomaticExposure )
-{
-    switch ( samplerCount ) {
-    case 1:
-        return ( renderSunDisk ) ? skyRenderPso[0] : skyRenderNoSunFixedExposurePso[0];
-    case 2:
-        return ( renderSunDisk ) ? skyRenderPso[1] : skyRenderNoSunFixedExposurePso[1];
-    case 4:
-        return ( renderSunDisk ) ? skyRenderPso[2] : skyRenderNoSunFixedExposurePso[2];
-    case 8:
-        return ( renderSunDisk ) ? skyRenderPso[3] : skyRenderNoSunFixedExposurePso[3];
-    case 16:
-        return ( renderSunDisk ) ? skyRenderPso[4] : skyRenderNoSunFixedExposurePso[4];
-    default:
-        return ( renderSunDisk ) ? skyRenderPso[0] : skyRenderNoSunFixedExposurePso[0];
-    }
-}
-
-AtmosphereRenderModule::AtmosphereRenderModule()
-    : lutComputeModule()
-{
-
-}
-
-AtmosphereRenderModule::~AtmosphereRenderModule()
-{
-
-}
-
-ResHandle_t AtmosphereRenderModule::renderAtmosphere( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer )
-{
-    if ( !lutComputeJobTodo.empty() ) {
-        RecomputeJob& job = lutComputeJobTodo.front();
-        lutComputeJobTodo.pop();
-
-        switch ( job.Step ) {
-        case RecomputeStep::CompleteRecompute:
-            break;
-        default:
-            break;
-        }
-	}
-
-	return -1;
-}
-
-ResHandle_t AtmosphereRenderModule::renderSky( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer )
-{
-    return -1;
+    return passData.Output;
 }
 
 ResHandle_t AtmosphereRenderModule::renderAtmoshpericFog( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer )
@@ -321,9 +187,9 @@ void AtmosphereRenderModule::loadCachedResources( RenderDevice& renderDevice, Gr
 
 void AtmosphereRenderModule::triggerLutRecompute( const bool forceImmediateRecompute /*= false */ )
 {
-    if ( forceImmediateRecompute ) {
+    //if ( forceImmediateRecompute ) {
         lutComputeJobTodo.push( RecomputeJob() );
-    } else {
+   // } else {
         // TODO Amortized recompute support
-    }
+   // }
 }

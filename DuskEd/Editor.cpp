@@ -728,7 +728,7 @@ void MainLoop()
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
             g_MaterialEditor->displayEditorWindow();
 
-            ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
+          /*  ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
             if ( ImGui::Begin( "Inspector" ) ) {
                 static f32 cart[2] = { 0.5f, 0.5f };
 
@@ -737,7 +737,7 @@ void MainLoop()
                     g_WorldRenderer->BrunetonSky->setSunSphericalPosition( cart[0], cart[1] );
                 }
             }
-            ImGui::End();
+            ImGui::End();*/
 
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
             if ( ImGui::Begin( "Viewport", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar ) ) {
@@ -825,8 +825,8 @@ void MainLoop()
         // LightPass.
         LightPassOutput primRenderPass = AddPrimitiveLightTest( frameGraph, testModel, g_MaterialEditor->getActiveMaterial(), lightGridData.PerSceneBuffer, scenario );
 
-        // Sky Rendering.
-        ResHandle_t presentRt = g_WorldRenderer->BrunetonSky->renderSky( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
+        // Atmosphere Rendering.
+        ResHandle_t presentRt = g_WorldRenderer->AtmosphereRendering->renderAtmosphere( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
 
         // Line Rendering.
         presentRt = g_WorldRenderer->LineRendering->renderLines( frameGraph, presentRt );

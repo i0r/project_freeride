@@ -13,16 +13,31 @@
 
 #include <Maths/Helpers.h>
 
-//// Atmospheric Model Settings
-//constexpr bool use_half_precision_ = true;
-//constexpr bool use_constant_solar_spectrum_ = false;
-//constexpr bool use_ozone_ = true;
-//constexpr f64 kLambdaR = 680.0;
-//constexpr f64 kLambdaG = 550.0;
-//constexpr f64 kLambdaB = 440.0;
-#include "AtmosphereSettings.h" // TODO REMOVE THIS INCLUDE ONCE THE NEW TECH IS IMPLEMENTED
+// Atmospheric Model Settings
+enum atmosphereLuminance_t {
+    // Render the spectral radiance at kLambdaR, kLambdaG, kLambdaB.
+    ATMOSPHERE_LUMINANCE_NONE,
+    // Render the sRGB luminance, using an approximate (on the fly) conversion
+    // from 3 spectral radiance values only (see section 14.3 in <a href=
+    // "https://arxiv.org/pdf/1612.04336.pdf">A Qualitative and Quantitative
+    //  Evaluation of 8 Clear Sky Models</a>).
+    ATMOSPHERE_LUMINANCE_APPROXIMATE,
+    // Render the sRGB luminance, precomputed from 15 spectral radiance values
+    // (see section 4.4 in <a href=
+    // "http://www.oskee.wz.cz/stranka/uploads/SCCG10ElekKmoch.pdf">Real-time
+    //  Spectral Scattering in Large-scale Natural Participating Media</a>).
+    ATMOSPHERE_LUMINANCE_PRECOMPUTED
+};
 
-#include "BrunetonSkyModel.h"
+constexpr atmosphereLuminance_t use_luminance_ = ATMOSPHERE_LUMINANCE_NONE;
+constexpr bool use_half_precision_ = true;
+constexpr bool use_constant_solar_spectrum_ = false;
+constexpr bool use_ozone_ = true;
+constexpr bool use_combined_textures_ = true;
+constexpr u32 num_scattering_orders = 4;
+constexpr f64 kLambdaR = 680.0;
+constexpr f64 kLambdaG = 550.0;
+constexpr f64 kLambdaB = 440.0;
 
 // Values from "Reference Solar Spectral Irradiance: ASTM G-173", ETR column
 // (see http://rredc.nrel.gov/solar/spectra/am1.5/ASTMG173/ASTMG173.html),
@@ -61,7 +76,6 @@ constexpr f64 kMaxOzoneNumberDensity = 300.0 * kDobsonUnit / 15000.0;
 // Wavelength independent solar irradiance "spectrum" (not physically
 // realistic, but was used in the original implementation).
 constexpr f64 kConstantSolarIrradiance = 1.5;
-constexpr f64 kBottomRadius = 6360000.0;
 constexpr f64 kTopRadius = 6420000.0;
 constexpr f64 kRayleigh = 1.24062e-6;
 constexpr f64 kRayleighScaleHeight = 8000.0;
@@ -95,9 +109,7 @@ constexpr i32 SCATTERING_TEXTURE_DEPTH = SCATTERING_TEXTURE_R_SIZE;
 // The conversion factor between watts and lumens.
 constexpr f64 MAX_LUMINOUS_EFFICACY = 683.0;
 
-constexpr f64 kSunAngularRadius = 0.00935 / 2.0;
 const f64 kSunSolidAngle = dk::maths::PI<f64>() * kSunAngularRadius * kSunAngularRadius;
-constexpr f64 kLengthUnitInMeters = 1000.0;
 
 // Values from "CIE (1931) 2-deg color matching functions", see
 // "http://web.archive.org/web/20081228084047/
@@ -501,13 +513,13 @@ void AtmosphereLUTComputeModule::precomputePipelineResources( FrameGraph& frameG
     ComputeSpectralRadianceToLuminanceFactors( wavelengths, solar_irradiance,
                                                0 /* lambda_power */, &sun_k_r, &sun_k_g, &sun_k_b );
 
-     dkVec3f SKY_SPECTRAL_RADIANCE_TO_LUMINANCE = dkVec3f(
+     SKY_SPECTRAL_RADIANCE_TO_LUMINANCE = dkVec3f(
         static_cast< f32 >( sky_k_r ),
         static_cast< f32 >( sky_k_g ),
         static_cast< f32 >( sky_k_b )
     );
 
-    dkVec3f SUN_SPECTRAL_RADIANCE_TO_LUMINANCE = dkVec3f(
+    SUN_SPECTRAL_RADIANCE_TO_LUMINANCE = dkVec3f(
         static_cast< f32 >( sun_k_r ),
         static_cast< f32 >( sun_k_g ),
         static_cast< f32 >( sun_k_b )
@@ -606,11 +618,6 @@ void AtmosphereLUTComputeModule::precomputePipelineResources( FrameGraph& frameG
             precomputeIteration( frameGraph, lambdas, num_scattering_orders, i > 0 );
         }
     }
-}
-
-void AtmosphereLUTComputeModule::bindLUTs( BrunetonSkyRenderModule* runtimeRenderModule )
-{
-    runtimeRenderModule->setLookUpTables( transmittance, scattering[0], irradiance[0] );
 }
 
 void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, const dkVec3f& lambdas, const u32 num_scattering_orders, const bool enableBlending )

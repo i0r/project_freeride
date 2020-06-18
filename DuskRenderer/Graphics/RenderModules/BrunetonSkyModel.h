@@ -29,13 +29,13 @@ public:
     ResHandle_t                 renderSky( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer );
 
     // Render atmospheric fog. Will be applied on anything which has been written to the depth buffer, which is why the fog
-    // should be applied after geometry rendeing.
+    // should be applied after geometry rendering.
     ResHandle_t                 renderAtmoshpericFog( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer );
 
     // Release resources allocated by this RenderModule.
     void                        destroy( RenderDevice& renderDevice );
 
-    // Load cached resource from the harddrive and pre-allocate resources for this module.
+    // Load cached resource from the hard drive and pre-allocate resources for this module.
     void                        loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache );
 
     // Trigger LUTs rebuild for this render module. If forceImmediateRecompute is true, the recomputing steps will be done
@@ -45,7 +45,7 @@ public:
 
 private:
     enum class RecomputeStep {
-        // Recompute all LUTs during the same frame.
+        // Recompute all LUTs during the same frame (SLOW).
         CompleteRecompute
     };
 
@@ -68,46 +68,19 @@ private:
 
     // Queue of lut compute job to do.
     std::queue<RecomputeJob>    lutComputeJobTodo;
-};
+    
+    // Sun horizontal angle (in spherical coordinates).
+    f32 sunHorizontalAngle;
 
-class BrunetonSkyRenderModule
-{
-public:
-                                BrunetonSkyRenderModule();
-                                BrunetonSkyRenderModule( BrunetonSkyRenderModule& ) = delete;
-                                BrunetonSkyRenderModule& operator = ( BrunetonSkyRenderModule& ) = delete;
-                                ~BrunetonSkyRenderModule();
+    // Sun vertical angle (in spherical coordinates).
+    f32 sunVerticalAngle;
 
+    // Atmosphere parameters for the current LUTs set. This is a local copy made from the 
+    // parameters used by the LUT compute module.
+    AtmosphereParameters parameters;
 
-    ResHandle_t                 renderSky( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer, const bool renderSunDisk = true, const bool useAutomaticExposure = true );
-
-    void                        destroy( RenderDevice& renderDevice );
-    void                        loadCachedResources( RenderDevice& renderDevice, ShaderCache& shaderCache, GraphicsAssetCache& graphicsAssetCache );
-
-    void                        setSunSphericalPosition( const f32 verticalAngleRads, const f32 horizontalAngleRads );
-    dkVec2f                     getSunSphericalPosition();
-
-    void                        setLookUpTables( Image* transmittance, Image* scattering, Image* irradiance );
-
-private:
-    PipelineState*              skyRenderPso[5];
-    PipelineState*              skyRenderNoSunFixedExposurePso[5];
-
-    Image*                      transmittanceTexture;
-    Image*                      scatteringTexture;
-    Image*                      irradianceTexture;
-
-    f32                         sunVerticalAngle;
-    f32                         sunHorizontalAngle;
-    f32                         sunAngularRadius;
-
-    struct {
-        dkVec3f                 EarthCenter;
-        f32                     SunSizeX;
-        dkVec3f                 SunDirection;
-        f32                     SunSizeY;
-    } parameters;
-
-private:
-    PipelineState*              getPipelineStatePermutation( const u32 samplerCount, const bool renderSunDisk, const bool useAutomaticExposure );
+    Image* transmittanceLut;
+    Image* irradianceLut;
+    Image* scatteringLut;
+    Image* mieScatteringLut;
 };

@@ -13,8 +13,23 @@ struct Image;
 #include <Graphics/RenderPasses/Headers/Atmosphere.h>
 #include "Generated/AtmosphereLUTCompute.generated.h"
 
+constexpr f64 kLengthUnitInMeters = 1000.0;
+constexpr f64 kBottomRadius = 6360000.0;
+constexpr f64 kSunAngularRadius = 0.00935 / 2.0;
+
 class AtmosphereLUTComputeModule 
 {
+public:
+    DUSK_INLINE dkVec3f getSkySpectralRadianceToLuminance() const { return SKY_SPECTRAL_RADIANCE_TO_LUMINANCE; }
+    DUSK_INLINE dkVec3f getSunSpectralRadianceToLuminance() const { return SUN_SPECTRAL_RADIANCE_TO_LUMINANCE; }
+
+    DUSK_INLINE Image* getTransmittanceLut() const { return transmittance; }
+    DUSK_INLINE Image* getScatteringLut() const { return scattering[0]; }
+    DUSK_INLINE Image* getIrradianceLut() const { return irradiance[0]; }
+    DUSK_INLINE Image* getMieScatteringLut() const { return deltaMieScattering; }
+
+    DUSK_INLINE const AtmosphereParameters& getAtmosphereParameters() const { return properties.AtmosphereParams; }
+
 public:
                                 AtmosphereLUTComputeModule();
                                 AtmosphereLUTComputeModule( AtmosphereLUTComputeModule& ) = delete;
@@ -30,8 +45,6 @@ public:
     // Compute atmosphere scattering LUTs. 
     void                        precomputePipelineResources( FrameGraph& frameGraph );
         
-    void                        bindLUTs( BrunetonSkyRenderModule* runtimeRenderModule );
-
 private:
     // Transmittance LUT (computed at runtime).
     Image*                      transmittance;
@@ -53,6 +66,9 @@ private:
     Image*                      deltaScatteringDensity;
     
     AtmosphereLUTCompute::ComputeTransmittanceRuntimeProperties properties;
+
+    dkVec3f SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
+    dkVec3f SUN_SPECTRAL_RADIANCE_TO_LUMINANCE;
 
 private:
     // Perform a precompute iteration. The actual precomputations depend on whether we want to store precomputed
