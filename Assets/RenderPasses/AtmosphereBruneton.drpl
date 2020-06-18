@@ -231,15 +231,17 @@ lib AtmosphereBruneton {
         float x = ( float )( $SV_VertexId / 2 );
         float y = ( float )( $SV_VertexId % 2 );
         
-        $SV_Position = float4( x * 4 - 1, y * 4 - 1, 0, 1 );
-        $POSITION0 = float4( mul( $SV_Position, g_InverseViewProjectionMatrix ).xzy, 1 );
+        float4 ScreenSpacePos = float4( x * 4 - 1, y * 4 - 1, 0, 1 );
+        
+        $POSITION0 = float4( mul( ScreenSpacePos, g_InverseViewProjectionMatrix ).xzy, 1 );
+        $SV_Position = ScreenSpacePos;
     }
     
     shader BrunetonSkyPS {            
         float3 viewDirection = normalize( $POSITION0.xyz );
         
         float3 transmittance;
-        float3 radiance = GetSkyRadiance( float3( g_WorldPosition.xzy * 0.001f ) - EarthCenter, viewDirection, 0, SunDirection, transmittance );
+        float3 radiance = GetSkyRadiance( float3( g_WorldPosition.xz * 0.05f, 0.05f ) - EarthCenter, viewDirection, 0, SunDirection, transmittance );
 
         float4 color = float4( 1.0 - exp( -radiance ), 1.0f );
             
