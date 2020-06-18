@@ -13,7 +13,7 @@
 
 #include <Rendering/CommandList.h>
 
-#include "RenderModules/BrunetonSkyModel.h"
+#include "RenderModules/AtmosphereRenderModule.h"
 #include "RenderModules/PresentRenderPass.h"
 #include "RenderModules/MSAAResolvePass.h"
 #include "RenderModules/FrameCompositionModule.h"

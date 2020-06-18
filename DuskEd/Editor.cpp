@@ -22,7 +22,7 @@
 
 // TEMP FOR TEST CRAP; SHOULD BE REMOVED LATER
 #include "Graphics/RenderModules/PresentRenderPass.h"
-#include "Graphics/RenderModules/BrunetonSkyModel.h"
+#include "Graphics/RenderModules/AtmosphereRenderModule.h"
 #include "Graphics/RenderModules/MSAAResolvePass.h"
 #include "Graphics/RenderModules/FrameCompositionModule.h"
 #include "Graphics/RenderModules/AutomaticExposure.h"

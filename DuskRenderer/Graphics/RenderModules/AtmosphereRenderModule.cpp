@@ -3,7 +3,7 @@
     Copyright (C) 2019 Prevost Baptiste
 */
 #include "Shared.h"
-#include "BrunetonSkyModel.h"
+#include "AtmosphereRenderModule.h"
 
 #include <Graphics/FrameGraph.h>
 #include <Graphics/ShaderCache.h>
