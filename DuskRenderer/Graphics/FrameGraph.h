@@ -150,7 +150,7 @@ public:
     };
 
     // Maximum number of RenderPassExecutionInfos per FrameGraphRenderThread (for a single frame).
-    static constexpr i32        MAX_RENDERPASS_COUNT = 10;
+    static constexpr i32        MAX_RENDERPASS_COUNT = 32;
 
 public:
                                 FrameGraphRenderThread( BaseAllocator* allocator, RenderDevice* renderDevice, VirtualFileSystem* virtualFileSys );

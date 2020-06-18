@@ -10,3 +10,8 @@ using float4 = dkVec4f;
 using float3 = dkVec3f;
 using float2 = dkVec2f;
 using uint = u32;
+
+// Dummy declaration to avoid compilation errors
+using Texture1D = i32;
+using Texture2D = i32;
+using Texture3D = i32;

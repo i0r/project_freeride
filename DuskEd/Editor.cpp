@@ -22,7 +22,7 @@
 
 // TEMP FOR TEST CRAP; SHOULD BE REMOVED LATER
 #include "Graphics/RenderModules/PresentRenderPass.h"
-#include "Graphics/RenderModules/BrunetonSkyModel.h"
+#include "Graphics/RenderModules/AtmosphereRenderModule.h"
 #include "Graphics/RenderModules/MSAAResolvePass.h"
 #include "Graphics/RenderModules/FrameCompositionModule.h"
 #include "Graphics/RenderModules/AutomaticExposure.h"
@@ -32,6 +32,9 @@
 #include "Graphics/RenderModules/FFTRenderPass.h"
 #include "Graphics/RenderModules/LineRenderingModule.h"
 #include "Graphics/Material.h"
+
+#include "Graphics/RenderModules/Generated/AtmosphereBruneton.generated.h"
+#include "Graphics/RenderModules/Reflected/AtmosphereBruneton.reflected.h"
 // END TEMP
 
 #include "Graphics/ShaderCache.h"
@@ -729,13 +732,18 @@ void MainLoop()
             g_MaterialEditor->displayEditorWindow();
 
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
-            if ( ImGui::Begin( "Inspector" ) ) {
-                static f32 cart[2] = { 0.5f, 0.5f };
-
-                if ( ImGui::SliderFloat2( "Sun Pos", cart, -1.0f, 1.0f ) ) {
-                    g_LightGrid->getDirectionalLightData()->NormalizedDirection = dk::maths::SphericalToCarthesianCoordinates( cart[0], cart[1] );
-                    g_WorldRenderer->BrunetonSky->setSunSphericalPosition( cart[0], cart[1] );
+            if ( ImGui::Begin( "Atmosphere" ) ) {
+                if ( ImGui::Button( "Recompute LUTs" ) ) {
+                    g_WorldRenderer->AtmosphereRendering->triggerLutRecompute();
                 }
+                //AtmosphereBruneton::ReflectBrunetonSky( AtmosphereBruneton::BrunetonSkyProperties );
+
+                /* static f32 cart[2] = { 0.5f, 0.5f };
+
+                 if ( ImGui::SliderFloat2( "Sun Pos", cart, -1.0f, 1.0f ) ) {
+                     g_LightGrid->getDirectionalLightData()->NormalizedDirection = dk::maths::SphericalToCarthesianCoordinates( cart[0], cart[1] );
+                     g_WorldRenderer->BrunetonSky->setSunSphericalPosition( cart[0], cart[1] );
+                 }*/
             }
             ImGui::End();
 
@@ -825,8 +833,8 @@ void MainLoop()
         // LightPass.
         LightPassOutput primRenderPass = AddPrimitiveLightTest( frameGraph, testModel, g_MaterialEditor->getActiveMaterial(), lightGridData.PerSceneBuffer, scenario );
 
-        // Sky Rendering.
-        ResHandle_t presentRt = g_WorldRenderer->BrunetonSky->renderSky( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
+        // Atmosphere Rendering.
+        ResHandle_t presentRt = g_WorldRenderer->AtmosphereRendering->renderAtmosphere( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
 
         // Line Rendering.
         presentRt = g_WorldRenderer->LineRendering->renderLines( frameGraph, presentRt );

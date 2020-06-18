@@ -7,6 +7,7 @@
 
 #include <Graphics/ShaderCache.h>
 #include <Graphics/FrameGraph.h>
+#include <Graphics/GraphicsAssetCache.h>
 
 #include <Core/ViewFormat.h>
 #include <Rendering/CommandList.h>

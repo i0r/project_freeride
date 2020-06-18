@@ -1,0 +1,269 @@
+lib AtmosphereBruneton { 
+    properties {
+        AtmosphereParameters AtmosphereParams;
+        float3  	EarthCenter;
+        float3  	SunDirection;
+        float   	SunSizeY;
+        float   	SunSizeX;
+        float       SunExponant = 2400.0f;
+        cflag       RenderSunDisc = true;
+        cflag       UseAutomaticExposure = false;
+        float3      SUN_SPECTRAL_RADIANCE_TO_LUMINANCE;
+        float3      SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
+    }
+    
+    resources {
+        Texture2D OutputRenderTarget {
+            swizzle = float4;
+        }
+        
+        Texture2D OutputDepthTarget {
+            swizzle = float4;
+        }
+        
+        Texture2D TransmittanceTextureInput {
+            swizzle = float4;
+        }
+        
+        Texture2D IrradianceTextureInput {
+            swizzle = float4;
+        }
+        
+        Texture3D ScatteringTextureInput {
+            swizzle = float4;
+        }
+        
+        Texture3D MieScatteringTextureInput {
+            swizzle = float4;
+        }
+        
+        StructuredBuffer AutoExposureBuffer {
+            swizzle = AutoExposureInfos;
+        }
+        
+        sampler DefaultSampler {
+            format = BilinearClampEdge;
+        }
+    }
+    
+    shared {
+        #include <AtmosphereFunctions.hlsli>
+        RadianceSpectrum GetSkyRadiance(
+            IN_BRUNETON(AtmosphereParameters) atmosphere,
+            IN_BRUNETON(TransmittanceTexture) transmittance_texture,
+            IN_BRUNETON(ReducedScatteringTexture) scattering_texture,
+            IN_BRUNETON(ReducedScatteringTexture) single_mie_scattering_texture,
+            sampler transmittance_sampler,
+            Position camera, IN_BRUNETON(Direction) view_ray, float shadow_length,
+            IN_BRUNETON(Direction) sun_direction, OUT_BRUNETON(DimensionlessSpectrum) transmittance) {
+          float r = length(camera);
+          float rmu = dot(camera, view_ray);
+          float distance_to_top_atmosphere_boundary = -rmu -
+              sqrt(rmu * rmu - r * r + atmosphere.top_radius * atmosphere.top_radius);
+          if (distance_to_top_atmosphere_boundary > 0.0 * m) {
+            camera = camera + view_ray * distance_to_top_atmosphere_boundary;
+            r = atmosphere.top_radius;
+            rmu += distance_to_top_atmosphere_boundary;
+          } else if (r > atmosphere.top_radius) {
+            transmittance = DimensionlessSpectrum(1.0, 1.0, 1.0);
+            return RadianceSpectrum(0.0 * watt_per_square_meter_per_sr_per_nm, 0.0 * watt_per_square_meter_per_sr_per_nm, 0.0 * watt_per_square_meter_per_sr_per_nm);
+          }
+          Number mu = rmu / r;
+          Number mu_s = dot(camera, sun_direction) / r;
+          Number nu = dot(view_ray, sun_direction);
+          bool ray_r_mu_intersects_ground = RayIntersectsGround(atmosphere, r, mu);
+          transmittance = ray_r_mu_intersects_ground ? DimensionlessSpectrum(0.0, 0.0, 0.0) :
+              GetTransmittanceToTopAtmosphereBoundary(
+                  atmosphere, transmittance_texture, transmittance_sampler, r, mu);
+          IrradianceSpectrum single_mie_scattering;
+          IrradianceSpectrum scattering;
+          if (shadow_length == 0.0 * m) {
+            scattering = GetCombinedScattering(
+                atmosphere, scattering_texture, single_mie_scattering_texture, transmittance_sampler,
+                r, mu, mu_s, nu, ray_r_mu_intersects_ground,
+                single_mie_scattering);
+          } else {
+            float d = shadow_length;
+            float r_p =
+                ClampRadius(atmosphere, sqrt(d * d + 2.0 * r * mu * d + r * r));
+            Number mu_p = (r * mu + d) / r_p;
+            Number mu_s_p = (r * mu_s + d * nu) / r_p;
+            scattering = GetCombinedScattering(
+                atmosphere, scattering_texture, single_mie_scattering_texture, transmittance_sampler,
+                r_p, mu_p, mu_s_p, nu, ray_r_mu_intersects_ground,
+                single_mie_scattering);
+            DimensionlessSpectrum shadow_transmittance =
+                GetTransmittance(atmosphere, transmittance_texture, transmittance_sampler,
+                    r, mu, shadow_length, ray_r_mu_intersects_ground);
+            scattering = scattering * shadow_transmittance;
+            single_mie_scattering = single_mie_scattering * shadow_transmittance;
+          }
+          return scattering * RayleighPhaseFunction(nu) + single_mie_scattering *
+              MiePhaseFunction(atmosphere.mie_phase_function_g, nu);
+        }
+        RadianceSpectrum GetSkyRadianceToPoint(
+            IN_BRUNETON(AtmosphereParameters) atmosphere,
+            IN_BRUNETON(TransmittanceTexture) transmittance_texture,
+            IN_BRUNETON(ReducedScatteringTexture) scattering_texture,
+            IN_BRUNETON(ReducedScatteringTexture) single_mie_scattering_texture,
+            sampler lutSampler,
+            Position camera, IN_BRUNETON(Position) point_, float shadow_length,
+            IN_BRUNETON(Direction) sun_direction, OUT_BRUNETON(DimensionlessSpectrum) transmittance) {
+          Direction view_ray = normalize(point_ - camera);
+          float r = length(camera);
+          float rmu = dot(camera, view_ray);
+          float distance_to_top_atmosphere_boundary = -rmu -
+              sqrt(rmu * rmu - r * r + atmosphere.top_radius * atmosphere.top_radius);
+          if (distance_to_top_atmosphere_boundary > 0.0 * m) {
+            camera = camera + view_ray * distance_to_top_atmosphere_boundary;
+            r = atmosphere.top_radius;
+            rmu += distance_to_top_atmosphere_boundary;
+          }
+          Number mu = rmu / r;
+          Number mu_s = dot(camera, sun_direction) / r;
+          Number nu = dot(view_ray, sun_direction);
+          float d = length(point_ - camera);
+          bool ray_r_mu_intersects_ground = RayIntersectsGround(atmosphere, r, mu);
+          transmittance = GetTransmittance(atmosphere, transmittance_texture, lutSampler,
+              r, mu, d, ray_r_mu_intersects_ground);
+          IrradianceSpectrum single_mie_scattering;
+          IrradianceSpectrum scattering = GetCombinedScattering(
+              atmosphere, scattering_texture, single_mie_scattering_texture, lutSampler,
+              r, mu, mu_s, nu, ray_r_mu_intersects_ground,
+              single_mie_scattering);
+          d = max(d - shadow_length, 0.0 * m);
+          float r_p = ClampRadius(atmosphere, sqrt(d * d + 2.0 * r * mu * d + r * r));
+          Number mu_p = (r * mu + d) / r_p;
+          Number mu_s_p = (r * mu_s + d * nu) / r_p;
+          IrradianceSpectrum single_mie_scattering_p;
+          IrradianceSpectrum scattering_p = GetCombinedScattering(
+              atmosphere, scattering_texture, single_mie_scattering_texture, lutSampler,
+              r_p, mu_p, mu_s_p, nu, ray_r_mu_intersects_ground,
+              single_mie_scattering_p);
+          DimensionlessSpectrum shadow_transmittance = transmittance;
+          if (shadow_length > 0.0 * m) {
+            shadow_transmittance = GetTransmittance(atmosphere, transmittance_texture, lutSampler,
+                r, mu, d, ray_r_mu_intersects_ground);
+          }
+          scattering = scattering - shadow_transmittance * scattering_p;
+          single_mie_scattering =
+              single_mie_scattering - shadow_transmittance * single_mie_scattering_p;
+          single_mie_scattering = GetExtrapolatedSingleMieScattering(
+              atmosphere, float4(scattering, single_mie_scattering.r));
+          single_mie_scattering = single_mie_scattering *
+              smoothstep(Number(0.0), Number(0.01), mu_s);
+          return scattering * RayleighPhaseFunction(nu) + single_mie_scattering *
+              MiePhaseFunction(atmosphere.mie_phase_function_g, nu);
+        }
+        IrradianceSpectrum GetSunAndSkyIrradiance(
+            IN_BRUNETON(AtmosphereParameters) atmosphere,
+            IN_BRUNETON(TransmittanceTexture) transmittance_texture,
+            IN_BRUNETON(IrradianceTexture) irradiance_texture,
+            sampler lutSampler,
+            IN_BRUNETON(Position) point_, IN_BRUNETON(Direction) normal, IN_BRUNETON(Direction) sun_direction,
+            OUT_BRUNETON(IrradianceSpectrum) sky_irradiance) {
+          float r = length(point_);
+          Number mu_s = dot(point_, sun_direction) / r;
+          sky_irradiance = GetIrradiance(atmosphere, irradiance_texture, lutSampler, r, mu_s) *
+              (1.0 + dot(normal, point_) / r) * 0.5;
+          return atmosphere.solar_irradiance *
+              GetTransmittanceToSun(
+                  atmosphere, transmittance_texture, lutSampler, r, mu_s) *
+              max(dot(normal, sun_direction), 0.0);
+        }
+        RadianceSpectrum GetSolarRadiance() {
+          return AtmosphereParams.solar_irradiance /
+              (PI * AtmosphereParams.sun_angular_radius * AtmosphereParams.sun_angular_radius);
+        }
+        RadianceSpectrum GetSkyRadiance(
+            Position camera, Direction view_ray, float shadow_length,
+            Direction sun_direction, out DimensionlessSpectrum transmittance) {
+          return GetSkyRadiance(AtmosphereParams, TransmittanceTextureInput,
+              ScatteringTextureInput, MieScatteringTextureInput, DefaultSampler,
+              camera, view_ray, shadow_length, sun_direction, transmittance);
+        }
+        RadianceSpectrum GetSkyRadianceToPoint(
+            Position camera, Position point_, float shadow_length,
+            Direction sun_direction, out DimensionlessSpectrum transmittance) {
+          return GetSkyRadianceToPoint(AtmosphereParams, TransmittanceTextureInput,
+              ScatteringTextureInput, MieScatteringTextureInput, DefaultSampler,
+              camera, point_, shadow_length, sun_direction, transmittance);
+        }
+        IrradianceSpectrum GetSunAndSkyIrradiance(
+           Position p, Direction normal, Direction sun_direction,
+           out IrradianceSpectrum sky_irradiance) {
+          return GetSunAndSkyIrradiance(AtmosphereParams, TransmittanceTextureInput,
+              IrradianceTextureInput, DefaultSampler, p, normal, sun_direction, sky_irradiance);
+        }
+        Luminance3 GetSolarLuminance() {
+          return AtmosphereParams.solar_irradiance /
+              (PI * AtmosphereParams.sun_angular_radius * AtmosphereParams.sun_angular_radius) *
+              SUN_SPECTRAL_RADIANCE_TO_LUMINANCE;
+        }
+        Luminance3 GetSkyLuminance(
+            Position camera, Direction view_ray, float shadow_length,
+            Direction sun_direction, out DimensionlessSpectrum transmittance) {
+          return GetSkyRadiance(AtmosphereParams, TransmittanceTextureInput,
+              ScatteringTextureInput, MieScatteringTextureInput, DefaultSampler,
+              camera, view_ray, shadow_length, sun_direction, transmittance) *
+              SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
+        }
+        Luminance3 GetSkyLuminanceToPoint(
+            Position camera, Position point_, float shadow_length,
+            Direction sun_direction, out DimensionlessSpectrum transmittance) {
+          return GetSkyRadianceToPoint(AtmosphereParams, TransmittanceTextureInput,
+              ScatteringTextureInput, MieScatteringTextureInput, DefaultSampler,
+              camera, point_, shadow_length, sun_direction, transmittance) *
+              SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
+        }
+        Illuminance3 GetSunAndSkyIlluminance(
+           Position p, Direction normal, Direction sun_direction,
+           out IrradianceSpectrum sky_irradiance) {
+          IrradianceSpectrum sun_irradiance = GetSunAndSkyIrradiance(
+              AtmosphereParams, TransmittanceTextureInput, IrradianceTextureInput, DefaultSampler, p, normal,
+              sun_direction, sky_irradiance);
+          sky_irradiance *= SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
+          return sun_irradiance * SUN_SPECTRAL_RADIANCE_TO_LUMINANCE;
+        }
+    }
+    
+    shader BrunetonSkyVS {
+        float x = ( float )( $SV_VertexId / 2 );
+        float y = ( float )( $SV_VertexId % 2 );
+        
+        float4 ScreenSpacePos = float4( x * 4 - 1, y * 4 - 1, 0, 1 );
+        
+        $POSITION0 = float4( mul( ScreenSpacePos, g_InverseViewProjectionMatrix ).xzy, 1 );
+        $SV_Position = ScreenSpacePos;
+    }
+    
+    shader BrunetonSkyPS {            
+        float3 viewDirection = normalize( $POSITION0.xyz );
+        
+        float3 transmittance;
+        float3 radiance = GetSkyRadiance( float3( g_WorldPosition.xz * 0.05f, 0.05f ) - EarthCenter, viewDirection, 0, SunDirection, transmittance );
+
+        float4 color = float4( 1.0 - exp( -radiance ), 1.0f );
+            
+        if ( $UseAutomaticExposure ) {
+            AutoExposureInfos currentExposure = AutoExposureBuffer[0];
+            
+            color = float4( 1.0 - exp( -radiance / ( currentExposure.EngineLuminanceFactor * 0.10f ) ), 1.0f );
+        }
+        
+        if ( $RenderSunDisc ) {
+            float cosTheta = saturate( dot( viewDirection, SunDirection ) );
+            float sunGradient = pow( cosTheta, SunExponant );
+            color.rgb = lerp( color.rgb, transmittance * GetSolarRadiance() * 0.002f, sunGradient );
+        }
+        
+        $SV_TARGET0 = color;  
+    }
+    
+    pass BrunetonSky {
+        vertex = BrunetonSkyVS;
+        pixel = BrunetonSkyPS;
+        rendertargets = { OutputRenderTarget };
+        depthStencil = OutputDepthTarget;
+    }
+}

@@ -9,6 +9,9 @@
 #include "HLSLCppInterop.h"
 #else
 #define DUSK_IS_MEMORY_ALIGNED_STATIC( x, y )
+
+// TODO Rename this header (which became somehow a garbage field)...
+#include "Atmosphere.h"
 #endif
 
 // Header shared between CPU and GPU. 

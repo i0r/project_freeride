@@ -17,12 +17,12 @@ class CommandList;
 class FrameGraph;
 class Material;
 class VirtualFileSystem;
-class BrunetonSkyRenderModule;
 class TextRenderingModule;
 class AutomaticExposureModule;
 class GlareRenderModule;
 class LineRenderingModule;
 class FrameCompositionModule;
+class AtmosphereRenderModule;
 
 template <typename Precision, int RowCount, int ColumnCount>
 struct Matrix;
@@ -122,12 +122,12 @@ class WorldRenderer
 {
 public:
     // TODO Avoid exposing stuff like this...
-    BrunetonSkyRenderModule* BrunetonSky;
     AutomaticExposureModule* AutomaticExposure;
     TextRenderingModule*     TextRendering;
     GlareRenderModule*       GlareRendering;
     LineRenderingModule*     LineRendering;
     FrameCompositionModule*  FrameComposition;
+    AtmosphereRenderModule*  AtmosphereRendering;
 
 public:
                      WorldRenderer( BaseAllocator* allocator );

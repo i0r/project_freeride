@@ -86,7 +86,7 @@ lib PostEffects {
         float4 finalColor = InputRenderTarget.Load( $SV_DispatchThreadId );
         
         if ( $EnableBloom ) {
-            float3 glareColor = GlareRenderTarget.Load( $SV_DispatchThreadId );
+            float3 glareColor = GlareRenderTarget.SampleLevel( VolumetricLUTSampler, texCoords, 0 );
             float3 glareLuminance = ComputeBloomLuminance( glareColor, 0.0f, currentEV );
             finalColor.rgb = lerp( finalColor.rgb, glareLuminance, BloomStrength );            
         }

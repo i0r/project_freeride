@@ -424,55 +424,41 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
         {
             CommandPacket::BindVertexBuffer cmdPacket = *( CommandPacket::BindVertexBuffer* )bufferPointer;
             renderContext->ImmediateContext->IASetVertexBuffers( cmdPacket.StartBindIndex, cmdPacket.BufferCount, cmdPacket.Buffers, cmdPacket.Strides, cmdPacket.Offsets );
-
-            bufferPointer += sizeof( CommandPacket::BindVertexBuffer );
             break;
         }
         case CPI_BIND_INDICE_BUFFER:
         {
             CommandPacket::BindIndiceBuffer cmdPacket = *( CommandPacket::BindIndiceBuffer* )bufferPointer;
             renderContext->ImmediateContext->IASetIndexBuffer( cmdPacket.BufferObject, cmdPacket.ViewFormat, cmdPacket.Offset );
-
-            bufferPointer += sizeof( CommandPacket::BindIndiceBuffer );
             break;
         }
         case CPI_UPDATE_BUFFER:
         {
             CommandPacket::UpdateBuffer cmdPacket = *( CommandPacket::UpdateBuffer* )bufferPointer;
             UpdateBuffer_Replay( renderContext->ImmediateContext, cmdPacket.BufferObject, cmdPacket.Data, cmdPacket.DataSize );
-
-            bufferPointer += sizeof( CommandPacket::UpdateBuffer );
             break;
         }
         case CPI_SETUP_FRAMEBUFFER:
         {
             CommandPacket::SetupFramebuffer cmdPacket = *( CommandPacket::SetupFramebuffer* )bufferPointer;
             SetupFramebuffer_Replay( renderContext, cmdPacket.RenderTargetView, cmdPacket.DepthStencilView );
-            
-            bufferPointer += sizeof( CommandPacket::SetupFramebuffer );
             break;
         }
         case CPI_BIND_PIPELINE_STATE:
         {
             CommandPacket::BindPipelineState cmdPacket = *( CommandPacket::BindPipelineState* )bufferPointer;
             BindPipelineState_Replay( renderContext, cmdPacket.PipelineStateObject );
-
-            bufferPointer += sizeof( CommandPacket::BindPipelineState );
             break;
         }
         case CPI_PREPARE_AND_BIND_RESOURCES:
         {
             PrepareAndBindResources_Replay( renderContext, renderContext->BindedPipelineState );
-
-            bufferPointer += sizeof( CommandPacket::ArgumentLessPacket );
             break;
         }
         case CPI_BIND_CBUFFER:
         {
             CommandPacket::BindConstantBuffer cmdPacket = *( CommandPacket::BindConstantBuffer* )bufferPointer;
             BindCBuffer_Replay( renderContext, cmdPacket.ObjectHashcode, cmdPacket.BufferObject );
-
-            bufferPointer += sizeof( CommandPacket::BindConstantBuffer );
             break;
         }
         case CPI_BIND_IMAGE:
@@ -482,8 +468,6 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
             if ( cmdPacket.ImageObject != nullptr ) {
                 BindImage_Replay( renderContext, cmdPacket.ObjectHashcode, cmdPacket.ImageObject );
             }
-
-            bufferPointer += sizeof( CommandPacket::BindResource );
             break;
         }
         case CPI_BIND_BUFFER:
@@ -493,8 +477,6 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
             if ( cmdPacket.BufferObject != nullptr ) {
                 BindBuffer_Replay( renderContext, cmdPacket.ObjectHashcode, cmdPacket.BufferObject );
             }
-
-            bufferPointer += sizeof( CommandPacket::BindResource );
             break;
         }
         case CPI_SET_VIEWPORT:
@@ -515,8 +497,6 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
 
                 renderContext->ActiveViewport = viewport;
             }
-
-            bufferPointer += sizeof( CommandPacket::SetViewport );
             break;
         }
         case CPI_SET_SCISSOR:
@@ -535,8 +515,6 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
                 renderContext->ImmediateContext->RSSetScissorRects( 1, &d3dScissorRegion );
                 renderContext->ActiveScissor = scissor;
             }
-
-            bufferPointer += sizeof( CommandPacket::SetScissor );
             break;
         }
         case CPI_DRAW:
@@ -547,8 +525,6 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
             } else {
                 renderContext->ImmediateContext->Draw( cmdPacket.VertexCount, cmdPacket.VertexOffset );
             }
-
-            bufferPointer += sizeof( CommandPacket::Draw );
             break;
         }
         case CPI_DRAW_INDEXED:
@@ -559,16 +535,12 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
             } else {
                 renderContext->ImmediateContext->DrawIndexed( cmdPacket.IndexCount, cmdPacket.IndexOffset, cmdPacket.VertexOffset );
             }
-
-            bufferPointer += sizeof( CommandPacket::DrawIndexed );
             break;
         }
         case CPI_DISPATCH:
         {
             CommandPacket::Dispatch cmdPacket = *( CommandPacket::Dispatch* )bufferPointer;
             renderContext->ImmediateContext->Dispatch( cmdPacket.ThreadCountX, cmdPacket.ThreadCountY, cmdPacket.ThreadCountZ );
-
-            bufferPointer += sizeof( CommandPacket::Dispatch );
             break;
         }
         case CPI_PUSH_EVENT:
@@ -579,8 +551,6 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
 #if DUSK_DEVBUILD
             renderContext->ActiveDebugMarker = cmdPacket.EventName;
 #endif
-
-            bufferPointer += sizeof( CommandPacket::PushEvent );
             break;
         }
         case CPI_POP_EVENT:
@@ -590,19 +560,10 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
 #if DUSK_DEVBUILD
             renderContext->ActiveDebugMarker = nullptr;
 #endif
-
-            bufferPointer += sizeof( CommandPacket::ArgumentLessPacket );
-            break;
-        }
-        default:
-        {
-            bufferPointer += sizeof( CommandPacket::ArgumentLessPacket );
             break;
         }
         };
     }
-
-    nativeCmdList->CommandPacketAllocator->clear();
 }
 
 void RenderDevice::submitCommandLists( CommandList** cmdLists, const u32 cmdListCount )
