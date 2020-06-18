@@ -870,7 +870,7 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
 		    },
 			[=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
 				i32 irradianceWriteIndex = ( scattering_order % 2 == 0 ) ? 1 : 0;
-                i32 irradianceReadIndex = ( irradianceWriteIndex == 0 ) ? 0 : 1;
+                i32 irradianceReadIndex = ( irradianceWriteIndex == 0 ) ? 1 : 0;
                 
 			    Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
 
@@ -938,7 +938,7 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
 		    },
 			[=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
 				i32 irradianceWriteIndex = ( scattering_order % 2 == 0 ) ? 1 : 0;
-                i32 irradianceReadIndex = ( irradianceWriteIndex == 0 ) ? 0 : 1;
+                i32 irradianceReadIndex = ( irradianceWriteIndex == 0 ) ? 1 : 0;
                 
 			    Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
 

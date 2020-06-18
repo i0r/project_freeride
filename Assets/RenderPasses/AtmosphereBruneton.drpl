@@ -265,5 +265,6 @@ lib AtmosphereBruneton {
         pixel = BrunetonSkyPS;
         rendertargets = { OutputRenderTarget };
         depthStencil = OutputDepthTarget;
+        UseAutomaticExposure = true;
     }
 }
