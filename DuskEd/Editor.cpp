@@ -32,6 +32,9 @@
 #include "Graphics/RenderModules/FFTRenderPass.h"
 #include "Graphics/RenderModules/LineRenderingModule.h"
 #include "Graphics/Material.h"
+
+#include "Graphics/RenderModules/Generated/AtmosphereBruneton.generated.h"
+#include "Graphics/RenderModules/Reflected/AtmosphereBruneton.reflected.h"
 // END TEMP
 
 #include "Graphics/ShaderCache.h"
@@ -728,16 +731,21 @@ void MainLoop()
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
             g_MaterialEditor->displayEditorWindow();
 
-          /*  ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
-            if ( ImGui::Begin( "Inspector" ) ) {
-                static f32 cart[2] = { 0.5f, 0.5f };
-
-                if ( ImGui::SliderFloat2( "Sun Pos", cart, -1.0f, 1.0f ) ) {
-                    g_LightGrid->getDirectionalLightData()->NormalizedDirection = dk::maths::SphericalToCarthesianCoordinates( cart[0], cart[1] );
-                    g_WorldRenderer->BrunetonSky->setSunSphericalPosition( cart[0], cart[1] );
+            ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
+            if ( ImGui::Begin( "Atmosphere" ) ) {
+                if ( ImGui::Button( "Recompute LUTs" ) ) {
+                    g_WorldRenderer->AtmosphereRendering->triggerLutRecompute();
                 }
+                //AtmosphereBruneton::ReflectBrunetonSky( AtmosphereBruneton::BrunetonSkyProperties );
+
+                /* static f32 cart[2] = { 0.5f, 0.5f };
+
+                 if ( ImGui::SliderFloat2( "Sun Pos", cart, -1.0f, 1.0f ) ) {
+                     g_LightGrid->getDirectionalLightData()->NormalizedDirection = dk::maths::SphericalToCarthesianCoordinates( cart[0], cart[1] );
+                     g_WorldRenderer->BrunetonSky->setSunSphericalPosition( cart[0], cart[1] );
+                 }*/
             }
-            ImGui::End();*/
+            ImGui::End();
 
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
             if ( ImGui::Begin( "Viewport", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar ) ) {

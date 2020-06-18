@@ -11,35 +11,35 @@ Number ClampCosine(Number mu) {
 float ClampDistance(float d) {
   return max(d, 0.0 * m);
 }
-float ClampRadius(IN(AtmosphereParameters) atmosphere, float r) {
+float ClampRadius(IN_BRUNETON(AtmosphereParameters) atmosphere, float r) {
   return clamp(r, atmosphere.bottom_radius, atmosphere.top_radius);
 }
 float SafeSqrt(Area a) {
   return sqrt(max(a, 0.0 * m2));
 }
-float DistanceToTopAtmosphereBoundary(IN(AtmosphereParameters) atmosphere,
+float DistanceToTopAtmosphereBoundary(IN_BRUNETON(AtmosphereParameters) atmosphere,
     float r, Number mu) {
   Area discriminant = r * r * (mu * mu - 1.0) +
       atmosphere.top_radius * atmosphere.top_radius;
   return ClampDistance(-r * mu + SafeSqrt(discriminant));
 }
-float DistanceToBottomAtmosphereBoundary(IN(AtmosphereParameters) atmosphere,
+float DistanceToBottomAtmosphereBoundary(IN_BRUNETON(AtmosphereParameters) atmosphere,
     float r, Number mu) {
   Area discriminant = r * r * (mu * mu - 1.0) +
       atmosphere.bottom_radius * atmosphere.bottom_radius;
   return ClampDistance(-r * mu - SafeSqrt(discriminant));
 }
-bool RayIntersectsGround(IN(AtmosphereParameters) atmosphere,
+bool RayIntersectsGround(IN_BRUNETON(AtmosphereParameters) atmosphere,
     float r, Number mu) {
   return mu < 0.0 && r * r * (mu * mu - 1.0) +
       atmosphere.bottom_radius * atmosphere.bottom_radius >= 0.0 * m2;
 }
-Number GetLayerDensity(IN(DensityProfileLayer) layer, float altitude) {
+Number GetLayerDensity(IN_BRUNETON(DensityProfileLayer) layer, float altitude) {
   Number density = layer.exp_term * exp(layer.exp_scale * altitude) +
       layer.linear_term * altitude + layer.constant_term;
   return clamp(density, Number(0.0), Number(1.0));
 }
-Number GetProfileDensity(IN(DensityProfile) profile, float altitude) {
+Number GetProfileDensity(IN_BRUNETON(DensityProfile) profile, float altitude) {
   return altitude < profile.layers[0].width ?
       GetLayerDensity(profile.layers[0], altitude) :
       GetLayerDensity(profile.layers[1], altitude);
@@ -50,7 +50,7 @@ Number GetTextureCoordFromUnitRange(Number x, int texture_size) {
 Number GetUnitRangeFromTextureCoord(Number u, int texture_size) {
   return (u - 0.5 / Number(texture_size)) / (1.0 - 1.0 / Number(texture_size));
 }
-float2 GetIrradianceTextureUvFromRMuS(IN(AtmosphereParameters) atmosphere,
+float2 GetIrradianceTextureUvFromRMuS(IN_BRUNETON(AtmosphereParameters) atmosphere,
     float r, Number mu_s) {
   Number x_r = (r - atmosphere.bottom_radius) /
       (atmosphere.top_radius - atmosphere.bottom_radius);
@@ -58,7 +58,7 @@ float2 GetIrradianceTextureUvFromRMuS(IN(AtmosphereParameters) atmosphere,
   return float2(GetTextureCoordFromUnitRange(x_mu_s, IRRADIANCE_TEXTURE_WIDTH),
               GetTextureCoordFromUnitRange(x_r, IRRADIANCE_TEXTURE_HEIGHT));
 }
-float2 GetTransmittanceTextureUvFromRMu(IN(AtmosphereParameters) atmosphere,
+float2 GetTransmittanceTextureUvFromRMu(IN_BRUNETON(AtmosphereParameters) atmosphere,
     float r, Number mu) {
   float H = sqrt(atmosphere.top_radius * atmosphere.top_radius -
       atmosphere.bottom_radius * atmosphere.bottom_radius);
@@ -72,8 +72,8 @@ float2 GetTransmittanceTextureUvFromRMu(IN(AtmosphereParameters) atmosphere,
   return float2(GetTextureCoordFromUnitRange(x_mu, TRANSMITTANCE_TEXTURE_WIDTH),
               GetTextureCoordFromUnitRange(x_r, TRANSMITTANCE_TEXTURE_HEIGHT));
 }
-void GetRMuSFromIrradianceTextureUv(IN(AtmosphereParameters) atmosphere,
-    IN(float2) uv, OUT(float) r, OUT(Number) mu_s) {
+void GetRMuSFromIrradianceTextureUv(IN_BRUNETON(AtmosphereParameters) atmosphere,
+    IN_BRUNETON(float2) uv, OUT_BRUNETON(float) r, OUT_BRUNETON(Number) mu_s) {
   Number x_mu_s = GetUnitRangeFromTextureCoord(uv.x, IRRADIANCE_TEXTURE_WIDTH);
   Number x_r = GetUnitRangeFromTextureCoord(uv.y, IRRADIANCE_TEXTURE_HEIGHT);
   r = atmosphere.bottom_radius +
@@ -88,9 +88,9 @@ DimensionlessSpectrum GetTransmittanceToTopAtmosphereBoundary(
   float2 uv = GetTransmittanceTextureUvFromRMu(atmosphere, r, mu);
   return transmittance_texture.SampleLevel(transmittance_sampler, uv, 0.0f).rgb;
 }
-void GetRMuMuSNuFromScatteringTextureUvwz(IN(AtmosphereParameters) atmosphere,
-    IN(float4) uvwz, OUT(float) r, OUT(Number) mu, OUT(Number) mu_s,
-    OUT(Number) nu, OUT(bool) ray_r_mu_intersects_ground) {
+void GetRMuMuSNuFromScatteringTextureUvwz(IN_BRUNETON(AtmosphereParameters) atmosphere,
+    IN_BRUNETON(float4) uvwz, OUT_BRUNETON(float) r, OUT_BRUNETON(Number) mu, OUT_BRUNETON(Number) mu_s,
+    OUT_BRUNETON(Number) nu, OUT_BRUNETON(bool) ray_r_mu_intersects_ground) {
   float H = sqrt(atmosphere.top_radius * atmosphere.top_radius -
       atmosphere.bottom_radius * atmosphere.bottom_radius);
   float rho =
@@ -126,9 +126,9 @@ void GetRMuMuSNuFromScatteringTextureUvwz(IN(AtmosphereParameters) atmosphere,
   nu = ClampCosine(uvwz.x * 2.0 - 1.0);
 }
 void GetRMuMuSNuFromScatteringTextureFragCoord(
-    IN(AtmosphereParameters) atmosphere, IN(float3) frag_coord,
-    OUT(float) r, OUT(Number) mu, OUT(Number) mu_s, OUT(Number) nu,
-    OUT(bool) ray_r_mu_intersects_ground) {
+    IN_BRUNETON(AtmosphereParameters) atmosphere, IN_BRUNETON(float3) frag_coord,
+    OUT_BRUNETON(float) r, OUT_BRUNETON(Number) mu, OUT_BRUNETON(Number) mu_s, OUT_BRUNETON(Number) nu,
+    OUT_BRUNETON(bool) ray_r_mu_intersects_ground) {
   const float4 SCATTERING_TEXTURE_SIZE = float4(
       SCATTERING_TEXTURE_NU_SIZE - 1,
       SCATTERING_TEXTURE_MU_S_SIZE,
@@ -146,7 +146,7 @@ void GetRMuMuSNuFromScatteringTextureFragCoord(
   nu = clamp(nu, mu * mu_s - sqrt((1.0 - mu * mu) * (1.0 - mu_s * mu_s)),
       mu * mu_s + sqrt((1.0 - mu * mu) * (1.0 - mu_s * mu_s)));
 }
-float DistanceToNearestAtmosphereBoundary(IN(AtmosphereParameters) atmosphere,
+float DistanceToNearestAtmosphereBoundary(IN_BRUNETON(AtmosphereParameters) atmosphere,
     float r, Number mu, bool ray_r_mu_intersects_ground) {
   if (ray_r_mu_intersects_ground) {
     return DistanceToBottomAtmosphereBoundary(atmosphere, r, mu);
@@ -155,8 +155,8 @@ float DistanceToNearestAtmosphereBoundary(IN(AtmosphereParameters) atmosphere,
   }
 }
 DimensionlessSpectrum GetTransmittance(
-    IN(AtmosphereParameters) atmosphere,
-    IN(TransmittanceTexture) transmittance_texture,
+    IN_BRUNETON(AtmosphereParameters) atmosphere,
+    IN_BRUNETON(TransmittanceTexture) transmittance_texture,
     sampler transmittance_sampler,
     float r, Number mu, float d, bool ray_r_mu_intersects_ground) {
   float r_d = ClampRadius(atmosphere, sqrt(d * d + 2.0 * r * mu * d + r * r));
@@ -178,8 +178,8 @@ DimensionlessSpectrum GetTransmittance(
   }
 }
 DimensionlessSpectrum GetTransmittanceToSun(
-    IN(AtmosphereParameters) atmosphere,
-    IN(TransmittanceTexture) transmittance_texture,
+    IN_BRUNETON(AtmosphereParameters) atmosphere,
+    IN_BRUNETON(TransmittanceTexture) transmittance_texture,
     sampler transmittance_sampler,
     float r, Number mu_s) {
   Number sin_theta_h = atmosphere.bottom_radius / r;
@@ -191,12 +191,12 @@ DimensionlessSpectrum GetTransmittanceToSun(
                  mu_s - cos_theta_h);
 }
 void ComputeSingleScatteringIntegrand(
-    IN(AtmosphereParameters) atmosphere,
-    IN(TransmittanceTexture) transmittance_texture,
+    IN_BRUNETON(AtmosphereParameters) atmosphere,
+    IN_BRUNETON(TransmittanceTexture) transmittance_texture,
     sampler transmittance_sampler,
     float r, Number mu, Number mu_s, Number nu, float d,
     bool ray_r_mu_intersects_ground,
-    OUT(DimensionlessSpectrum) rayleigh, OUT(DimensionlessSpectrum) mie) {
+    OUT_BRUNETON(DimensionlessSpectrum) rayleigh, OUT_BRUNETON(DimensionlessSpectrum) mie) {
   float r_d = ClampRadius(atmosphere, sqrt(d * d + 2.0 * r * mu * d + r * r));
   Number mu_s_d = ClampCosine((r * mu_s + d * nu) / r_d);
   DimensionlessSpectrum transmittance =
@@ -211,12 +211,12 @@ void ComputeSingleScatteringIntegrand(
       atmosphere.mie_density, r_d - atmosphere.bottom_radius);
 }
 void ComputeSingleScattering(
-    IN(AtmosphereParameters) atmosphere,
-    IN(TransmittanceTexture) transmittance_texture,
+    IN_BRUNETON(AtmosphereParameters) atmosphere,
+    IN_BRUNETON(TransmittanceTexture) transmittance_texture,
     sampler transmittance_sampler,
     float r, Number mu, Number mu_s, Number nu,
     bool ray_r_mu_intersects_ground,
-    OUT(IrradianceSpectrum) rayleigh, OUT(IrradianceSpectrum) mie) {
+    OUT_BRUNETON(IrradianceSpectrum) rayleigh, OUT_BRUNETON(IrradianceSpectrum) mie) {
   static const int SAMPLE_COUNT = 50;
   float dx =
       DistanceToNearestAtmosphereBoundary(atmosphere, r, mu,
@@ -238,8 +238,8 @@ void ComputeSingleScattering(
   mie = mie_sum * dx * atmosphere.solar_irradiance * atmosphere.mie_scattering;
 }
 IrradianceSpectrum GetIrradiance(
-    IN(AtmosphereParameters) atmosphere,
-    IN(IrradianceTexture) irradiance_texture,
+    IN_BRUNETON(AtmosphereParameters) atmosphere,
+    IN_BRUNETON(IrradianceTexture) irradiance_texture,
     sampler irradiance_sampler,
     float r, Number mu_s) {
   float2 uv = GetIrradianceTextureUvFromRMuS(atmosphere, r, mu_s);
@@ -253,7 +253,7 @@ InverseSolidAngle MiePhaseFunction(Number g, Number nu) {
   InverseSolidAngle k = 3.0 / (8.0 * PI * sr) * (1.0 - g * g) / (2.0 + g * g);
   return k * (1.0 + nu * nu) / pow(1.0 + g * g - 2.0 * g * nu, 1.5);
 }
-float4 GetScatteringTextureUvwzFromRMuMuSNu(IN(AtmosphereParameters) atmosphere,
+float4 GetScatteringTextureUvwzFromRMuMuSNu(IN_BRUNETON(AtmosphereParameters) atmosphere,
     float r, Number mu, Number mu_s, Number nu,
     bool ray_r_mu_intersects_ground) {
   float H = sqrt(atmosphere.top_radius * atmosphere.top_radius -
@@ -292,8 +292,8 @@ float4 GetScatteringTextureUvwzFromRMuMuSNu(IN(AtmosphereParameters) atmosphere,
 }
 TEMPLATE(AbstractSpectrum)
 AbstractSpectrum GetScattering(
-    IN(AtmosphereParameters) atmosphere,
-    IN(AbstractScatteringTexture TEMPLATE_ARGUMENT(AbstractSpectrum))
+    IN_BRUNETON(AtmosphereParameters) atmosphere,
+    IN_BRUNETON(AbstractScatteringTexture TEMPLATE_ARGUMENT(AbstractSpectrum))
         scattering_texture,
     sampler transmittance_sampler,
     float r, Number mu, Number mu_s, Number nu,
@@ -311,10 +311,10 @@ AbstractSpectrum GetScattering(
       scattering_texture.SampleLevel(transmittance_sampler, uvw1, 0.0f).rgb * lerp);
 }
 RadianceSpectrum GetScattering(
-    IN(AtmosphereParameters) atmosphere,
-    IN(ReducedScatteringTexture) single_rayleigh_scattering_texture,
-    IN(ReducedScatteringTexture) single_mie_scattering_texture,
-    IN(ScatteringTexture) multiple_scattering_texture,
+    IN_BRUNETON(AtmosphereParameters) atmosphere,
+    IN_BRUNETON(ReducedScatteringTexture) single_rayleigh_scattering_texture,
+    IN_BRUNETON(ReducedScatteringTexture) single_mie_scattering_texture,
+    IN_BRUNETON(ScatteringTexture) multiple_scattering_texture,
     sampler transmittance_sampler,
     float r, Number mu, Number mu_s, Number nu,
     bool ray_r_mu_intersects_ground,
@@ -335,7 +335,7 @@ RadianceSpectrum GetScattering(
   }
 }
 float3 GetExtrapolatedSingleMieScattering(
-    IN(AtmosphereParameters) atmosphere, IN(float4) scattering) {
+    IN_BRUNETON(AtmosphereParameters) atmosphere, IN_BRUNETON(float4) scattering) {
   if (scattering.r == 0.0) {
     return float3(0.0, 0.0, 0.0);
   }
@@ -344,13 +344,13 @@ float3 GetExtrapolatedSingleMieScattering(
 	    (atmosphere.mie_scattering / atmosphere.rayleigh_scattering);
 }
 IrradianceSpectrum GetCombinedScattering(
-    IN(AtmosphereParameters) atmosphere,
-    IN(ReducedScatteringTexture) scattering_texture,
-    IN(ReducedScatteringTexture) single_mie_scattering_texture,
+    IN_BRUNETON(AtmosphereParameters) atmosphere,
+    IN_BRUNETON(ReducedScatteringTexture) scattering_texture,
+    IN_BRUNETON(ReducedScatteringTexture) single_mie_scattering_texture,
     sampler lutSampler,
     float r, Number mu, Number mu_s, Number nu,
     bool ray_r_mu_intersects_ground,
-    OUT(IrradianceSpectrum) single_mie_scattering) {
+    OUT_BRUNETON(IrradianceSpectrum) single_mie_scattering) {
   float4 uvwz = GetScatteringTextureUvwzFromRMuMuSNu(
       atmosphere, r, mu, mu_s, nu, ray_r_mu_intersects_ground);
   Number tex_coord_x = uvwz.x * Number(SCATTERING_TEXTURE_NU_SIZE - 1);

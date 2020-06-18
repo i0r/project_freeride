@@ -49,13 +49,13 @@ lib AtmosphereBruneton {
     shared {
         #include <AtmosphereFunctions.hlsli>
         RadianceSpectrum GetSkyRadiance(
-            IN(AtmosphereParameters) atmosphere,
-            IN(TransmittanceTexture) transmittance_texture,
-            IN(ReducedScatteringTexture) scattering_texture,
-            IN(ReducedScatteringTexture) single_mie_scattering_texture,
+            IN_BRUNETON(AtmosphereParameters) atmosphere,
+            IN_BRUNETON(TransmittanceTexture) transmittance_texture,
+            IN_BRUNETON(ReducedScatteringTexture) scattering_texture,
+            IN_BRUNETON(ReducedScatteringTexture) single_mie_scattering_texture,
             sampler transmittance_sampler,
-            Position camera, IN(Direction) view_ray, float shadow_length,
-            IN(Direction) sun_direction, OUT(DimensionlessSpectrum) transmittance) {
+            Position camera, IN_BRUNETON(Direction) view_ray, float shadow_length,
+            IN_BRUNETON(Direction) sun_direction, OUT_BRUNETON(DimensionlessSpectrum) transmittance) {
           float r = length(camera);
           float rmu = dot(camera, view_ray);
           float distance_to_top_atmosphere_boundary = -rmu -
@@ -102,13 +102,13 @@ lib AtmosphereBruneton {
               MiePhaseFunction(atmosphere.mie_phase_function_g, nu);
         }
         RadianceSpectrum GetSkyRadianceToPoint(
-            IN(AtmosphereParameters) atmosphere,
-            IN(TransmittanceTexture) transmittance_texture,
-            IN(ReducedScatteringTexture) scattering_texture,
-            IN(ReducedScatteringTexture) single_mie_scattering_texture,
+            IN_BRUNETON(AtmosphereParameters) atmosphere,
+            IN_BRUNETON(TransmittanceTexture) transmittance_texture,
+            IN_BRUNETON(ReducedScatteringTexture) scattering_texture,
+            IN_BRUNETON(ReducedScatteringTexture) single_mie_scattering_texture,
             sampler lutSampler,
-            Position camera, IN(Position) point_, float shadow_length,
-            IN(Direction) sun_direction, OUT(DimensionlessSpectrum) transmittance) {
+            Position camera, IN_BRUNETON(Position) point_, float shadow_length,
+            IN_BRUNETON(Direction) sun_direction, OUT_BRUNETON(DimensionlessSpectrum) transmittance) {
           Direction view_ray = normalize(point_ - camera);
           float r = length(camera);
           float rmu = dot(camera, view_ray);
@@ -156,12 +156,12 @@ lib AtmosphereBruneton {
               MiePhaseFunction(atmosphere.mie_phase_function_g, nu);
         }
         IrradianceSpectrum GetSunAndSkyIrradiance(
-            IN(AtmosphereParameters) atmosphere,
-            IN(TransmittanceTexture) transmittance_texture,
-            IN(IrradianceTexture) irradiance_texture,
+            IN_BRUNETON(AtmosphereParameters) atmosphere,
+            IN_BRUNETON(TransmittanceTexture) transmittance_texture,
+            IN_BRUNETON(IrradianceTexture) irradiance_texture,
             sampler lutSampler,
-            IN(Position) point_, IN(Direction) normal, IN(Direction) sun_direction,
-            OUT(IrradianceSpectrum) sky_irradiance) {
+            IN_BRUNETON(Position) point_, IN_BRUNETON(Direction) normal, IN_BRUNETON(Direction) sun_direction,
+            OUT_BRUNETON(IrradianceSpectrum) sky_irradiance) {
           float r = length(point_);
           Number mu_s = dot(point_, sun_direction) / r;
           sky_irradiance = GetIrradiance(atmosphere, irradiance_texture, lutSampler, r, mu_s) *

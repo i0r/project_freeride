@@ -154,12 +154,12 @@ lib AtmosphereLUTCompute {
         }
         
         RadianceDensitySpectrum ComputeScatteringDensity(
-            IN(AtmosphereParameters) atmosphere,
-            IN(TransmittanceTexture) transmittance_texture,
-            IN(ReducedScatteringTexture) single_rayleigh_scattering_texture,
-            IN(ReducedScatteringTexture) single_mie_scattering_texture,
-            IN(ScatteringTexture) multiple_scattering_texture,
-            IN(IrradianceTexture) irradiance_texture,
+            IN_BRUNETON(AtmosphereParameters) atmosphere,
+            IN_BRUNETON(TransmittanceTexture) transmittance_texture,
+            IN_BRUNETON(ReducedScatteringTexture) single_rayleigh_scattering_texture,
+            IN_BRUNETON(ReducedScatteringTexture) single_mie_scattering_texture,
+            IN_BRUNETON(ScatteringTexture) multiple_scattering_texture,
+            IN_BRUNETON(IrradianceTexture) irradiance_texture,
             sampler transmittance_sampler,
             float r, Number mu, Number mu_s, Number nu, int scattering_order) {
           float3 zenith_direction = float3(0.0, 0.0, 1.0);
@@ -221,7 +221,7 @@ lib AtmosphereLUTCompute {
           }
           return rayleigh_mie;
         }
-        RadianceDensitySpectrum ComputeScatteringDensityTexture(IN(AtmosphereParameters) atmosphere, IN(float3) frag_coord, int scattering_order) {
+        RadianceDensitySpectrum ComputeScatteringDensityTexture(IN_BRUNETON(AtmosphereParameters) atmosphere, IN_BRUNETON(float3) frag_coord, int scattering_order) {
           float r;
           Number mu;
           Number mu_s;
@@ -234,7 +234,7 @@ lib AtmosphereLUTCompute {
               SingleRayleighScatteringTexture, IrradianceTextureInput, LUTSampler, r, mu, mu_s, nu, scattering_order);
         }
         
-        IrradianceSpectrum ComputeIndirectIrradiance(IN(AtmosphereParameters) atmosphere,float r, Number mu_s) {
+        IrradianceSpectrum ComputeIndirectIrradiance(IN_BRUNETON(AtmosphereParameters) atmosphere,float r, Number mu_s) {
           static const int SAMPLE_COUNT = 32;
           
           const Angle dphi = pi / Number(SAMPLE_COUNT);
@@ -261,8 +261,8 @@ lib AtmosphereLUTCompute {
         }
 
         IrradianceSpectrum ComputeIndirectIrradianceTexture(
-            IN(AtmosphereParameters) atmosphere,
-            IN(float2) frag_coord, int scattering_order) {
+            IN_BRUNETON(AtmosphereParameters) atmosphere,
+            IN_BRUNETON(float2) frag_coord, int scattering_order) {
           float r;
           Number mu_s;
           GetRMuSFromIrradianceTextureUv(
@@ -270,7 +270,7 @@ lib AtmosphereLUTCompute {
           return ComputeIndirectIrradiance(atmosphere, r, mu_s);
         }
         RadianceSpectrum ComputeMultipleScattering(
-            IN(AtmosphereParameters) atmosphere,
+            IN_BRUNETON(AtmosphereParameters) atmosphere,
             float r, Number mu, Number mu_s, Number nu,
             bool ray_r_mu_intersects_ground) {
           static const int SAMPLE_COUNT = 50;
@@ -301,8 +301,8 @@ lib AtmosphereLUTCompute {
         }
 
         RadianceSpectrum ComputeMultipleScatteringTexture(
-            IN(AtmosphereParameters) atmosphere,
-            IN(float3) frag_coord, OUT(Number) nu) {
+            IN_BRUNETON(AtmosphereParameters) atmosphere,
+            IN_BRUNETON(float3) frag_coord, OUT_BRUNETON(Number) nu) {
           float r;
           Number mu;
           Number mu_s;

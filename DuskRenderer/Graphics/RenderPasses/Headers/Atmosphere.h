@@ -25,8 +25,8 @@ static const float PI = dk::maths::PI<float>();
 #define IRRADIANCE_TEXTURE_WIDTH 64
 #define IRRADIANCE_TEXTURE_HEIGHT 16
 
-#define IN(x) const in x
-#define OUT(x) out x
+#define IN_BRUNETON(x) const in x
+#define OUT_BRUNETON(x) out x
 #define TEMPLATE(x)
 #define TEMPLATE_ARGUMENT(x)
 #define assert(x)
