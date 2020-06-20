@@ -18,6 +18,8 @@
 #include "FileSystem/VirtualFileSystem.h"
 #include "FileSystem/FileSystemNative.h"
 
+#include "Framework/World.h"
+
 #include "Rendering/RenderDevice.h"
 
 // TEMP FOR TEST CRAP; SHOULD BE REMOVED LATER
@@ -32,9 +34,6 @@
 #include "Graphics/RenderModules/FFTRenderPass.h"
 #include "Graphics/RenderModules/LineRenderingModule.h"
 #include "Graphics/Material.h"
-
-#include "Graphics/RenderModules/Generated/AtmosphereBruneton.generated.h"
-#include "Graphics/RenderModules/Reflected/AtmosphereBruneton.reflected.h"
 // END TEMP
 
 #include "Graphics/ShaderCache.h"
@@ -42,6 +41,7 @@
 #include "Graphics/WorldRenderer.h"
 #include "Graphics/LightGrid.h"
 #include "Graphics/RenderWorld.h"
+#include "Graphics/DrawCommandBuilder.h"
 
 #if DUSK_USE_RENDERDOC
 #include "Graphics/RenderDocHelper.h"
@@ -90,6 +90,8 @@ static GraphicsAssetCache*  g_GraphicsAssetCache;
 static WorldRenderer*       g_WorldRenderer;
 static LightGrid*           g_LightGrid;
 static RenderWorld*         g_RenderWorld;
+static World*               g_World;
+static DrawCommandBuilder2* g_DrawCommandBuilder;
 
 static FreeCamera*          g_FreeCamera;
 static MaterialEditor*      g_MaterialEditor;
@@ -103,7 +105,6 @@ static RenderDocHelper*     g_RenderDocHelper;
 #if DUSK_USE_IMGUI
 static ImGuiManager*        g_ImGuiManager;
 static ImGuiRenderModule*   g_ImGuiRenderModule;
-
 #endif
 #endif
 
@@ -480,6 +481,8 @@ void InitializeRenderSubsystems()
 #endif
 #endif
 
+    g_DrawCommandBuilder = dk::core::allocate<DrawCommandBuilder2>( g_GlobalAllocator, g_GlobalAllocator );
+
     // TODO Retrieve pointer to camera instance from scene db
     g_FreeCamera = new FreeCamera();
     g_FreeCamera->setProjectionMatrix( DefaultCameraFov, static_cast< float >( ScreenSize.x ), static_cast< float >( ScreenSize.y ) );
@@ -526,6 +529,9 @@ void Initialize( const char* cmdLineArgs )
     RegisterInputContexts();
 
     g_MaterialEditor = dk::core::allocate<MaterialEditor>( g_GlobalAllocator, g_GlobalAllocator, g_GraphicsAssetCache, g_VirtualFileSystem );
+
+    g_World = dk::core::allocate<World>( g_GlobalAllocator, g_GlobalAllocator );
+    g_World->create();
 
     DUSK_LOG_INFO( "Initialization done (took %.5f seconds)\n", profileTimer.getElapsedTimeAsSeconds() );
     DUSK_LOG_RAW( "\n================================\n\n" );
@@ -598,6 +604,7 @@ void MainLoop()
                 g_ImGuiManager->update( LOGIC_DELTA );
             }
 #endif
+            g_World->update( LOGIC_DELTA );
 
             // Game Logic
             g_FreeCamera->update( LOGIC_DELTA );
@@ -606,6 +613,8 @@ void MainLoop()
         }
 
         g_InputMapper->clear();
+
+		g_World->collectRenderables( g_DrawCommandBuilder );
 
         std::string str = std::to_string( framerateCounter.AvgDeltaTime ).substr( 0, 6 )
             + " ms / "
@@ -618,7 +627,7 @@ void MainLoop()
         FrameGraph& frameGraph = g_WorldRenderer->prepareFrameGraph( vp, sr, &g_FreeCamera->getData() );
         frameGraph.acquireCurrentMaterialEdData( g_MaterialEditor->getRuntimeEditionData() );
         frameGraph.setScreenSize( ScreenSize );
-
+        
 #if DUSK_USE_IMGUI
         if ( g_IsDevMenuVisible ) {
             static bool IsRenderDocVisible = false;

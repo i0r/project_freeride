@@ -4,6 +4,7 @@
 */
 #include "Shared.h"
 #include "DrawCommandBuilder.h"
+
 #if 0 
 #include <Framework/Cameras/Camera.h>
 //#include <Framework/Mesh.h>
@@ -509,3 +510,23 @@ void DrawCommandBuilder::buildHUDDrawCmds( WorldRenderer* worldRenderer, CameraD
     //}
 }
 #endif
+
+DrawCommandBuilder2::DrawCommandBuilder2( BaseAllocator* allocator )
+{
+
+}
+
+DrawCommandBuilder2::~DrawCommandBuilder2()
+{
+
+}
+
+void DrawCommandBuilder2::addGeometryInstance( const Model* model, const dkMat4x4f& modelMatrix )
+{
+
+}
+
+void DrawCommandBuilder2::buildRenderQueues( WorldRenderer* worldRenderer, LightGrid* lightGrid )
+{
+
+}

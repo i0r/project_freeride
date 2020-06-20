@@ -2,6 +2,7 @@
     Dusk Source Code
     Copyright (C) 2020 Prevost Baptiste
 */
+#include "Shared.h"
 #include "LightGrid.h"
 
 #include <Graphics/ShaderCache.h>

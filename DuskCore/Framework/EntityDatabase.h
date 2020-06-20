@@ -9,11 +9,11 @@
 
 #include "Entity.h"
 
-class EntityNameRegister
+class EntityDatabase
 {
 public:
-            EntityNameRegister();
-            ~EntityNameRegister();
+            EntityDatabase();
+            ~EntityDatabase();
 
     // Allocate an entity and return it.
     Entity  allocateEntity();

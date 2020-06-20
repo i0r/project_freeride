@@ -54,7 +54,7 @@ lib AtmosphereBruneton {
             IN_BRUNETON(ReducedScatteringTexture) scattering_texture,
             IN_BRUNETON(ReducedScatteringTexture) single_mie_scattering_texture,
             sampler transmittance_sampler,
-            Position camera, IN_BRUNETON(Direction) view_ray, float shadow_length,
+            float3 camera, IN_BRUNETON(Direction) view_ray, float shadow_length,
             IN_BRUNETON(Direction) sun_direction, OUT_BRUNETON(DimensionlessSpectrum) transmittance) {
           float r = length(camera);
           float rmu = dot(camera, view_ray);
@@ -107,7 +107,7 @@ lib AtmosphereBruneton {
             IN_BRUNETON(ReducedScatteringTexture) scattering_texture,
             IN_BRUNETON(ReducedScatteringTexture) single_mie_scattering_texture,
             sampler lutSampler,
-            Position camera, IN_BRUNETON(Position) point_, float shadow_length,
+            float3 camera, IN_BRUNETON(float3) point_, float shadow_length,
             IN_BRUNETON(Direction) sun_direction, OUT_BRUNETON(DimensionlessSpectrum) transmittance) {
           Direction view_ray = normalize(point_ - camera);
           float r = length(camera);
@@ -160,7 +160,7 @@ lib AtmosphereBruneton {
             IN_BRUNETON(TransmittanceTexture) transmittance_texture,
             IN_BRUNETON(IrradianceTexture) irradiance_texture,
             sampler lutSampler,
-            IN_BRUNETON(Position) point_, IN_BRUNETON(Direction) normal, IN_BRUNETON(Direction) sun_direction,
+            IN_BRUNETON(float3) point_, IN_BRUNETON(Direction) normal, IN_BRUNETON(Direction) sun_direction,
             OUT_BRUNETON(IrradianceSpectrum) sky_irradiance) {
           float r = length(point_);
           Number mu_s = dot(point_, sun_direction) / r;
@@ -176,21 +176,21 @@ lib AtmosphereBruneton {
               (PI * AtmosphereParams.sun_angular_radius * AtmosphereParams.sun_angular_radius);
         }
         RadianceSpectrum GetSkyRadiance(
-            Position camera, Direction view_ray, float shadow_length,
+            float3 camera, Direction view_ray, float shadow_length,
             Direction sun_direction, out DimensionlessSpectrum transmittance) {
           return GetSkyRadiance(AtmosphereParams, TransmittanceTextureInput,
               ScatteringTextureInput, MieScatteringTextureInput, DefaultSampler,
               camera, view_ray, shadow_length, sun_direction, transmittance);
         }
         RadianceSpectrum GetSkyRadianceToPoint(
-            Position camera, Position point_, float shadow_length,
+            float3 camera, float3 point_, float shadow_length,
             Direction sun_direction, out DimensionlessSpectrum transmittance) {
           return GetSkyRadianceToPoint(AtmosphereParams, TransmittanceTextureInput,
               ScatteringTextureInput, MieScatteringTextureInput, DefaultSampler,
               camera, point_, shadow_length, sun_direction, transmittance);
         }
         IrradianceSpectrum GetSunAndSkyIrradiance(
-           Position p, Direction normal, Direction sun_direction,
+           float3 p, Direction normal, Direction sun_direction,
            out IrradianceSpectrum sky_irradiance) {
           return GetSunAndSkyIrradiance(AtmosphereParams, TransmittanceTextureInput,
               IrradianceTextureInput, DefaultSampler, p, normal, sun_direction, sky_irradiance);
@@ -201,7 +201,7 @@ lib AtmosphereBruneton {
               SUN_SPECTRAL_RADIANCE_TO_LUMINANCE;
         }
         Luminance3 GetSkyLuminance(
-            Position camera, Direction view_ray, float shadow_length,
+            float3 camera, Direction view_ray, float shadow_length,
             Direction sun_direction, out DimensionlessSpectrum transmittance) {
           return GetSkyRadiance(AtmosphereParams, TransmittanceTextureInput,
               ScatteringTextureInput, MieScatteringTextureInput, DefaultSampler,
@@ -209,7 +209,7 @@ lib AtmosphereBruneton {
               SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
         }
         Luminance3 GetSkyLuminanceToPoint(
-            Position camera, Position point_, float shadow_length,
+            float3 camera, float3 point_, float shadow_length,
             Direction sun_direction, out DimensionlessSpectrum transmittance) {
           return GetSkyRadianceToPoint(AtmosphereParams, TransmittanceTextureInput,
               ScatteringTextureInput, MieScatteringTextureInput, DefaultSampler,
@@ -217,7 +217,7 @@ lib AtmosphereBruneton {
               SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
         }
         Illuminance3 GetSunAndSkyIlluminance(
-           Position p, Direction normal, Direction sun_direction,
+           float3 p, Direction normal, Direction sun_direction,
            out IrradianceSpectrum sky_irradiance) {
           IrradianceSpectrum sun_irradiance = GetSunAndSkyIrradiance(
               AtmosphereParams, TransmittanceTextureInput, IrradianceTextureInput, DefaultSampler, p, normal,

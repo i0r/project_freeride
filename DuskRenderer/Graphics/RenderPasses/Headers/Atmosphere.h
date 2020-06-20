@@ -59,7 +59,6 @@ static const float PI = dk::maths::PI<float>();
 #define RadianceSpectrum float3
 #define RadianceDensitySpectrum float3
 #define ScatteringSpectrum float3
-#define Position float3
 #define Direction float3
 #define Luminance3 float3
 #define Illuminance3 float3

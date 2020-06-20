@@ -4,8 +4,7 @@
 */
 #pragma once
 
-#include <vector>
-#include <deque>
+#include <unordered_map>
 
 #include "Entity.h"
 
@@ -22,7 +21,10 @@ public:
     void            setName( const Entity& entity, const dkChar_t* name );
 
     // Return the name of a given entity. Return null if the entity is invalid or does not exist.
-    dkChar_t*       getName( const Entity& entity ) const;
+    const dkChar_t* getName( const Entity& entity ) const;
+
+    // Return true if the hashcode exist; false otherwise.
+    bool            exist( const dkStringHash_t hashcode ) const;
 
 private:
     // The memory allocator owning this instance.
@@ -35,5 +37,9 @@ private:
     void*           registerData;
 
     // Raw pointer reinterpreted as an array of dkChar_t[Entity::MAX_NAME_LENGTH].
-    dkChar_t**      names;
+    const dkChar_t**      names;
+
+    // Hashmap for quick name lookup. Key is the entity name (as a 32bits hashcode);
+    // value is the associated Entity.
+    std::unordered_map<dkStringHash_t, Entity> nameHashmap;
 };

@@ -76,7 +76,7 @@ GraphicsAssetCache::~GraphicsAssetCache()
     for ( auto& image : imageMap ) {
         renderDevice->destroyImage( image.second );
     }
-    meshMap.clear();
+    //meshMap.clear();
     materialMap.clear();
     fontMap.clear();
     imageMap.clear();
@@ -327,78 +327,78 @@ Material* GraphicsAssetCache::getMaterial( const dkChar_t* assetName, const bool
     //return materialMap[assetHashcode];
 }
 
-Mesh* GraphicsAssetCache::getMesh( const dkChar_t* assetName, const bool forceReload )
-{
-    return nullptr;
-
-    //auto file = virtualFileSystem->openFile( assetName, eFileOpenMode::FILE_OPEN_MODE_READ | eFileOpenMode::FILE_OPEN_MODE_BINARY );
-    //if ( file == nullptr ) {
-    //    DUSK_LOG_ERROR( "'%s' does not exist!\n", assetName );
-    //    return nullptr;
-    //}
-
-    //auto assetHashcode = file->getHashcode();
-    //auto mapIterator = meshMap.find( assetHashcode );
-    //const bool alreadyExists = ( mapIterator != meshMap.end() );
-
-    //if ( alreadyExists && !forceReload ) {
-    //    return mapIterator->second;
-    //}
-
-    //if ( !alreadyExists ) {
-    //    meshMap[assetHashcode] = dk::core::allocate<Mesh>( assetStreamingHeap );
-    //} else {
-    //    meshMap[assetHashcode]->reset();
-    //}
-
-    //auto meshInstance = meshMap[assetHashcode];
-    //
-    //GeomLoadData loadData;
-    //dk::core::LoadGeometryFile( file, loadData );
-    //file->close();
-
-    //meshInstance->setName( assetName );
-
-    //// Allocate VertexBuffer
-    //BufferDesc vertexBufferDesc;
-    //vertexBufferDesc.type = BufferDesc::VERTEX_BUFFER;
-    //vertexBufferDesc.size = loadData.vertices.size() * sizeof( float );
-
-    //// Compute vertex stride (sum component count per vertex)
-    //uint32_t vertexBufferStride = 0;
-    //for ( auto stride : loadData.vertexStrides ) {
-    //    vertexBufferStride += stride;
-    //}
-
-    //vertexBufferDesc.stride = vertexBufferStride * sizeof( float );
-
-    //// Allocate IndiceBuffer
-    //BufferDesc indiceBufferDesc;
-    //indiceBufferDesc.type = BufferDesc::INDICE_BUFFER;
-    //indiceBufferDesc.size = loadData.indices.size() * sizeof( uint32_t );
-    //indiceBufferDesc.stride = sizeof( uint32_t );
-
-    //meshInstance->create( renderDevice, vertexBufferDesc, indiceBufferDesc, loadData.vertices.data(), loadData.indices.data() );
-    //
-    //// TODO Custom Distance Definition (define per model LoD distance?)
-    //constexpr float LOD_DISTANCE[4] = { 250.0f, 500.0f, 1000.0f, 2048.0f };
-    //for ( int i = 0; i < 1; i++ )
-    //    meshInstance->addLevelOfDetail( i, LOD_DISTANCE[i] );
-
-    //// Build each LevelOfDetail
-    //for ( GeomLoadData::SubMesh& subMesh : loadData.subMesh ) {
-    //    meshInstance->addSubMesh( subMesh.levelOfDetailIndex, {
-    //        defaultMaterial,
-    //        subMesh.indiceBufferOffset, 
-    //        subMesh.indiceCount, 
-    //        subMesh.boundingSphere,
-    //        subMesh.aabb,
-    //        subMesh.name
-    //    } );
-    //}
-
-    //return meshInstance;
-}
+//Mesh* GraphicsAssetCache::getMesh( const dkChar_t* assetName, const bool forceReload )
+//{
+//    return nullptr;
+//
+//    //auto file = virtualFileSystem->openFile( assetName, eFileOpenMode::FILE_OPEN_MODE_READ | eFileOpenMode::FILE_OPEN_MODE_BINARY );
+//    //if ( file == nullptr ) {
+//    //    DUSK_LOG_ERROR( "'%s' does not exist!\n", assetName );
+//    //    return nullptr;
+//    //}
+//
+//    //auto assetHashcode = file->getHashcode();
+//    //auto mapIterator = meshMap.find( assetHashcode );
+//    //const bool alreadyExists = ( mapIterator != meshMap.end() );
+//
+//    //if ( alreadyExists && !forceReload ) {
+//    //    return mapIterator->second;
+//    //}
+//
+//    //if ( !alreadyExists ) {
+//    //    meshMap[assetHashcode] = dk::core::allocate<Mesh>( assetStreamingHeap );
+//    //} else {
+//    //    meshMap[assetHashcode]->reset();
+//    //}
+//
+//    //auto meshInstance = meshMap[assetHashcode];
+//    //
+//    //GeomLoadData loadData;
+//    //dk::core::LoadGeometryFile( file, loadData );
+//    //file->close();
+//
+//    //meshInstance->setName( assetName );
+//
+//    //// Allocate VertexBuffer
+//    //BufferDesc vertexBufferDesc;
+//    //vertexBufferDesc.type = BufferDesc::VERTEX_BUFFER;
+//    //vertexBufferDesc.size = loadData.vertices.size() * sizeof( float );
+//
+//    //// Compute vertex stride (sum component count per vertex)
+//    //uint32_t vertexBufferStride = 0;
+//    //for ( auto stride : loadData.vertexStrides ) {
+//    //    vertexBufferStride += stride;
+//    //}
+//
+//    //vertexBufferDesc.stride = vertexBufferStride * sizeof( float );
+//
+//    //// Allocate IndiceBuffer
+//    //BufferDesc indiceBufferDesc;
+//    //indiceBufferDesc.type = BufferDesc::INDICE_BUFFER;
+//    //indiceBufferDesc.size = loadData.indices.size() * sizeof( uint32_t );
+//    //indiceBufferDesc.stride = sizeof( uint32_t );
+//
+//    //meshInstance->create( renderDevice, vertexBufferDesc, indiceBufferDesc, loadData.vertices.data(), loadData.indices.data() );
+//    //
+//    //// TODO Custom Distance Definition (define per model LoD distance?)
+//    //constexpr float LOD_DISTANCE[4] = { 250.0f, 500.0f, 1000.0f, 2048.0f };
+//    //for ( int i = 0; i < 1; i++ )
+//    //    meshInstance->addLevelOfDetail( i, LOD_DISTANCE[i] );
+//
+//    //// Build each LevelOfDetail
+//    //for ( GeomLoadData::SubMesh& subMesh : loadData.subMesh ) {
+//    //    meshInstance->addSubMesh( subMesh.levelOfDetailIndex, {
+//    //        defaultMaterial,
+//    //        subMesh.indiceBufferOffset, 
+//    //        subMesh.indiceCount, 
+//    //        subMesh.boundingSphere,
+//    //        subMesh.aabb,
+//    //        subMesh.name
+//    //    } );
+//    //}
+//
+//    //return meshInstance;
+//}
 
 ImageDesc* GraphicsAssetCache::getImageDescription( const dkChar_t* assetPath )
 {

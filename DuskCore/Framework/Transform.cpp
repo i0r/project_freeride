@@ -6,8 +6,9 @@
 #include "Transform.h"
 
 #include "Entity.h"
+#include "Maths/MatrixTransformations.h"
 
-static constexpr size_t SINGLE_ENTRY_SIZE = sizeof( dkVec3f ) * 2 + sizeof( dkQuatf ) + sizeof( Entity ) + 2 * sizeof( dkMat4x4f ) + 4 * sizeof( Instance );
+constexpr size_t TRANSFORM_SINGLE_ENTRY_SIZE = sizeof( dkVec3f ) * 2 + sizeof( dkQuatf ) + sizeof( Entity ) + 2 * sizeof( dkMat4x4f ) + 4 * sizeof( Instance );
 
 TransformDatabase::TransformDatabase( BaseAllocator* allocator )
     : ComponentDatabase( allocator )
@@ -23,7 +24,7 @@ TransformDatabase::~TransformDatabase()
 void TransformDatabase::create( const size_t dbCapacity )
 {
     // Do the database memory allocation.
-    allocateMemoryChunk( SINGLE_ENTRY_SIZE, dbCapacity );
+    allocateMemoryChunk( TRANSFORM_SINGLE_ENTRY_SIZE, dbCapacity );
 
     // Assign each component offset from the memory chunk we have allocated (we don't want to interleave the data for
     // cache coherency).
@@ -44,21 +45,22 @@ void TransformDatabase::allocateComponent( Entity& entity )
     // Update buffer infos.
     Instance instance = Instance( databaseBuffer.AllocationCount );
     ++databaseBuffer.AllocationCount;
-    databaseBuffer.MemoryUsed += SINGLE_ENTRY_SIZE;
+    databaseBuffer.MemoryUsed += TRANSFORM_SINGLE_ENTRY_SIZE;
 
     entityToInstanceMap[entity.extractIndex()] = instance;
 
     // Initialize this instance components.
-    instanceData.Position[instance.getIndex()] = dkVec3f::Zero;
-    instanceData.Rotation[instance.getIndex()] = dkQuatf::Identity;
-    instanceData.Scale[instance.getIndex()] = dkVec3f( 1.0f, 1.0f, 1.0f );
-    instanceData.Owner[instance.getIndex()] = entity;
-    instanceData.Local[instance.getIndex()] = dkMat4x4f::Identity;
-    instanceData.World[instance.getIndex()] = dkMat4x4f::Identity;
-    instanceData.Parent[instance.getIndex()] = Instance();
-    instanceData.FirstChild[instance.getIndex()] = Instance();
-    instanceData.NextSibling[instance.getIndex()] = Instance();
-    instanceData.PrevSibling[instance.getIndex()] = Instance();
+    const size_t instanceIndex = instance.getIndex();
+    instanceData.Position[instanceIndex] = dkVec3f::Zero;
+    instanceData.Rotation[instanceIndex] = dkQuatf::Identity;
+    instanceData.Scale[instanceIndex] = dkVec3f( 1.0f, 1.0f, 1.0f );
+    instanceData.Owner[instanceIndex] = entity;
+    instanceData.Local[instanceIndex] = dkMat4x4f::Identity;
+    instanceData.World[instanceIndex] = dkMat4x4f::Identity;
+    instanceData.Parent[instanceIndex] = Instance();
+    instanceData.FirstChild[instanceIndex] = Instance();
+    instanceData.NextSibling[instanceIndex] = Instance();
+    instanceData.PrevSibling[instanceIndex] = Instance();
 }
 
 void TransformDatabase::setLocal( Instance i, const dkMat4x4f& m )
@@ -68,6 +70,19 @@ void TransformDatabase::setLocal( Instance i, const dkMat4x4f& m )
     Instance parent = instanceData.Parent[i.getIndex()];
     dkMat4x4f parentModel = parent.isValid() ? instanceData.World[parent.getIndex()] : dkMat4x4f::Identity;
     applyParentMatrixRecurse( parentModel, i );
+}
+
+void TransformDatabase::update( const f32 deltaTime )
+{
+    // TODO: Improvements (multithread the database update; mark instance as dirty to avoid unecessary updates; etc.).
+    for ( size_t idx = 0; idx < databaseBuffer.AllocationCount; idx++ ) {
+		dkMat4x4f translationMatrix = dk::maths::MakeTranslationMat( instanceData.Position[idx] );
+		dkMat4x4f rotationMatrix = instanceData.Rotation[idx].toMat4x4();
+		dkMat4x4f scaleMatrix = dk::maths::MakeScaleMat( instanceData.Scale[idx] );
+
+        dkMat4x4f modelMatrix = translationMatrix * rotationMatrix * scaleMatrix;
+        setLocal( Instance( idx ), modelMatrix );
+    }
 }
 
 void TransformDatabase::applyParentMatrixRecurse( const dkMat4x4f& parent, Instance i )
