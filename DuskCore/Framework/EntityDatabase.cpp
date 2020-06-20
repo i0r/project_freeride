@@ -3,19 +3,19 @@
     Copyright (C) 2020 Prevost Baptiste
 */
 #include <Shared.h>
-#include "EntityDatabase.h"
+#include "EntityNameRegister.h"
 
-EntityDatabase::EntityDatabase()
+EntityNameRegister::EntityNameRegister()
 {
 
 }
 
-EntityDatabase::~EntityDatabase()
+EntityNameRegister::~EntityNameRegister()
 {
 
 }
 
-Entity EntityDatabase::allocateEntity()
+Entity EntityNameRegister::allocateEntity()
 {
     constexpr u32 MINIMUM_FREE_INDICES = 1024u;
 
@@ -31,14 +31,14 @@ Entity EntityDatabase::allocateEntity()
     return Entity( entityIndex, generationArray[entityIndex] );
 }
 
-void EntityDatabase::releaseEntity( const Entity entity )
+void EntityNameRegister::releaseEntity( const Entity entity )
 {
     const u32 extractedIndex = entity.extractIndex();
     ++generationArray[extractedIndex];
     freeIndices.push_back( extractedIndex );
 }
 
-bool EntityDatabase::isEntityAlive( const Entity entity ) const
+bool EntityNameRegister::isEntityAlive( const Entity entity ) const
 {
     const u32 extractedIndex = entity.extractIndex();
     const u32 extractedGeneration = entity.extractGenerationIndex();
@@ -46,7 +46,7 @@ bool EntityDatabase::isEntityAlive( const Entity entity ) const
     return ( generationArray[extractedIndex] == extractedGeneration );
 }
 
-void EntityDatabase::reset()
+void EntityNameRegister::reset()
 {
     generationArray.clear();
     freeIndices.clear();

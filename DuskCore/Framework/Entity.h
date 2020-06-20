@@ -19,6 +19,8 @@ public:
 
     static constexpr u32 INVALID_ID = ~0;
 
+    static constexpr u32 MAX_NAME_LENGTH = 256;
+
 public:
             Entity( const u32 id = INVALID_ID, const u32 generation = INVALID_ID ) : identifier( id | generation << GENERATION_BITS ) {}
 
