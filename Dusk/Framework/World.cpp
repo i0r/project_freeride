@@ -45,7 +45,7 @@ void World::collectRenderables( DrawCommandBuilder2* drawCmdBuilder ) const
 		const Model* model = staticGeometryDatabase->getModel( staticGeometryDatabase->lookup( geom ) );
         const dkMat4x4f& modelMatrix = transformDatabase->getWorldMatrix( transformDatabase->lookup( geom ) );
 
-        drawCmdBuilder->addGeometryInstance( model, modelMatrix );
+        drawCmdBuilder->addStaticModelInstance( model, modelMatrix );
     }
 }
 

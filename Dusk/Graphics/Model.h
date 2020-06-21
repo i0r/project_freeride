@@ -32,6 +32,9 @@ public:
         std::string GroupName;
 #endif
 
+        // The hashcode of this LOD.
+        dkStringHash_t  Hashcode;
+
         // The Bounding Box of this LOD.
         AABB        GroupAABB;
 
@@ -43,6 +46,7 @@ public:
 #if DUSK_DEVBUILD
             , GroupName( "LOD_Group" ) 
 #endif
+            , Hashcode( 0 )
             , GroupAABB{}
         {
 
@@ -100,12 +104,23 @@ public:
     // Compute this model bounding primitive bounds (using each LOD mesh bounds).
     void                    computeBounds();
 
+    // Return the bounding sphere of this model. Might return invalid results if 
+    // the model has not been properly created (e.g. if you forgot to call 
+    // computeBounds).
+    BoundingSphere&         getBoundingSphere() const;
+
+    // Return the hashcode of this model (precomputed hashcode based on this model name).
+    dkStringHash_t          getHashcode() const;
+
 private:
     // Allocator owning this object.
     BaseAllocator*          memoryAllocator;
 
     // Name of the model (either set from the asset data or by hand).
     dkString_t              modelName;
+
+    // Hashcode of this model.
+    dkStringHash_t          modelHashcode;
 
     // Number of lod available for this model.
     u32                     lodCount;
@@ -118,4 +133,7 @@ private:
 
     // Bounding Sphere for this model.
     BoundingSphere          modelBoundingSphere;
+
+private:
+    void rebuildLodHashcodes();
 };

@@ -36,12 +36,11 @@ public:
 
     ResHandle_t                     render( FrameGraph& frameGraph, MutableResHandle_t renderTarget );
 
-    // Should be called whenever the main thread wants to rebuild ImGui renderlist.
-    // This is a blocking function (the function might spin until the RenderPass has finished its vertex buffer update).
-    void                            lockRenderList();
+    void                            lockForUpload();
 
-    // Should be called once the renderlist update is done.
-    void                            unlockRenderList();
+    void                            lockForRendering();
+
+	void                            unlock();
 
 private:
     i32                             imguiCmdListCount;
@@ -55,20 +54,12 @@ private:
     Buffer*                         vertexBuffer;
     Buffer*                         indiceBuffer;
 
-    // True if the main thread is currently updating ImGui renderlist.
-    std::atomic<bool>               isRenderListLocked;
-
-    // True if the render thread is currently uploading the vertices to the GPU.
-    std::atomic<bool>               isRenderListRendering;
+    std::atomic<i32>                renderingLock;
     
 private:
+	bool                            acquireLock( const i32 nextState );
+
     void                            update( CommandList& cmdList );
-
-    // Return isRenderListLocked state. This function is thread safe.
-    bool                            isRenderListAvailable();
-
-    // Return isRenderListRendering state. This function is thread safe.
-    bool                            isRenderListUploadDone();
 };
 #endif
 #endif

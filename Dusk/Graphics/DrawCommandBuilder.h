@@ -23,6 +23,7 @@ class LinearAllocator;
 class WorldRenderer;
 class LightGrid;
 class Model;
+class FrameGraph;
 struct CameraData;
 
 class DrawCommandBuilder2
@@ -33,13 +34,25 @@ public:
 						DrawCommandBuilder2& operator = ( DrawCommandBuilder2& ) = delete;
 						~DrawCommandBuilder2();
 
-	// TODO REFACTOR - This isnt really a camera... this is rather something like a client viewport which has a bunch
-	// of settings and parameters.
+	// Add a world camera to render. A camera should be added to the list only if 
+	// it require to render the active world geometry.
     void    			addWorldCameraToRender( CameraData* cameraData );
 
-	void				addGeometryInstance( const Model* model, const dkMat4x4f& modelMatrix );
+	// Add a static model instance to the world. If the model has already been added
+	// to the world, the model will automatically use instantied draw (no action/
+	// batching is required by the user).
+	void				addStaticModelInstance( const Model* model, const dkMat4x4f& modelMatrix );
 
-	void				buildRenderQueues( WorldRenderer* worldRenderer, LightGrid* lightGrid );
+	// Build render queues for each type of render scenario and enqueued cameras.
+	// This call will also update/stream the light grid entities.
+	void				prepareAndDispatchCommands( WorldRenderer* worldRenderer, LightGrid* lightGrid );
+
+private:
+	struct ModelInstance
+	{
+		const Model* ModelResource;
+		dkMat4x4f	 ModelMatrix;
+	};
 
 private:
 	// The memory allocator owning this instance.
@@ -48,10 +61,18 @@ private:
 	// Allocator used to allocate local copies of incoming cameras.
     LinearAllocator*	cameraToRenderAllocator;
 
+	// Allocator used to allocate local copies of incoming models.
+	LinearAllocator*	staticModelsToRender;
+
+	// Allocator used to allocate matrices to render batched models/geometry.
+	LinearAllocator*	instanceMatricesAllocator;
+
 private:
 	// Reset entities allocators (camera, models, etc.). Should be called once the cmds are built and we don't longer need
 	// the transistent data.
 	void				resetAllocators();
+
+	void                buildGeometryDrawCmds( WorldRenderer* worldRenderer, CameraData* camera, const u8 cameraIdx, const u8 layer, const u8 viewportLayer ); 
 };
 
 //

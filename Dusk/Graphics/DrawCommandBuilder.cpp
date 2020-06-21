@@ -461,20 +461,14 @@ void DrawCommandBuilder::buildHUDDrawCmds( WorldRenderer* worldRenderer, CameraD
 }
 #endif
 
-#include "Graphics/RenderModules/PresentRenderPass.h"
-#include "Graphics/RenderModules/AtmosphereRenderModule.h"
-#include "Graphics/RenderModules/MSAAResolvePass.h"
-#include "Graphics/RenderModules/FrameCompositionModule.h"
-#include "Graphics/RenderModules/AutomaticExposure.h"
-#include "Graphics/RenderModules/TextRenderingModule.h"
-#include "Graphics/RenderModules/PrimitiveLightingTest.h"
-#include "Graphics/RenderModules/GlareRenderModule.h"
-#include "Graphics/RenderModules/FFTRenderPass.h"
-#include "Graphics/RenderModules/LineRenderingModule.h"
-
+#include "LightGrid.h"
 #include <Framework/Cameras/Camera.h>
+#include <Core/Allocators/LinearAllocator.h>
+#include <Graphics/Model.h>
 
 static constexpr size_t MAX_SIMULTANEOUS_VIEWPORT_COUNT = 8;
+static constexpr size_t MAX_STATIC_MODEL_COUNT = 4096;
+static constexpr size_t MAX_INSTANCE_COUNT_PER_MODEL = 256;
 
 DUSK_INLINE f32 DistanceToPlane( const dkVec4f& vPlane, const dkVec3f& vPoint )
 {
@@ -501,7 +495,7 @@ u16 DepthToBits( const f32 depth )
 
 // Frustum cullling on a sphere. Returns > 0 if visible, <= 0 otherwise
 // NOTE Infinite Z version (it implicitly skips the far plane check)
-float CullSphereInfReversedZ( const Frustum* frustum, const dkVec3f& vCenter, f32 fRadius )
+f32 CullSphereInfReversedZ( const Frustum* frustum, const dkVec3f& vCenter, f32 fRadius )
 {
     f32 dist01 = Min( DistanceToPlane( frustum->planes[0], vCenter ), DistanceToPlane( frustum->planes[1], vCenter ) );
     f32 dist23 = Min( DistanceToPlane( frustum->planes[2], vCenter ), DistanceToPlane( frustum->planes[3], vCenter ) );
@@ -510,16 +504,25 @@ float CullSphereInfReversedZ( const Frustum* frustum, const dkVec3f& vCenter, f3
     return Min( Min( dist01, dist23 ), dist45 ) + fRadius;
 }
 
+f32 CullSphereInfReversedZ( const Frustum* frustum, const BoundingSphere& sphere )
+{
+    return CullSphereInfReversedZ( frustum, sphere.center, sphere.radius );
+}
+
 DrawCommandBuilder2::DrawCommandBuilder2( BaseAllocator* allocator )
     : memoryAllocator( allocator )
     , cameraToRenderAllocator( dk::core::allocate<LinearAllocator>( allocator, MAX_SIMULTANEOUS_VIEWPORT_COUNT * sizeof( CameraData ), allocator->allocate( MAX_SIMULTANEOUS_VIEWPORT_COUNT * sizeof( CameraData ) ) ) )
+    , staticModelsToRender( dk::core::allocate<LinearAllocator>( allocator, MAX_STATIC_MODEL_COUNT * sizeof( ModelInstance ), allocator->allocate( MAX_STATIC_MODEL_COUNT * sizeof( ModelInstance ) ) ) )
+    , instanceMatricesAllocator( dk::core::allocate<LinearAllocator>( allocator, MAX_STATIC_MODEL_COUNT * MAX_INSTANCE_COUNT_PER_MODEL * sizeof( dkMat4x4f ), allocator->allocate( MAX_STATIC_MODEL_COUNT * MAX_INSTANCE_COUNT_PER_MODEL * sizeof( dkMat4x4f ) ) ) )
 {
 
 }
 
 DrawCommandBuilder2::~DrawCommandBuilder2()
 {
-    dk::core::free( memoryAllocator, cameraToRenderAllocator );
+	dk::core::free( memoryAllocator, cameraToRenderAllocator );
+	dk::core::free( memoryAllocator, staticModelsToRender );
+	dk::core::free( memoryAllocator, instanceMatricesAllocator );
 }
 
 void DrawCommandBuilder2::addWorldCameraToRender( CameraData* cameraData )
@@ -530,28 +533,114 @@ void DrawCommandBuilder2::addWorldCameraToRender( CameraData* cameraData )
     }
 
     CameraData* camera = dk::core::allocate<CameraData>( cameraToRenderAllocator );
-    *camera = cameraData;
+    *camera = *cameraData;
 }
 
-void DrawCommandBuilder2::addGeometryInstance( const Model* model, const dkMat4x4f& modelMatrix )
+void DrawCommandBuilder2::addStaticModelInstance( const Model* model, const dkMat4x4f& modelMatrix )
 {
-
+    ModelInstance* modelInstance = dk::core::allocate( staticModelsToRender );
+    modelInstance->ModelResource = model;
+    modelInstance->ModelMatrix = modelMatrix;
 }
 
-void DrawCommandBuilder2::buildRenderQueues( WorldRenderer* worldRenderer, LightGrid* lightGrid )
+void DrawCommandBuilder2::prepareAndDispatchCommands( WorldRenderer* worldRenderer, LightGrid* lightGrid )
 {
-    uint32_t cameraIdx = 0;
+    u32 cameraIdx = 0;
     CameraData* cameraArray = static_cast< CameraData* >( cameraToRenderAllocator->getBaseAddress() );
     const size_t cameraCount = cameraToRenderAllocator->getAllocationCount();
 
-    for ( ; cameraIdx < cameraCount; cameraIdx++ ) {
-        const CameraData& camera = cameraArray[cameraIdx];
+	for ( ; cameraIdx < cameraCount; cameraIdx++ ) {
+		const CameraData& camera = cameraArray[cameraIdx];
     }
 
-    resetAllocators();
+	resetAllocators();
 }
 
 void DrawCommandBuilder2::resetAllocators()
 {
     cameraToRenderAllocator->clear();
+    staticModelsToRender->clear();
+    instanceMatricesAllocator->clear();
+}
+
+void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, CameraData* camera, const u8 cameraIdx, const u8 layer, const u8 viewportLayer )
+{
+    struct LODBatch
+    {
+        const Model::LevelOfDetail* ModelLOD;
+        dkMat4x4f*                  InstanceMatrices;
+        u32                         InstanceCount;
+    };
+    std::unordered_map<dkStringHash_t, LODBatch> lodBatches;
+
+    // Do a first pass to perform a basic frustum culling and batch static geometry.
+	ModelInstance* modelsArray = static_cast< ModelInstance* >( staticModelsToRender->getBaseAddress() );
+	const size_t modelCount = staticModelsToRender->getAllocationCount();
+    for ( u32 modelIdx = 0; modelIdx < modelCount; modelIdx++ ) {
+        const ModelInstance& modelInstance = modelsArray[modelIdx];
+
+        const dkMat4x4f& modelMatrix = modelInstance.ModelMatrix;
+        const Model* model = modelInstance.ModelResource;
+
+        // Retrieve instance location and scale.
+		const dkVec3f instancePosition = dk::maths::ExtractTranslation( modelMatrix );
+		const f32 instanceScale = dk::maths::GetBiggestScalar( dk::maths::ExtractScale( modelMatrix ) );
+
+        BoundingSphere instanceBoundingSphere = model->getBoundingSphere();
+        instanceBoundingSphere.center += instancePosition;
+        instanceBoundingSphere.radius *= instanceScale;
+
+		if ( CullSphereInfReversedZ( &camera->frustum, instanceBoundingSphere ) > 0.0f ) {
+			const f32 distanceToCamera = dkVec3f::distanceSquared( camera->worldPosition, instancePosition );
+
+			// Retrieve LOD based on instance to camera distance
+			const Model::LevelOfDetail& activeLOD = model->getLevelOfDetail( distanceToCamera );
+
+            // Check if a batch already exists for the given LOD.
+            auto batchIt = lodBatches.find( activeLOD.Hashcode );
+            if ( batchIt == lodBatches.end() ) {
+                LODBatch batch;
+                batch.ModelLOD = &activeLOD;
+				batch.InstanceMatrices = dk::core::allocateArray<dkMat4x4f*>( instanceMatricesAllocator, MAX_INSTANCE_COUNT_PER_MODEL );
+                batch.InstanceMatrices[0] = modelMatrix;
+				batch.InstanceCount = 1;
+            } else {
+                LODBatch& batch = batchIt.second;
+
+                u32 instanceIdx = batch.InstanceCount;
+                batch.InstanceMatrices[instanceIdx] = modelMatrix;
+                batch.InstanceCount++;
+            }
+        }
+    }
+
+    // Build draw commands from the batches.
+    for ( auto& batch : lodBatches ) {
+        const Model::LevelOfDetail* lod = batch.second.ModelLOD;
+
+        for ( i32 meshIdx = 0; meshIdx < lod->MeshCount; meshIdx++ ) {
+            const Mesh* mesh = lod->MeshArray[meshIdx];
+            const Material* material = mesh->RenderMaterial;
+
+			DrawCmd& drawCmd = worldRenderer->allocateDrawCmd();
+
+			auto& key = drawCmd.key.bitfield;
+            key.materialSortKey = 0; // subMesh.material->getSortKey();
+			key.depth = DepthToBits( distanceToCamera );
+			key.sortOrder = ( subMesh.material->isOpaque() ) ? DrawCommandKey::SORT_FRONT_TO_BACK : DrawCommandKey::SORT_BACK_TO_FRONT;
+			key.layer = static_cast< DrawCommandKey::Layer >( layer );
+			key.viewportLayer = viewportLayer;
+			key.viewportId = cameraIdx;
+
+			DrawCommandInfos& infos = drawCmd.infos;
+			infos.material = subMesh.material;
+			infos.vertexBuffer = vertexBuffer;
+			infos.indiceBuffer = indiceBuffer;
+			infos.indiceBufferOffset = subMesh.indiceBufferOffset;
+			infos.indiceBufferCount = subMesh.indiceCount;
+			infos.alphaDitheringValue = 1.0f;
+			infos.instanceCount = 1;
+			infos.modelMatrix = meshInstance.modelMatrix;
+        }
+    }
 }

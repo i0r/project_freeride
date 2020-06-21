@@ -23,6 +23,16 @@
 #include "Rendering/RenderDevice.h"
 
 // TEMP FOR TEST CRAP; SHOULD BE REMOVED LATER
+#include "Graphics/RenderModules/PresentRenderPass.h"
+#include "Graphics/RenderModules/AtmosphereRenderModule.h"
+#include "Graphics/RenderModules/MSAAResolvePass.h"
+#include "Graphics/RenderModules/FrameCompositionModule.h"
+#include "Graphics/RenderModules/AutomaticExposure.h"
+#include "Graphics/RenderModules/TextRenderingModule.h"
+#include "Graphics/RenderModules/PrimitiveLightingTest.h"
+#include "Graphics/RenderModules/GlareRenderModule.h"
+#include "Graphics/RenderModules/FFTRenderPass.h"
+#include "Graphics/RenderModules/LineRenderingModule.h"
 #include "Graphics/Material.h"
 // END TEMP
 
@@ -65,36 +75,36 @@
 #include "Framework/MaterialEditor.h"
 
 static char                 g_BaseBuffer[128];
-static void*                g_AllocatedTable;
+static void* g_AllocatedTable;
 
-static LinearAllocator*     g_GlobalAllocator;
-static DisplaySurface*      g_DisplaySurface;
-static InputMapper*         g_InputMapper;
-static InputReader*         g_InputReader;
-static RenderDevice*        g_RenderDevice;
-static VirtualFileSystem*   g_VirtualFileSystem;
-static FileSystemNative*    g_SaveFileSystem;
-static FileSystemNative*    g_DataFileSystem;
-static ShaderCache*         g_ShaderCache;
-static GraphicsAssetCache*  g_GraphicsAssetCache;
-static WorldRenderer*       g_WorldRenderer;
-static LightGrid*           g_LightGrid;
-static RenderWorld*         g_RenderWorld;
-static World*               g_World;
+static LinearAllocator* g_GlobalAllocator;
+static DisplaySurface* g_DisplaySurface;
+static InputMapper* g_InputMapper;
+static InputReader* g_InputReader;
+static RenderDevice* g_RenderDevice;
+static VirtualFileSystem* g_VirtualFileSystem;
+static FileSystemNative* g_SaveFileSystem;
+static FileSystemNative* g_DataFileSystem;
+static ShaderCache* g_ShaderCache;
+static GraphicsAssetCache* g_GraphicsAssetCache;
+static WorldRenderer* g_WorldRenderer;
+static LightGrid* g_LightGrid;
+static RenderWorld* g_RenderWorld;
+static World* g_World;
 static DrawCommandBuilder2* g_DrawCommandBuilder;
 
-static FreeCamera*          g_FreeCamera;
-static MaterialEditor*      g_MaterialEditor;
+static FreeCamera* g_FreeCamera;
+static MaterialEditor* g_MaterialEditor;
 
 #if DUSK_DEVBUILD
-static FileSystemNative*    g_EdAssetsFileSystem;
-static FileSystemNative*    g_RendererFileSystem;
+static FileSystemNative* g_EdAssetsFileSystem;
+static FileSystemNative* g_RendererFileSystem;
 #if DUSK_USE_RENDERDOC
-static RenderDocHelper*     g_RenderDocHelper;
+static RenderDocHelper* g_RenderDocHelper;
 #endif
 #if DUSK_USE_IMGUI
-static ImGuiManager*        g_ImGuiManager;
-static ImGuiRenderModule*   g_ImGuiRenderModule;
+static ImGuiManager* g_ImGuiManager;
+static ImGuiRenderModule* g_ImGuiRenderModule;
 #endif
 #endif
 
@@ -122,7 +132,7 @@ void RegisterInputContexts()
     g_InputMapper->pushContext( DUSK_STRING_HASH( "DebugUI" ) );
 
     // Free Camera
-    g_InputMapper->addCallback( [&]( MappedInput & input, float frameTime ) {
+    g_InputMapper->addCallback( [&]( MappedInput& input, float frameTime ) {
         if ( g_IsDevMenuVisible && !g_CanMoveCamera ) {
             return;
         }
@@ -159,7 +169,7 @@ void RegisterInputContexts()
     }, 0 );
 
     // DebugUI
-    g_InputMapper->addCallback( [&]( MappedInput & input, float frameTime ) {
+    g_InputMapper->addCallback( [&]( MappedInput& input, float frameTime ) {
         if ( input.Actions.find( DUSK_STRING_HASH( "OpenDevMenu" ) ) != input.Actions.end() ) {
             g_IsDevMenuVisible = !g_IsDevMenuVisible;
             g_IsResizing = true;
@@ -187,13 +197,13 @@ void RegisterInputContexts()
 
         // Default: Ctrl
         if ( input.States.find( DUSK_STRING_HASH( "Modifier1" ) ) != input.States.end() ) {
-           /* if ( input.Actions.find( DUSK_STRING_HASH( "Undo" ) ) != input.Actions.end() ) {
-                g_TransactionHandler->undo();
-            }
+            /* if ( input.Actions.find( DUSK_STRING_HASH( "Undo" ) ) != input.Actions.end() ) {
+                 g_TransactionHandler->undo();
+             }
 
-            if ( input.Actions.find( DUSK_STRING_HASH( "Redo" ) ) != input.Actions.end() ) {
-                g_TransactionHandler->redo();
-            }*/
+             if ( input.Actions.find( DUSK_STRING_HASH( "Redo" ) ) != input.Actions.end() ) {
+                 g_TransactionHandler->redo();
+             }*/
         }
 
         //if ( !io.WantCaptureMouse ) {
@@ -348,11 +358,11 @@ void InitializeIOSubsystems()
     // TODO Store thoses paths somewhere so that we don't hardcode this everywhere...
     if ( !g_DataFileSystem->fileExists( DUSK_STRING( "./data/cache/" ) ) ) {
         g_DataFileSystem->createFolder( DUSK_STRING( "./data/cache/" ) );
-	}
+    }
 
-	if ( !g_DataFileSystem->fileExists( DUSK_STRING( "./data/materials/" ) ) ) {
-		g_DataFileSystem->createFolder( DUSK_STRING( "./data/materials/" ) );
-	}
+    if ( !g_DataFileSystem->fileExists( DUSK_STRING( "./data/materials/" ) ) ) {
+        g_DataFileSystem->createFolder( DUSK_STRING( "./data/materials/" ) );
+    }
 
     Logger::SetLogOutputFile( SaveFolder, DUSK_STRING( "DuskEd" ) );
 
@@ -478,8 +488,8 @@ void InitializeRenderSubsystems()
     g_FreeCamera->setProjectionMatrix( DefaultCameraFov, static_cast< float >( ScreenSize.x ), static_cast< float >( ScreenSize.y ) );
 
     g_FreeCamera->setImageQuality( ImageQuality );
-    g_FreeCamera->setMSAASamplerCount( MSAASamplerCount ); 
-    
+    g_FreeCamera->setMSAASamplerCount( MSAASamplerCount );
+
     g_LightGrid->getDirectionalLightData()->NormalizedDirection = dk::maths::SphericalToCarthesianCoordinates( 0.5f, 0.5f );
 
     constexpr f32 kSunAngularRadius = 0.00935f / 2.0f;
@@ -552,7 +562,7 @@ void MainLoop()
     sr.Left = 0;
     sr.Right = ScreenSize.x;
 
-    dkVec2f viewportSize = dkVec2f( static_cast<f32>( ScreenSize.x ), static_cast< f32 >( ScreenSize.y ) );
+    dkVec2f viewportSize = dkVec2f( static_cast< f32 >( ScreenSize.x ), static_cast< f32 >( ScreenSize.y ) );
 
     FbxParser fbxParser;
     fbxParser.create( g_GlobalAllocator );
@@ -604,9 +614,10 @@ void MainLoop()
 
         g_InputMapper->clear();
 
-		g_World->collectRenderables( g_DrawCommandBuilder );
-
-        g_DrawCommandBuilder->buildRenderQueues( g_WorldRenderer, g_LightGrid );
+        g_World->collectRenderables( g_DrawCommandBuilder );
+        
+        g_DrawCommandBuilder->addWorldCameraToRender( &g_FreeCamera->getData() );
+        g_DrawCommandBuilder->prepareAndDispatchCommands( g_WorldRenderer, g_LightGrid );
 
         std::string str = std::to_string( framerateCounter.AvgDeltaTime ).substr( 0, 6 )
             + " ms / "
@@ -619,12 +630,12 @@ void MainLoop()
         FrameGraph& frameGraph = g_WorldRenderer->prepareFrameGraph( vp, sr, &g_FreeCamera->getData() );
         frameGraph.acquireCurrentMaterialEdData( g_MaterialEditor->getRuntimeEditionData() );
         frameGraph.setScreenSize( ScreenSize );
-        
+
 #if DUSK_USE_IMGUI
         if ( g_IsDevMenuVisible ) {
             static bool IsRenderDocVisible = false;
 
-            g_ImGuiRenderModule->lockRenderList();
+            g_ImGuiRenderModule->lockForRendering();
             ImGui::NewFrame();
 
             f32 menuBarHeight = 0.0f;
@@ -790,7 +801,7 @@ void MainLoop()
 
             ImGui::Render();
 
-            g_ImGuiRenderModule->unlockRenderList();
+            g_ImGuiRenderModule->unlock();
         }
 #endif
         // Update viewport if we hide Editor GUI.
@@ -826,9 +837,9 @@ void MainLoop()
         g_WorldRenderer->LineRendering->addLine( GuizmoLinesOrigin, dkVec4f( 0, 0, 1, 1 ), GuizmoLinesOrigin - FwdVector * 32.0f, dkVec4f( 0, 0, 1, 1 ), 2.0f );
 
         g_WorldRenderer->AutomaticExposure->importResourcesToGraph( frameGraph );
-        
+
         LightGrid::Data lightGridData = g_LightGrid->updateClusters( frameGraph );
-        
+
         Material::RenderScenario scenario = ( g_MaterialEditor->isUsingInteractiveMode() ) ? Material::RenderScenario::Default_Editor : Material::RenderScenario::Default;
 
         // LightPass.
@@ -860,7 +871,7 @@ void MainLoop()
         ResHandle_t inverseFFT = AddInverseFFTComputePass( frameGraph, convolutedFFT, static_cast< f32 >( viewportSize.x ), static_cast< f32 >( viewportSize.y ) );
 
         // Automatic Exposure.
-        g_WorldRenderer->AutomaticExposure->computeExposure( frameGraph, presentRt, dkVec2u( static_cast<u32>( viewportSize.x ), static_cast< u32 >( viewportSize.y ) ) );
+        g_WorldRenderer->AutomaticExposure->computeExposure( frameGraph, presentRt, dkVec2u( static_cast< u32 >( viewportSize.x ), static_cast< u32 >( viewportSize.y ) ) );
 
         // Frame composition.
         presentRt = g_WorldRenderer->FrameComposition->addFrameCompositionPass( frameGraph, presentRt, inverseFFT );
@@ -872,7 +883,7 @@ void MainLoop()
         // ImGui Editor GUI.
         if ( g_IsDevMenuVisible ) {
             frameGraph.savePresentRenderTarget( presentRt );
-            
+
             presentRt = g_ImGuiRenderModule->render( frameGraph, presentRt );
         }
 #endif
@@ -891,7 +902,7 @@ void Shutdown()
 
     // Forces buffer swapping in order to safely unload/destroy resources in use
     g_RenderDevice->waitForPendingFrameCompletion();
-    
+
     g_WorldRenderer->destroy( g_RenderDevice );
 
     DUSK_LOG_INFO( "Calling subsystems destructors...\n" );

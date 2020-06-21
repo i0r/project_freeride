@@ -1,1 +1,1 @@
-.\DuskBaker.exe ..\Assets\RenderPasses\ ..\Assets\shaders ..\DuskRenderer\Graphics\RenderModules\Generated\ ..\DuskEd\Graphics\RenderModules\Reflected\ 
+.\DuskBaker.exe ..\Assets\RenderPasses\ ..\Assets\shaders ..\Dusk\Graphics\RenderModules\Generated\ ..\DuskEd\Graphics\RenderModules\Reflected\ 

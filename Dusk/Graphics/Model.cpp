@@ -7,13 +7,12 @@
 
 Model::Model( BaseAllocator* allocator, const dkChar_t* name )
     : memoryAllocator( allocator )
-    , modelName( name )
     , lodCount( 0 )
     , lod{}
     , modelAABB{}
     , modelBoundingSphere{}
 {
-
+    setName( name );
 }
 
 Model::~Model()
@@ -82,12 +81,17 @@ Model::LevelOfDetail& Model::addLevelOfDetail( const f32 lodEndDistance )
 
     lodCount++;
 
+    rebuildLodHashcodes();
+
     return allocatedLevel;
 }
 
 void Model::setName( const dkString_t& newName )
 {
     modelName = newName;
+    modelHashcode = dk::core::CRC32( modelName );
+
+    rebuildLodHashcodes();
 }
 
 const dkChar_t* Model::getName() const
@@ -107,4 +111,25 @@ void Model::computeBounds()
     f32 sphereRadius = dk::maths::GetBiggestScalar( dk::maths::GetAABBHalfExtents( modelAABB ) );
 
     dk::maths::CreateSphere( modelBoundingSphere, sphereCenterWorldSpace, sphereRadius );
+}
+
+BoundingSphere& Model::getBoundingSphere() const
+{
+    return modelBoundingSphere;
+}
+
+dkStringHash_t Model::getHashcode() const
+{
+    return modelHashcode;
+}
+
+void Model::rebuildLodHashcodes()
+{
+	for ( i32 lodIdx = 0; lodIdx < lodCount; lodIdx++ ) {
+		Model::LevelOfDetail& levelOfDetail = lod[lodIdx];
+
+		dkString_t lodName = getName();
+		lodName.append( DUSK_TO_STRING( lodIdx ) );
+		levelOfDetail.Hashcode = dk::core::CRC32( lodName );
+	}
 }

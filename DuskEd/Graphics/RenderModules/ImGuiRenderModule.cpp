@@ -20,6 +20,13 @@
 
 #include <imgui/imgui.h>
 
+enum eImGuiLockType : i32
+{
+    IMGUI_LOCK_READY = 0,
+    IMGUI_LOCK_UPLOAD = 1,
+    IMGUI_LOCK_RENDERING = 2
+};
+
 ImGuiRenderModule::ImGuiRenderModule()
     : imguiCmdListCount( 0 )
     , imguiCmdLists( nullptr )
@@ -28,8 +35,7 @@ ImGuiRenderModule::ImGuiRenderModule()
     , displayPos( dkVec2f::Zero )
     , vertexBuffer( nullptr )
     , indiceBuffer( nullptr )
-    , isRenderListLocked( false )
-    , isRenderListRendering( false )
+    , renderingLock( 0 )
 {
 
 }
@@ -137,7 +143,7 @@ ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
             // Spin Until the main thread has finished the RenderList update.
-            while ( !isRenderListAvailable() );
+            lockForRendering();
 
             Buffer* parametersBuffer = resources->getBuffer( passData.PerPassBuffer );
             Image* outputTarget = resources->getImage( passData.Output );
@@ -207,21 +213,21 @@ ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_
 
             cmdList->popEventMarker();
 
-            isRenderListRendering.store( false, std::memory_order_release );
+            unlock();
         }
     );
 
     return passData.Output;
 }
 
-void ImGuiRenderModule::lockRenderList()
+void ImGuiRenderModule::lockForUpload()
 {
-    while ( !isRenderListUploadDone() );
+    while ( !acquireLock( IMGUI_LOCK_UPLOAD ) );
 }
 
-void ImGuiRenderModule::unlockRenderList()
+void ImGuiRenderModule::lockForRendering()
 {
-    isRenderListLocked.store( false, std::memory_order_release );
+	while ( !acquireLock( IMGUI_LOCK_RENDERING ) );
 }
 
 void ImGuiRenderModule::update( CommandList& cmdList )
@@ -258,16 +264,15 @@ void ImGuiRenderModule::update( CommandList& cmdList )
     imguiCmdLists = draw_data->CmdLists;
 }
 
-bool ImGuiRenderModule::isRenderListAvailable()
+bool ImGuiRenderModule::acquireLock( const i32 nextState )
 {
-    bool lockState = false;
-    return isRenderListLocked.compare_exchange_weak( lockState, true, std::memory_order_acquire );
+	i32 lockState =  IMGUI_LOCK_READY;
+	return renderingLock.compare_exchange_weak( lockState, nextState, std::memory_order_acquire );
 }
 
-bool ImGuiRenderModule::isRenderListUploadDone()
+void ImGuiRenderModule::unlock()
 {
-    bool lockState = false;
-    return isRenderListRendering.compare_exchange_weak( lockState, true, std::memory_order_acquire );
+    renderingLock.store( IMGUI_LOCK_READY, std::memory_order_release );
 }
 #endif
 #endif

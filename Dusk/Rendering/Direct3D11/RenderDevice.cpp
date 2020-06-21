@@ -274,12 +274,6 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
     }
 #endif
 
-    D3D11_FEATURE_DATA_THREADING threadingInfos = { 0 };
-
-    DUSK_RAISE_FATAL_ERROR( SUCCEEDED( nativeDevice->CheckFeatureSupport( D3D11_FEATURE_THREADING, &threadingInfos, sizeof( D3D11_FEATURE_DATA_THREADING ) ) ),
-        "Failed to retrieve device features!" );
-    DUSK_RAISE_FATAL_ERROR( threadingInfos.DriverCommandLists, "Device does not support multithreading!" );
-
     // It should be safe to release the adapter info after the device creation
     adapter->Release();
 
