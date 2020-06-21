@@ -56,7 +56,7 @@ using f64 = double;
 
 using byte = u8;
 
-#include <Core/Hashing/CompileTimeCRC32.h>
+#include <Dusk/Core/Hashing/CompileTimeCRC32.h>
 #define DUSK_STRING_HASH( str ) dk::core::CompileTimeCRC32( str )
 
 using dkStringHash_t = u32;

@@ -23,16 +23,6 @@
 #include "Rendering/RenderDevice.h"
 
 // TEMP FOR TEST CRAP; SHOULD BE REMOVED LATER
-#include "Graphics/RenderModules/PresentRenderPass.h"
-#include "Graphics/RenderModules/AtmosphereRenderModule.h"
-#include "Graphics/RenderModules/MSAAResolvePass.h"
-#include "Graphics/RenderModules/FrameCompositionModule.h"
-#include "Graphics/RenderModules/AutomaticExposure.h"
-#include "Graphics/RenderModules/TextRenderingModule.h"
-#include "Graphics/RenderModules/PrimitiveLightingTest.h"
-#include "Graphics/RenderModules/GlareRenderModule.h"
-#include "Graphics/RenderModules/FFTRenderPass.h"
-#include "Graphics/RenderModules/LineRenderingModule.h"
 #include "Graphics/Material.h"
 // END TEMP
 
@@ -615,6 +605,8 @@ void MainLoop()
         g_InputMapper->clear();
 
 		g_World->collectRenderables( g_DrawCommandBuilder );
+
+        g_DrawCommandBuilder->buildRenderQueues( g_WorldRenderer, g_LightGrid );
 
         std::string str = std::to_string( framerateCounter.AvgDeltaTime ).substr( 0, 6 )
             + " ms / "

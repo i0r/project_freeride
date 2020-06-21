@@ -11,14 +11,11 @@ add_executable( DuskBaker ${SOURCES} )
 
 set_property(TARGET DuskBaker PROPERTY FOLDER "Projects")
 
-target_link_libraries( DuskBaker debug DuskCore_Debug optimized DuskCore )
-target_link_libraries( DuskBaker debug DuskLexer_Debug optimized DuskLexer )
+target_link_libraries( DuskBaker debug Dusk_Debug optimized Dusk )
 
 include_directories( "${DUSK_BASE_FOLDER}DuskBaker/ThirdParty" )
 include_directories( "${DUSK_BASE_FOLDER}DuskBaker" )
-include_directories( "${DUSK_BASE_FOLDER}DuskCore" )
-include_directories( "${DUSK_BASE_FOLDER}DuskLexer" )
-include_directories( "${DUSK_BASE_FOLDER}DuskRenderer" )
+include_directories( "${DUSK_BASE_FOLDER}Dusk" )
 
 if ( WIN32 )
     target_link_libraries( DuskBaker winmm Pathcch Shlwapi )

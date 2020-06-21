@@ -6,7 +6,7 @@
 #include "Material.h"
 
 #include <Io/TextStreamHelpers.h>
-#include <DuskLexer/Parser.h>
+#include <Core/Parser.h>
 #include <Rendering/CommandList.h>
 #include <Graphics/GraphicsAssetCache.h>
 

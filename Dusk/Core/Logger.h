@@ -5,7 +5,6 @@
 #pragma once
 
 #include "BuildFlags.h"
-#include <Shared.h>
 
 class Logger
 {

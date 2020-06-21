@@ -8,8 +8,8 @@
 #include <FileSystem/VirtualFileSystem.h>
 #include <Io/TextStreamHelpers.h>
 
-#include <Parser.h>
-#include <RenderPassGenerator.h>
+#include <Core/Parser.h>
+#include <Core/RenderPassGenerator.h>
 
 #include <Graphics/RuntimeShaderCompiler.h>
 

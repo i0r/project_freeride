@@ -7,7 +7,7 @@
 #include <map>
 #include <functional>
 
-#include <FileSystem/FileSystemObject.h>
+#include <Dusk/FileSystem/FileSystemObject.h>
 
 using dkToStringEnvType_t = std::function<const char*( void* )>;
 using dkFromStringEnvType_t = std::function<void*( const dkString_t& )>;

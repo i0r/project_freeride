@@ -6,7 +6,6 @@
 #include "DrawCommandBuilder.h"
 
 #if 0 
-#include <Framework/Cameras/Camera.h>
 //#include <Framework/Mesh.h>
 //#include <Framework/Material.h>
 
@@ -18,21 +17,6 @@
 #include "GraphicsAssetCache.h"
 
 #include <Rendering/RenderDevice.h>
-
-#include "RenderModules/BrunetonSkyModel.h"
-#include "RenderModules/AutomaticExposure.h"
-//#include "RenderModules/ProbeCaptureModule.h"
-//#include "RenderModules/LineRenderingModule.h"
-#include "RenderModules/TextRenderingModule.h"
-#include "RenderModules/PresentRenderPass.h"
-//#include "RenderPasses/LightRenderPass.h"
-//#include "RenderPasses/HUDRenderPass.h"
-//#include "RenderPasses/CopyRenderPass.h"
-#include "RenderModules/FinalPostFxRenderPass.h"
-#include "RenderModules/BlurPyramid.h"
-#include "RenderModules/MSAAResolvePass.h"
-//#include "RenderPasses/CascadedShadowMapCapturePass.h"
-//#include "RenderPasses/FastFourierTransform.h"
 
 #include <Maths/Helpers.h>
 #include <Maths/AABB.h>
@@ -87,40 +71,6 @@ dkMat4x4f GetProbeCaptureViewMatrix( const dkVec3f& probePositionWorldSpace, con
     }
 
     return dkMat4x4f::Identity;
-}
-
-float DistanceToPlane( const dkVec4f& vPlane, const dkVec3f& vPoint )
-{
-    return dkVec4f::dot( dkVec4f( vPoint, 1.0f ), vPlane );
-}
-
-unsigned int FloatFlip( unsigned int f )
-{
-    unsigned mask = -int( f >> 31 ) | 0x80000000;
-    return f ^ mask;
-}
-
-// Taking highest 10 bits for rough sort of floats.
-// 0.01 maps to 752; 0.1 to 759; 1.0 to 766; 10.0 to 772;
-// 100.0 to 779 etc. Negative numbers go similarly in 0..511 range.
-uint16_t DepthToBits( const float depth )
-{
-    union { float f; unsigned int i; } f2i;
-    f2i.f = depth;
-    f2i.i = FloatFlip( f2i.i ); // flip bits to be sortable
-    unsigned int b = f2i.i >> 22; // take highest 10 bits
-    return static_cast<uint16_t>( b );
-}
-
-// Frustum cullling on a sphere. Returns > 0 if visible, <= 0 otherwise
-// NOTE Infinite Z version (it implicitly skips the far plane check)
-float CullSphereInfReversedZ( const Frustum* frustum, const dkVec3f& vCenter, float fRadius )
-{
-    float dist01 = Min( DistanceToPlane( frustum->planes[0], vCenter ), DistanceToPlane( frustum->planes[1], vCenter ) );
-    float dist23 = Min( DistanceToPlane( frustum->planes[2], vCenter ), DistanceToPlane( frustum->planes[3], vCenter ) );
-    float dist45 = DistanceToPlane( frustum->planes[5], vCenter );
-
-    return Min( Min( dist01, dist23 ), dist45 ) + fRadius;
 }
 
 DrawCommandBuilder::DrawCommandBuilder( BaseAllocator* allocator )
@@ -511,14 +461,76 @@ void DrawCommandBuilder::buildHUDDrawCmds( WorldRenderer* worldRenderer, CameraD
 }
 #endif
 
+#include "Graphics/RenderModules/PresentRenderPass.h"
+#include "Graphics/RenderModules/AtmosphereRenderModule.h"
+#include "Graphics/RenderModules/MSAAResolvePass.h"
+#include "Graphics/RenderModules/FrameCompositionModule.h"
+#include "Graphics/RenderModules/AutomaticExposure.h"
+#include "Graphics/RenderModules/TextRenderingModule.h"
+#include "Graphics/RenderModules/PrimitiveLightingTest.h"
+#include "Graphics/RenderModules/GlareRenderModule.h"
+#include "Graphics/RenderModules/FFTRenderPass.h"
+#include "Graphics/RenderModules/LineRenderingModule.h"
+
+#include <Framework/Cameras/Camera.h>
+
+static constexpr size_t MAX_SIMULTANEOUS_VIEWPORT_COUNT = 8;
+
+DUSK_INLINE f32 DistanceToPlane( const dkVec4f& vPlane, const dkVec3f& vPoint )
+{
+    return dkVec4f::dot( dkVec4f( vPoint, 1.0f ), vPlane );
+}
+
+DUSK_INLINE u32 FloatFlip( u32 f )
+{
+    u32 mask = -i32( f >> 31 ) | 0x80000000;
+    return f ^ mask;
+}
+
+// Taking highest 10 bits for rough sort of floats.
+// 0.01 maps to 752; 0.1 to 759; 1.0 to 766; 10.0 to 772;
+// 100.0 to 779 etc. Negative numbers go similarly in 0..511 range.
+u16 DepthToBits( const f32 depth )
+{
+    union { f32 f; u32 i; } f2i;
+    f2i.f = depth;
+    f2i.i = FloatFlip( f2i.i ); // flip bits to be sortable
+    u32 b = f2i.i >> 22; // take highest 10 bits
+    return static_cast< u16 >( b );
+}
+
+// Frustum cullling on a sphere. Returns > 0 if visible, <= 0 otherwise
+// NOTE Infinite Z version (it implicitly skips the far plane check)
+float CullSphereInfReversedZ( const Frustum* frustum, const dkVec3f& vCenter, f32 fRadius )
+{
+    f32 dist01 = Min( DistanceToPlane( frustum->planes[0], vCenter ), DistanceToPlane( frustum->planes[1], vCenter ) );
+    f32 dist23 = Min( DistanceToPlane( frustum->planes[2], vCenter ), DistanceToPlane( frustum->planes[3], vCenter ) );
+    f32 dist45 = DistanceToPlane( frustum->planes[5], vCenter );
+
+    return Min( Min( dist01, dist23 ), dist45 ) + fRadius;
+}
+
 DrawCommandBuilder2::DrawCommandBuilder2( BaseAllocator* allocator )
+    : memoryAllocator( allocator )
+    , cameraToRenderAllocator( dk::core::allocate<LinearAllocator>( allocator, MAX_SIMULTANEOUS_VIEWPORT_COUNT * sizeof( CameraData ), allocator->allocate( MAX_SIMULTANEOUS_VIEWPORT_COUNT * sizeof( CameraData ) ) ) )
 {
 
 }
 
 DrawCommandBuilder2::~DrawCommandBuilder2()
 {
+    dk::core::free( memoryAllocator, cameraToRenderAllocator );
+}
 
+void DrawCommandBuilder2::addWorldCameraToRender( CameraData* cameraData )
+{
+    if ( cameraToRenderAllocator->getAllocationCount() >= MAX_SIMULTANEOUS_VIEWPORT_COUNT ) {
+        DUSK_LOG_WARN( "Failed to register camera: too many camera(>=MAX_SIMULTANEOUS_VIEWPORT_COUNT)!\n" );
+        return;
+    }
+
+    CameraData* camera = dk::core::allocate<CameraData>( cameraToRenderAllocator );
+    *camera = cameraData;
 }
 
 void DrawCommandBuilder2::addGeometryInstance( const Model* model, const dkMat4x4f& modelMatrix )
@@ -528,5 +540,18 @@ void DrawCommandBuilder2::addGeometryInstance( const Model* model, const dkMat4x
 
 void DrawCommandBuilder2::buildRenderQueues( WorldRenderer* worldRenderer, LightGrid* lightGrid )
 {
+    uint32_t cameraIdx = 0;
+    CameraData* cameraArray = static_cast< CameraData* >( cameraToRenderAllocator->getBaseAddress() );
+    const size_t cameraCount = cameraToRenderAllocator->getAllocationCount();
 
+    for ( ; cameraIdx < cameraCount; cameraIdx++ ) {
+        const CameraData& camera = cameraArray[cameraIdx];
+    }
+
+    resetAllocators();
+}
+
+void DrawCommandBuilder2::resetAllocators()
+{
+    cameraToRenderAllocator->clear();
 }

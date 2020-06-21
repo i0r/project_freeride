@@ -5,7 +5,6 @@
 #pragma once
 
 #include <atomic>
-#include <Core/Types.h>
 #include "FileSystem.h"
 
 // Abstract object (file, directory, etc.)

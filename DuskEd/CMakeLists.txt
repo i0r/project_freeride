@@ -50,9 +50,7 @@ add_executable( DuskEd ${GUI_TYPE} ${SOURCES})
 
 set_property(TARGET DuskEd PROPERTY FOLDER "Projects")
 
-target_link_libraries( DuskEd debug DuskCore_Debug optimized DuskCore )
-target_link_libraries( DuskEd debug DuskRenderer_Debug optimized DuskRenderer )
-target_link_libraries( DuskEd debug DuskLexer_Debug optimized DuskLexer )
+target_link_libraries( DuskEd debug Dusk_Debug optimized Dusk )
 
 if ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
     target_link_libraries( DuskEd d3d11 )
@@ -71,11 +69,9 @@ if ( DUSK_USE_FBXSDK )
 endif( DUSK_USE_FBXSDK )
 
 include_directories( "${DUSK_BASE_FOLDER}DuskEd" )
-include_directories( "${DUSK_BASE_FOLDER}DuskCore" )
-include_directories( "${DUSK_BASE_FOLDER}DuskRenderer" )
-include_directories( "${DUSK_BASE_FOLDER}DuskLexer" )
+include_directories( "${DUSK_BASE_FOLDER}Dusk" )
+include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/" )
 include_directories( "${DUSK_BASE_FOLDER}DuskEd/ThirdParty" )
-include_directories( "${DUSK_BASE_FOLDER}DuskRenderer/ThirdParty/" )
 
 if ( WIN32 )
     target_link_libraries( DuskEd winmm Pathcch Shlwapi )

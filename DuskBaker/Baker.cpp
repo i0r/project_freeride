@@ -13,9 +13,9 @@
 #include "Core/Allocators/AllocationHelpers.h"
 #include "Core/Allocators/LinearAllocator.h"
 
-#include <Lexer.h>
-#include <Parser.h>
-#include <RenderPassGenerator.h>
+#include <Core/Lexer.h>
+#include <Core/Parser.h>
+#include <Core/RenderPassGenerator.h>
 
 #include "Io/TextStreamHelpers.h"
 

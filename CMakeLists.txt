@@ -93,9 +93,6 @@ link_directories( "${DUSK_BASE_FOLDER}/build/lib" )
 add_definitions( -D${DUSK_GFX_API} )
 
 # Add stuff to build below
-add_subdirectory( DuskCore )
-add_subdirectory( DuskRenderer )
-#add_subdirectory( DuskGUI )
-add_subdirectory( DuskLexer )
+add_subdirectory( Dusk )
 add_subdirectory( DuskEd )
 add_subdirectory( DuskBaker )

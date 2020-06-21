@@ -1,0 +1,107 @@
+file(GLOB_RECURSE SRC "${DUSK_BASE_FOLDER}Dusk/Core/*.cpp"
+    "${DUSK_BASE_FOLDER}Dusk/FileSystem/*.cpp"
+    "${DUSK_BASE_FOLDER}Dusk/Framework/*.cpp"
+    "${DUSK_BASE_FOLDER}Dusk/Input/*.cpp"
+    "${DUSK_BASE_FOLDER}Dusk/Io/*.cpp"
+    "${DUSK_BASE_FOLDER}Dusk/Maths/*.cpp"
+    "${DUSK_BASE_FOLDER}Dusk/Parsing/*.cpp"
+    "${DUSK_BASE_FOLDER}Dusk/Graphics/*.cpp"
+    "${DUSK_BASE_FOLDER}Dusk/Rendering/*.cpp")
+file(GLOB_RECURSE INC "${DUSK_BASE_FOLDER}Dusk/Core/*.h"
+    "${DUSK_BASE_FOLDER}Dusk/Core/*.inl"
+    "${DUSK_BASE_FOLDER}Dusk/FileSystem/*.h"
+    "${DUSK_BASE_FOLDER}Dusk/Framework/*.h"
+    "${DUSK_BASE_FOLDER}Dusk/Input/*.h"
+    "${DUSK_BASE_FOLDER}Dusk/Io/*.h"
+    "${DUSK_BASE_FOLDER}Dusk/Maths/*.h"
+    "${DUSK_BASE_FOLDER}Dusk/Maths/*.inl"
+    "${DUSK_BASE_FOLDER}Dusk/Parsing/*.h"
+    "${DUSK_BASE_FOLDER}Dusk/Rendering/*.h"
+    "${DUSK_BASE_FOLDER}Dusk/Graphics/*.h"
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/*.h"
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/*.hpp"
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/*.inl")
+    
+file(GLOB_RECURSE SRC_THIRD_PARTY 
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/*.cpp"
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/*.c"
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/*.hpp"
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/*.h" )
+    
+set( SOURCES ${SRC} ${INC} "${DUSK_BASE_FOLDER}Dusk/Shared.cpp" "${DUSK_BASE_FOLDER}Dusk/Shared.h" )
+add_precompiled_header( "${SOURCES}" Shared.h )
+
+if ( ${DUSK_USE_UNITY_BUILD} )
+	enable_unity_build( Dusk SRC 16 cpp)
+endif ( ${DUSK_USE_UNITY_BUILD} )
+
+set( SOURCES ${SRC} ${INC} ${SRC_THIRD_PARTY} "${DUSK_BASE_FOLDER}Dusk/Shared.cpp" "${DUSK_BASE_FOLDER}Dusk/Shared.h" )
+
+add_library( Dusk STATIC ${SOURCES} )
+
+set_property(TARGET Dusk PROPERTY FOLDER "DuskEngine")
+
+include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty" )
+include_directories( "${DUSK_BASE_FOLDER}Dusk" )
+
+if(MSVC)
+  target_compile_options(Dusk PRIVATE /W3 /WX)
+else()
+  target_compile_options(Dusk PRIVATE -Wall -Wextra)
+endif()
+
+add_msvc_filters( "${SOURCES}" )
+
+if ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D12" )
+    find_package( DirectX REQUIRED )
+
+    target_link_libraries( Dusk d3d12 )
+    target_link_libraries( Dusk dxgi )
+	
+    target_link_libraries( Dusk d3dcompiler )
+        
+    set_target_properties( Dusk PROPERTIES DEBUG_OUTPUT_NAME "Dusk" )
+    set_target_properties( Dusk PROPERTIES RELEASE_OUTPUT_NAME "Dusk" )
+    set_target_properties( Dusk PROPERTIES RELWITHDEBINFO_OUTPUT_NAME "Dusk" )
+
+    add_definitions( -DDUSK_ASYNC_COMPUTE_AVAILABLE )
+
+if ( DUSK_DEVBUILD )
+    target_link_libraries( Dusk dxguid )
+endif( DUSK_DEVBUILD )
+elseif ( "${DUSK_GFX_API}" MATCHES "DUSK_VULKAN" )
+    find_package( Vulkan REQUIRED )
+    include_directories( ${Vulkan_INCLUDE_DIR} )
+        
+    set_target_properties( Dusk PROPERTIES DEBUG_OUTPUT_NAME "Dusk" )
+    set_target_properties( Dusk PROPERTIES RELEASE_OUTPUT_NAME "Dusk" )
+    set_target_properties( Dusk PROPERTIES RELWITHDEBINFO_OUTPUT_NAME "Dusk" )
+
+    add_definitions( -DDUSK_ASYNC_COMPUTE_AVAILABLE )
+
+    target_link_libraries( Dusk Vulkan::Vulkan )
+elseif ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
+    find_package( DirectX REQUIRED )
+
+    target_link_libraries( Dusk d3d11 )
+    target_link_libraries( Dusk dxgi )
+	
+    target_link_libraries( Dusk d3dcompiler )
+        
+    set_target_properties( Dusk PROPERTIES DEBUG_OUTPUT_NAME "Dusk" )
+    set_target_properties( Dusk PROPERTIES RELEASE_OUTPUT_NAME "Dusk" )
+    set_target_properties( Dusk PROPERTIES RELWITHDEBINFO_OUTPUT_NAME "Dusk" )
+
+if ( DUSK_DEVBUILD )
+    target_link_libraries( Dusk dxguid )
+endif( DUSK_DEVBUILD )
+endif( "${DUSK_GFX_API}" MATCHES "DUSK_D3D12" )
+
+if ( DUSK_USE_UNITY_BUILD )
+    if(MSVC)
+        add_custom_command( TARGET Dusk
+            PRE_BUILD
+            COMMAND RD /S /Q ${DUSK_BASE_FOLDER}Dusk/UnityBuild/
+        )
+    endif()
+endif ( DUSK_USE_UNITY_BUILD )

@@ -19,20 +19,39 @@
 //};
 
 class BaseAllocator;
+class LinearAllocator;
 class WorldRenderer;
 class LightGrid;
 class Model;
+struct CameraData;
 
 class DrawCommandBuilder2
 {
 public:
-	DrawCommandBuilder2( BaseAllocator* allocator );
-	DrawCommandBuilder2( DrawCommandBuilder2& ) = delete;
-	DrawCommandBuilder2& operator = ( DrawCommandBuilder2& ) = delete;
-	~DrawCommandBuilder2();
+						DrawCommandBuilder2( BaseAllocator* allocator );
+						DrawCommandBuilder2( DrawCommandBuilder2& ) = delete;
+						DrawCommandBuilder2& operator = ( DrawCommandBuilder2& ) = delete;
+						~DrawCommandBuilder2();
 
-	void addGeometryInstance( const Model* model, const dkMat4x4f& modelMatrix );
-	void buildRenderQueues( WorldRenderer* worldRenderer, LightGrid* lightGrid );
+	// TODO REFACTOR - This isnt really a camera... this is rather something like a client viewport which has a bunch
+	// of settings and parameters.
+    void    			addWorldCameraToRender( CameraData* cameraData );
+
+	void				addGeometryInstance( const Model* model, const dkMat4x4f& modelMatrix );
+
+	void				buildRenderQueues( WorldRenderer* worldRenderer, LightGrid* lightGrid );
+
+private:
+	// The memory allocator owning this instance.
+	BaseAllocator*		memoryAllocator;
+
+	// Allocator used to allocate local copies of incoming cameras.
+    LinearAllocator*	cameraToRenderAllocator;
+
+private:
+	// Reset entities allocators (camera, models, etc.). Should be called once the cmds are built and we don't longer need
+	// the transistent data.
+	void				resetAllocators();
 };
 
 //
@@ -58,7 +77,6 @@ public:
 //    void                        addGeometryToRender( const Mesh* meshResource, const dkMat4x4f* modelMatrix, const uint32_t flagset );
 //    void                        addSphereToRender( const dkVec3f& sphereCenter, const float sphereRadius, Material* material );
 //    void                        addAABBToRender( const AABB& aabb, Material* material );
-//    void                        addCamera( CameraData* cameraData );
 //    void                        addIBLProbeToCapture( const IBLProbeData* probeData );
 //    void                        addHUDRectangle( const dkVec2f& positionScreenSpace, const dkVec2f& dimensionScreenSpace, const float rotationInRadians, Material* material );
 //
@@ -138,9 +156,7 @@ public:
 //    };
 //
 //private:
-//    BaseAllocator*                          memoryAllocator;
-//
-//    LinearAllocator*                          cameras;
+//    
 //    LinearAllocator*                          meshes;
 //    LinearAllocator*                          spheresToRender;
 //    dkMat4x4f                              sphereToRender[8192];

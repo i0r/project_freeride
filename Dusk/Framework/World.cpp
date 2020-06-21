@@ -10,7 +10,7 @@
 #include "Transform.h"
 #include "StaticGeometry.h"
 
-#include <DuskRenderer/Graphics/DrawCommandBuilder.h>
+#include "Graphics/DrawCommandBuilder.h"
 
 static constexpr size_t MAX_ENTITY_COUNT = 10000;
 
