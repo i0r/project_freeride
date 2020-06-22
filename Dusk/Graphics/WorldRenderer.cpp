@@ -95,8 +95,9 @@ WorldRenderer::WorldRenderer( BaseAllocator* allocator )
     , AtmosphereRendering( dk::core::allocate<AtmosphereRenderModule>( allocator ) )
     , memoryAllocator( allocator )
     , primitiveCache( dk::core::allocate<PrimitiveCache>( allocator ) )
-    , drawCmdAllocator( dk::core::allocate<LinearAllocator>( allocator, sizeof( DrawCmd )* MAX_DRAW_CMD_COUNT, allocator->allocate( sizeof( DrawCmd ) * MAX_DRAW_CMD_COUNT ) ) )
+    , drawCmdAllocator( dk::core::allocate<LinearAllocator>( allocator, sizeof( DrawCmd ) * MAX_DRAW_CMD_COUNT, allocator->allocate( sizeof( DrawCmd ) * MAX_DRAW_CMD_COUNT ) ) )
     , frameGraph( nullptr )
+    , frameDrawCmds( dk::core::allocateArray<DrawCmd>( allocator, sizeof( DrawCmd )* MAX_DRAW_CMD_COUNT ) )
     , needResourcePrecompute( true )
 {
 
@@ -113,7 +114,8 @@ WorldRenderer::~WorldRenderer()
     dk::core::free( memoryAllocator, primitiveCache );
     dk::core::free( memoryAllocator, drawCmdAllocator );
     dk::core::free( memoryAllocator, frameGraph );
-
+    dk::core::free( memoryAllocator, frameDrawCmds );
+    
     memoryAllocator = nullptr;
 }
 
@@ -164,22 +166,19 @@ void WorldRenderer::drawDebugSphere( CommandList& cmdList )
 
 void WorldRenderer::drawWorld( RenderDevice* renderDevice, const f32 deltaTime )
 {
-    /* DrawCmd* drawCmds = static_cast< DrawCmd* >( drawCmdAllocator->getBaseAddress() );
-     const size_t drawCmdCount = drawCmdAllocator->getAllocationCount();
+    // Sort this frame draw commands.
+    DrawCmd* drawCmds = static_cast< DrawCmd* >( drawCmdAllocator->getBaseAddress() );
+    const size_t drawCmdCount = drawCmdAllocator->getAllocationCount();
 
-     DrawCmd tmpDrawCmds[MAX_DRAW_CMD_COUNT];
-     RadixSort( drawCmds, tmpDrawCmds, drawCmdCount );
+    RadixSort( drawCmds, frameDrawCmds, drawCmdCount );
 
-     if ( frameGraphCount > 1 ) {
-         for ( size_t i = 0; i < drawCmdCount; i++ ) {
+    // Submit commands to each render queue.
+    frameGraph->submitAndDispatchDrawCmds( drawCmds, drawCmdCount );
 
-         }
-     }*/
-
-    // Execute current frame graph
+    // Execute current frame graph.
     frameGraph->execute( renderDevice, deltaTime );
 
-    // Reset DrawCmd Pool
+    // Reset DrawCmd Pool.
     drawCmdAllocator->clear();
 }
 

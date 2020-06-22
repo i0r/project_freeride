@@ -20,4 +20,4 @@ struct LightPassOutput {
     ResHandle_t	OutputVelocityTarget;
 };
 
-LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest, Material* materialTest, ResHandle_t perSceneBuffer, Material::RenderScenario scenario );
+LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, Material::RenderScenario scenario );

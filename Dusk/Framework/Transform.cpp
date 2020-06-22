@@ -85,6 +85,20 @@ void TransformDatabase::update( const f32 deltaTime )
     }
 }
 
+TransformDatabase::EdInstanceData TransformDatabase::getEditorInstanceData( const Instance instance )
+{
+    size_t instanceIndex = instance.getIndex();
+
+    EdInstanceData editorData;
+    editorData.Position = &instanceData.Position[instanceIndex];
+    editorData.Rotation = &instanceData.Rotation[instanceIndex];
+    editorData.Scale = &instanceData.Scale[instanceIndex];
+    editorData.Local = &instanceData.Local[instanceIndex];
+    editorData.World = &instanceData.World[instanceIndex];
+
+    return editorData;
+}
+
 void TransformDatabase::applyParentMatrixRecurse( const dkMat4x4f& parent, Instance i )
 {
     instanceData.World[i.getIndex()] = instanceData.Local[i.getIndex()] * parent;

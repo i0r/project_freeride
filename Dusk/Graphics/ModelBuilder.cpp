@@ -65,7 +65,7 @@ void dk::graphics::BuildParsedModel( Model* builtModel, BaseAllocator* memoryAll
         lod.MeshCount = static_cast<i32>( meshPerLod[lodIdx].size() );
         lod.MeshArray = dk::core::allocateArray<Mesh>( memoryAllocator, lod.MeshCount );
         
-        dk::maths::CreateAABBFromMinMaxPoints( lod.GroupAABB, -dkVec3f::Max, dkVec3f::Max );
+        dk::maths::CreateAABBFromMinMaxPoints( lod.GroupAABB, dkVec3f::Max, -dkVec3f::Max );
         
         for ( i32 i = 0; i < lod.MeshCount; i++ ) {
             ParsedMesh& mesh = *( meshPerLod[lodIdx][i] );
@@ -137,7 +137,8 @@ void dk::graphics::BuildParsedModel( Model* builtModel, BaseAllocator* memoryAll
         builtMesh->AttributeBuffers[eMeshAttribute::UvMap_0] = uv0;
         builtMesh->AttributeBuffers[eMeshAttribute::Normal] = normal;
         builtMesh->AttributeBuffers[eMeshAttribute::Color_0] = colors0;
-        builtMesh->AttributeBuffers[eMeshAttribute::Index] = indice;
+
+        builtMesh->IndexBuffer = indice;
     }
 
     // Recompute AABB/Bounding Sphere.

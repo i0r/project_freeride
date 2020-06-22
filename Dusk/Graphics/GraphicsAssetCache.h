@@ -30,13 +30,16 @@ public:
 
     Image*                                      getImage( const dkChar_t* assetName, const bool forceReload = false );
     FontDescriptor*                             getFont( const dkChar_t* assetName, const bool forceReload = false );
-    Material*                                   getMaterialCopy( const dkChar_t* assetName );
     Material*                                   getMaterial( const dkChar_t* assetName, const bool forceReload = false );
-    //Mesh*                                       getMesh( const dkChar_t* assetName, const bool forceReload = false );
 
     // Return the description of an image already loaded in memory.
     // Return null if the image does not exist, or if the image is not present in memory.
     ImageDesc*                                  getImageDescription( const dkChar_t* assetPath );
+
+    Material* getDefaultMaterial() const
+    {
+        return defaultMaterial;
+    }
 
 private:
     FreeListAllocator*                          assetStreamingHeap;
@@ -46,10 +49,9 @@ private:
     VirtualFileSystem*                          virtualFileSystem;
 
     std::unordered_map<dkStringHash_t, Material*>         materialMap;
-    //std::unordered_map<dkStringHash_t, Mesh*>             meshMap;
     std::unordered_map<dkStringHash_t, Image*>            imageMap;
     std::unordered_map<dkStringHash_t, ImageDesc>         imageDescMap;
     std::unordered_map<dkStringHash_t, FontDescriptor*>   fontMap;
 
-    Material*                                   defaultMaterial;
+    Material*                                           defaultMaterial;
 };

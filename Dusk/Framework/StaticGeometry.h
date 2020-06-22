@@ -14,6 +14,7 @@ class StaticGeometryDatabase : public ComponentDatabase
 {
 public:
 	DUSK_INLINE const Model* getModel( const Instance instance ) const { return instanceData.ModelResource[instance.getIndex()]; }
+    DUSK_INLINE void setModel( const Instance instance, Model* model ) { instanceData.ModelResource[instance.getIndex()] = model; }
 
 public:
             StaticGeometryDatabase( BaseAllocator* allocator );

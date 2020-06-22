@@ -56,6 +56,8 @@
 #include "Graphics/RenderModules/ImGuiRenderModule.h"
 #include "ThirdParty/imgui/imgui.h"
 #include "ThirdParty/imgui/imgui_internal.h"
+#include "ThirdParty/ImGuizmo/ImGuizmo.h"
+
 
 #include "Framework/LoggingConsole.h"
 #endif
@@ -73,8 +75,10 @@
 #include "DefaultInputConfig.h"
 
 #include "Framework/MaterialEditor.h"
+#include "Framework/StaticGeometry.h"
+#include "Framework/Transform.h"
 
-static char                 g_BaseBuffer[128];
+static char  g_BaseBuffer[128];
 static void* g_AllocatedTable;
 
 static LinearAllocator* g_GlobalAllocator;
@@ -339,7 +343,7 @@ void InitializeIOSubsystems()
 
     // TODO Make this more flexible? (do not assume the current working directory).
     g_EdAssetsFileSystem = dk::core::allocate<FileSystemNative>( g_GlobalAllocator, DUSK_STRING( "./../../Assets/" ) );
-    g_RendererFileSystem = dk::core::allocate<FileSystemNative>( g_GlobalAllocator, DUSK_STRING( "./../../DuskRenderer/Graphics/" ) );
+    g_RendererFileSystem = dk::core::allocate<FileSystemNative>( g_GlobalAllocator, DUSK_STRING( "./../../Dusk/Graphics/" ) );
 
     g_VirtualFileSystem->mount( g_EdAssetsFileSystem, DUSK_STRING( "EditorAssets" ), 0 );
     g_VirtualFileSystem->mount( g_RendererFileSystem, DUSK_STRING( "EditorAssets" ), 1 );
@@ -500,7 +504,6 @@ void InitializeRenderSubsystems()
 
     g_LightGrid->getDirectionalLightData()->IlluminanceInLux = 100000.0f * solidAngle;
     g_LightGrid->getDirectionalLightData()->ColorLinearSpace = dkVec3f( 1.0f, 1.0f, 1.0f );
-
     // END TEMP
 }
 
@@ -568,8 +571,10 @@ void MainLoop()
     fbxParser.create( g_GlobalAllocator );
     fbxParser.load( "../../Assets/geometry/box.fbx" );
 
-    Model* testModel = g_RenderWorld->addAndCommitParsedDynamicModel( g_RenderDevice, *fbxParser.getParsedModel() );
-    dkMat4x4f* testModelInstance = g_RenderWorld->allocateModelInstance( testModel );
+    Model* testModel = g_RenderWorld->addAndCommitParsedDynamicModel( g_RenderDevice, *fbxParser.getParsedModel(), g_GraphicsAssetCache );
+
+    Entity modelEntity = g_World->createStaticMesh();
+    g_World->staticGeometryDatabase->setModel( g_World->staticGeometryDatabase->lookup( modelEntity ), testModel );
     // TEST TEST TEST
 
     Timer logicTimer;
@@ -637,6 +642,7 @@ void MainLoop()
 
             g_ImGuiRenderModule->lockForRendering();
             ImGui::NewFrame();
+            ImGuizmo::BeginFrame();
 
             f32 menuBarHeight = 0.0f;
             if ( ImGui::BeginMainMenuBar() ) {
@@ -759,11 +765,18 @@ void MainLoop()
             }
             ImGui::End();
 
+            // TODO Crappy stuff to prototype/test quickly.
+            static ImVec2 viewportWinSize;
+            static ImVec2 viewportWinPos;
+
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
             if ( ImGui::Begin( "Viewport", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar ) ) {
                 static ImVec2 prevWinSize = ImGui::GetWindowSize();
 
                 ImVec2 winSize = ImGui::GetWindowSize();
+
+                viewportWinSize = ImGui::GetWindowSize();
+                viewportWinPos = ImGui::GetWindowPos();
 
                 if ( !g_IsResizing && ( winSize.x != prevWinSize.x || winSize.y != prevWinSize.y ) ) {
                     g_IsResizing = true;
@@ -794,6 +807,75 @@ void MainLoop()
                 winSize.y -= 32;
 
                 ImGui::Image( static_cast< ImTextureID >( frameGraph.getPresentRenderTarget() ), winSize );
+            }
+            ImGui::End();
+
+            ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
+            if ( ImGui::Begin( "Inspector" ) ) {
+                if ( ImGui::TreeNode( "Transform" ) ) {
+                    TransformDatabase::EdInstanceData& editorInstance = g_World->transformDatabase->getEditorInstanceData( g_World->transformDatabase->lookup( modelEntity ) );
+
+                    static ImGuizmo::OPERATION mCurrentGizmoOperation( ImGuizmo::TRANSLATE );
+                    static int activeManipulationMode = 0;
+                    static bool useSnap = false;
+                    static float snap[3] = { 1.f, 1.f, 1.f };
+
+                    ImGui::Checkbox( "", &useSnap );
+                    ImGui::SameLine();
+
+                    switch ( mCurrentGizmoOperation ) {
+                    case ImGuizmo::TRANSLATE:
+                        ImGui::InputFloat3( "Snap", snap );
+                        break;
+                    case ImGuizmo::ROTATE:
+                        ImGui::InputFloat( "Angle Snap", snap );
+                        break;
+                    case ImGuizmo::SCALE:
+                        ImGui::InputFloat( "Scale Snap", snap );
+                        break;
+                    }
+
+                    ImGui::RadioButton( "Translate", &activeManipulationMode, 0 );
+                    ImGui::SameLine();
+                    ImGui::RadioButton( "Rotate", &activeManipulationMode, 1 );
+                    ImGui::SameLine();
+                    ImGui::RadioButton( "Scale", &activeManipulationMode, 2 );
+
+                    CameraData& cameraData = g_FreeCamera->getData();
+
+                    dkMat4x4f* modelMatrix = editorInstance.Local;
+
+                    ImGuiIO& io = ImGui::GetIO();
+                    ImGuizmo::SetRect( viewportWinPos.x, viewportWinPos.y, viewportWinSize.x, viewportWinSize.y );
+                    ImGuizmo::Manipulate( 
+                        cameraData.viewMatrix.toArray(), 
+                        cameraData.depthProjectionMatrix.toArray(),
+                        static_cast< ImGuizmo::OPERATION >( activeManipulationMode ),
+                        ImGuizmo::MODE::LOCAL,
+                        modelMatrix->toArray(),
+                        NULL,
+                        useSnap ? &snap[activeManipulationMode] :
+                        NULL
+                    );
+
+                    if ( !ImGuizmo::IsUsing() ) {
+                        // Convert Quaternion to Euler Angles (for user friendlyness).
+                        dkQuatf RotationQuat = dk::maths::ExtractRotation( *modelMatrix, *editorInstance.Scale );
+                        dkVec3f Rotation = RotationQuat.toEulerAngles();
+
+                        ImGui::DragFloat3( "Translation", ( float* )editorInstance.Position );
+                        ImGui::DragFloat3( "Rotation", ( float* )&Rotation, 3 );
+                        ImGui::DragFloat3( "Scale", ( float* )editorInstance.Scale );
+
+                        RotationQuat = dkQuatf( Rotation );
+                        *editorInstance.Rotation = RotationQuat;
+                    } else {
+                        *editorInstance.Position = dk::maths::ExtractTranslation( *modelMatrix );
+                        *editorInstance.Scale = dk::maths::ExtractScale( *modelMatrix );
+                        *editorInstance.Rotation = dk::maths::ExtractRotation( *modelMatrix, *editorInstance.Scale );
+                    }
+                }
+                ImGui::TreePop();
             }
             ImGui::End();
 
@@ -843,7 +925,7 @@ void MainLoop()
         Material::RenderScenario scenario = ( g_MaterialEditor->isUsingInteractiveMode() ) ? Material::RenderScenario::Default_Editor : Material::RenderScenario::Default;
 
         // LightPass.
-        LightPassOutput primRenderPass = AddPrimitiveLightTest( frameGraph, testModel, g_MaterialEditor->getActiveMaterial(), lightGridData.PerSceneBuffer, scenario );
+        LightPassOutput primRenderPass = AddPrimitiveLightTest( frameGraph, lightGridData.PerSceneBuffer, scenario );
 
         // Atmosphere Rendering.
         ResHandle_t presentRt = g_WorldRenderer->AtmosphereRendering->renderAtmosphere( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );

@@ -8,6 +8,7 @@ class Model;
 class DrawCommandBuilder;
 class RenderDevice;
 class PoolAllocator;
+class GraphicsAssetCache;
 
 #include <Parsing/GeometryParser.h>
 
@@ -36,12 +37,8 @@ public:
 
     // Add a Model to the RenderWorld and immediately upload its data to the GPU.
     // This should be used in an editor context only.
-    Model*          addAndCommitParsedDynamicModel( RenderDevice* renderDevice, ParsedModel& parsedModel );
+    Model*          addAndCommitParsedDynamicModel( RenderDevice* renderDevice, ParsedModel& parsedModel, GraphicsAssetCache* graphicsAssetCache );
 
-    // Collect active entities for this frame. Note that this function will collect any active/relevant
-    // entity for this frame; visibility test (frustum/occlusion culling) is done at a later stage.
-    void            collectEntities( DrawCommandBuilder* drawCmdBuilder );
-    
     // Allocate an instance of a given model. Return a pointer to its model matrix if the model exists
     // and has already been commited to the world; nil otherwise.
     dkMat4x4f*      allocateModelInstance( const Model* commitedModel );

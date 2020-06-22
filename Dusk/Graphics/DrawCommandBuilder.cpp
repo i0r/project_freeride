@@ -461,14 +461,23 @@ void DrawCommandBuilder::buildHUDDrawCmds( WorldRenderer* worldRenderer, CameraD
 }
 #endif
 
-#include "LightGrid.h"
 #include <Framework/Cameras/Camera.h>
-#include <Core/Allocators/LinearAllocator.h>
+
+#include <Graphics/LightGrid.h>
 #include <Graphics/Model.h>
+#include <Graphics/Mesh.h>
+
+#include <Core/Allocators/LinearAllocator.h>
 
 static constexpr size_t MAX_SIMULTANEOUS_VIEWPORT_COUNT = 8;
 static constexpr size_t MAX_STATIC_MODEL_COUNT = 4096;
 static constexpr size_t MAX_INSTANCE_COUNT_PER_MODEL = 256;
+
+struct ModelInstance 
+{
+    const Model*    ModelResource;
+    dkMat4x4f		ModelMatrix;
+};
 
 DUSK_INLINE f32 DistanceToPlane( const dkVec4f& vPlane, const dkVec3f& vPoint )
 {
@@ -538,7 +547,7 @@ void DrawCommandBuilder2::addWorldCameraToRender( CameraData* cameraData )
 
 void DrawCommandBuilder2::addStaticModelInstance( const Model* model, const dkMat4x4f& modelMatrix )
 {
-    ModelInstance* modelInstance = dk::core::allocate( staticModelsToRender );
+    ModelInstance* modelInstance = dk::core::allocate<ModelInstance>( staticModelsToRender );
     modelInstance->ModelResource = model;
     modelInstance->ModelMatrix = modelMatrix;
 }
@@ -551,6 +560,8 @@ void DrawCommandBuilder2::prepareAndDispatchCommands( WorldRenderer* worldRender
 
 	for ( ; cameraIdx < cameraCount; cameraIdx++ ) {
 		const CameraData& camera = cameraArray[cameraIdx];
+
+        buildGeometryDrawCmds( worldRenderer, &camera, cameraIdx, DrawCommandKey::LAYER_WORLD, DrawCommandKey::WORLD_VIEWPORT_LAYER_DEFAULT );
     }
 
 	resetAllocators();
@@ -563,7 +574,7 @@ void DrawCommandBuilder2::resetAllocators()
     instanceMatricesAllocator->clear();
 }
 
-void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, CameraData* camera, const u8 cameraIdx, const u8 layer, const u8 viewportLayer )
+void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, const CameraData* camera, const u8 cameraIdx, const u8 layer, const u8 viewportLayer )
 {
     struct LODBatch
     {
@@ -590,7 +601,7 @@ void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, C
         instanceBoundingSphere.center += instancePosition;
         instanceBoundingSphere.radius *= instanceScale;
 
-		if ( CullSphereInfReversedZ( &camera->frustum, instanceBoundingSphere ) > 0.0f ) {
+		/*if ( CullSphereInfReversedZ( &camera->frustum, instanceBoundingSphere ) > 0.0f )*/ {
 			const f32 distanceToCamera = dkVec3f::distanceSquared( camera->worldPosition, instancePosition );
 
 			// Retrieve LOD based on instance to camera distance
@@ -601,11 +612,13 @@ void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, C
             if ( batchIt == lodBatches.end() ) {
                 LODBatch batch;
                 batch.ModelLOD = &activeLOD;
-				batch.InstanceMatrices = dk::core::allocateArray<dkMat4x4f*>( instanceMatricesAllocator, MAX_INSTANCE_COUNT_PER_MODEL );
+				batch.InstanceMatrices = dk::core::allocateArray<dkMat4x4f>( instanceMatricesAllocator, MAX_INSTANCE_COUNT_PER_MODEL );
                 batch.InstanceMatrices[0] = modelMatrix;
 				batch.InstanceCount = 1;
+
+                lodBatches.insert( std::make_pair( activeLOD.Hashcode, batch ) );
             } else {
-                LODBatch& batch = batchIt.second;
+                LODBatch& batch = batchIt->second;
 
                 u32 instanceIdx = batch.InstanceCount;
                 batch.InstanceMatrices[instanceIdx] = modelMatrix;
@@ -615,32 +628,35 @@ void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, C
     }
 
     // Build draw commands from the batches.
-    for ( auto& batch : lodBatches ) {
-        const Model::LevelOfDetail* lod = batch.second.ModelLOD;
+    for ( auto& lodBatch : lodBatches ) {
+        const LODBatch& batch = lodBatch.second;
+
+        const Model::LevelOfDetail* lod = batch.ModelLOD;
 
         for ( i32 meshIdx = 0; meshIdx < lod->MeshCount; meshIdx++ ) {
-            const Mesh* mesh = lod->MeshArray[meshIdx];
-            const Material* material = mesh->RenderMaterial;
+            const Mesh& mesh = lod->MeshArray[meshIdx];
+            const Material* material = mesh.RenderMaterial;
 
 			DrawCmd& drawCmd = worldRenderer->allocateDrawCmd();
 
+            // TODO Add back sort key / depth sort / sort Order infos.
 			auto& key = drawCmd.key.bitfield;
             key.materialSortKey = 0; // subMesh.material->getSortKey();
-			key.depth = DepthToBits( distanceToCamera );
-			key.sortOrder = ( subMesh.material->isOpaque() ) ? DrawCommandKey::SORT_FRONT_TO_BACK : DrawCommandKey::SORT_BACK_TO_FRONT;
+            key.depth = 0; // DepthToBits( distanceToCamera );
+            key.sortOrder = DrawCommandKey::SORT_FRONT_TO_BACK; // ( subMesh.material->isOpaque() ) ? DrawCommandKey::SORT_FRONT_TO_BACK : DrawCommandKey::SORT_BACK_TO_FRONT;
 			key.layer = static_cast< DrawCommandKey::Layer >( layer );
 			key.viewportLayer = viewportLayer;
 			key.viewportId = cameraIdx;
 
 			DrawCommandInfos& infos = drawCmd.infos;
-			infos.material = subMesh.material;
-			infos.vertexBuffer = vertexBuffer;
-			infos.indiceBuffer = indiceBuffer;
-			infos.indiceBufferOffset = subMesh.indiceBufferOffset;
-			infos.indiceBufferCount = subMesh.indiceCount;
+			infos.material = material;
+			infos.vertexBuffers = mesh.AttributeBuffers;
+			infos.indiceBuffer = mesh.IndexBuffer;
+			infos.indiceBufferOffset = mesh.IndiceBufferOffset;
+			infos.indiceBufferCount = mesh.IndiceCount;
 			infos.alphaDitheringValue = 1.0f;
-			infos.instanceCount = 1;
-			infos.modelMatrix = meshInstance.modelMatrix;
+			infos.instanceCount = batch.InstanceCount;
+			infos.modelMatrix = batch.InstanceMatrices;
         }
     }
 }

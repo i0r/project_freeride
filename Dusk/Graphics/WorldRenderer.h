@@ -91,8 +91,8 @@ struct DrawCommandKey
 
 struct DrawCommandInfos
 {
-    Material*                   material; // Geom cmd
-    const Buffer**              vertexBuffers;
+    const Material*             material; // Geom cmd
+    const Buffer* const *       vertexBuffers;
     const Buffer*               indiceBuffer;
     u32                         indiceBufferOffset; // unused if indice buffer is null
     u32                         indiceBufferCount; // same as above
@@ -150,6 +150,8 @@ public:
 private:
     // The memory allocator owning this instance.
     BaseAllocator*   memoryAllocator;
+
+    // Cache to precompute and store basic primitives (for debug or special stuff).
     PrimitiveCache*  primitiveCache;
 
     // Draw Command allocator.
@@ -157,6 +159,9 @@ private:
 
     // The FrameGraph used to render the world.
     FrameGraph*      frameGraph;
+
+    // Current frame draw commands.
+    DrawCmd*         frameDrawCmds;
 
     // If true, RenderModules need to precompute its transistent resources for frame rendering.
     bool             needResourcePrecompute;

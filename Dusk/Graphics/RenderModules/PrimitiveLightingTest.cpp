@@ -21,7 +21,7 @@ struct PerPassData
     dkMat4x4f PerModelMatrix;
 };
 
-LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest, Material* materialTest, ResHandle_t perSceneBuffer, Material::RenderScenario scenario )
+LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, Material::RenderScenario scenario )
 {
     struct PassData {
         ResHandle_t output;
@@ -83,7 +83,6 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest,
 
             cmdList->pushEventMarker( DUSK_STRING( "Forward+ Light Pass" ) );
 
-            cmdList->updateBuffer( *perPassBuffer, &dkMat4x4f::Identity, sizeof( dkMat4x4f ) );
             // Update viewport (using image quality scaling)
             const CameraData* camera = resources->getMainCamera();
 
@@ -106,37 +105,42 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, Model* modelTest,
             cmdList->setViewport( vp );
             cmdList->setScissor( sr );
 
-            // TEST CRAP
-            if ( materialTest == nullptr ) return;
+            const u32 samplerCount = camera->msaaSamplerCount;
 
-            // for each DrawCall to render
-            /* Material* cmdMat = getDrawCmd().Material */;
-            PipelineState* pipelineState = materialTest->bindForScenario( scenario, cmdList, psoCache, resources->getMainCamera()->msaaSamplerCount );
+            const FrameGraphResources::DrawCmdBucket& bucket = resources->getDrawCmdBucket( DrawCommandKey::LAYER_WORLD, DrawCommandKey::WORLD_VIEWPORT_LAYER_DEFAULT );
+            for ( const DrawCmd& cmd : bucket ) {
+                const DrawCommandInfos& cmdInfos = cmd.infos;
+                const Material* material = cmdInfos.material;
 
-            // TODO We need to rebind the cbuffer every time the pso might have changed... this is bad.
-            cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
-            cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
-            cmdList->bindConstantBuffer( PerWorldBufferHashcode, perWorldBuffer );
+                PipelineState* pipelineState = const_cast<Material*>( material )->bindForScenario( scenario, cmdList, psoCache, samplerCount );
 
-            if ( scenario == Material::RenderScenario::Default_Editor ) {
-                cmdList->bindConstantBuffer( MaterialEditorBufferHashcode, materialEdBuffer );
+                cmdList->updateBuffer( *perPassBuffer, cmdInfos.modelMatrix, sizeof( dkMat4x4f ) );
+
+                // TODO We need to rebind the cbuffer every time the pso might have changed... this is bad.
+                cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
+                cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
+                cmdList->bindConstantBuffer( PerWorldBufferHashcode, perWorldBuffer );
+
+                if ( scenario == Material::RenderScenario::Default_Editor ) {
+                    cmdList->bindConstantBuffer( MaterialEditorBufferHashcode, materialEdBuffer );
+                }
+
+                Image* Framebuffer[2] = { outputTarget, velocityTarget };
+                cmdList->setupFramebuffer( Framebuffer, zbufferTarget );
+                cmdList->prepareAndBindResourceList( pipelineState );
+
+                const Buffer* bufferList[3] = { 
+                    cmdInfos.vertexBuffers[eMeshAttribute::Position],
+                    cmdInfos.vertexBuffers[eMeshAttribute::Normal],
+                    cmdInfos.vertexBuffers[eMeshAttribute::UvMap_0]
+                };
+
+                // TODO Support vertex buffer offset
+                cmdList->bindVertexBuffer( ( const Buffer** )bufferList, 3, 0 );
+                cmdList->bindIndiceBuffer( cmdInfos.indiceBuffer, true );
+
+                cmdList->drawIndexed( cmdInfos.indiceBufferCount, cmdInfos.instanceCount, cmdInfos.indiceBufferOffset );
             }
-            
-            Image* Framebuffer[2] = { outputTarget, velocityTarget };
-            cmdList->setupFramebuffer( Framebuffer, zbufferTarget );
-            cmdList->prepareAndBindResourceList( pipelineState );
-            
-            const Model::LevelOfDetail& lod = modelTest->getLevelOfDetailByIndex( 0 );
-            for ( i32 i = 0; i < lod.MeshCount; i++ ) {
-                const Mesh& lodMesh = lod.MeshArray[i];
-
-                const Buffer* bufferList[3] = { lodMesh.AttributeBuffers[eMeshAttribute::Position], lodMesh.AttributeBuffers[eMeshAttribute::Normal], lodMesh.AttributeBuffers[eMeshAttribute::UvMap_0] };
-                cmdList->bindVertexBuffer( ( const Buffer** )bufferList, 3, lodMesh.VertexAttributeBufferOffset );
-                cmdList->bindIndiceBuffer( lodMesh.AttributeBuffers[eMeshAttribute::Index], true );
-
-                cmdList->drawIndexed( lodMesh.IndiceCount, 1u );
-            }
-            // endif
 
             cmdList->popEventMarker();
         }

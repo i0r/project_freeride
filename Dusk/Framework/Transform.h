@@ -15,6 +15,15 @@ struct Entity;
 class TransformDatabase : public ComponentDatabase
 {
 public:
+    struct EdInstanceData {
+        dkVec3f* Position;
+        dkQuatf* Rotation;
+        dkVec3f* Scale;
+        dkMat4x4f* Local;
+        dkMat4x4f* World;
+    };
+
+public:
     // TODO MSVC Bug - For some retarded reason, we MUST declare the local matrix getter FIRST (otherwise the compiler
     // crashes somehow). I guess it might be related to a compiler optimization which fucks up the memory alignment.
 	DUSK_INLINE const dkMat4x4f&    getLocalMatrix( const Instance instance ) const { return instanceData.Local[instance.getIndex()]; }
@@ -35,6 +44,11 @@ public:
     void    setLocal( Instance i, const dkMat4x4f& m );
 
     void    update( const f32 deltaTime );
+
+#if DUSK_DEVBUILD
+    // Return a struct to modify the data of a given instance. Used for editor edition only.
+    EdInstanceData  getEditorInstanceData( const Instance instance );
+#endif
 
 private:
     struct InstanceData {

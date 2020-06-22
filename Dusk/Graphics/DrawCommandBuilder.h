@@ -48,13 +48,6 @@ public:
 	void				prepareAndDispatchCommands( WorldRenderer* worldRenderer, LightGrid* lightGrid );
 
 private:
-	struct ModelInstance
-	{
-		const Model* ModelResource;
-		dkMat4x4f	 ModelMatrix;
-	};
-
-private:
 	// The memory allocator owning this instance.
 	BaseAllocator*		memoryAllocator;
 
@@ -72,7 +65,7 @@ private:
 	// the transistent data.
 	void				resetAllocators();
 
-	void                buildGeometryDrawCmds( WorldRenderer* worldRenderer, CameraData* camera, const u8 cameraIdx, const u8 layer, const u8 viewportLayer ); 
+	void                buildGeometryDrawCmds( WorldRenderer* worldRenderer, const CameraData* camera, const u8 cameraIdx, const u8 layer, const u8 viewportLayer ); 
 };
 
 //

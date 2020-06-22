@@ -7,6 +7,7 @@
 
 Mesh::Mesh()
     : RenderMaterial( nullptr )
+    , IndexBuffer( nullptr )
     , IndiceBufferOffset( 0 )
     , VertexAttributeBufferOffset( 0 )
     , IndiceCount( 0 )

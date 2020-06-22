@@ -30,20 +30,25 @@ RenderWorld::~RenderWorld()
     dk::core::free( memoryAllocator, modelAllocator );
 }
 
-Model* RenderWorld::addAndCommitParsedDynamicModel( RenderDevice* renderDevice, ParsedModel& parsedModel )
+Model* RenderWorld::addAndCommitParsedDynamicModel( RenderDevice* renderDevice, ParsedModel& parsedModel, GraphicsAssetCache* graphicsAssetCache )
 {
     Model* model = dk::core::allocate<Model>( modelAllocator, memoryAllocator, DUSK_STRING( "RenderWorldModel" ) );
 
     dk::graphics::BuildParsedModel( model, memoryAllocator, renderDevice, parsedModel );
 
+    // TODO Until FBX materials are supported we stupidly assign the default material to each mesh.
+    Material* defaultMaterial = graphicsAssetCache->getDefaultMaterial();
+    for ( i32 i = 0; i < model->getLevelOfDetailCount(); i++ ) {
+        Model::LevelOfDetail& lod = model->getLevelOfDetailForEditor( i );
+
+        for ( i32 j = 0; j < lod.MeshCount; j++ ) {
+            lod.MeshArray[j].RenderMaterial = defaultMaterial;
+        }
+    }
+
     modelList[modelCount++] = model;
     
     return model;
-}
-
-void RenderWorld::collectEntities( DrawCommandBuilder* drawCmdBuilder )
-{
-
 }
 
 dkMat4x4f* RenderWorld::allocateModelInstance( const Model* commitedModel )

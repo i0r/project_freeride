@@ -16,10 +16,10 @@ static constexpr size_t MAX_ENTITY_COUNT = 10000;
 
 World::World( BaseAllocator* allocator )
     : memoryAllocator( allocator )
-    , entityDatabase( dk::core::allocate<EntityDatabase>( memoryAllocator ) )
-    , entityNameRegister( dk::core::allocate<EntityNameRegister>( memoryAllocator, memoryAllocator ) )
-    , transformDatabase( dk::core::allocate<TransformDatabase>( memoryAllocator, memoryAllocator ) )
-    , staticGeometryDatabase( dk::core::allocate<StaticGeometryDatabase>( memoryAllocator, memoryAllocator ) )
+    , entityDatabase( dk::core::allocate<EntityDatabase>( allocator ) )
+    , entityNameRegister( dk::core::allocate<EntityNameRegister>( allocator, allocator ) )
+    , transformDatabase( dk::core::allocate<TransformDatabase>( allocator, allocator ) )
+    , staticGeometryDatabase( dk::core::allocate<StaticGeometryDatabase>( allocator, allocator ) )
 {
 
 }

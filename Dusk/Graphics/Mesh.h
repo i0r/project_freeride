@@ -24,8 +24,6 @@ enum eMeshAttribute : i32
     Bone_Weight,
     Bone_Indices,
 
-    Index,
-
     Count,
 };
 
@@ -35,6 +33,8 @@ struct Mesh
     // Array holding buffers for each eMeshAttribute. The Mesh instance should not have
     // the ownership of those buffers.
     const Buffer*           AttributeBuffers[eMeshAttribute::Count];
+
+    const Buffer*           IndexBuffer;
 
     // The material used to draw this mesh. The mesh instance should not have the ownership
     // of the material instance.

@@ -22,6 +22,11 @@ public:
 	static constexpr u32    GRID_SIZE_Z = 8;
 
 public:
+    TransformDatabase*      transformDatabase;
+
+    StaticGeometryDatabase* staticGeometryDatabase;
+
+public:
                             World( BaseAllocator* allocator );
                             ~World();
 
@@ -45,10 +50,6 @@ private:
     EntityDatabase*         entityDatabase;
 
     EntityNameRegister*     entityNameRegister;
-
-    TransformDatabase*      transformDatabase;
-    
-    StaticGeometryDatabase* staticGeometryDatabase;
 
     // TODO Might need allocation/logic improvement.
     std::list<Entity>       staticGeometry;

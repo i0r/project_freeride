@@ -104,7 +104,7 @@ void Model::computeBounds()
     dk::maths::CreateAABBFromMinMaxPoints( modelAABB, dkVec3f::Max, -dkVec3f::Max );
 
     for ( u32 lodIdx = 0; lodIdx < lodCount; lodIdx++ ) {
-        dk::maths::ExpandAABB( lod[lodIdx].GroupAABB, modelAABB );
+        dk::maths::ExpandAABB( modelAABB, lod[lodIdx].GroupAABB );
     }
 
     dkVec3f sphereCenterWorldSpace = dk::maths::GetAABBCentroid( modelAABB );
@@ -113,7 +113,7 @@ void Model::computeBounds()
     dk::maths::CreateSphere( modelBoundingSphere, sphereCenterWorldSpace, sphereRadius );
 }
 
-BoundingSphere& Model::getBoundingSphere() const
+const BoundingSphere& Model::getBoundingSphere() const
 {
     return modelBoundingSphere;
 }
@@ -125,7 +125,7 @@ dkStringHash_t Model::getHashcode() const
 
 void Model::rebuildLodHashcodes()
 {
-	for ( i32 lodIdx = 0; lodIdx < lodCount; lodIdx++ ) {
+	for ( u32 lodIdx = 0; lodIdx < lodCount; lodIdx++ ) {
 		Model::LevelOfDetail& levelOfDetail = lod[lodIdx];
 
 		dkString_t lodName = getName();

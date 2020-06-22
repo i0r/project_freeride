@@ -107,7 +107,7 @@ public:
     // Return the bounding sphere of this model. Might return invalid results if 
     // the model has not been properly created (e.g. if you forgot to call 
     // computeBounds).
-    BoundingSphere&         getBoundingSphere() const;
+    const BoundingSphere&   getBoundingSphere() const;
 
     // Return the hashcode of this model (precomputed hashcode based on this model name).
     dkStringHash_t          getHashcode() const;
