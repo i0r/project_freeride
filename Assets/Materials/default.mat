@@ -1,0 +1,11 @@
+material "default" {
+	version = 1;
+	scenario "Default" {
+		vertex = "e5af556c12334aa715c265a409fe3d8f";
+		pixel = "efce1d6cb5543daba890e788f5b629ea";
+	}
+	scenario "Editor_Default" {
+		vertex = "d7dd6a229530fcc32c06f59eda0932b3";
+		pixel = "b9e70f6fa8d1e2f1639a829d5d30c8a8";
+	}
+}
