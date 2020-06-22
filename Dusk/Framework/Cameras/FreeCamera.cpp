@@ -162,7 +162,10 @@ void FreeCamera::setProjectionMatrix( const f32 fieldOfView, const f32 screenWid
 
     data.projectionMatrix = MakeInfReversedZProj( fov, aspectRatio, nearPlane );
     data.inverseProjectionMatrix = data.projectionMatrix.inverse();
-    data.depthProjectionMatrix = MakeFovProj( fov, aspectRatio, 25.0f, 250.0f );
+	data.depthProjectionMatrix = MakeFovProj( fov, aspectRatio, 25.0f, 250.0f );
+
+    // Required for anything requiring a projection with a finite far plane (e.g. Guizmo rendering).
+	data.finiteProjectionMatrix = MakeFovProj( fov, aspectRatio, nearPlane, 250.0f );
 }
 
 void FreeCamera::updateMouse( const f32 frameTime, const double mouseDeltaX, const double mouseDeltaY ) noexcept

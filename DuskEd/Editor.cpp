@@ -849,7 +849,7 @@ void MainLoop()
                     ImGuizmo::SetRect( viewportWinPos.x, viewportWinPos.y, viewportWinSize.x, viewportWinSize.y );
                     ImGuizmo::Manipulate( 
                         cameraData.viewMatrix.toArray(), 
-                        cameraData.depthProjectionMatrix.toArray(),
+                        cameraData.finiteProjectionMatrix.toArray(),
                         static_cast< ImGuizmo::OPERATION >( activeManipulationMode ),
                         ImGuizmo::MODE::LOCAL,
                         modelMatrix->toArray(),
