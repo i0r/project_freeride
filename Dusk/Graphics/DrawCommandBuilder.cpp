@@ -601,7 +601,7 @@ void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, c
         instanceBoundingSphere.center += instancePosition;
         instanceBoundingSphere.radius *= instanceScale;
 
-		/*if ( CullSphereInfReversedZ( &camera->frustum, instanceBoundingSphere ) > 0.0f )*/ {
+		if ( CullSphereInfReversedZ( &camera->frustum, instanceBoundingSphere ) > 0.0f ) {
 			const f32 distanceToCamera = dkVec3f::distanceSquared( camera->worldPosition, instancePosition );
 
 			// Retrieve LOD based on instance to camera distance

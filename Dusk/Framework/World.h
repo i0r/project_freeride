@@ -26,6 +26,8 @@ public:
 
     StaticGeometryDatabase* staticGeometryDatabase;
 
+	EntityNameRegister* entityNameRegister;
+
 public:
                             World( BaseAllocator* allocator );
                             ~World();
@@ -38,7 +40,7 @@ public:
 
     void                    update( const f32 deltaTime );
 
-    Entity                  createStaticMesh( const dkChar_t* name = DUSK_STRING( "Static Mesh" ) );
+    Entity                  createStaticMesh( const char* name = "Static Mesh" );
 
     void                    attachTransformComponent( Entity& entity );
 
@@ -49,8 +51,6 @@ private:
 
     EntityDatabase*         entityDatabase;
 
-    EntityNameRegister*     entityNameRegister;
-
     // TODO Might need allocation/logic improvement.
     std::list<Entity>       staticGeometry;
 
@@ -58,5 +58,5 @@ private:
 	// Update this World area streaming.
 	void                    updateStreaming();
 
-    void                    assignEntityName( Entity& entity, const dkChar_t* assignedName = DUSK_STRING( "Entity" ) );
+    void                    assignEntityName( Entity& entity, const char* assignedName = "Entity" );
 };

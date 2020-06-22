@@ -58,9 +58,11 @@
 #include "ThirdParty/imgui/imgui_internal.h"
 #include "ThirdParty/ImGuizmo/ImGuizmo.h"
 
-
 #include "Framework/LoggingConsole.h"
 #endif
+
+#include "Framework/MaterialEditor.h"
+#include "Framework/EntityEditor.h"
 
 #include "Input/InputMapper.h"
 #include "Input/InputReader.h"
@@ -71,12 +73,10 @@
 #include "Maths/Vector.h"
 #include "Maths/Helpers.h"
 
+#include "Framework/StaticGeometry.h"
+
 #include "Framework/Cameras/FreeCamera.h"
 #include "DefaultInputConfig.h"
-
-#include "Framework/MaterialEditor.h"
-#include "Framework/StaticGeometry.h"
-#include "Framework/Transform.h"
 
 static char  g_BaseBuffer[128];
 static void* g_AllocatedTable;
@@ -96,6 +96,7 @@ static LightGrid* g_LightGrid;
 static RenderWorld* g_RenderWorld;
 static World* g_World;
 static DrawCommandBuilder2* g_DrawCommandBuilder;
+static EntityEditor* g_EntityEditor;
 
 static FreeCamera* g_FreeCamera;
 static MaterialEditor* g_MaterialEditor;
@@ -112,7 +113,6 @@ static ImGuiRenderModule* g_ImGuiRenderModule;
 #endif
 #endif
 
-static bool                    g_IsDevMenuVisible = true;
 static bool                    g_IsGamePaused = false;
 static bool                    g_IsFirstLaunch = false;
 static bool                    g_IsMouseOverViewportWindow = false;
@@ -133,11 +133,11 @@ DUSK_DEV_VAR_PERSISTENT( UseRenderDocCapture, false, bool );// "Use RenderDoc fr
 void RegisterInputContexts()
 {
     g_InputMapper->pushContext( DUSK_STRING_HASH( "Editor" ) );
-    g_InputMapper->pushContext( DUSK_STRING_HASH( "DebugUI" ) );
+	g_InputMapper->pushContext( DUSK_STRING_HASH( "DebugUI" ) );
 
     // Free Camera
     g_InputMapper->addCallback( [&]( MappedInput& input, float frameTime ) {
-        if ( g_IsDevMenuVisible && !g_CanMoveCamera ) {
+        if ( !g_CanMoveCamera ) {
             return;
         }
 
@@ -174,19 +174,6 @@ void RegisterInputContexts()
 
     // DebugUI
     g_InputMapper->addCallback( [&]( MappedInput& input, float frameTime ) {
-        if ( input.Actions.find( DUSK_STRING_HASH( "OpenDevMenu" ) ) != input.Actions.end() ) {
-            g_IsDevMenuVisible = !g_IsDevMenuVisible;
-            g_IsResizing = true;
-
-            g_ImGuiManager->setVisible( g_IsDevMenuVisible );
-
-            if ( g_IsDevMenuVisible ) {
-                g_InputMapper->pushContext( DUSK_STRING_HASH( "DebugUI" ) );
-            } else {
-                g_InputMapper->popContext();
-            }
-        }
-
         const bool previousCamState = g_CanMoveCamera;
         const bool isRightButtonDown = input.States.find( DUSK_STRING_HASH( "RightMouseButton" ) ) != input.States.end();
         g_CanMoveCamera = ( g_IsMouseOverViewportWindow && isRightButtonDown );
@@ -478,7 +465,8 @@ void InitializeRenderSubsystems()
 
 #if DUSK_USE_IMGUI
     g_ImGuiManager = dk::core::allocate<ImGuiManager>( g_GlobalAllocator );
-    g_ImGuiManager->create( *g_DisplaySurface );
+	g_ImGuiManager->create( *g_DisplaySurface );
+	g_ImGuiManager->setVisible( true );
 
     g_ImGuiRenderModule = dk::core::allocate<ImGuiRenderModule>( g_GlobalAllocator );
     g_ImGuiRenderModule->loadCachedResources( *g_RenderDevice, *g_ShaderCache, *g_GraphicsAssetCache );
@@ -536,6 +524,9 @@ void Initialize( const char* cmdLineArgs )
     g_World = dk::core::allocate<World>( g_GlobalAllocator, g_GlobalAllocator );
     g_World->create();
 
+	g_EntityEditor = dk::core::allocate<EntityEditor>( g_GlobalAllocator, g_GlobalAllocator, g_GraphicsAssetCache, g_VirtualFileSystem );
+	g_EntityEditor->setActiveWorld( g_World );
+
     DUSK_LOG_INFO( "Initialization done (took %.5f seconds)\n", profileTimer.getElapsedTimeAsSeconds() );
     DUSK_LOG_RAW( "\n================================\n\n" );
 }
@@ -575,6 +566,8 @@ void MainLoop()
 
     Entity modelEntity = g_World->createStaticMesh();
     g_World->staticGeometryDatabase->setModel( g_World->staticGeometryDatabase->lookup( modelEntity ), testModel );
+
+    g_EntityEditor->setActiveEntity( &modelEntity );
     // TEST TEST TEST
 
     Timer logicTimer;
@@ -605,9 +598,7 @@ void MainLoop()
             g_InputMapper->update( LOGIC_DELTA );
 
 #if DUSK_USE_IMGUI
-            if ( g_IsDevMenuVisible ) {
-                g_ImGuiManager->update( LOGIC_DELTA );
-            }
+            g_ImGuiManager->update( LOGIC_DELTA );
 #endif
             g_World->update( LOGIC_DELTA );
 
@@ -637,7 +628,6 @@ void MainLoop()
         frameGraph.setScreenSize( ScreenSize );
 
 #if DUSK_USE_IMGUI
-        if ( g_IsDevMenuVisible ) {
             static bool IsRenderDocVisible = false;
 
             g_ImGuiRenderModule->lockForRendering();
@@ -669,6 +659,10 @@ void MainLoop()
                         g_MaterialEditor->openEditorWindow();
                     }
 
+                    if ( ImGui::MenuItem( "Inspector" ) ) {
+                        g_EntityEditor->openEditorWindow();
+                    }
+
                     ImGui::EndMenu();
                 }
 
@@ -679,7 +673,7 @@ void MainLoop()
             ImGui::SetNextWindowSize( ImVec2( static_cast< f32 >( ScreenSize.x ), static_cast< f32 >( ScreenSize.y ) - menuBarHeight ) );
             ImGui::SetNextWindowPos( ImVec2( 0, menuBarHeight ) );
             ImGui::Begin( "Master Window", &active, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing );
-            // static ImGuiID dockspaceID = 0;
+           
             static bool NeedDockSetup = g_IsFirstLaunch;
             ImGuiIO& io = ImGui::GetIO();
             ImGuiID dockspaceID = ImGui::GetID( "MyDockspace" );
@@ -811,98 +805,86 @@ void MainLoop()
             ImGui::End();
 
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
-            if ( ImGui::Begin( "Inspector" ) ) {
-                if ( ImGui::TreeNode( "Transform" ) ) {
-                    TransformDatabase::EdInstanceData& editorInstance = g_World->transformDatabase->getEditorInstanceData( g_World->transformDatabase->lookup( modelEntity ) );
+            g_EntityEditor->displayEditorWindow( g_FreeCamera->getData() );
+     //       if ( ImGui::Begin( "Inspector" ) ) {
+     //           char* entityName = g_World->entityNameRegister->getNameBuffer( modelEntity );
+     //           ImGui::InputText( "Name", entityName, Entity::MAX_NAME_LENGTH * sizeof( char ) );
+     //           if ( ImGui::TreeNode( "Transform" ) ) {
+     //               // Retrieve this instance transform information.
+     //               TransformDatabase::EdInstanceData& editorInstance = g_World->transformDatabase->getEditorInstanceData( g_World->transformDatabase->lookup( modelEntity ) );
 
-                    static ImGuizmo::OPERATION mCurrentGizmoOperation( ImGuizmo::TRANSLATE );
-                    static int activeManipulationMode = 0;
-                    static bool useSnap = false;
-                    static float snap[3] = { 1.f, 1.f, 1.f };
+     //               static ImGuizmo::OPERATION mCurrentGizmoOperation( ImGuizmo::TRANSLATE );
+     //               static int activeManipulationMode = 0;
+     //               static bool useSnap = false;
+     //               static float snap[3] = { 1.f, 1.f, 1.f };
 
-                    ImGui::Checkbox( "", &useSnap );
-                    ImGui::SameLine();
+     //               ImGui::Checkbox( "", &useSnap );
+     //               ImGui::SameLine();
 
-                    switch ( mCurrentGizmoOperation ) {
-                    case ImGuizmo::TRANSLATE:
-                        ImGui::InputFloat3( "Snap", snap );
-                        break;
-                    case ImGuizmo::ROTATE:
-                        ImGui::InputFloat( "Angle Snap", snap );
-                        break;
-                    case ImGuizmo::SCALE:
-                        ImGui::InputFloat( "Scale Snap", snap );
-                        break;
-                    }
+     //               switch ( mCurrentGizmoOperation ) {
+     //               case ImGuizmo::TRANSLATE:
+     //                   ImGui::InputFloat3( "Snap", snap );
+     //                   break;
+     //               case ImGuizmo::ROTATE:
+     //                   ImGui::InputFloat( "Angle Snap", snap );
+     //                   break;
+     //               case ImGuizmo::SCALE:
+     //                   ImGui::InputFloat( "Scale Snap", snap );
+     //                   break;
+     //               }
 
-                    ImGui::RadioButton( "Translate", &activeManipulationMode, 0 );
-                    ImGui::SameLine();
-                    ImGui::RadioButton( "Rotate", &activeManipulationMode, 1 );
-                    ImGui::SameLine();
-                    ImGui::RadioButton( "Scale", &activeManipulationMode, 2 );
+     //               ImGui::RadioButton( "Translate", &activeManipulationMode, 0 );
+     //               ImGui::SameLine();
+     //               ImGui::RadioButton( "Rotate", &activeManipulationMode, 1 );
+     //               ImGui::SameLine();
+     //               ImGui::RadioButton( "Scale", &activeManipulationMode, 2 );
 
-                    CameraData& cameraData = g_FreeCamera->getData();
+     //               CameraData& cameraData = g_FreeCamera->getData();
 
-                    dkMat4x4f* modelMatrix = editorInstance.Local;
+     //               dkMat4x4f* modelMatrix = editorInstance.Local;
 
-                    ImGuiIO& io = ImGui::GetIO();
-                    ImGuizmo::SetRect( viewportWinPos.x, viewportWinPos.y, viewportWinSize.x, viewportWinSize.y );
-                    ImGuizmo::Manipulate( 
-                        cameraData.viewMatrix.toArray(), 
-                        cameraData.finiteProjectionMatrix.toArray(),
-                        static_cast< ImGuizmo::OPERATION >( activeManipulationMode ),
-                        ImGuizmo::MODE::LOCAL,
-                        modelMatrix->toArray(),
-                        NULL,
-                        useSnap ? &snap[activeManipulationMode] :
-                        NULL
-                    );
+					//ImGuiIO& io = ImGui::GetIO();
+					//ImGui::PushClipRect( viewportWinPos, ImVec2( viewportWinPos.x + viewportWinSize.x, viewportWinPos.y + viewportWinSize.y ), false );
+     //               ImGuizmo::SetRect( viewportWinPos.x, viewportWinPos.y, viewportWinSize.x, viewportWinSize.y );
+     //               ImGuizmo::Manipulate( 
+     //                   cameraData.viewMatrix.toArray(), 
+     //                   cameraData.finiteProjectionMatrix.toArray(),
+     //                   static_cast< ImGuizmo::OPERATION >( activeManipulationMode ),
+     //                   ImGuizmo::MODE::LOCAL,
+     //                   modelMatrix->toArray(),
+     //                   NULL,
+     //                   useSnap ? &snap[activeManipulationMode] :
+     //                   NULL
+					//);
+					//ImGui::PopClipRect();
 
-                    if ( !ImGuizmo::IsUsing() ) {
-                        // Convert Quaternion to Euler Angles (for user friendlyness).
-                        dkQuatf RotationQuat = dk::maths::ExtractRotation( *modelMatrix, *editorInstance.Scale );
-                        dkVec3f Rotation = RotationQuat.toEulerAngles();
+     //               if ( !ImGuizmo::IsUsing() ) {
+     //                   // Convert Quaternion to Euler Angles (for user friendlyness).
+     //                   dkQuatf RotationQuat = dk::maths::ExtractRotation( *modelMatrix, *editorInstance.Scale );
+     //                   dkVec3f Rotation = RotationQuat.toEulerAngles();
 
-                        ImGui::DragFloat3( "Translation", ( float* )editorInstance.Position );
-                        ImGui::DragFloat3( "Rotation", ( float* )&Rotation, 3 );
-                        ImGui::DragFloat3( "Scale", ( float* )editorInstance.Scale );
+     //                   ImGui::DragFloat3( "Translation", ( float* )editorInstance.Position );
+     //                   ImGui::DragFloat3( "Rotation", ( float* )&Rotation, 3 );
+     //                   ImGui::DragFloat3( "Scale", ( float* )editorInstance.Scale );
 
-                        RotationQuat = dkQuatf( Rotation );
-                        *editorInstance.Rotation = RotationQuat;
-                    } else {
-                        *editorInstance.Position = dk::maths::ExtractTranslation( *modelMatrix );
-                        *editorInstance.Scale = dk::maths::ExtractScale( *modelMatrix );
-                        *editorInstance.Rotation = dk::maths::ExtractRotation( *modelMatrix, *editorInstance.Scale );
-                    }
-                }
-                ImGui::TreePop();
-            }
-            ImGui::End();
+     //                   RotationQuat = dkQuatf( Rotation );
+     //                   *editorInstance.Rotation = RotationQuat;
+     //               } else {
+     //                   *editorInstance.Position = dk::maths::ExtractTranslation( *modelMatrix );
+     //                   *editorInstance.Scale = dk::maths::ExtractScale( *modelMatrix );
+     //                   *editorInstance.Rotation = dk::maths::ExtractRotation( *modelMatrix, *editorInstance.Scale );
+     //               }
+     //           }
+     //           ImGui::TreePop();
+     //       }
+     //       ImGui::End();
 
             ImGui::End();
 
             ImGui::Render();
 
             g_ImGuiRenderModule->unlock();
-        }
 #endif
-        // Update viewport if we hide Editor GUI.
-        if ( !g_IsDevMenuVisible ) {
-            if ( g_IsResizing ) {
-                viewportSize.x = static_cast< f32 >( ScreenSize.x );
-                viewportSize.x = static_cast< f32 >( ScreenSize.y );
-                g_FreeCamera->setProjectionMatrix( DefaultCameraFov, viewportSize.x, viewportSize.y );
-
-                vp.Width = static_cast< i32 >( viewportSize.x );
-                vp.Height = static_cast< i32 >( viewportSize.y );
-
-                sr.Right = static_cast< i32 >( viewportSize.x );
-                sr.Bottom = static_cast< i32 >( viewportSize.y );
-
-                g_IsResizing = false;
-            }
-        }
-
         // Rendering
 
         // TEST TEST TEST TEST
@@ -963,11 +945,9 @@ void MainLoop()
 
 #if DUSK_USE_IMGUI
         // ImGui Editor GUI.
-        if ( g_IsDevMenuVisible ) {
-            frameGraph.savePresentRenderTarget( presentRt );
+		frameGraph.savePresentRenderTarget( presentRt );
 
-            presentRt = g_ImGuiRenderModule->render( frameGraph, presentRt );
-        }
+		presentRt = g_ImGuiRenderModule->render( frameGraph, presentRt );
 #endif
 
         // Copy to swapchain buffer.

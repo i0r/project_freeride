@@ -56,7 +56,7 @@ void World::update( const f32 deltaTime )
     transformDatabase->update( deltaTime );
 }
 
-Entity World::createStaticMesh( const dkChar_t* name )
+Entity World::createStaticMesh( const char* name )
 {
     Entity entity = entityDatabase->allocateEntity();
     assignEntityName( entity, name );
@@ -84,7 +84,7 @@ void World::updateStreaming()
 
 }
 
-void World::assignEntityName( Entity& entity, const dkChar_t* assignedName )
+void World::assignEntityName( Entity& entity, const char* assignedName )
 {
     dkStringHash_t entityHashcode = dk::core::CRC32( assignedName );
 
@@ -92,14 +92,14 @@ void World::assignEntityName( Entity& entity, const dkChar_t* assignedName )
     bool isNameTaken = entityNameRegister->exist( entityHashcode );
 
 	i32 nameCopyCount = 0;
-    dkString_t uniqueName = dkString_t( assignedName );
+    std::string uniqueName = std::string( assignedName );
 
     // If the name is already taken, try to find a unique one.
     while ( isNameTaken ) {
-		uniqueName = dkString_t( assignedName );
-		uniqueName.append( DUSK_STRING( " (" ) );
-		uniqueName.append( DUSK_TO_STRING( nameCopyCount++ ) );
-		uniqueName.append( DUSK_STRING( ")" ) );
+		uniqueName = std::string( assignedName );
+		uniqueName.append( " (" );
+		uniqueName.append( std::to_string( nameCopyCount++ ) );
+		uniqueName.append( ")" );
 
         entityHashcode = dk::core::CRC32( uniqueName );
 		isNameTaken = entityNameRegister->exist( entityHashcode );

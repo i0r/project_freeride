@@ -18,10 +18,13 @@ public:
     void            create( const size_t entityCount );
 
     // Set the name of a given entity. Name length must be between 1 and Entity::MAX_NAME_LENGTH characters.
-    void            setName( const Entity& entity, const dkChar_t* name );
+    void            setName( const Entity& entity, const char* name );
 
     // Return the name of a given entity. Return null if the entity is invalid or does not exist.
-    const dkChar_t* getName( const Entity& entity ) const;
+    const char*     getName( const Entity& entity ) const;
+
+    // Return a pointer to the name buffer for a given entity. Should be editor only (once the editor only guard is created).
+	char*           getNameBuffer( const Entity& entity );
 
     // Return true if the hashcode exist; false otherwise.
     bool            exist( const dkStringHash_t hashcode ) const;
@@ -36,8 +39,8 @@ private:
     // Raw pointer to the memory chunk allocated.
     void*           registerData;
 
-    // Raw pointer reinterpreted as an array of dkChar_t[Entity::MAX_NAME_LENGTH].
-    const dkChar_t**      names;
+    // Raw pointer reinterpreted as an array of char[Entity::MAX_NAME_LENGTH].
+    char*           names;
 
     // Hashmap for quick name lookup. Key is the entity name (as a 32bits hashcode);
     // value is the associated Entity.
