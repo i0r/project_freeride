@@ -200,6 +200,7 @@ DrawCmd& WorldRenderer::allocateSpherePrimitiveDrawCmd()
     infos.indiceBufferCount = sphere.indiceCount;
     infos.vertexBufferCount = 3;
     infos.alphaDitheringValue = 1.0f;
+    infos.useShortIndices = true;
 
     return cmd;
 }

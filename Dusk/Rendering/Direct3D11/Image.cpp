@@ -490,6 +490,34 @@ void CommandList::setupFramebuffer( Image** renderTargetViews, Image* depthStenc
     nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
 
+void CommandList::clearRenderTargets( Image** renderTargetViews, const u32 renderTargetCount, const f32 clearValues[4] )
+{
+    CommandPacket::ClearImage* commandPacket = dk::core::allocate<CommandPacket::ClearImage>( nativeCommandList->CommandPacketAllocator );
+    memset( commandPacket, 0, sizeof( CommandPacket::ClearImage ) );
+
+    commandPacket->Identifier = CPI_CLEAR_IMAGES;
+    commandPacket->ImageCount = renderTargetCount;
+
+    memcpy( commandPacket->RenderTargetView, renderTargetViews, sizeof( Image* ) * renderTargetCount );
+    memcpy( commandPacket->ClearValue, clearValues, sizeof( f32 ) * 4 );
+
+    nativeCommandList->Commands.push( reinterpret_cast< u32* >( commandPacket ) );
+}
+
+void CommandList::clearDepthStencil( Image* depthStencilView, const f32 clearValue, const bool clearStencil, const u8 clearStencilValue )
+{
+    CommandPacket::ClearDepthStencil* commandPacket = dk::core::allocate<CommandPacket::ClearDepthStencil>( nativeCommandList->CommandPacketAllocator );
+    memset( commandPacket, 0, sizeof( CommandPacket::ClearDepthStencil ) );
+
+    commandPacket->Identifier = CPI_CLEAR_DEPTH_STENCIL;
+    commandPacket->DepthStencil = depthStencilView;
+    commandPacket->ClearValue = clearValue;
+    commandPacket->ClearStencil = clearStencil;
+    commandPacket->ClearStencilValue = clearStencilValue;
+
+    nativeCommandList->Commands.push( reinterpret_cast< u32* >( commandPacket ) );
+}
+
 void SetupFramebuffer_Replay( RenderContext* renderContext, Image** renderTargetViews, Image* depthStencilView )
 {
     ID3D11RenderTargetView* RenderTargets[8] = { nullptr };

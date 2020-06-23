@@ -132,6 +132,8 @@ public:
     void                            bindIndiceBuffer( const Buffer* buffer, const bool use32bitsIndices = false );
 
     void                            setupFramebuffer( Image** renderTargetViews, Image* depthStencilView = nullptr );
+    void                            clearRenderTargets( Image** renderTargetViews, const u32 renderTargetCount, const f32 clearValues[4] );
+    void                            clearDepthStencil( Image* depthStencilView, const f32 clearValue, const bool clearStencil = false, const u8 clearStencilValue = 0xff );
 
     void                            prepareAndBindResourceList( const PipelineState* pipelineState );
 

@@ -100,6 +100,7 @@ struct DrawCommandInfos
     f32                         alphaDitheringValue; // 0..1 (1.0f if disabled)
     u32                         instanceCount; // 0 or 1 implicitly disable instancing
     const dkMat4x4f*            modelMatrix; // Points to a single matrix or an array of matrix (if instanciation is used)
+    u8                          useShortIndices : 1;
 };
 
 struct DrawCmd

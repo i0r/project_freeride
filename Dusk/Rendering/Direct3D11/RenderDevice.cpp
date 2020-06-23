@@ -556,6 +556,27 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
 #endif
             break;
         }
+        case CPI_CLEAR_IMAGES:
+        {
+            CommandPacket::ClearImage cmdPacket = *( CommandPacket::ClearImage* )bufferPointer;
+
+            for ( u32 i = 0; i < cmdPacket.ImageCount; i++ ) {
+                renderContext->ImmediateContext->ClearRenderTargetView( cmdPacket.RenderTargetView[i]->DefaultRenderTargetView, cmdPacket.ClearValue );
+            }
+            break;
+        }
+        case CPI_CLEAR_DEPTH_STENCIL:
+        {
+            CommandPacket::ClearDepthStencil cmdPacket = *( CommandPacket::ClearDepthStencil* )bufferPointer;
+
+            UINT ClearValue = D3D11_CLEAR_DEPTH;
+            if ( cmdPacket.ClearStencil ) {
+                ClearValue |= D3D11_CLEAR_STENCIL;
+            }
+
+            renderContext->ImmediateContext->ClearDepthStencilView( cmdPacket.DepthStencil->DefaultDepthStencilView, ClearValue, cmdPacket.ClearValue, cmdPacket.ClearStencilValue );
+            break;
+        }
         };
     }
 }

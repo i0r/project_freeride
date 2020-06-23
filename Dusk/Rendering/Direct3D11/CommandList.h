@@ -153,6 +153,23 @@ namespace CommandPacket
         const dkChar_t*         EventName;
     };
 
+    struct ClearImage 
+    {
+        u32                     Identifier;
+        u32                     ImageCount;
+        Image*                  RenderTargetView[8];
+        f32                     ClearValue[4];
+    };
+
+    struct ClearDepthStencil
+    {
+        u32                     Identifier;
+        Image*                  DepthStencil;
+        f32                     ClearValue;
+        u8                      ClearStencil;
+        u8                      ClearStencilValue;
+    };
+
     struct ArgumentLessPacket
     {
         u32                     Identifier;
@@ -214,6 +231,12 @@ enum CommandPacketIdentifier
 
     // Ends a command list.
     CPI_END,
+
+    // Clear Image Views.
+    CPI_CLEAR_IMAGES,
+
+    // Clear Depth stencil view (stencil clear is optional).
+    CPI_CLEAR_DEPTH_STENCIL,
 
     // TODO IMPLEMENT PACKETS BELOW THIS LINE
     // ===============================================
