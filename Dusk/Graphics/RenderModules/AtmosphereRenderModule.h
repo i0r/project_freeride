@@ -16,6 +16,9 @@ struct PipelineState;
 class AtmosphereRenderModule 
 {
 public:
+    DUSK_INLINE void            setSunAngles( const f32 verticalAngle, const f32 horizontalAngle ) { sunVerticalAngle = verticalAngle; sunHorizontalAngle = horizontalAngle; }
+
+public:
                                 AtmosphereRenderModule();
                                 AtmosphereRenderModule( AtmosphereRenderModule& ) = delete;
                                 AtmosphereRenderModule& operator = ( AtmosphereRenderModule& ) = delete;

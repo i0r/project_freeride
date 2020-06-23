@@ -66,7 +66,8 @@ void EntityEditor::displayEditorWindow( CameraData& viewportCamera, const dkVec4
         // be too bad to manage this by hand...
         displayTransformSection( viewportBounds, viewportCamera );
         displayStaticGeometrySection();
-    }  
+    }
+
     ImGui::End();
 }
 

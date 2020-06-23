@@ -477,17 +477,6 @@ void InitializeRenderSubsystems()
 
     g_FreeCamera->setImageQuality( ImageQuality );
     g_FreeCamera->setMSAASamplerCount( MSAASamplerCount );
-
-    g_LightGrid->getDirectionalLightData()->NormalizedDirection = dk::maths::SphericalToCarthesianCoordinates( 0.5f, 0.5f );
-
-    constexpr f32 kSunAngularRadius = 0.00935f / 2.0f;
-    g_LightGrid->getDirectionalLightData()->AngularRadius = kSunAngularRadius;
-
-    // Cone solid angle formula = 2PI(1-cos(0.5*AD*(PI/180)))
-    const f32 solidAngle = ( 2.0f * dk::maths::PI<f32>() ) * ( 1.0f - cos( g_LightGrid->getDirectionalLightData()->AngularRadius ) );
-
-    g_LightGrid->getDirectionalLightData()->IlluminanceInLux = 100000.0f * solidAngle;
-    g_LightGrid->getDirectionalLightData()->ColorLinearSpace = dkVec3f( 1.0f, 1.0f, 1.0f );
     // END TEMP
 }
 
@@ -735,18 +724,38 @@ void MainLoop()
             g_MaterialEditor->displayEditorWindow();
 
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
-            if ( ImGui::Begin( "Atmosphere" ) ) {
-                if ( ImGui::Button( "Recompute LUTs" ) ) {
-                    g_WorldRenderer->AtmosphereRendering->triggerLutRecompute();
+            if ( ImGui::Begin( "Time Of Day" ) ) {
+                if ( ImGui::TreeNode( "Atmosphere" ) ) {
+                    if ( ImGui::Button( "Recompute LUTs" ) ) {
+                        g_WorldRenderer->AtmosphereRendering->triggerLutRecompute();
+                    }
+
+                    static bool overrideTod = true;
+                    ImGui::Checkbox( "Override ToD", &overrideTod );
+                    if ( overrideTod ) {
+                        ImGui::Text( "Sun Settings" );
+
+                        dkVec2f sphericalCoords = dk::maths::CarthesianToSphericalCoordinates( g_LightGrid->getDirectionalLightData()->NormalizedDirection );
+                        if ( ImGui::SliderFloat2( "Sun Pos", ( float* )&sphericalCoords, -1.0f, 1.0f ) ) {
+                            g_LightGrid->getDirectionalLightData()->NormalizedDirection = dk::maths::SphericalToCarthesianCoordinates( sphericalCoords[0], sphericalCoords[1] );
+                            g_WorldRenderer->AtmosphereRendering->setSunAngles( sphericalCoords[0], sphericalCoords[1] );
+                        }
+
+                        ImGui::InputFloat( "Angular Radius", &g_LightGrid->getDirectionalLightData()->AngularRadius );
+
+                        // Cone solid angle formula = 2PI(1-cos(0.5*AD*(PI/180)))
+                        const f32 solidAngle = ( 2.0f * dk::maths::PI<f32>() ) * ( 1.0f - cos( g_LightGrid->getDirectionalLightData()->AngularRadius ) );
+
+                        f32 illuminance = g_LightGrid->getDirectionalLightData()->IlluminanceInLux / solidAngle;
+                        if ( ImGui::InputFloat( "Illuminance (lux)", &illuminance ) ) {
+                            g_LightGrid->getDirectionalLightData()->IlluminanceInLux = illuminance * solidAngle;
+                        }
+
+                        ImGui::ColorEdit3( "Color", ( float* )&g_LightGrid->getDirectionalLightData()->ColorLinearSpace );
+                    }
+
+                    ImGui::TreePop();
                 }
-                //AtmosphereBruneton::ReflectBrunetonSky( AtmosphereBruneton::BrunetonSkyProperties );
-
-                /* static f32 cart[2] = { 0.5f, 0.5f };
-
-                 if ( ImGui::SliderFloat2( "Sun Pos", cart, -1.0f, 1.0f ) ) {
-                     g_LightGrid->getDirectionalLightData()->NormalizedDirection = dk::maths::SphericalToCarthesianCoordinates( cart[0], cart[1] );
-                     g_WorldRenderer->BrunetonSky->setSunSphericalPosition( cart[0], cart[1] );
-                 }*/
             }
             ImGui::End();
 

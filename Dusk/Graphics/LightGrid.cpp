@@ -25,6 +25,18 @@ LightGrid::LightGrid( BaseAllocator* allocator )
 {
     memset( &perSceneBufferData, 0, sizeof( PerSceneBufferData ) );
     setSceneBounds( dkVec3f( 2048.0f, 2048.0f, 2048.0f ), -dkVec3f( 2048.0f, 2048.0f, 2048.0f ) );
+
+    // Set Default directional light values.
+    perSceneBufferData.SunLight.NormalizedDirection = dk::maths::SphericalToCarthesianCoordinates( 0.5f, 0.5f );
+
+    constexpr f32 kSunAngularRadius = 0.00935f / 2.0f;
+    perSceneBufferData.SunLight.AngularRadius = kSunAngularRadius;
+
+    // Cone solid angle formula = 2PI(1-cos(0.5*AD*(PI/180)))
+    const f32 solidAngle = ( 2.0f * dk::maths::PI<f32>() ) * ( 1.0f - cos( perSceneBufferData.SunLight.AngularRadius ) );
+
+    perSceneBufferData.SunLight.IlluminanceInLux = 100000.0f * solidAngle;
+    perSceneBufferData.SunLight.ColorLinearSpace = dkVec3f( 1.0f, 1.0f, 1.0f );
 }
 
 LightGrid::~LightGrid()
