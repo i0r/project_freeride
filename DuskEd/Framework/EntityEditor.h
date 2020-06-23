@@ -19,7 +19,7 @@ public:
 
 #if DUSK_USE_IMGUI
     // Display EntityEditor panel (as a ImGui window).
-    void                displayEditorWindow( CameraData& viewportCamera );
+    void                displayEditorWindow( CameraData& viewportCamera, const dkVec4f& viewportBounds );
 #endif
 
     // Open the Entity Editor window.
@@ -49,4 +49,10 @@ private:
 
     // Pointer to the active instance of the Virtual Filesystem.
     VirtualFileSystem*  virtualFileSystem;
+
+private:
+#if DUSK_USE_IMGUI
+    // Display Transform edition section (if the activeEntity has a Transform component and the context is valid).
+    void displayTransformSection( const dkVec4f& viewportBounds, CameraData& viewportCamera );
+#endif
 };

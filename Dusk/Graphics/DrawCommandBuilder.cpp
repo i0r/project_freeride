@@ -584,6 +584,9 @@ void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, c
     };
     std::unordered_map<dkStringHash_t, LODBatch> lodBatches;
 
+    dkMat4x4f* boundingSphereModelMatrices = dk::core::allocateArray<dkMat4x4f>( instanceMatricesAllocator, MAX_INSTANCE_COUNT_PER_MODEL );
+    i32 boundingSphereCount = 0;
+
     // Do a first pass to perform a basic frustum culling and batch static geometry.
 	ModelInstance* modelsArray = static_cast< ModelInstance* >( staticModelsToRender->getBaseAddress() );
 	const size_t modelCount = staticModelsToRender->getAllocationCount();
@@ -624,9 +627,15 @@ void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, c
                 batch.InstanceMatrices[instanceIdx] = modelMatrix;
                 batch.InstanceCount++;
             }
+
+            // Draw debug bounding sphere.
+            dkMat4x4f boundingSphereMatrix = dk::maths::MakeTranslationMat( instanceBoundingSphere.center, modelMatrix );
+            boundingSphereMatrix = dk::maths::MakeScaleMat( dkVec3f( instanceBoundingSphere.radius ), boundingSphereMatrix );
+            boundingSphereModelMatrices[boundingSphereCount++] = boundingSphereMatrix;
         }
     }
 
+    const Material* mat = nullptr;
     // Build draw commands from the batches.
     for ( auto& lodBatch : lodBatches ) {
         const LODBatch& batch = lodBatch.second;
@@ -636,7 +645,7 @@ void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, c
         for ( i32 meshIdx = 0; meshIdx < lod->MeshCount; meshIdx++ ) {
             const Mesh& mesh = lod->MeshArray[meshIdx];
             const Material* material = mesh.RenderMaterial;
-
+            mat = material;
 			DrawCmd& drawCmd = worldRenderer->allocateDrawCmd();
 
             // TODO Add back sort key / depth sort / sort Order infos.
@@ -658,5 +667,23 @@ void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, c
 			infos.instanceCount = batch.InstanceCount;
 			infos.modelMatrix = batch.InstanceMatrices;
         }
+    }
+
+    if ( boundingSphereCount != 0 ) {
+        DrawCmd& drawCmd = worldRenderer->allocateSpherePrimitiveDrawCmd();
+
+        // TODO Add back sort key / depth sort / sort Order infos.
+        auto& key2 = drawCmd.key.bitfield;
+        key2.materialSortKey = 0; // subMesh.material->getSortKey();
+        key2.depth = 0; // DepthToBits( distanceToCamera );
+        key2.sortOrder = DrawCommandKey::SORT_FRONT_TO_BACK; // ( subMesh.material->isOpaque() ) ? DrawCommandKey::SORT_FRONT_TO_BACK : DrawCommandKey::SORT_BACK_TO_FRONT;
+        key2.layer = static_cast< DrawCommandKey::Layer >( layer );
+        key2.viewportLayer = viewportLayer;
+        key2.viewportId = cameraIdx;
+
+        DrawCommandInfos& infos2 = drawCmd.infos;
+        infos2.material = mat;
+        infos2.instanceCount = boundingSphereCount;
+        infos2.modelMatrix = boundingSphereModelMatrices;
     }
 }

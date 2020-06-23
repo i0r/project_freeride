@@ -81,9 +81,9 @@ void PrimitiveCache::createCachedGeometry( RenderDevice* renderDevice )
     indiceBuffer = renderDevice->createBuffer( iboDesc, indiceBufferData.data() );
 
     // Assign buffers pointers once the buffers have been created
-    for ( i32 i = 0; i < 3; i++ ) {
-        sphereEntry.vertexBuffers[i] = vertexAttributesBuffer[i];
-    }
+    sphereEntry.vertexBuffers[eMeshAttribute::Position] = vertexAttributesBuffer[0];
+    sphereEntry.vertexBuffers[eMeshAttribute::UvMap_0] = vertexAttributesBuffer[1];
+    sphereEntry.vertexBuffers[eMeshAttribute::Normal] = vertexAttributesBuffer[2];
 
     sphereEntry.indiceBuffer = indiceBuffer;
 }

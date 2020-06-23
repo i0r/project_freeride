@@ -5,6 +5,7 @@
 #pragma once
 
 #include <Core/Types.h>
+#include <Graphics/Mesh.h>
 
 class RenderDevice;
 
@@ -14,7 +15,7 @@ class PrimitiveCache
 {
 public:
     struct Entry {
-        Buffer* vertexBuffers[3];
+        Buffer* vertexBuffers[eMeshAttribute::Count];
         Buffer* indiceBuffer;
         u32     vertexBufferOffset;
         u32     indiceBufferOffset;

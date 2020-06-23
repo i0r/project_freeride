@@ -22,12 +22,6 @@ public:
 	static constexpr u32    GRID_SIZE_Z = 8;
 
 public:
-    TransformDatabase*      transformDatabase;
-
-    StaticGeometryDatabase* staticGeometryDatabase;
-
-	EntityNameRegister* entityNameRegister;
-
 public:
                             World( BaseAllocator* allocator );
                             ~World();
@@ -46,6 +40,12 @@ public:
 
     void                    attachStaticGeometryComponent( Entity& entity );
 
+    TransformDatabase*      getTransformDatabase() const;
+
+    StaticGeometryDatabase* getStaticGeometryDatabase() const;
+
+    EntityNameRegister*     getEntityNameRegister() const;
+
 private:
     BaseAllocator*          memoryAllocator;
 
@@ -53,6 +53,12 @@ private:
 
     // TODO Might need allocation/logic improvement.
     std::list<Entity>       staticGeometry;
+
+    TransformDatabase* transformDatabase;
+
+    StaticGeometryDatabase* staticGeometryDatabase;
+
+    EntityNameRegister* entityNameRegister;
 
 private:
 	// Update this World area streaming.

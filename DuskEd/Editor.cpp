@@ -565,7 +565,8 @@ void MainLoop()
     Model* testModel = g_RenderWorld->addAndCommitParsedDynamicModel( g_RenderDevice, *fbxParser.getParsedModel(), g_GraphicsAssetCache );
 
     Entity modelEntity = g_World->createStaticMesh();
-    g_World->staticGeometryDatabase->setModel( g_World->staticGeometryDatabase->lookup( modelEntity ), testModel );
+    StaticGeometryDatabase* staticGeomDb = g_World->getStaticGeometryDatabase();
+    staticGeomDb->setModel( staticGeomDb->lookup( modelEntity ), testModel );
 
     g_EntityEditor->setActiveEntity( &modelEntity );
     // TEST TEST TEST
@@ -673,7 +674,7 @@ void MainLoop()
             ImGui::SetNextWindowSize( ImVec2( static_cast< f32 >( ScreenSize.x ), static_cast< f32 >( ScreenSize.y ) - menuBarHeight ) );
             ImGui::SetNextWindowPos( ImVec2( 0, menuBarHeight ) );
             ImGui::Begin( "Master Window", &active, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing );
-           
+
             static bool NeedDockSetup = g_IsFirstLaunch;
             ImGuiIO& io = ImGui::GetIO();
             ImGuiID dockspaceID = ImGui::GetID( "MyDockspace" );
@@ -766,7 +767,7 @@ void MainLoop()
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
             if ( ImGui::Begin( "Viewport", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar ) ) {
                 static ImVec2 prevWinSize = ImGui::GetWindowSize();
-
+                
                 ImVec2 winSize = ImGui::GetWindowSize();
 
                 viewportWinSize = ImGui::GetWindowSize();
@@ -803,82 +804,12 @@ void MainLoop()
                 ImGui::Image( static_cast< ImTextureID >( frameGraph.getPresentRenderTarget() ), winSize );
             }
             ImGui::End();
-
+            
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
-            g_EntityEditor->displayEditorWindow( g_FreeCamera->getData() );
-     //       if ( ImGui::Begin( "Inspector" ) ) {
-     //           char* entityName = g_World->entityNameRegister->getNameBuffer( modelEntity );
-     //           ImGui::InputText( "Name", entityName, Entity::MAX_NAME_LENGTH * sizeof( char ) );
-     //           if ( ImGui::TreeNode( "Transform" ) ) {
-     //               // Retrieve this instance transform information.
-     //               TransformDatabase::EdInstanceData& editorInstance = g_World->transformDatabase->getEditorInstanceData( g_World->transformDatabase->lookup( modelEntity ) );
+            dkVec4f viewportWidgetBounds = dkVec4f( viewportWinPos.x, viewportWinPos.y, viewportWinSize.x, viewportWinSize.y );
+            g_EntityEditor->displayEditorWindow( g_FreeCamera->getData(), viewportWidgetBounds );
 
-     //               static ImGuizmo::OPERATION mCurrentGizmoOperation( ImGuizmo::TRANSLATE );
-     //               static int activeManipulationMode = 0;
-     //               static bool useSnap = false;
-     //               static float snap[3] = { 1.f, 1.f, 1.f };
-
-     //               ImGui::Checkbox( "", &useSnap );
-     //               ImGui::SameLine();
-
-     //               switch ( mCurrentGizmoOperation ) {
-     //               case ImGuizmo::TRANSLATE:
-     //                   ImGui::InputFloat3( "Snap", snap );
-     //                   break;
-     //               case ImGuizmo::ROTATE:
-     //                   ImGui::InputFloat( "Angle Snap", snap );
-     //                   break;
-     //               case ImGuizmo::SCALE:
-     //                   ImGui::InputFloat( "Scale Snap", snap );
-     //                   break;
-     //               }
-
-     //               ImGui::RadioButton( "Translate", &activeManipulationMode, 0 );
-     //               ImGui::SameLine();
-     //               ImGui::RadioButton( "Rotate", &activeManipulationMode, 1 );
-     //               ImGui::SameLine();
-     //               ImGui::RadioButton( "Scale", &activeManipulationMode, 2 );
-
-     //               CameraData& cameraData = g_FreeCamera->getData();
-
-     //               dkMat4x4f* modelMatrix = editorInstance.Local;
-
-					//ImGuiIO& io = ImGui::GetIO();
-					//ImGui::PushClipRect( viewportWinPos, ImVec2( viewportWinPos.x + viewportWinSize.x, viewportWinPos.y + viewportWinSize.y ), false );
-     //               ImGuizmo::SetRect( viewportWinPos.x, viewportWinPos.y, viewportWinSize.x, viewportWinSize.y );
-     //               ImGuizmo::Manipulate( 
-     //                   cameraData.viewMatrix.toArray(), 
-     //                   cameraData.finiteProjectionMatrix.toArray(),
-     //                   static_cast< ImGuizmo::OPERATION >( activeManipulationMode ),
-     //                   ImGuizmo::MODE::LOCAL,
-     //                   modelMatrix->toArray(),
-     //                   NULL,
-     //                   useSnap ? &snap[activeManipulationMode] :
-     //                   NULL
-					//);
-					//ImGui::PopClipRect();
-
-     //               if ( !ImGuizmo::IsUsing() ) {
-     //                   // Convert Quaternion to Euler Angles (for user friendlyness).
-     //                   dkQuatf RotationQuat = dk::maths::ExtractRotation( *modelMatrix, *editorInstance.Scale );
-     //                   dkVec3f Rotation = RotationQuat.toEulerAngles();
-
-     //                   ImGui::DragFloat3( "Translation", ( float* )editorInstance.Position );
-     //                   ImGui::DragFloat3( "Rotation", ( float* )&Rotation, 3 );
-     //                   ImGui::DragFloat3( "Scale", ( float* )editorInstance.Scale );
-
-     //                   RotationQuat = dkQuatf( Rotation );
-     //                   *editorInstance.Rotation = RotationQuat;
-     //               } else {
-     //                   *editorInstance.Position = dk::maths::ExtractTranslation( *modelMatrix );
-     //                   *editorInstance.Scale = dk::maths::ExtractScale( *modelMatrix );
-     //                   *editorInstance.Rotation = dk::maths::ExtractRotation( *modelMatrix, *editorInstance.Scale );
-     //               }
-     //           }
-     //           ImGui::TreePop();
-     //       }
-     //       ImGui::End();
-
+            // "Master Window" End
             ImGui::End();
 
             ImGui::Render();

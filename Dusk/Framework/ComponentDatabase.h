@@ -41,6 +41,9 @@ public:
     // Return the instance associated to a given entity.
     Instance    lookup( const Entity& e ) const;
 
+    // Return true if the given entity has a component from this database; false otherwise.
+    bool        hasComponent( const Entity& e ) const;
+
 protected:
     struct MemoryBuffer {
         // The number of instance allocated by the database.

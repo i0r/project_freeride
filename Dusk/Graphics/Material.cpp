@@ -147,9 +147,9 @@ PipelineState* Material::bindForScenario( const RenderScenario scenario, Command
         DefaultPipelineState.RasterizerState.CullMode = CULL_MODE_FRONT;
         DefaultPipelineState.RasterizerState.UseTriangleCCW = true;
 
-        DefaultPipelineState.FramebufferLayout.declareRTV( 0, VIEW_FORMAT_R16G16B16A16_FLOAT, FramebufferLayoutDesc::CLEAR );
-        DefaultPipelineState.FramebufferLayout.declareRTV( 1, VIEW_FORMAT_R16G16_FLOAT, FramebufferLayoutDesc::CLEAR );
-        DefaultPipelineState.FramebufferLayout.declareDSV( VIEW_FORMAT_D32_FLOAT, FramebufferLayoutDesc::CLEAR );
+        DefaultPipelineState.FramebufferLayout.declareRTV( 0, VIEW_FORMAT_R16G16B16A16_FLOAT );
+        DefaultPipelineState.FramebufferLayout.declareRTV( 1, VIEW_FORMAT_R16G16_FLOAT );
+        DefaultPipelineState.FramebufferLayout.declareDSV( VIEW_FORMAT_D32_FLOAT );
         DefaultPipelineState.samplerCount = samplerCount;
         DefaultPipelineState.InputLayout.Entry[0] = { 0, VIEW_FORMAT_R32G32B32_FLOAT, 0, 0, 0, false, "POSITION" };
         DefaultPipelineState.InputLayout.Entry[1] = { 0, VIEW_FORMAT_R32G32B32_FLOAT, 0, 1, 0, true, "NORMAL" };

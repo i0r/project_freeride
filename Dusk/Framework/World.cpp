@@ -79,6 +79,21 @@ void World::attachStaticGeometryComponent( Entity& entity )
     staticGeometryDatabase->allocateComponent( entity );
 }
 
+TransformDatabase* World::getTransformDatabase() const
+{
+    return transformDatabase;
+}
+
+StaticGeometryDatabase* World::getStaticGeometryDatabase() const
+{
+    return staticGeometryDatabase;
+}
+
+EntityNameRegister* World::getEntityNameRegister() const
+{
+    return entityNameRegister;
+}
+
 void World::updateStreaming()
 {
 

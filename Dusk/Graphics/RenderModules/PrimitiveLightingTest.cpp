@@ -83,6 +83,11 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, ResHandle_t perSc
 
             cmdList->pushEventMarker( DUSK_STRING( "Forward+ Light Pass" ) );
 
+            constexpr f32 ClearValue[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+            Image* Framebuffer[2] = { outputTarget, velocityTarget };
+            cmdList->clearRenderTargets( Framebuffer, 2u, ClearValue );
+            cmdList->clearDepthStencil( zbufferTarget, 0.0f );
+
             // Update viewport (using image quality scaling)
             const CameraData* camera = resources->getMainCamera();
 
@@ -125,7 +130,6 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, ResHandle_t perSc
                     cmdList->bindConstantBuffer( MaterialEditorBufferHashcode, materialEdBuffer );
                 }
 
-                Image* Framebuffer[2] = { outputTarget, velocityTarget };
                 cmdList->setupFramebuffer( Framebuffer, zbufferTarget );
                 cmdList->prepareAndBindResourceList( pipelineState );
 
@@ -137,7 +141,7 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, ResHandle_t perSc
 
                 // TODO Support vertex buffer offset
                 cmdList->bindVertexBuffer( ( const Buffer** )bufferList, 3, 0 );
-                cmdList->bindIndiceBuffer( cmdInfos.indiceBuffer, true );
+                cmdList->bindIndiceBuffer( cmdInfos.indiceBuffer, !cmdInfos.useShortIndices );
 
                 cmdList->drawIndexed( cmdInfos.indiceBufferCount, cmdInfos.instanceCount, cmdInfos.indiceBufferOffset );
             }
