@@ -1,6 +1,6 @@
 lib PostEffects { 
     properties {
-        float BloomStrength = 0.0005f;
+        float BloomStrength = 0.0004f;
         float FilmGrainStrength = 8.0f;
         cflag ApplyDither = true;
         cflag EnableBloom = true;

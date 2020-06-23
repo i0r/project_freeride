@@ -32,6 +32,10 @@ lib BuiltIn {
         $SV_TARGET0 = float4( 1.00f, 0.00f, 1.00f, 1.00f );
     }
     
+    shader EmptyShader {
+        float Dummy = $Sv_GroupID.x;
+    }
+    
     pass PresentPass {
         vertex        = FullscreenTriangle;    
         pixel         = CopyImage;
@@ -48,5 +52,10 @@ lib BuiltIn {
         vertex        = ErrorVS;    
         pixel         = ErrorPS;
         rendertargets = { OutputRenderTarget };
+    }
+    
+    pass ErrorCompute {
+        compute       = EmptyShader;
+        dispatch      = { 1, 1, 1 };
     }
 }
