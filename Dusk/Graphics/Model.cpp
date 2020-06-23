@@ -11,6 +11,7 @@ Model::Model( BaseAllocator* allocator, const dkChar_t* name )
     , lod{}
     , modelAABB{}
     , modelBoundingSphere{}
+    , resourceFilePath( "" )
 {
     setName( name );
 }
@@ -64,6 +65,16 @@ Model::LevelOfDetail& Model::getLevelOfDetailForEditor( const u32 lodIdx )
     }
 
     return lod[lodIdx];
+}
+
+void Model::setResourcePath( const std::string& path )
+{
+    resourceFilePath = path;
+}
+
+const std::string& Model::getResourcedPath() const
+{
+    return resourceFilePath;
 }
 #endif
 

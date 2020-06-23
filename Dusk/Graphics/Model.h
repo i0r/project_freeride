@@ -89,6 +89,12 @@ public:
     // Return a non-const reference to the lod at the specified lodIdx (if already existing).
     // This function should only be used in an editor context.
     LevelOfDetail&          getLevelOfDetailForEditor( const u32 lodIdx );
+
+    // Set the path to the file storing this model data (editor only).
+    void                    setResourcePath( const std::string& path );
+
+    // Return the path to the file storing this model data (editor only).
+    const std::string&      getResourcedPath() const;
 #endif
 
     // Add a lod to this model (with an explicit max. visibility distance). Return a reference to the lod added, or a 
@@ -133,6 +139,9 @@ private:
 
     // Bounding Sphere for this model.
     BoundingSphere          modelBoundingSphere;
+
+    // Absolute path to the file storing this model.
+    std::string             resourceFilePath;
 
 private:
     void rebuildLodHashcodes();

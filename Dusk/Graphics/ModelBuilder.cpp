@@ -33,6 +33,8 @@ static Buffer* CreateIfNonEmpty( RenderDevice* renderDevice, const std::vector<T
 void dk::graphics::BuildParsedModel( Model* builtModel, BaseAllocator* memoryAllocator, RenderDevice* renderDevice, ParsedModel& parsedModel )
 {
     builtModel->setName( parsedModel.ModelName.c_str() );
+    
+    builtModel->setResourcePath( parsedModel.ModelPath );
 
     u32 lodCount = 0;
 

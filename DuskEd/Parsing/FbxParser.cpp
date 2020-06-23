@@ -124,7 +124,13 @@ void FbxParser::load( const char* filePath )
     }
 
     parsedModel = dk::core::allocate<ParsedModel>( memoryAllocator );
-    //parsedModel->ModelName = filePath;
+
+    dkString_t workingDir;
+    dk::core::RetrieveWorkingDirectory( workingDir );
+    
+    parsedModel->ModelPath = WideStringToString(workingDir) + filePath;
+    parsedModel->ModelPath = dk::core::SimplifyPath( parsedModel->ModelPath );
+
     parsedModel->LodCount = 1;
     
     // Iterate over geometry nodes

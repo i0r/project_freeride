@@ -47,10 +47,6 @@
 #include "Graphics/RenderDocHelper.h"
 #endif
 
-#if DUSK_USE_FBXSDK
-#include "Parsing/FbxParser.h"
-#endif
-
 #if DUSK_USE_IMGUI
 #include "Core/ImGuiManager.h"
 #include "Graphics/RenderModules/ImGuiRenderModule.h"
@@ -524,7 +520,7 @@ void Initialize( const char* cmdLineArgs )
     g_World = dk::core::allocate<World>( g_GlobalAllocator, g_GlobalAllocator );
     g_World->create();
 
-	g_EntityEditor = dk::core::allocate<EntityEditor>( g_GlobalAllocator, g_GlobalAllocator, g_GraphicsAssetCache, g_VirtualFileSystem );
+	g_EntityEditor = dk::core::allocate<EntityEditor>( g_GlobalAllocator, g_GlobalAllocator, g_GraphicsAssetCache, g_VirtualFileSystem, g_RenderWorld, g_RenderDevice );
 	g_EntityEditor->setActiveWorld( g_World );
 
     DUSK_LOG_INFO( "Initialization done (took %.5f seconds)\n", profileTimer.getElapsedTimeAsSeconds() );
@@ -558,15 +554,9 @@ void MainLoop()
 
     dkVec2f viewportSize = dkVec2f( static_cast< f32 >( ScreenSize.x ), static_cast< f32 >( ScreenSize.y ) );
 
-    FbxParser fbxParser;
-    fbxParser.create( g_GlobalAllocator );
-    fbxParser.load( "../../Assets/geometry/box.fbx" );
-
-    Model* testModel = g_RenderWorld->addAndCommitParsedDynamicModel( g_RenderDevice, *fbxParser.getParsedModel(), g_GraphicsAssetCache );
-
     Entity modelEntity = g_World->createStaticMesh();
     StaticGeometryDatabase* staticGeomDb = g_World->getStaticGeometryDatabase();
-    staticGeomDb->setModel( staticGeomDb->lookup( modelEntity ), testModel );
+    staticGeomDb->setModel( staticGeomDb->lookup( modelEntity ), nullptr );
 
     g_EntityEditor->setActiveEntity( &modelEntity );
     // TEST TEST TEST

@@ -10,6 +10,10 @@
 #include <imgui/imgui_internal.h>
 #endif
 
+#if DUSK_USE_FBXSDK
+#include "Parsing/FbxParser.h"
+#endif
+
 #include <Core/FileSystemIOHelpers.h>
 #include <Core/StringHelpers.h>
 #include <Core/Environment.h>
@@ -22,16 +26,23 @@
 #include "Framework/EntityNameRegister.h"
 
 #include <Graphics/GraphicsAssetCache.h>
+#include <Graphics/Model.h>
+#include <Graphics/RenderWorld.h>
 
-EntityEditor::EntityEditor( BaseAllocator* allocator, GraphicsAssetCache* gfxCache, VirtualFileSystem* vfs )
+EntityEditor::EntityEditor( BaseAllocator* allocator, GraphicsAssetCache* gfxCache, VirtualFileSystem* vfs, RenderWorld* rWorld, RenderDevice* activeRenderDevice )
     : isOpened( false )
     , activeEntity( nullptr )
     , activeWorld( nullptr )
     , memoryAllocator( allocator )
     , graphicsAssetCache( gfxCache )
     , virtualFileSystem( vfs )
+    , renderWorld( rWorld )
+    , renderDevice( activeRenderDevice )
 {
-
+#if DUSK_USE_FBXSDK
+    fbxParser = dk::core::allocate<FbxParser>( allocator );
+    fbxParser->create( allocator );
+#endif
 }
 
 EntityEditor::~EntityEditor()
@@ -54,6 +65,7 @@ void EntityEditor::displayEditorWindow( CameraData& viewportCamera, const dkVec4
         // Display component edition. We have a finite number of component type so it shouldn't
         // be too bad to manage this by hand...
         displayTransformSection( viewportBounds, viewportCamera );
+        displayStaticGeometrySection();
     }  
     ImGui::End();
 }
@@ -106,28 +118,89 @@ void EntityEditor::displayTransformSection( const dkVec4f& viewportBounds, Camer
             *editorInstance.Rotation = dk::maths::ExtractRotation( *modelMatrix, *editorInstance.Scale );
         }
 
-        ImGui::Text( "Guizmo Settings" );
-        ImGui::Checkbox( "", &useSnap );
+        // TODO Move those to a settings menu/panel and add shortcut for transformation mode (translate/rotate/etc.).
+		/*  ImGui::Text( "Guizmo Settings" );
+		  ImGui::Checkbox( "", &useSnap );
+		  ImGui::SameLine();
+		  switch ( mCurrentGizmoOperation ) {
+		  case ImGuizmo::TRANSLATE:
+			  ImGui::InputFloat3( "Snap", snap );
+			  break;
+		  case ImGuizmo::ROTATE:
+			  ImGui::InputFloat( "Angle Snap", snap );
+			  break;
+		  case ImGuizmo::SCALE:
+			  ImGui::InputFloat( "Scale Snap", snap );
+			  break;
+		  }
+
+		  ImGui::RadioButton( "Translate", &activeManipulationMode, 0 );
+		  ImGui::SameLine();
+		  ImGui::RadioButton( "Rotate", &activeManipulationMode, 1 );
+		  ImGui::SameLine();
+		  ImGui::RadioButton( "Scale", &activeManipulationMode, 2 );
+		  ImGui::TreePop();*/
+    }
+}
+
+void EntityEditor::displayStaticGeometrySection()
+{
+	bool hasStaticGeometryAttachment = activeWorld->getStaticGeometryDatabase()->hasComponent( *activeEntity );
+	if ( !hasStaticGeometryAttachment ) {
+		return;
+	}
+
+	if ( ImGui::TreeNode( "Static Geometry" ) ) {
+		// Retrieve this instance static geometry information.
+		StaticGeometryDatabase* staticGeoDb = activeWorld->getStaticGeometryDatabase();
+
+		const Model* assignedModel = staticGeoDb->getModel( staticGeoDb->lookup( *activeEntity ) );
+
+        // TODO Capture a thumbnail to preview the model.
+        ImGui::Button( "PLACEHOLDER", ImVec2( 64, 64 ) );
+
         ImGui::SameLine();
-        switch ( mCurrentGizmoOperation ) {
-        case ImGuizmo::TRANSLATE:
-            ImGui::InputFloat3( "Snap", snap );
-            break;
-        case ImGuizmo::ROTATE:
-            ImGui::InputFloat( "Angle Snap", snap );
-            break;
-        case ImGuizmo::SCALE:
-            ImGui::InputFloat( "Scale Snap", snap );
-            break;
+
+		std::string infos;
+		if ( assignedModel != nullptr ) {
+            infos.append( WideStringToString( assignedModel->getName() ) );
+            infos.append( "\nLOD Count: " );
+            infos.append( std::to_string( assignedModel->getLevelOfDetailCount() ) );
+		}
+
+        ImGui::Text( infos.c_str() );
+
+		if ( ImGui::Button( "..." ) ) {
+#if DUSK_USE_FBXSDK
+			static constexpr dkChar_t* DefaultGeometryFilter = DUSK_STRING( "Autodesk FBX (*.fbx)\0*.fbx\0" );
+
+			// TODO Legacy shit. Should be removed once the asset browser is implemented.
+			dkString_t fullPathToAsset;
+            if ( dk::core::DisplayFileSelectionPrompt( fullPathToAsset,
+                                                       dk::core::SelectionType::OpenFile,
+                                                       DefaultGeometryFilter ) ) {
+                dk::core::SanitizeFilepathSlashes( fullPathToAsset );
+                fbxParser->load( WideStringToString( fullPathToAsset ).c_str() );
+
+                ParsedModel* parsedModel = fbxParser->getParsedModel();
+                if ( parsedModel != nullptr ) {
+                    Model* builtModel = renderWorld->addAndCommitParsedDynamicModel( renderDevice, *parsedModel, graphicsAssetCache );
+                    
+                    if ( builtModel != nullptr ) {
+                        staticGeoDb->setModel( staticGeoDb->lookup( *activeEntity ), builtModel );
+                    }
+                }
+            }
+#endif
         }
 
-        ImGui::RadioButton( "Translate", &activeManipulationMode, 0 );
-        ImGui::SameLine();
-        ImGui::RadioButton( "Rotate", &activeManipulationMode, 1 );
-        ImGui::SameLine();
-        ImGui::RadioButton( "Scale", &activeManipulationMode, 2 );
-    }
-    ImGui::TreePop();
+		if ( assignedModel != nullptr ) {
+            ImGui::SameLine();
+			ImGui::Text( assignedModel->getResourcedPath().c_str() );
+		}
+
+		ImGui::TreePop();
+	}
 }
 #endif
 

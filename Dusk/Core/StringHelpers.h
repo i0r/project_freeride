@@ -4,6 +4,7 @@
 */
 #pragma once
 
+#include <stack>
 #include <string>
 #include <string.h>
 #include <algorithm>
@@ -23,6 +24,40 @@ namespace dk
             std::transform( lStr.begin(), lStr.end(), lStr.begin(), ::tolower );
 
             return lStr == "true" || lStr == "1";
+        }
+
+        static std::string SimplifyPath( const std::string& path )
+        {
+			std::stack<std::string> st;
+
+			size_t len = path.length();
+
+			for ( int i = 0; i < len; i++ ) {
+				if ( path[i] == '/' ) {
+					continue;
+				}
+				if ( path[i] == '.' ) {
+					if ( i + 1 < len && path[i + 1] == '.' ) {
+						if ( !st.empty() )
+							st.pop();
+						i++;
+					}
+				} else {
+					std::string tem = "";
+					while ( i < len && path[i] != '/' ) {
+						tem = tem + path[i];
+						i++;
+					}
+					st.push( tem );
+				}
+			}
+			std::string ans = "";
+			while ( !st.empty() ) {
+				ans = "/" + st.top() + ans;
+				st.pop();
+			}
+
+			return ( ans == "" ) ? "/" : ans.substr( 1 );
         }
 
         static void TrimString( dkString_t& str )

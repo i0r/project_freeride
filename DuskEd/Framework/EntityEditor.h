@@ -10,11 +10,14 @@ class VirtualFileSystem;
 class World;
 struct Entity;
 struct CameraData;
+class FbxParser;
+class RenderWorld;
+class RenderDevice;
 
 class EntityEditor
 {
 public:
-                        EntityEditor( BaseAllocator* allocator, GraphicsAssetCache* gfxCache, VirtualFileSystem* vfs );
+                        EntityEditor( BaseAllocator* allocator, GraphicsAssetCache* gfxCache, VirtualFileSystem* vfs, RenderWorld* rWorld, RenderDevice* activeRenderDevice );
                         ~EntityEditor();
 
 #if DUSK_USE_IMGUI
@@ -47,12 +50,26 @@ private:
     // Pointer to the active instance of the Graphics Assets cache.
     GraphicsAssetCache* graphicsAssetCache;
 
+    // Pointer to the active geometry cache.
+    RenderWorld*        renderWorld;
+
     // Pointer to the active instance of the Virtual Filesystem.
     VirtualFileSystem*  virtualFileSystem;
+
+    // Pointer to the active RenderDevice.
+    RenderDevice*       renderDevice;
+
+#if DUSK_USE_FBXSDK
+    // Parser to parse fbx geometry file. 
+    FbxParser*          fbxParser;
+#endif
 
 private:
 #if DUSK_USE_IMGUI
     // Display Transform edition section (if the activeEntity has a Transform component and the context is valid).
     void displayTransformSection( const dkVec4f& viewportBounds, CameraData& viewportCamera );
+
+    // Display Static geometry edition section.
+    void displayStaticGeometrySection();
 #endif
 };

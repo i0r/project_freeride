@@ -30,7 +30,7 @@ Instance ComponentDatabase::lookup( const Entity& entity ) const
 
 bool ComponentDatabase::hasComponent( const Entity& e ) const
 {
-    return entityToInstanceMap.find( static_cast< size_t >( entity.extractIndex() ) ) != entityToInstanceMap.end();
+    return entityToInstanceMap.find( static_cast< size_t >( e.extractIndex() ) ) != entityToInstanceMap.end();
 }
 
 void ComponentDatabase::allocateMemoryChunk( const size_t singleComponentSize, const size_t componentCount )

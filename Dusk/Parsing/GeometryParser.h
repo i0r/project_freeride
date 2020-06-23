@@ -105,9 +105,13 @@ struct ParsedModel
     // Name of the model (usually the filename of the asset).
     dkString_t ModelName;
 
+    // Absolute path to the file parsed.
+    std::string ModelPath;
+
     ParsedModel()
         : LodCount( 1 )
         , ModelName( DUSK_STRING( "ParsedModel" ) )
+        , ModelPath( "" )
     {
     }
 };

@@ -83,7 +83,7 @@ endif ( WIN32 )
 if(MSVC)
   target_compile_options(DuskEd PRIVATE /W3 /WX)
 else()
-    target_compile_options(DuskEd PRIVATE -Wall -Wextra)
+  target_compile_options(DuskEd PRIVATE -Wall -Wextra)
 endif()
 
 if ( DUSK_USE_UNITY_BUILD )

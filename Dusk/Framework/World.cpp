@@ -45,6 +45,11 @@ void World::collectRenderables( DrawCommandBuilder2* drawCmdBuilder ) const
 		const Model* model = staticGeometryDatabase->getModel( staticGeometryDatabase->lookup( geom ) );
         const dkMat4x4f& modelMatrix = transformDatabase->getWorldMatrix( transformDatabase->lookup( geom ) );
 
+        // This is a editor only case; the client should always have a model binded.
+        if ( model == nullptr ) {
+            continue;
+        }
+
         drawCmdBuilder->addStaticModelInstance( model, modelMatrix );
     }
 }
