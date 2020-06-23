@@ -16,6 +16,8 @@
 
 #include <Io/Binary.h>
 
+#include <Graphics/RenderModules/Generated/BuiltIn.generated.h>
+
 ShaderCache::ShaderCache( BaseAllocator* allocator, RenderDevice* activeRenderDevice, VirtualFileSystem* activeVFS )
     : virtualFileSystem( activeVFS )
     , renderDevice( activeRenderDevice )
@@ -24,9 +26,9 @@ ShaderCache::ShaderCache( BaseAllocator* allocator, RenderDevice* activeRenderDe
 {
     DUSK_LOG_INFO( "Loading default shaders...\n" );
 
-    defaultVertexStage = getOrUploadStageDynamic<SHADER_STAGE_VERTEX>( "Error" );
-    defaultPixelStage = getOrUploadStageDynamic<SHADER_STAGE_PIXEL>( "Error" );
-    defaultComputeStage = getOrUploadStageDynamic<SHADER_STAGE_COMPUTE>( "Error" );
+    defaultVertexStage = getOrUploadStage<SHADER_STAGE_VERTEX>( BuiltIn::Error_VertexShaderHashcode );
+    defaultPixelStage = getOrUploadStage<SHADER_STAGE_PIXEL>( BuiltIn::Error_PixelShaderHashcode );
+    defaultComputeStage = getOrUploadStage<SHADER_STAGE_COMPUTE>( BuiltIn::ErrorCompute_ComputeShaderHashcode );
 }
 
 ShaderCache::~ShaderCache()
