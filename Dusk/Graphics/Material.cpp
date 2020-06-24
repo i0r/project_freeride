@@ -44,6 +44,7 @@ Material::Material( BaseAllocator* allocator )
     , isDoubleFace( false )
     , enableAlphaToCoverage( false )
     , isAlphaTested( false )
+    , isWireframe( false )
     , invalidateCachedStates( false )
 {
 
@@ -89,7 +90,9 @@ void Material::deserialize( FileSystemObject* object )
                         enableAlphaToCoverage = dk::core::StringToBool( value );
                     } else if ( dk::core::ExpectKeyword( name.StreamPointer, 13, "isAlphaTested" ) ) {
                         isAlphaTested = dk::core::StringToBool( value );
-                    }
+					} else if ( dk::core::ExpectKeyword( name.StreamPointer, 11, "isWireframe" ) ) {
+                        isWireframe = dk::core::StringToBool( value );
+					}
                 } else {
                     const TypeAST& type = *typeAST.Types[nodeIdx];
 
@@ -144,8 +147,9 @@ PipelineState* Material::bindForScenario( const RenderScenario scenario, Command
         DefaultPipelineState.DepthStencilState.EnableDepthTest = true;
         DefaultPipelineState.DepthStencilState.DepthComparisonFunc = eComparisonFunction::COMPARISON_FUNCTION_GREATER;
 
-        DefaultPipelineState.RasterizerState.CullMode = CULL_MODE_FRONT;
+        DefaultPipelineState.RasterizerState.CullMode = ( isDoubleFace ) ? eCullMode::CULL_MODE_NONE : eCullMode::CULL_MODE_FRONT;
         DefaultPipelineState.RasterizerState.UseTriangleCCW = true;
+        DefaultPipelineState.RasterizerState.FillMode = ( isWireframe ) ? eFillMode::FILL_MODE_WIREFRAME : eFillMode::FILL_MODE_SOLID;
 
         DefaultPipelineState.FramebufferLayout.declareRTV( 0, VIEW_FORMAT_R16G16B16A16_FLOAT );
         DefaultPipelineState.FramebufferLayout.declareRTV( 1, VIEW_FORMAT_R16G16_FLOAT );

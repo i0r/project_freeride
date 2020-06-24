@@ -148,6 +148,9 @@ public:
     // Prepare the FrameGraph instance for the next frame.
     FrameGraph&      prepareFrameGraph( const Viewport& viewport, const ScissorRegion& scissor, const CameraData* camera = nullptr );
 
+    // Return a pointer to the wireframe material.
+    const Material*  getWireframeMaterial() const;
+
 private:
     // The memory allocator owning this instance.
     BaseAllocator*   memoryAllocator;
@@ -166,4 +169,7 @@ private:
 
     // If true, RenderModules need to precompute its transistent resources for frame rendering.
     bool             needResourcePrecompute;
+
+    // Material to render wireframe geometry (e.g. debug primitives).
+    Material*        wireframeMaterial;
 };
