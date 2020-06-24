@@ -24,6 +24,7 @@ struct PerPassData
 };
 
 static constexpr size_t MAX_VECTOR_PER_INSTANCE = 1024;
+static constexpr dkStringHash_t InstanceVectorBufferHashcode = DUSK_STRING_HASH( "InstanceVectorBuffer" );
 
 LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, Material::RenderScenario scenario )
 {
@@ -141,15 +142,18 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, ResHandle_t perSc
             for ( const DrawCmd& cmd : bucket ) {
                 const DrawCommandInfos& cmdInfos = cmd.infos;
                 const Material* material = cmdInfos.material;
-                const bool useInstancing = ( cmdInfos.instanceCount > 1 );
 
                 // Upload vector buffer offset
 				cmdList->updateBuffer( *perPassBuffer, &perPassData, sizeof( PerPassData ) );
 
                 // Retrieve the PipelineState for the given RenderScenario.
-                PipelineState* pipelineState = const_cast<Material*>( material )->bindForScenario( scenario, cmdList, psoCache, useInstancing, samplerCount );
+                // TODO Cache the current PSO binded (if the PSO is the same; don't rebind anything).
+                // TODO We need to make material mutable (since the scenario bind updates the streaming/caching).
+                //      It simply require some refactoring at higher level (Mesh struct; gfx cache; etc.)
+                PipelineState* pipelineState = const_cast<Material*>( material )->bindForScenario( scenario, cmdList, psoCache, samplerCount );
                 
-				cmdList->bindBuffer( DUSK_STRING_HASH( "InstanceVectorBuffer" ), vectorBuffer );
+                // NOTE Since buffer registers are cached those calls have a low cost on the CPU side.
+				cmdList->bindBuffer( InstanceVectorBufferHashcode, vectorBuffer );
                 cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
                 cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
                 cmdList->bindConstantBuffer( PerWorldBufferHashcode, perWorldBuffer );

@@ -189,13 +189,9 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
     // Generate material descriptor (pipeline flags, external assets required, etc.).
     const std::string namedGenericPass = std::string( editableMaterial.Name ) + "LightPass";
 	const std::string namedGenericPassEd = std::string( editableMaterial.Name ) + "LightPassEd";
-	const std::string namedGenericInstancedPass = namedGenericPass + "Instanced";
-	const std::string namedGenericInstancedPassEd = namedGenericPassEd + "Instanced";
 
     ScenarioBinding DefaultBinding;
 	ScenarioBinding DefaultEdBinding;
-	ScenarioBinding DefaultInstancedBinding;
-	ScenarioBinding DefaultEdInstancedBinding;
 
     const std::vector<RenderLibraryGenerator::RenderPassInfos>& renderPasses = renderLibGenerator.getGeneratedRenderPasses();
     for ( const RenderLibraryGenerator::RenderPassInfos& renderPass : renderPasses ) {
@@ -206,11 +202,7 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
             matchingBinding = &DefaultBinding;
 		} else if ( renderPass.RenderPassName == namedGenericPassEd ) {
             matchingBinding = &DefaultEdBinding;
-		} else if ( renderPass.RenderPassName == namedGenericInstancedPass ) {
-            matchingBinding = &DefaultInstancedBinding;
-		} else if ( renderPass.RenderPassName == namedGenericInstancedPassEd ) {
-            matchingBinding = &DefaultEdInstancedBinding;
-        } else {
+		} else {
             DUSK_LOG_WARN( "Unknown RenderPass '%s' found!\n", renderPass.RenderPassName.c_str() );
             continue;
         }
@@ -254,9 +246,7 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
 
         // Write each Rendering scenario.
 		SerializeScenario( materialDescriptor, "Default", DefaultBinding );
-		SerializeScenario( materialDescriptor, "DefaultInstanced", DefaultInstancedBinding );
 		SerializeScenario( materialDescriptor, "Editor_Default", DefaultEdBinding );
-		SerializeScenario( materialDescriptor, "Editor_DefaultInstanced", DefaultEdInstancedBinding );
 
         materialDescriptor->writeString( "}\n" );
 

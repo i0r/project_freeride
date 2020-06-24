@@ -9,16 +9,8 @@ material "wireframe" {
 		vertex = "03d1bb7db62e17f27175eaa369cf1875";
 		pixel = "dc48c981da064dad59f880e2b3dad991";
 	}
-	scenario "DefaultInstanced" {
-		vertex = "8fe5792a85da648e29baf0210bb2ff1f";
-		pixel = "521c9decb5ce4c3d02a49f96dc34ad17";
-	}
 	scenario "Editor_Default" {
 		vertex = "b12cce78062bce1b28b4a8cd6b40da44";
 		pixel = "10cb8d34a1bac370c12087c79dba9afd";
-	}
-	scenario "Editor_DefaultInstanced" {
-		vertex = "6c1341f7921a27f3414e40bfe1cefa7b";
-		pixel = "7507369e4ef08525aff3a6cfd130d86d";
 	}
 }

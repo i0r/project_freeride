@@ -1,6 +1,5 @@
 lib PrimitiveLighting {
     properties {
-        cflag       UseInstancing = false;
         cflag       WriteVelocity = false;
         cflag       MaterialEditor = false;
         float       StartVector;
@@ -152,31 +151,12 @@ lib PrimitiveLighting {
         depthStencil = OutputDepthTarget;
     }
     
-    pass LightPassInstanced {
-        vertex = PrimitiveVS;
-        pixel = PrimitivePS;
-        WriteVelocity = true;
-        UseInstancing = true;
-        rendertargets = { OutputRenderTarget, OutputVelocity };
-        depthStencil = OutputDepthTarget;
-    }
-    
     pass LightPassEd {
         vertex = PrimitiveVS;
         pixel = PrimitivePS;
         MaterialEditor = true;
         WriteVelocity = true;
         UseInstancing = false;
-        rendertargets = { OutputRenderTarget, OutputVelocity };
-        depthStencil = OutputDepthTarget;
-    }
-    
-    pass LightPassEdInstanced {
-        vertex = PrimitiveVS;
-        pixel = PrimitivePS;
-        MaterialEditor = true;
-        WriteVelocity = true;
-        UseInstancing = true;
         rendertargets = { OutputRenderTarget, OutputVelocity };
         depthStencil = OutputDepthTarget;
     }

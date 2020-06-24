@@ -102,16 +102,8 @@ void Material::deserialize( FileSystemObject* object )
                             ParseScenario( defaultEditorScenario, type );
                         } 
 
-						if ( dk::core::ExpectKeyword( name.StreamPointer, name.Length, "Editor_DefaultInstanced" ) ) {
-							ParseScenario( defaultEditorInstancingScenario, type );
-						}
-
                         if ( dk::core::ExpectKeyword( name.StreamPointer, name.Length, "Default" ) ) {
                             ParseScenario( defaultScenario, type );
-						}
-
-						if ( dk::core::ExpectKeyword( name.StreamPointer, name.Length, "DefaultInstanced" ) ) {
-							ParseScenario( defaultInstancingScenario, type );
 						}
                     } break;
                     case TypeAST::MATERIAL_PARAMETER: {
@@ -141,7 +133,7 @@ void Material::deserialize( FileSystemObject* object )
     }
 }
 
-PipelineState* Material::bindForScenario( const RenderScenario scenario, CommandList* cmdList, PipelineStateCache* psoCache, const bool useInstancing, const u32 samplerCount )
+PipelineState* Material::bindForScenario( const RenderScenario scenario, CommandList* cmdList, PipelineStateCache* psoCache, const u32 samplerCount )
 {
     PipelineState* scenarioPso = nullptr;
 
@@ -172,13 +164,8 @@ PipelineState* Material::bindForScenario( const RenderScenario scenario, Command
 
         DefaultPipelineState.addStaticSampler( RenderingHelpers::S_BilinearWrap );
 
-		if ( useInstancing ) {
-			const PipelineStateCache::ShaderBinding& shaderBinding = ( ( scenario == RenderScenario::Default_Editor ) ? defaultEditorInstancingScenario : defaultInstancingScenario ).PsoShaderBinding;
-			scenarioPso = psoCache->getOrCreatePipelineState( DefaultPipelineState, shaderBinding, invalidateCachedStates );
-		} else {
-			const PipelineStateCache::ShaderBinding& shaderBinding = ( ( scenario == RenderScenario::Default_Editor ) ? defaultEditorScenario : defaultScenario ).PsoShaderBinding;
-			scenarioPso = psoCache->getOrCreatePipelineState( DefaultPipelineState, shaderBinding, invalidateCachedStates );
-        }
+		const PipelineStateCache::ShaderBinding& shaderBinding = ( ( scenario == RenderScenario::Default_Editor ) ? defaultEditorScenario : defaultScenario ).PsoShaderBinding;
+		scenarioPso = psoCache->getOrCreatePipelineState( DefaultPipelineState, shaderBinding, invalidateCachedStates );
     } break;
     default:
         break;
