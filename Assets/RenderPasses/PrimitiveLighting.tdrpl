@@ -75,6 +75,40 @@ lib PrimitiveLighting {
             return Velocity;
         }
         
+        void UpdatePickingBuffer(uint2 pos, uint2 identity, float z, float opacity) 
+        {
+            static const float OpacityThreshold = 0.5f;
+            if (opacity < OpacityThreshold) {
+                return;
+            }
+            
+            uint2 cursor_pos = g_CursorPosition;
+            if (pos.x != cursor_pos.x || pos.y != cursor_pos.y) {
+                return;
+            }
+            
+            uint d = asuint(z);
+            uint current_d_or_locked = 0;
+            do {
+                if (d >= picking_buffer.Load(0)) {
+                    return;
+                }
+                
+                picking_buffer.InterlockedMin(0, d, current_d_or_locked);
+                if (d < (int)current_d_or_locked) {
+                    uint last_d = 0;
+                    
+                    picking_buffer.InterlockedCompareExchange(0, d, asuint(-(int)d), last_d);
+                    
+                    if (last_d == d) {
+                        picking_buffer.Store2(4, identity);
+                        uint dummy;
+                        picking_buffer.InterlockedExchange(0, d, dummy);
+                    }
+                }
+            } while((int)current_d_or_locked < 0);
+        }
+        
         float3 GetDirectionalLightIlluminance( in DirectionalLightGPU light, in float3 R, in float3 N, inout float3 L )
         {
             float r = sin( light.AngularRadius );
