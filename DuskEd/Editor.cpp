@@ -33,6 +33,7 @@
 #include "Graphics/RenderModules/GlareRenderModule.h"
 #include "Graphics/RenderModules/FFTRenderPass.h"
 #include "Graphics/RenderModules/LineRenderingModule.h"
+#include "Graphics/RenderModules/EditorGridRenderModule.h"
 #include "Graphics/Material.h"
 // END TEMP
 
@@ -74,6 +75,8 @@
 #include "Framework/Cameras/FreeCamera.h"
 #include "DefaultInputConfig.h"
 
+#include "Graphics/RenderModules/EditorGridRenderModule.h"
+
 static char  g_BaseBuffer[128];
 static void* g_AllocatedTable;
 
@@ -96,6 +99,7 @@ static EntityEditor* g_EntityEditor;
 
 static FreeCamera* g_FreeCamera;
 static MaterialEditor* g_MaterialEditor;
+static EditorGridModule* g_EditorGridModule;
 
 #if DUSK_DEVBUILD
 static FileSystemNative* g_EdAssetsFileSystem;
@@ -512,6 +516,8 @@ void Initialize( const char* cmdLineArgs )
 	g_EntityEditor = dk::core::allocate<EntityEditor>( g_GlobalAllocator, g_GlobalAllocator, g_GraphicsAssetCache, g_VirtualFileSystem, g_RenderWorld, g_RenderDevice );
 	g_EntityEditor->setActiveWorld( g_World );
 
+	g_EditorGridModule = dk::core::allocate<EditorGridModule>( g_GlobalAllocator );
+
     DUSK_LOG_INFO( "Initialization done (took %.5f seconds)\n", profileTimer.getElapsedTimeAsSeconds() );
     DUSK_LOG_RAW( "\n================================\n\n" );
 }
@@ -871,6 +877,9 @@ void MainLoop()
         // Frame composition.
         presentRt = g_WorldRenderer->FrameComposition->addFrameCompositionPass( frameGraph, presentRt, inverseFFT );
 
+        // Render editor grid.
+        presentRt = g_EditorGridModule->addEditorGridPass( frameGraph, presentRt );
+
         // HUD Text.
         presentRt = g_WorldRenderer->TextRendering->renderText( frameGraph, presentRt );
 
@@ -896,9 +905,13 @@ void Shutdown()
     // Forces buffer swapping in order to safely unload/destroy resources in use
     g_RenderDevice->waitForPendingFrameCompletion();
 
+	DUSK_LOG_INFO( "Releasing GPU resources...\n" );
+
     g_WorldRenderer->destroy( g_RenderDevice );
 
     DUSK_LOG_INFO( "Calling subsystems destructors...\n" );
+
+	dk::core::free( g_GlobalAllocator, g_EditorGridModule );
 
 #if DUSK_DEVBUILD
 #if DUSK_USE_RENDERDOC

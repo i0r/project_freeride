@@ -1,0 +1,73 @@
+lib EditorGrid {
+    properties {
+        float4  ThinLineColor;
+        float4  ThickLineColor;
+        float4  GridInfos;
+    }
+    
+    resources {
+        Texture2D OutputRenderTarget {
+            swizzle = float4;
+        }
+    }
+    
+    shared {
+        static const float3 GridVertices[6] = {
+            float3( -1.0f, 0.0f, -1.0f ),
+            float3( +1.0f, 0.0f, -1.0f ),
+            float3( +1.0f, 0.0f, +1.0f ),
+            
+            float3( -1.0f, 0.0f, -1.0f ),
+            float3( +1.0f, 0.0f, +1.0f ),
+            float3( -1.0f, 0.0f, +1.0f ),
+        };
+    }
+    
+    shader GridVertex {
+        float3 QuadPoint = GridVertices[$SV_VertexID] * GridInfos.x;
+        float4 ScreenSpacePos = mul( g_ViewProjectionMatrix, float4( QuadPoint, 1.0f ) );
+        
+        $POSITION0 = float4( QuadPoint.xz, 0.0f, 0.0f );
+        $SV_Position = ScreenSpacePos;
+    }
+    
+    shader GridPixel {
+        float2 uv = $POSITION0.xy;
+        float2 dudv = float2(length(float2(ddx(uv.x), ddy(uv.x))), length(float2(ddx(uv.y), ddy(uv.y))) );       
+
+        const float min_pixels_between_cells = 1.f;
+
+        float lod_level = max(0, log10((length(dudv) * min_pixels_between_cells) / GridInfos.y) + 1);
+        float lod_fade = frac(lod_level);
+
+        float lod0_cs = GridInfos.y * pow(10, floor(lod_level));
+        float lod1_cs = lod0_cs * 10.f;
+        float lod2_cs = lod1_cs * 10.f;
+        dudv *= 2;
+
+        float2 lod0_cross_a = 1.f - abs(saturate(fmod(uv, lod0_cs) / dudv) * 2 - 1.f);
+        
+        float lod0_a = max(lod0_cross_a.x, lod0_cross_a.y);
+        float2 lod1_cross_a = 1.f - abs(saturate(fmod(uv, lod1_cs) / dudv) * 2 - 1.f);
+        float lod1_a = max(lod1_cross_a.x, lod1_cross_a.y);
+        float2 lod2_cross_a = 1.f - abs(saturate(fmod(uv, lod2_cs) / dudv) * 2 - 1.f);
+        float lod2_a = max(lod2_cross_a.x, lod2_cross_a.y);
+
+        float4 c = lod2_a > 0 ? ThickLineColor : lod1_a > 0 ? lerp(ThickLineColor, ThinLineColor, lod_fade) : ThinLineColor;
+
+        float3 view_dir = normalize(g_ViewDirection);
+        float op_gracing = 1.f - pow(1.f - abs(dot(view_dir, float3(0,1,0))), 16);
+        float op_distance = (1.f - saturate(length(uv) / GridInfos.x));
+        float op = op_gracing * op_distance;
+
+        c.a *= (lod2_a > 0 ? lod2_a : lod1_a > 0 ? lod1_a : (lod0_a * (1-lod_fade))) * op;
+
+        $SV_Target0 = c;
+    }
+    
+    pass RenderGrid {
+        vertex        = GridVertex;    
+        pixel         = GridPixel;
+        rendertargets = { OutputRenderTarget };
+    }
+}
