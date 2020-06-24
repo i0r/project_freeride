@@ -170,7 +170,7 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
                     continue;
                 }
 
-                dkString_t shaderBinPath = dkString_t( DUSK_STRING( "GameData/shaders/sm5/" ) ) + StringToWideString( shader.Hashcode );
+                dkString_t shaderBinPath = dkString_t( DUSK_STRING( "EditorAssets/shaders/sm5/" ) ) + StringToWideString( shader.Hashcode );
                 FileSystemObject* compiledShaderBin = virtualFs->openFile( shaderBinPath, eFileOpenMode::FILE_OPEN_MODE_WRITE | eFileOpenMode::FILE_OPEN_MODE_BINARY );
                 if ( compiledShaderBin->isGood() ) {
                     compiledShaderBin->write( compiledShader.Bytecode, compiledShader.Length );
@@ -203,7 +203,7 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
         }
     }
 
-    FileSystemObject* materialDescriptor = virtualFs->openFile( dkString_t( DUSK_STRING( "GameData/materials/" ) ) + StringToWideString( editableMaterial.Name ) + DUSK_STRING( ".mat" ), eFileOpenMode::FILE_OPEN_MODE_WRITE );
+    FileSystemObject* materialDescriptor = virtualFs->openFile( dkString_t( DUSK_STRING( "EditorAssets/materials/" ) ) + StringToWideString( editableMaterial.Name ) + DUSK_STRING( ".mat" ), eFileOpenMode::FILE_OPEN_MODE_WRITE );
     if ( materialDescriptor->isGood() ) {
         materialDescriptor->writeString( "material \"" );
         materialDescriptor->writeString( editableMaterial.Name );
@@ -218,7 +218,8 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
         SerializeFlag( materialDescriptor, "\tisAlphaBlended", editableMaterial.IsAlphaBlended );
         SerializeFlag( materialDescriptor, "\tisDoubleFace", editableMaterial.IsDoubleFace );
         SerializeFlag( materialDescriptor, "\tenableAlphaToCoverage", editableMaterial.UseAlphaToCoverage );
-        SerializeFlag( materialDescriptor, "\tisAlphaTested", editableMaterial.IsAlphaTested );
+		SerializeFlag( materialDescriptor, "\tisAlphaTested", editableMaterial.IsAlphaTested );
+		SerializeFlag( materialDescriptor, "\tisWireframe", editableMaterial.IsWireframe );
 
         // Write Parameters.
         if ( !mutableParameters.empty() ) {
@@ -244,7 +245,7 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
     }
 
     // TEST crap test
-    FileSystemObject* TestmaterialDescriptor = virtualFs->openFile( dkString_t( DUSK_STRING( "GameData/materials/" ) ) + StringToWideString( editableMaterial.Name ) + DUSK_STRING( ".mat" ), eFileOpenMode::FILE_OPEN_MODE_READ );
+    FileSystemObject* TestmaterialDescriptor = virtualFs->openFile( dkString_t( DUSK_STRING( "EditorAssets/materials/" ) ) + StringToWideString( editableMaterial.Name ) + DUSK_STRING( ".mat" ), eFileOpenMode::FILE_OPEN_MODE_READ );
     Material* material = new Material( memoryAllocator );
     material->deserialize( TestmaterialDescriptor );
     materialDescriptor->close();

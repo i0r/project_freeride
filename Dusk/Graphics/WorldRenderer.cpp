@@ -7,6 +7,7 @@
 
 #include "PrimitiveCache.h"
 #include "FrameGraph.h"
+#include "GraphicsAssetCache.h"
 
 #include <Framework/Cameras/Camera.h>
 #include <Core/Allocators/LinearAllocator.h>
@@ -99,6 +100,7 @@ WorldRenderer::WorldRenderer( BaseAllocator* allocator )
     , frameGraph( nullptr )
     , frameDrawCmds( dk::core::allocateArray<DrawCmd>( allocator, sizeof( DrawCmd )* MAX_DRAW_CMD_COUNT ) )
     , needResourcePrecompute( true )
+    , wireframeMaterial( nullptr )
 {
 
 }
@@ -143,6 +145,9 @@ void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache
     LineRendering->createPersistentResources( *renderDevice );
     FrameComposition->loadCachedResources( *graphicsAssetCache );
     AtmosphereRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
+
+    // Debug resources.
+    wireframeMaterial = graphicsAssetCache->getMaterial( DUSK_STRING( "GameData/materials/wireframe.mat" ), true );
 
     // Precompute resources (might worth being done offline?).
     FrameGraph& graph = *frameGraph;
@@ -217,4 +222,9 @@ FrameGraph& WorldRenderer::prepareFrameGraph( const Viewport& viewport, const Sc
     }
 
     return graph;
+}
+
+const Material* WorldRenderer::getWireframeMaterial() const
+{
+    return wireframeMaterial;
 }

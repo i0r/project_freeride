@@ -635,7 +635,6 @@ void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, c
         }
     }
 
-    const Material* mat = nullptr;
     // Build draw commands from the batches.
     for ( auto& lodBatch : lodBatches ) {
         const LODBatch& batch = lodBatch.second;
@@ -645,7 +644,7 @@ void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, c
         for ( i32 meshIdx = 0; meshIdx < lod->MeshCount; meshIdx++ ) {
             const Mesh& mesh = lod->MeshArray[meshIdx];
             const Material* material = mesh.RenderMaterial;
-            mat = material;
+
 			DrawCmd& drawCmd = worldRenderer->allocateDrawCmd();
 
             // TODO Add back sort key / depth sort / sort Order infos.
@@ -670,6 +669,8 @@ void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, c
     }
 
     if ( boundingSphereCount != 0 ) {
+        const Material* wireframeMat = worldRenderer->getWireframeMaterial();
+
         DrawCmd& drawCmd = worldRenderer->allocateSpherePrimitiveDrawCmd();
 
         // TODO Add back sort key / depth sort / sort Order infos.
@@ -682,7 +683,7 @@ void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, c
         key2.viewportId = cameraIdx;
 
         DrawCommandInfos& infos2 = drawCmd.infos;
-        infos2.material = mat;
+        infos2.material = wireframeMat;
         infos2.instanceCount = boundingSphereCount;
         infos2.modelMatrix = boundingSphereModelMatrices;
     }

@@ -1,0 +1,13 @@
+material "wireframe" {
+	version = 1;
+    isWireframe = true;
+    isDoubleFace = true;
+	scenario "Default" {
+		vertex = "03d1bb7db62e17f27175eaa369cf1875";
+		pixel = "dc48c981da064dad59f880e2b3dad991";
+	}
+	scenario "Editor_Default" {
+		vertex = "b12cce78062bce1b28b4a8cd6b40da44";
+		pixel = "10cb8d34a1bac370c12087c79dba9afd";
+	}
+}

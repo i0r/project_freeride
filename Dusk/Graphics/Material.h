@@ -127,4 +127,7 @@ private:
 
     // True if this material is alpha tested.
     u8 isAlphaTested : 1;
+
+    // True if this material should be rendered with wireframe fillmode.
+    u8 isWireframe : 1;
 };

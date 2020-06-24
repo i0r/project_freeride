@@ -202,6 +202,9 @@ struct EditableMaterial
     // True if this material use refraction.
     u8                      UseRefraction : 1;
 
+    // True if this material must be rasterized with a wireframe fill mode.
+    u8                      IsWireframe : 1;
+
     EditableMaterial()
         : SModel( ShadingModel::Default )
         , LayerCount( 1 )
@@ -214,6 +217,7 @@ struct EditableMaterial
         , ReceiveShadow( true )
         , ScaleUVByModelScale( false )
         , UseRefraction( false )
+        , IsWireframe( false )
     {
         memset( Name, 0, sizeof( char ) * DUSK_MAX_PATH );
     }
