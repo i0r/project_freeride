@@ -629,9 +629,9 @@ void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, c
             }
 
             // Draw debug bounding sphere.
-            dkMat4x4f boundingSphereMatrix = dk::maths::MakeTranslationMat( instanceBoundingSphere.center, modelMatrix );
-            boundingSphereMatrix = dk::maths::MakeScaleMat( dkVec3f( instanceBoundingSphere.radius ), boundingSphereMatrix );
-            boundingSphereModelMatrices[boundingSphereCount++] = boundingSphereMatrix;
+            dkMat4x4f translationMat = dk::maths::MakeTranslationMat( instanceBoundingSphere.center );
+            dkMat4x4f scaleMat = dk::maths::MakeScaleMat( dkVec3f( instanceBoundingSphere.radius ) );
+            boundingSphereModelMatrices[boundingSphereCount++] = translationMat * scaleMat;
         }
     }
 

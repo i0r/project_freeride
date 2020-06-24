@@ -46,7 +46,7 @@ public:
 
     // Bind this material for a certain rendering scenario (depth only, lighting, etc.).
     // Return the pso required to render the given Scenario (or null if the scenario is invalid/unavailable/etc.).
-    PipelineState*  bindForScenario( const RenderScenario scenario, CommandList* cmdList, PipelineStateCache* psoCache, const u32 samplerCount = 1u );
+    PipelineState*  bindForScenario( const RenderScenario scenario, CommandList* cmdList, PipelineStateCache* psoCache, const bool useInstancing = false, const u32 samplerCount = 1u );
 
     // Return the name of this material.
     const char*     getName() const;
@@ -111,6 +111,12 @@ private:
 
     // Pipeline binding for the default render scenario in the material editor (forward+ light pass).
     RenderScenarioBinding defaultEditorScenario;
+
+	// Default Scenario with instancing enabled.
+	RenderScenarioBinding defaultInstancingScenario;
+
+	// Default Editor Scenario with instancing enabled.
+	RenderScenarioBinding defaultEditorInstancingScenario;
 
     // If true, this material will invalidate previously cached states (pipeline states, shaders, etc.) and will request
     // the resources from the hard drive.

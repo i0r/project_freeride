@@ -18,8 +18,12 @@
 
 struct PerPassData 
 {
-    dkMat4x4f PerModelMatrix;
+	f32         StartVector;
+	f32         VectorPerInstance;
+	u32         __PADDING__[2];
 };
+
+static constexpr size_t MAX_VECTOR_PER_INSTANCE = 1024;
 
 LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, Material::RenderScenario scenario )
 {
@@ -30,7 +34,8 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, ResHandle_t perSc
         ResHandle_t PerPassBuffer;
         ResHandle_t PerViewBuffer;
         ResHandle_t PerSceneBuffer;
-        ResHandle_t MaterialEdBuffer;
+		ResHandle_t MaterialEdBuffer;
+		ResHandle_t VectorDataBuffer;
     };
 
     PassData& data = frameGraph.addRenderPass<PassData>(
@@ -61,12 +66,22 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, ResHandle_t perSc
 
             passData.velocityBuffer = builder.allocateImage( velocityRtDesc, FrameGraphBuilder::USE_PIPELINE_DIMENSIONS | FrameGraphBuilder::USE_PIPELINE_SAMPLER_COUNT );
 
-            BufferDesc perPassBuffer;
-            perPassBuffer.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
-            perPassBuffer.Usage = RESOURCE_USAGE_DYNAMIC;
-            perPassBuffer.SizeInBytes = sizeof( PerPassData );
+			BufferDesc vectorDataBufferDesc;
+            vectorDataBufferDesc.BindFlags = RESOURCE_BIND_SHADER_RESOURCE;
+			vectorDataBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
+			vectorDataBufferDesc.SizeInBytes = sizeof( dkVec4f ) * MAX_VECTOR_PER_INSTANCE;
+			vectorDataBufferDesc.StrideInBytes = MAX_VECTOR_PER_INSTANCE;
+            vectorDataBufferDesc.DefaultView.ViewFormat = eViewFormat::VIEW_FORMAT_R32G32B32A32_FLOAT;
+
+			passData.VectorDataBuffer = builder.allocateBuffer( vectorDataBufferDesc, SHADER_STAGE_VERTEX );
+
+			BufferDesc perPassBuffer;
+			perPassBuffer.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
+			perPassBuffer.Usage = RESOURCE_USAGE_DYNAMIC;
+			perPassBuffer.SizeInBytes = sizeof( PerPassData );
 
             passData.PerPassBuffer = builder.allocateBuffer( perPassBuffer, SHADER_STAGE_VERTEX | SHADER_STAGE_PIXEL );
+
             passData.PerViewBuffer = builder.retrievePerViewBuffer();
             passData.MaterialEdBuffer = builder.retrieveMaterialEdBuffer();
 
@@ -80,9 +95,11 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, ResHandle_t perSc
             Buffer* perViewBuffer = resources->getPersistentBuffer( passData.PerViewBuffer );
             Buffer* perWorldBuffer = resources->getBuffer( passData.PerSceneBuffer );
             Buffer* materialEdBuffer = resources->getPersistentBuffer( passData.MaterialEdBuffer );
+            Buffer* vectorBuffer = resources->getBuffer( passData.VectorDataBuffer );
 
             cmdList->pushEventMarker( DUSK_STRING( "Forward+ Light Pass" ) );
 
+            // Clear render targets at the begining of the pass.
             constexpr f32 ClearValue[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
             Image* Framebuffer[2] = { outputTarget, velocityTarget };
             cmdList->clearRenderTargets( Framebuffer, 2u, ClearValue );
@@ -110,26 +127,37 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, ResHandle_t perSc
             cmdList->setViewport( vp );
             cmdList->setScissor( sr );
 
-            const u32 samplerCount = camera->msaaSamplerCount;
+			// Upload buffer data
+			const void* vectorBufferData = resources->getVectorBufferData();
+			cmdList->updateBuffer( *vectorBuffer, vectorBufferData, sizeof( dkVec4f ) * MAX_VECTOR_PER_INSTANCE );
 
+            const u32 samplerCount = camera->msaaSamplerCount;
             const FrameGraphResources::DrawCmdBucket& bucket = resources->getDrawCmdBucket( DrawCommandKey::LAYER_WORLD, DrawCommandKey::WORLD_VIEWPORT_LAYER_DEFAULT );
+
+            PerPassData perPassData;
+            perPassData.StartVector = bucket.instanceDataStartOffset;
+            perPassData.VectorPerInstance = bucket.vectorPerInstance;
+
             for ( const DrawCmd& cmd : bucket ) {
                 const DrawCommandInfos& cmdInfos = cmd.infos;
                 const Material* material = cmdInfos.material;
+                const bool useInstancing = ( cmdInfos.instanceCount > 1 );
 
-                PipelineState* pipelineState = const_cast<Material*>( material )->bindForScenario( scenario, cmdList, psoCache, samplerCount );
+                // Upload vector buffer offset
+				cmdList->updateBuffer( *perPassBuffer, &perPassData, sizeof( PerPassData ) );
 
-                cmdList->updateBuffer( *perPassBuffer, cmdInfos.modelMatrix, sizeof( dkMat4x4f ) );
-
-                // TODO We need to rebind the cbuffer every time the pso might have changed... this is bad.
+                // Retrieve the PipelineState for the given RenderScenario.
+                PipelineState* pipelineState = const_cast<Material*>( material )->bindForScenario( scenario, cmdList, psoCache, useInstancing, samplerCount );
+                
+				cmdList->bindBuffer( DUSK_STRING_HASH( "InstanceVectorBuffer" ), vectorBuffer );
                 cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
                 cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
                 cmdList->bindConstantBuffer( PerWorldBufferHashcode, perWorldBuffer );
-
                 if ( scenario == Material::RenderScenario::Default_Editor ) {
                     cmdList->bindConstantBuffer( MaterialEditorBufferHashcode, materialEdBuffer );
                 }
 
+                // Re-setup the framebuffer (some permutations have a different framebuffer layout).
                 cmdList->setupFramebuffer( Framebuffer, zbufferTarget );
                 cmdList->prepareAndBindResourceList( pipelineState );
 
@@ -139,11 +167,14 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, ResHandle_t perSc
                     cmdInfos.vertexBuffers[eMeshAttribute::UvMap_0]
                 };
 
-                // TODO Support vertex buffer offset
-                cmdList->bindVertexBuffer( ( const Buffer** )bufferList, 3, 0 );
+                // Bind vertex buffers
+                cmdList->bindVertexBuffer( ( const Buffer** )bufferList, 3, 0);
                 cmdList->bindIndiceBuffer( cmdInfos.indiceBuffer, !cmdInfos.useShortIndices );
 
-                cmdList->drawIndexed( cmdInfos.indiceBufferCount, cmdInfos.instanceCount, cmdInfos.indiceBufferOffset );
+				cmdList->drawIndexed( cmdInfos.indiceBufferCount, cmdInfos.instanceCount, cmdInfos.indiceBufferOffset );
+
+				// Update vector buffer offset data
+				perPassData.StartVector += ( cmdInfos.instanceCount * bucket.vectorPerInstance );
             }
 
             cmdList->popEventMarker();

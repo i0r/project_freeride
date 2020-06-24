@@ -590,11 +590,6 @@ void MainLoop()
 
         g_InputMapper->clear();
 
-        g_World->collectRenderables( g_DrawCommandBuilder );
-        
-        g_DrawCommandBuilder->addWorldCameraToRender( &g_FreeCamera->getData() );
-        g_DrawCommandBuilder->prepareAndDispatchCommands( g_WorldRenderer, g_LightGrid );
-
         std::string str = std::to_string( framerateCounter.AvgDeltaTime ).substr( 0, 6 )
             + " ms / "
             + std::to_string( framerateCounter.MinDeltaTime ).substr( 0, 6 )
@@ -606,6 +601,12 @@ void MainLoop()
         FrameGraph& frameGraph = g_WorldRenderer->prepareFrameGraph( vp, sr, &g_FreeCamera->getData() );
         frameGraph.acquireCurrentMaterialEdData( g_MaterialEditor->getRuntimeEditionData() );
         frameGraph.setScreenSize( ScreenSize );
+
+        // TODO We should use a snapshot of the world instead of having to wait the previous frame completion...
+		g_World->collectRenderables( g_DrawCommandBuilder );
+
+		g_DrawCommandBuilder->addWorldCameraToRender( &g_FreeCamera->getData() );
+		g_DrawCommandBuilder->prepareAndDispatchCommands( g_WorldRenderer, g_LightGrid );
 
 #if DUSK_USE_IMGUI
             static bool IsRenderDocVisible = false;

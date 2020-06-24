@@ -158,7 +158,7 @@ void LineRenderingModule::lockVertexBuffer()
         expected = false;
     }
 
-    cbufferLock.store( true, std::memory_order_acquire );
+    cbufferLock.store( true );
 }
 
 void LineRenderingModule::unlockVertexBuffer()
@@ -173,7 +173,7 @@ void LineRenderingModule::lockVertexBufferRendering()
         expected = false;
     }
 
-    cbufferRenderingLock.store( true, std::memory_order_acquire );
+    cbufferRenderingLock.store( true );
 }
 
 void LineRenderingModule::unlockVertexBufferRendering()

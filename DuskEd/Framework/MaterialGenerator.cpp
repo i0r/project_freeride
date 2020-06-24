@@ -19,7 +19,7 @@ struct ScenarioBinding {
     std::string VertexShaderName;
 
     // Hashcode of the pixel shader name.
-    std::string PixelShaderName;
+	std::string PixelShaderName;
 };
 
 // Return the first shader hashcode with matching name. Return an empty string if the given shader name does not exist.
@@ -42,6 +42,8 @@ DUSK_INLINE void SerializeFlag( FileSystemObject* stream, const char* flagName, 
     serializedFlag.append( " = " );
     serializedFlag.append( value ? "true" : "false" );
     serializedFlag.append( ";\n" );
+
+    stream->writeString( serializedFlag );
 }
 
 void SerializeScenario( FileSystemObject* stream, const char* scenarioName, const ScenarioBinding& scenarioBinding )
@@ -186,21 +188,35 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
 
     // Generate material descriptor (pipeline flags, external assets required, etc.).
     const std::string namedGenericPass = std::string( editableMaterial.Name ) + "LightPass";
-    const std::string namedGenericPassEd = std::string( editableMaterial.Name ) + "LightPassEd";
+	const std::string namedGenericPassEd = std::string( editableMaterial.Name ) + "LightPassEd";
+	const std::string namedGenericInstancedPass = namedGenericPass + "Instanced";
+	const std::string namedGenericInstancedPassEd = namedGenericPassEd + "Instanced";
 
     ScenarioBinding DefaultBinding;
-    ScenarioBinding DefaultEdBinding;
+	ScenarioBinding DefaultEdBinding;
+	ScenarioBinding DefaultInstancedBinding;
+	ScenarioBinding DefaultEdInstancedBinding;
+
     const std::vector<RenderLibraryGenerator::RenderPassInfos>& renderPasses = renderLibGenerator.getGeneratedRenderPasses();
     for ( const RenderLibraryGenerator::RenderPassInfos& renderPass : renderPasses ) {
+        ScenarioBinding* matchingBinding = nullptr;
+
+        // TODO Remove this crappy string to string comparison and make something better!
         if ( renderPass.RenderPassName == namedGenericPass ) {
-            DefaultBinding.VertexShaderName = FindShaderPermutationHashcode( renderLibGenerator.getGeneratedShaders(), renderPass.StageShaderNames[0], renderPass.RenderPassName );
-            DefaultBinding.PixelShaderName = FindShaderPermutationHashcode( renderLibGenerator.getGeneratedShaders(), renderPass.StageShaderNames[3], renderPass.RenderPassName );
+            matchingBinding = &DefaultBinding;
+		} else if ( renderPass.RenderPassName == namedGenericPassEd ) {
+            matchingBinding = &DefaultEdBinding;
+		} else if ( renderPass.RenderPassName == namedGenericInstancedPass ) {
+            matchingBinding = &DefaultInstancedBinding;
+		} else if ( renderPass.RenderPassName == namedGenericInstancedPassEd ) {
+            matchingBinding = &DefaultEdInstancedBinding;
+        } else {
+            DUSK_LOG_WARN( "Unknown RenderPass '%s' found!\n", renderPass.RenderPassName.c_str() );
+            continue;
         }
 
-        if ( renderPass.RenderPassName == namedGenericPassEd ) {
-            DefaultEdBinding.VertexShaderName = FindShaderPermutationHashcode( renderLibGenerator.getGeneratedShaders(), renderPass.StageShaderNames[0], renderPass.RenderPassName );
-            DefaultEdBinding.PixelShaderName = FindShaderPermutationHashcode( renderLibGenerator.getGeneratedShaders(), renderPass.StageShaderNames[3], renderPass.RenderPassName );
-        }
+        matchingBinding->VertexShaderName = FindShaderPermutationHashcode( renderLibGenerator.getGeneratedShaders(), renderPass.StageShaderNames[0], renderPass.RenderPassName );
+        matchingBinding->PixelShaderName = FindShaderPermutationHashcode( renderLibGenerator.getGeneratedShaders(), renderPass.StageShaderNames[3], renderPass.RenderPassName );
     }
 
     FileSystemObject* materialDescriptor = virtualFs->openFile( dkString_t( DUSK_STRING( "EditorAssets/materials/" ) ) + StringToWideString( editableMaterial.Name ) + DUSK_STRING( ".mat" ), eFileOpenMode::FILE_OPEN_MODE_WRITE );
@@ -214,7 +230,8 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
         materialDescriptor->writeString( std::to_string( MaterialGenerator::Version ) );
         materialDescriptor->writeString( ";\n" );
 
-        // Write Material flags.
+        // Write Material flags (we only write flags affecting the pipeline state;
+        // flags are directly baked in the shader binary otherwise).
         SerializeFlag( materialDescriptor, "\tisAlphaBlended", editableMaterial.IsAlphaBlended );
         SerializeFlag( materialDescriptor, "\tisDoubleFace", editableMaterial.IsDoubleFace );
         SerializeFlag( materialDescriptor, "\tenableAlphaToCoverage", editableMaterial.UseAlphaToCoverage );
@@ -236,8 +253,10 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
         }
 
         // Write each Rendering scenario.
-        SerializeScenario( materialDescriptor, "Default", DefaultBinding );
-        SerializeScenario( materialDescriptor, "Editor_Default", DefaultEdBinding );
+		SerializeScenario( materialDescriptor, "Default", DefaultBinding );
+		SerializeScenario( materialDescriptor, "DefaultInstanced", DefaultInstancedBinding );
+		SerializeScenario( materialDescriptor, "Editor_Default", DefaultEdBinding );
+		SerializeScenario( materialDescriptor, "Editor_DefaultInstanced", DefaultEdInstancedBinding );
 
         materialDescriptor->writeString( "}\n" );
 

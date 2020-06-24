@@ -98,13 +98,21 @@ void Material::deserialize( FileSystemObject* object )
 
                     switch ( type.Type ) {
                     case TypeAST::RENDER_SCENARIO: {
-                        if ( dk::core::ExpectKeyword( name.StreamPointer, 14, "Editor_Default" ) ) {
+                        if ( dk::core::ExpectKeyword( name.StreamPointer, name.Length, "Editor_Default" ) ) {
                             ParseScenario( defaultEditorScenario, type );
                         } 
 
-                        if ( dk::core::ExpectKeyword( name.StreamPointer, 7, "Default" ) ) {
+						if ( dk::core::ExpectKeyword( name.StreamPointer, name.Length, "Editor_DefaultInstanced" ) ) {
+							ParseScenario( defaultEditorInstancingScenario, type );
+						}
+
+                        if ( dk::core::ExpectKeyword( name.StreamPointer, name.Length, "Default" ) ) {
                             ParseScenario( defaultScenario, type );
-                        }
+						}
+
+						if ( dk::core::ExpectKeyword( name.StreamPointer, name.Length, "DefaultInstanced" ) ) {
+							ParseScenario( defaultInstancingScenario, type );
+						}
                     } break;
                     case TypeAST::MATERIAL_PARAMETER: {
                         const u32 parameterCount = static_cast<u32>( type.Names.size() );
@@ -133,7 +141,7 @@ void Material::deserialize( FileSystemObject* object )
     }
 }
 
-PipelineState* Material::bindForScenario( const RenderScenario scenario, CommandList* cmdList, PipelineStateCache* psoCache, const u32 samplerCount )
+PipelineState* Material::bindForScenario( const RenderScenario scenario, CommandList* cmdList, PipelineStateCache* psoCache, const bool useInstancing, const u32 samplerCount )
 {
     PipelineState* scenarioPso = nullptr;
 
@@ -141,19 +149,21 @@ PipelineState* Material::bindForScenario( const RenderScenario scenario, Command
     case RenderScenario::Default:
     case RenderScenario::Default_Editor:
     {
+        // TODO Cache the descriptors so that we don't have to recreate those each frame?
         PipelineStateDesc DefaultPipelineState( PipelineStateDesc::GRAPHICS );
         DefaultPipelineState.PrimitiveTopology = ePrimitiveTopology::PRIMITIVE_TOPOLOGY_TRIANGLELIST;
         DefaultPipelineState.DepthStencilState.EnableDepthWrite = true;
         DefaultPipelineState.DepthStencilState.EnableDepthTest = true;
         DefaultPipelineState.DepthStencilState.DepthComparisonFunc = eComparisonFunction::COMPARISON_FUNCTION_GREATER;
 
+		DefaultPipelineState.RasterizerState.UseTriangleCCW = true;
         DefaultPipelineState.RasterizerState.CullMode = ( isDoubleFace ) ? eCullMode::CULL_MODE_NONE : eCullMode::CULL_MODE_FRONT;
-        DefaultPipelineState.RasterizerState.UseTriangleCCW = true;
         DefaultPipelineState.RasterizerState.FillMode = ( isWireframe ) ? eFillMode::FILL_MODE_WIREFRAME : eFillMode::FILL_MODE_SOLID;
 
         DefaultPipelineState.FramebufferLayout.declareRTV( 0, VIEW_FORMAT_R16G16B16A16_FLOAT );
         DefaultPipelineState.FramebufferLayout.declareRTV( 1, VIEW_FORMAT_R16G16_FLOAT );
         DefaultPipelineState.FramebufferLayout.declareDSV( VIEW_FORMAT_D32_FLOAT );
+
         DefaultPipelineState.samplerCount = samplerCount;
         DefaultPipelineState.InputLayout.Entry[0] = { 0, VIEW_FORMAT_R32G32B32_FLOAT, 0, 0, 0, false, "POSITION" };
         DefaultPipelineState.InputLayout.Entry[1] = { 0, VIEW_FORMAT_R32G32B32_FLOAT, 0, 1, 0, true, "NORMAL" };
@@ -162,8 +172,13 @@ PipelineState* Material::bindForScenario( const RenderScenario scenario, Command
 
         DefaultPipelineState.addStaticSampler( RenderingHelpers::S_BilinearWrap );
 
-        const PipelineStateCache::ShaderBinding& shaderBinding = ( ( scenario == RenderScenario::Default_Editor ) ? defaultEditorScenario : defaultScenario ).PsoShaderBinding;
-        scenarioPso = psoCache->getOrCreatePipelineState( DefaultPipelineState, shaderBinding, invalidateCachedStates );
+		if ( useInstancing ) {
+			const PipelineStateCache::ShaderBinding& shaderBinding = ( ( scenario == RenderScenario::Default_Editor ) ? defaultEditorInstancingScenario : defaultInstancingScenario ).PsoShaderBinding;
+			scenarioPso = psoCache->getOrCreatePipelineState( DefaultPipelineState, shaderBinding, invalidateCachedStates );
+		} else {
+			const PipelineStateCache::ShaderBinding& shaderBinding = ( ( scenario == RenderScenario::Default_Editor ) ? defaultEditorScenario : defaultScenario ).PsoShaderBinding;
+			scenarioPso = psoCache->getOrCreatePipelineState( DefaultPipelineState, shaderBinding, invalidateCachedStates );
+        }
     } break;
     default:
         break;

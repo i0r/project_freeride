@@ -140,7 +140,8 @@ void EntityEditor::displayTransformSection( const dkVec4f& viewportBounds, Camer
 		  ImGui::RadioButton( "Rotate", &activeManipulationMode, 1 );
 		  ImGui::SameLine();
 		  ImGui::RadioButton( "Scale", &activeManipulationMode, 2 );
-		  ImGui::TreePop();*/
+		  */
+        ImGui::TreePop();
     }
 }
 

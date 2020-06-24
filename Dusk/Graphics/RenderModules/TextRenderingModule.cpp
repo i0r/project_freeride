@@ -285,7 +285,7 @@ void TextRenderingModule::lockVertexBuffer()
         expected = false;
     }
 
-    vertexBufferLock.store( true, std::memory_order_acquire );
+    vertexBufferLock.store( true );
 }
 
 void TextRenderingModule::unlockVertexBuffer()
@@ -300,7 +300,7 @@ void TextRenderingModule::lockVertexBufferRendering()
         expected = false;
     }
 
-    vertexBufferRenderingLock.store( true, std::memory_order_acquire );
+    vertexBufferRenderingLock.store( true );
 }
 
 void TextRenderingModule::unlockVertexBufferRendering()
