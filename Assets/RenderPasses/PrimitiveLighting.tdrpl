@@ -3,7 +3,6 @@ lib PrimitiveLighting {
         cflag       UseInstancing = false;
         cflag       WriteVelocity = false;
         cflag       MaterialEditor = false;
-        float4x4    PerModelMatrix; // Only relevant if instancing is disabled.
         float       StartVector;
         float       VectorPerInstance;
     }
@@ -105,13 +104,8 @@ lib PrimitiveLighting {
     }
     
     shader PrimitiveVS {
-        #ifdef $UseInstancing
-            float4x4 ModelMatrix = GetInstanceModelMatrix( InstanceVectorBuffer, $SV_InstanceID );
-        #else
-            float4x4 ModelMatrix = PerModelMatrix;
-        #endif
-        
-        float4 positionWS = mul( ModelMatrix, float4( $POSITION.xyz, 1.0f ) );
+        float4x4 ModelMatrix = GetInstanceModelMatrix( InstanceVectorBuffer, $SV_InstanceID );
+        float4 positionWS = mul( float4( $POSITION.xyz, 1.0f ), ModelMatrix );
         
         $TEXCOORD0 = $TEXCOORD;
         $POSITION0 = positionWS;
@@ -153,6 +147,16 @@ lib PrimitiveLighting {
         vertex = PrimitiveVS;
         pixel = PrimitivePS;
         WriteVelocity = true;
+        UseInstancing = false;
+        rendertargets = { OutputRenderTarget, OutputVelocity };
+        depthStencil = OutputDepthTarget;
+    }
+    
+    pass LightPassInstanced {
+        vertex = PrimitiveVS;
+        pixel = PrimitivePS;
+        WriteVelocity = true;
+        UseInstancing = true;
         rendertargets = { OutputRenderTarget, OutputVelocity };
         depthStencil = OutputDepthTarget;
     }
@@ -162,6 +166,17 @@ lib PrimitiveLighting {
         pixel = PrimitivePS;
         MaterialEditor = true;
         WriteVelocity = true;
+        UseInstancing = false;
+        rendertargets = { OutputRenderTarget, OutputVelocity };
+        depthStencil = OutputDepthTarget;
+    }
+    
+    pass LightPassEdInstanced {
+        vertex = PrimitiveVS;
+        pixel = PrimitivePS;
+        MaterialEditor = true;
+        WriteVelocity = true;
+        UseInstancing = true;
         rendertargets = { OutputRenderTarget, OutputVelocity };
         depthStencil = OutputDepthTarget;
     }

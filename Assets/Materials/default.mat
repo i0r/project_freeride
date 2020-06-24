@@ -1,11 +1,24 @@
 material "default" {
 	version = 1;
+	isAlphaBlended = false;
+	isDoubleFace = false;
+	enableAlphaToCoverage = false;
+	isAlphaTested = false;
+	isWireframe = false;
 	scenario "Default" {
 		vertex = "e5af556c12334aa715c265a409fe3d8f";
 		pixel = "efce1d6cb5543daba890e788f5b629ea";
 	}
+	scenario "DefaultInstanced" {
+		vertex = "266765ad27263b9c1ab63c89db7a6c41";
+		pixel = "42c46d1ecc3088cfb0bfe53833ec58ff";
+	}
 	scenario "Editor_Default" {
 		vertex = "d7dd6a229530fcc32c06f59eda0932b3";
 		pixel = "b9e70f6fa8d1e2f1639a829d5d30c8a8";
+	}
+	scenario "Editor_DefaultInstanced" {
+		vertex = "9fbfd2d7c139aa8d264f4d12334b07a1";
+		pixel = "7f4a65f613346a98f6c642f0d818f6ca";
 	}
 }
