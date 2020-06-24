@@ -49,9 +49,10 @@ struct PerViewBufferData
     dkVec2f     InverseScreenSize;
     dkVec3f     WorldPosition;
     i32         FrameIndex;
-    dkVec2f     CameraJitteringOffset;
-    f32         ImageQuality;
-    u32         __PADDING__;
+	dkVec3f     ViewDirection;
+	f32         ImageQuality;
+	dkVec2f     CameraJitteringOffset;
+    u32         __PADDING__[2];
 };
 DUSK_IS_MEMORY_ALIGNED_STATIC( PerViewBufferData, 16 );
 

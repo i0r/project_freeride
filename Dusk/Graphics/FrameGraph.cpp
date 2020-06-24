@@ -642,7 +642,8 @@ FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevi
     perViewData.WorldPosition = dkVec3f( 0.0f, 0.0f, 0.0f );
     perViewData.FrameIndex = 0;
     perViewData.CameraJitteringOffset = dkVec2f( 0.0f, 0.0f );
-    perViewData.ImageQuality = 1.0f;
+	perViewData.ImageQuality = 1.0f;
+	perViewData.ViewDirection = dkVec3f( 0.0f, 0.0f, 0.0f );
 }
 
 FrameGraph::~FrameGraph()
@@ -717,7 +718,8 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
         perViewData.WorldPosition = activeCamera->worldPosition;
         perViewData.FrameIndex = activeCamera->cameraFrameNumber;
         perViewData.CameraJitteringOffset = activeCamera->jitteringOffset;
-        perViewData.ImageQuality = activeCamera->imageQuality;
+		perViewData.ImageQuality = activeCamera->imageQuality;
+		perViewData.ViewDirection = dkVec3f( activeCamera->viewMatrix[0][2], activeCamera->viewMatrix[1][2], activeCamera->viewMatrix[2][2] );
     }
     
     graphScheduler.updateMaterialEdBuffer( &localMaterialEdData );
