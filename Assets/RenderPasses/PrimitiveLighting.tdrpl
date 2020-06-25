@@ -27,6 +27,10 @@ lib PrimitiveLighting {
             format = BilinearClampEdge;
         }
         
+        RWByteAddressBuffer PickingBuffer {
+            format = uint;
+        }
+        
         // Injected at Material compile-time. DO NOT REMOVE.
         DUSK_LAYERS_RESOURCES;
     }
@@ -75,35 +79,34 @@ lib PrimitiveLighting {
             return Velocity;
         }
         
-        void UpdatePickingBuffer(uint2 pos, uint2 identity, float z, float opacity) 
+        void UpdatePickingBuffer(uint2 pos, uint identity, float z, float opacity) 
         {
             static const float OpacityThreshold = 0.5f;
             if (opacity < OpacityThreshold) {
                 return;
             }
             
-            uint2 cursor_pos = g_CursorPosition;
-            if (pos.x != cursor_pos.x || pos.y != cursor_pos.y) {
+            if (pos.x != g_CursorPosition.x || pos.y != g_CursorPosition.y) {
                 return;
             }
             
             uint d = asuint(z);
             uint current_d_or_locked = 0;
             do {
-                if (d >= picking_buffer.Load(0)) {
+                if (d >= PickingBuffer.Load(0)) {
                     return;
                 }
                 
-                picking_buffer.InterlockedMin(0, d, current_d_or_locked);
+                PickingBuffer.InterlockedMin(0, d, current_d_or_locked);
                 if (d < (int)current_d_or_locked) {
                     uint last_d = 0;
                     
-                    picking_buffer.InterlockedCompareExchange(0, d, asuint(-(int)d), last_d);
+                    PickingBuffer.InterlockedCompareExchange(0, d, asuint(-(int)d), last_d);
                     
                     if (last_d == d) {
-                        picking_buffer.Store2(4, identity);
+                        PickingBuffer.Store2(4, identity);
                         uint dummy;
-                        picking_buffer.InterlockedExchange(0, d, dummy);
+                        PickingBuffer.InterlockedExchange(0, d, dummy);
                     }
                 }
             } while((int)current_d_or_locked < 0);
@@ -173,6 +176,10 @@ lib PrimitiveLighting {
         
 #ifdef $WriteVelocity
         $SV_TARGET1 = ComputeScreenSpaceVelocity( $POSITION1, $SV_POSITION ).rgrg;      
+#endif
+
+#ifdef $DoPickingCheck
+        UpdatePickingBuffer( (uint2)$SV_POSITION.xy, 0, $SV_POSITION.z, 1.0f );
 #endif
     }
     

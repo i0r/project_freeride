@@ -637,13 +637,14 @@ FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevi
     perViewData.InverseViewProjectionMatrix = dkMat4x4f::Identity;
     perViewData.PreviousViewProjectionMatrix = dkMat4x4f::Identity;
     perViewData.OrthoProjectionMatrix = dkMat4x4f::Identity;
-    perViewData.ScreenSize = dkVec2f( 0.0f, 0.0f );
-    perViewData.InverseScreenSize = dkVec2f( 0.0f, 0.0f );
+    perViewData.ViewportSize = dkVec2f( 0.0f, 0.0f );
+    perViewData.InverseViewportSize = dkVec2f( 0.0f, 0.0f );
     perViewData.WorldPosition = dkVec3f( 0.0f, 0.0f, 0.0f );
     perViewData.FrameIndex = 0;
     perViewData.CameraJitteringOffset = dkVec2f( 0.0f, 0.0f );
 	perViewData.ImageQuality = 1.0f;
 	perViewData.ViewDirection = dkVec3f( 0.0f, 0.0f, 0.0f );
+    perViewData.MouseCoordinates = dkVec2u( 0, 0 );
 }
 
 FrameGraph::~FrameGraph()
@@ -713,8 +714,8 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
         perViewData.InverseViewProjectionMatrix = activeCamera->inverseViewProjectionMatrix;
         perViewData.PreviousViewProjectionMatrix = activeCamera->previousViewProjectionMatrix;
         perViewData.OrthoProjectionMatrix = dk::maths::MakeOrtho( 0.0f, activeCamera->viewportSize.x, activeCamera->viewportSize.y, 0.0f, -1.0f, 1.0f );
-        perViewData.ScreenSize = activeCamera->viewportSize;
-        perViewData.InverseScreenSize = activeCamera->inverseViewportSize;
+        perViewData.ViewportSize = activeCamera->viewportSize;
+        perViewData.InverseViewportSize = activeCamera->inverseViewportSize;
         perViewData.WorldPosition = activeCamera->worldPosition;
         perViewData.FrameIndex = activeCamera->cameraFrameNumber;
         perViewData.CameraJitteringOffset = activeCamera->jitteringOffset;
@@ -760,6 +761,11 @@ void FrameGraph::setScreenSize( const dkVec2u& screenSize )
     graphResources.setScreenSize( screenSize );
 
     graphScreenSize = screenSize;
+}
+
+void FrameGraph::updateMouseCoordinates( const dkVec2u& mouseCoordinates )
+{
+    perViewData.MouseCoordinates = mouseCoordinates;
 }
 
 void FrameGraph::acquireCurrentMaterialEdData( const MaterialEdData* matEdData )

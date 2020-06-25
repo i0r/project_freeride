@@ -118,6 +118,7 @@ static bool                    g_IsFirstLaunch = false;
 static bool                    g_IsMouseOverViewportWindow = false;
 static bool                    g_CanMoveCamera = false;
 static bool                    g_IsResizing = true;
+static dkVec2u                 g_CursorPosition = dkVec2u( 0, 0 );
 
 DUSK_ENV_VAR( EnableVSync, true, bool ); // "Enable Vertical Synchronisation [false/true]"
 DUSK_ENV_VAR( EnableTAA, false, bool ); // "Enable Temporal AntiAliasing [false/true]"
@@ -248,6 +249,9 @@ void RegisterInputContexts()
         f32 rawX = dk::maths::clamp( static_cast< f32 >( g_InputReader->getAbsoluteAxisValue( dk::input::eInputAxis::MOUSE_X ) ), 0.0f, static_cast< f32 >( ScreenSize.x ) );
         f32 rawY = dk::maths::clamp( static_cast< f32 >( g_InputReader->getAbsoluteAxisValue( dk::input::eInputAxis::MOUSE_Y ) ), 0.0f, static_cast< f32 >( ScreenSize.y ) );
         f32 mouseWheel = static_cast< f32 >( g_InputReader->getAbsoluteAxisValue( dk::input::eInputAxis::MOUSE_SCROLL_WHEEL ) );
+
+		g_CursorPosition.x = static_cast< u32 >( rawX );
+		g_CursorPosition.y = static_cast< u32 >( rawY );
 
         ImGuiIO& io = ImGui::GetIO();
         io.MousePos = ImVec2( rawX, rawY );
@@ -607,7 +611,8 @@ void MainLoop()
         FrameGraph& frameGraph = g_WorldRenderer->prepareFrameGraph( vp, sr, &g_FreeCamera->getData() );
         frameGraph.acquireCurrentMaterialEdData( g_MaterialEditor->getRuntimeEditionData() );
         frameGraph.setScreenSize( ScreenSize );
-
+        frameGraph.updateMouseCoordinates( g_CursorPosition );
+        
         // TODO We should use a snapshot of the world instead of having to wait the previous frame completion...
 		g_World->collectRenderables( g_DrawCommandBuilder );
 

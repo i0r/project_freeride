@@ -39,20 +39,46 @@ static constexpr dkStringHash_t PerPassBufferHashcode = DUSK_STRING_HASH( "PerPa
 static constexpr dkStringHash_t PerWorldBufferHashcode = DUSK_STRING_HASH( "PerWorldBuffer" );
 static constexpr dkStringHash_t MaterialEditorBufferHashcode = DUSK_STRING_HASH( "MaterialEditorBuffer" );
 
+// PerView buffer content. You must force RenderPass baking whenever the content (or the order
+// of this structure) is updated!
 struct PerViewBufferData 
 {
+    // View Projection Matrix.
     dkMat4x4f   ViewProjectionMatrix;
+
+    // Inverse View Projection Matrix.
     dkMat4x4f   InverseViewProjectionMatrix;
+
+    // Previous frame View Projection Matrix.
     dkMat4x4f   PreviousViewProjectionMatrix;
+
+    // Orthographic Projection Matrix (for HUD/screenspace passes).
     dkMat4x4f   OrthoProjectionMatrix;
-    dkVec2f     ScreenSize;
-    dkVec2f     InverseScreenSize;
+
+    // Viewport Size. This is the size of the viewport showing the world view.
+    // THIS VALUE MIGHT BE DIFFERENT FROM THE ACTUAL SCREEN SIZE (e.g. in editor).
+    dkVec2f     ViewportSize;
+
+    // Inverse viewport size (1.0f/ViewportSize).
+    dkVec2f     InverseViewportSize;
+
+    // World Position of the view.
     dkVec3f     WorldPosition;
+
+    // Index of the frame being rendered.
     i32         FrameIndex;
+
+    // View direction of the camera (normalized).
 	dkVec3f     ViewDirection;
+
+    // SSAA factor applied during the geometry renderpass.
 	f32         ImageQuality;
+
+    // Jittering offset applied to avoid temporal artifacts.
 	dkVec2f     CameraJitteringOffset;
-    u32         __PADDING__[2];
+
+    // Mouse coordinates (in screen space). Uses top-left referential.
+    dkVec2u     MouseCoordinates;
 };
 DUSK_IS_MEMORY_ALIGNED_STATIC( PerViewBufferData, 16 );
 
@@ -622,6 +648,9 @@ public:
     void    setViewport( const Viewport& viewport, const ScissorRegion& scissorRegion, const CameraData* camera = nullptr );
     void    setMSAAQuality( const uint32_t samplerCount = 1 );
     void    setScreenSize( const dkVec2u& screenSize );
+
+    // Update this application mouse coordinates (upload is deferred to next frame).
+    void    updateMouseCoordinates( const dkVec2u& mouseCoordinates );
 
     void    acquireCurrentMaterialEdData( const MaterialEdData* matEdData );
 
