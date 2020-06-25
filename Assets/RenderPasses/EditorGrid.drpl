@@ -9,6 +9,10 @@ lib EditorGrid {
         Texture2D OutputRenderTarget {
             swizzle = float4;
         }
+        
+        Texture2D DepthBuffer {
+            swizzle = float4;
+        }
     }
     
     shared {
@@ -27,11 +31,16 @@ lib EditorGrid {
         float3 QuadPoint = GridVertices[$SV_VertexID] * GridInfos.x;
         float4 ScreenSpacePos = mul( g_ViewProjectionMatrix, float4( QuadPoint, 1.0f ) );
         
-        $POSITION0 = float4( QuadPoint.xz, 0.0f, 0.0f );
         $SV_Position = ScreenSpacePos;
+        $POSITION0 = float4( QuadPoint.xz, ScreenSpacePos.z, 0.0f );
     }
     
     shader GridPixel {
+        uint2 texelPos = $SV_Position.xy;
+        float zbufferSample = DepthBuffer[texelPos];
+        
+        clip( $SV_Position.z - zbufferSample );
+
         float2 uv = $POSITION0.xy;
         float2 dudv = float2(length(float2(ddx(uv.x), ddy(uv.x))), length(float2(ddx(uv.y), ddy(uv.y))) );       
 

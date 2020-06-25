@@ -5,9 +5,6 @@ material "default" {
 	enableAlphaToCoverage = false;
 	isAlphaTested = false;
 	isWireframe = false;
-	parameters {
-		 "Texture_BlendedMaterial_BaseColor" = "GameData/textures/test.dds";
-	}
 	scenario "Default" {
 		vertex = "e5af556c12334aa715c265a409fe3d8f";
 		pixel = "efce1d6cb5543daba890e788f5b629ea";

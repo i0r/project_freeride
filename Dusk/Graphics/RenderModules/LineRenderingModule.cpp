@@ -45,7 +45,8 @@ void LineRenderingModule::destroy( RenderDevice& renderDevice )
 
 ResHandle_t LineRenderingModule::renderLines( FrameGraph& frameGraph, ResHandle_t output )
 {
-    struct PassData {
+    struct PassData
+    {
         ResHandle_t Output;
         ResHandle_t PerViewBuffer;
     };
@@ -62,57 +63,42 @@ ResHandle_t LineRenderingModule::renderLines( FrameGraph& frameGraph, ResHandle_
     PassData& data = frameGraph.addRenderPass<PassData>(
         HUD::LineRendering_Name,
         [&]( FrameGraphBuilder& builder, PassData& passData ) {
-            passData.PerViewBuffer = builder.retrievePerViewBuffer();
-            passData.Output = builder.readImage( output );
-        },
+        passData.PerViewBuffer = builder.retrievePerViewBuffer();
+        passData.Output = builder.readImage( output );
+    },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
-            lockVertexBufferRendering();
+        lockVertexBufferRendering();
 
-            Image* outputTarget = resources->getImage( passData.Output );
-            Buffer* perViewBuffer = resources->getPersistentBuffer( passData.PerViewBuffer );
+        Image* outputTarget = resources->getImage( passData.Output );
+        Buffer* perViewBuffer = resources->getPersistentBuffer( passData.PerViewBuffer );
 
-            PipelineState* pipelineState = psoCache->getOrCreatePipelineState( PipelineStateDefault, HUD::LineRendering_ShaderBinding );
+        PipelineState* pipelineState = psoCache->getOrCreatePipelineState( PipelineStateDefault, HUD::LineRendering_ShaderBinding );
 
-            const ScissorRegion* pipelineScissor = resources->getMainScissorRegion();
+        cmdList->pushEventMarker( HUD::LineRendering_EventName );
 
-            cmdList->pushEventMarker( HUD::LineRendering_EventName );
+        cmdList->bindPipelineState( pipelineState );
 
-            cmdList->bindPipelineState( pipelineState );
+        cmdList->setViewport( *resources->getMainViewport() );
+        cmdList->setScissor( *resources->getMainScissorRegion() );
 
-            // Update viewport (using image quality scaling)
-            const CameraData* camera = resources->getMainCamera();
+        cmdList->updateBuffer( *linePointsConstantBuffer, linePointsToRender, static_cast< size_t >( lineCount ) * sizeof( LineInfos ) );
 
-            dkVec2f scaledViewportSize = camera->viewportSize * camera->imageQuality;
+        cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
+        cmdList->bindConstantBuffer( PerPassBufferHashcode, linePointsConstantBuffer );
 
-            Viewport vp;
-            vp.X = 0;
-            vp.Y = 0;
-            vp.Width = static_cast< i32 >( scaledViewportSize.x );
-            vp.Height = static_cast< i32 >( scaledViewportSize.y );
-            vp.MinDepth = 0.0f;
-            vp.MaxDepth = 1.0f;
+        cmdList->prepareAndBindResourceList( pipelineState );
 
-            cmdList->setViewport( vp );
-            cmdList->setScissor( *pipelineScissor );
+        cmdList->setupFramebuffer( &outputTarget, nullptr );
 
-            cmdList->updateBuffer( *linePointsConstantBuffer, linePointsToRender, static_cast< size_t >( lineCount ) * sizeof( LineInfos ) );
+        cmdList->draw( 6u, lineCount );
 
-            cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
-            cmdList->bindConstantBuffer( PerPassBufferHashcode, linePointsConstantBuffer );
+        cmdList->popEventMarker();
 
-            cmdList->prepareAndBindResourceList( pipelineState );
+        // Reset buffers
+        lineCount = 0;
 
-            cmdList->setupFramebuffer( &outputTarget, nullptr );
-
-            cmdList->draw( 6u, lineCount );
-
-            cmdList->popEventMarker();
-
-            // Reset buffers
-            lineCount = 0;
-
-            unlockVertexBufferRendering();
-        } 
+        unlockVertexBufferRendering();
+    }
     );
 
     return data.Output;
@@ -180,4 +166,3 @@ void LineRenderingModule::unlockVertexBufferRendering()
 {
     cbufferRenderingLock.store( false, std::memory_order_release );
 }
-

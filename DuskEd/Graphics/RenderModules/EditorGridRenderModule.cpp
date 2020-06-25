@@ -23,11 +23,12 @@ EditorGridModule::~EditorGridModule()
 
 }
 
-ResHandle_t EditorGridModule::addEditorGridPass( FrameGraph& frameGraph, ResHandle_t outputRenderTarget )
+ResHandle_t EditorGridModule::addEditorGridPass( FrameGraph& frameGraph, ResHandle_t outputRenderTarget, ResHandle_t depthBuffer )
 {
 	struct PassData
 	{
 		ResHandle_t Output;
+        ResHandle_t InputDepth;
         ResHandle_t PerPassBuffer;
         ResHandle_t PerViewBuffer;
 	};
@@ -45,6 +46,7 @@ ResHandle_t EditorGridModule::addEditorGridPass( FrameGraph& frameGraph, ResHand
         EditorGrid::RenderGrid_Name,
         [&]( FrameGraphBuilder& builder, PassData& passData ) {
             passData.Output = builder.readImage( outputRenderTarget );
+            passData.InputDepth = builder.readImage( depthBuffer );
 
             BufferDesc perPassBuffer;
             perPassBuffer.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
@@ -56,6 +58,8 @@ ResHandle_t EditorGridModule::addEditorGridPass( FrameGraph& frameGraph, ResHand
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
             Image* outputTarget = resources->getImage( passData.Output );
+            Image* depthBuffer = resources->getImage( passData.InputDepth );
+
             Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
             Buffer* perViewBuffer = resources->getPersistentBuffer( passData.PerViewBuffer );
 
@@ -76,6 +80,7 @@ ResHandle_t EditorGridModule::addEditorGridPass( FrameGraph& frameGraph, ResHand
 
             cmdList->updateBuffer( *perPassBuffer, &properties, sizeof( EditorGrid::RenderGridRuntimeProperties ) );
 
+            cmdList->bindImage( EditorGrid::RenderGrid_DepthBuffer_Hashcode, depthBuffer );
 			cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
 			cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
 

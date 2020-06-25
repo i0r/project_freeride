@@ -19,5 +19,5 @@ public:
 								~EditorGridModule();
 
 	// Execute the frame composition pass (apply tonemapping; color correction; film grain; etc.).
-	ResHandle_t                 addEditorGridPass( FrameGraph& frameGraph, ResHandle_t outputRenderTarget );
+	ResHandle_t                 addEditorGridPass( FrameGraph& frameGraph, ResHandle_t outputRenderTarget, ResHandle_t depthBuffer );
 };

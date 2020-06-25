@@ -849,22 +849,22 @@ void MainLoop()
         // Atmosphere Rendering.
         ResHandle_t presentRt = g_WorldRenderer->AtmosphereRendering->renderAtmosphere( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
 
-        // Line Rendering.
-        presentRt = g_WorldRenderer->LineRendering->renderLines( frameGraph, presentRt );
-
-        // AntiAliasing resolve. (we merge both TAA and MSAA in a single pass to avoid multiple dispatch). 
-        if ( MSAASamplerCount > 1 || EnableTAA ) {
-            presentRt = AddMSAAResolveRenderPass( frameGraph, presentRt, primRenderPass.OutputVelocityTarget, primRenderPass.OutputDepthTarget, MSAASamplerCount, EnableTAA );
+        // AntiAliasing resolve. (we merge both TAA and MSAA in a single pass to avoid multiple dispatch).
+        ResolvedPassOutput resolvedOutput = { primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget };
+		if ( MSAASamplerCount > 1 || EnableTAA ) {
+			resolvedOutput = AddMSAAResolveRenderPass( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputVelocityTarget, primRenderPass.OutputDepthTarget, MSAASamplerCount, EnableTAA );
         }
 
         if ( EnableTAA ) {
-            frameGraph.saveLastFrameRenderTarget( presentRt );
+            frameGraph.saveLastFrameRenderTarget( resolvedOutput.ResolvedColor );
         }
 
         // Rescale the main render target for post-fx (if SSAA is used to down/upscale).
         if ( ImageQuality != 1.0f ) {
-            presentRt = AddSSAAResolveRenderPass( frameGraph, presentRt );
+            resolvedOutput = AddSSAAResolveRenderPass( frameGraph, resolvedOutput );
         }
+
+        presentRt = resolvedOutput.ResolvedColor;
 
         // Glare Rendering.
         FFTPassOutput frequencyDomainRt = AddFFTComputePass( frameGraph, presentRt, static_cast< f32 >( viewportSize.x ), static_cast< f32 >( viewportSize.y ) );
@@ -878,7 +878,10 @@ void MainLoop()
         presentRt = g_WorldRenderer->FrameComposition->addFrameCompositionPass( frameGraph, presentRt, inverseFFT );
 
         // Render editor grid.
-        presentRt = g_EditorGridModule->addEditorGridPass( frameGraph, presentRt );
+        presentRt = g_EditorGridModule->addEditorGridPass( frameGraph, presentRt, resolvedOutput.ResolvedDepth );
+
+		// Line Rendering.
+		presentRt = g_WorldRenderer->LineRendering->renderLines( frameGraph, presentRt );
 
         // HUD Text.
         presentRt = g_WorldRenderer->TextRendering->renderText( frameGraph, presentRt );

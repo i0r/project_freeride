@@ -21,7 +21,7 @@ lib AntiAliasing {
         }
         
         Texture2D DepthBuffer {
-            swizzle = float4;
+            swizzle = float;
             isMultisampled = true;
         }
         
@@ -33,8 +33,25 @@ lib AntiAliasing {
             swizzle = float4;
         }
         
+        RWTexture2D ResolvedDepthTarget {
+            swizzle = float;
+        }
+        
+        // SSAA Input (MSAA resolve output).
+        Texture2D ResolvedTargetInput {
+            swizzle = float4;
+        }
+        
+        Texture2D ResolvedDepthTargetInput {
+            swizzle = float;
+        }
+        
         StructuredBuffer AutoExposureBuffer {
             swizzle = AutoExposureInfos;
+        }
+        
+        sampler BilinearSampler {
+            format = BilinearClampEdge;
         }
     }
     
@@ -245,6 +262,34 @@ lib AntiAliasing {
         #endif
         
         ResolvedTarget[$SV_DispatchThreadID.xy] = float4( output, 1.0f );
+           
+        // Resolve Depth Buffer
+        float maxDepth = 0.0f;
+
+        [unroll]
+        for ( uint i = 0; i < $SamplerCount; ++i ) {
+            maxDepth = max( maxDepth, DepthBuffer.Load( pixelPos, i ) );
+        }
+        
+        ResolvedDepthTarget[$SV_DispatchThreadID.xy]  = maxDepth;
+    }
+    
+    shader FullscreenTriangleSSAA {
+        float2 uvCoords = float2( ( $SV_VertexId << 1 ) & 2, $SV_VertexId & 2 );
+        
+        $TEXCOORD0 = uvCoords;
+        $SV_Position = float4( uvCoords * float2( 2.0f, -2.0f ) + float2( -1.0f, 1.0f ), 0.0f, 1.0f );
+    }
+    
+    shader CopyImageSSAA {
+        $SV_TARGET0 = ResolvedTargetInput.SampleLevel( BilinearSampler, $TEXCOORD0, 0 );
+        $SV_TARGET1 = ResolvedDepthTargetInput.SampleLevel( BilinearSampler, $TEXCOORD0, 0 );
+    }
+    
+    pass ResolveSSAA {
+        vertex        = FullscreenTriangleSSAA;    
+        pixel         = CopyImageSSAA;
+        rendertargets = { ResolvedTarget, ResolvedDepthTarget };
     }
     
     pass ResolveTAA {
