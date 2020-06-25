@@ -15,10 +15,10 @@
 #include "Generated/BuiltIn.generated.h"
 
 // MSAA off and TAA on.
-ResolvedPassOutput AddTAAResolveRenderPass( FrameGraph& frameGraph,
-                                            ResHandle_t inputImage,
-                                            ResHandle_t inputVelocityImage,
-                                            ResHandle_t inputDepthImage )
+ResHandle_t AddTAAResolveRenderPass( FrameGraph& frameGraph,
+                                     ResHandle_t inputImage,
+                                     ResHandle_t inputVelocityImage,
+                                     ResHandle_t inputDepthImage )
 {
     struct PassData {
         ResHandle_t Input;
@@ -26,7 +26,6 @@ ResolvedPassOutput AddTAAResolveRenderPass( FrameGraph& frameGraph,
         ResHandle_t InputVelocity;
         ResHandle_t InputLastFrame;
         ResHandle_t Output;
-        ResHandle_t OutputDepth;
         ResHandle_t PerPassBuffer;
         ResHandle_t AutoExposureBuffer;
     };
@@ -111,13 +110,7 @@ ResolvedPassOutput AddTAAResolveRenderPass( FrameGraph& frameGraph,
         }
     );
 
-    ResolvedPassOutput resolvedOuput;
-    resolvedOuput.ResolvedColor = passData.Output;
-
-    // Since the zbuffer is not multisampled we don't need to resolve it and we can do a passthrough.
-    resolvedOuput.ResolvedDepth = inputDepthImage;
-
-    return resolvedOuput;
+    return passData.Output;
 }
 
 template<i32 SamplerCount, bool UseTemporalAA>
@@ -209,7 +202,7 @@ void GetThreadCount( u32& threadCountX, u32& threadCountY, u32& threadCountZ )
 }
 
 template<i32 SamplerCount, bool UseTemporalAA>
-ResolvedPassOutput AddResolveMSAARenderPass( FrameGraph& frameGraph,
+ResHandle_t AddResolveMSAARenderPass( FrameGraph& frameGraph,
                                      ResHandle_t inputImage,
                                      ResHandle_t inputVelocityImage,
                                      ResHandle_t inputDepthImage )
@@ -220,7 +213,6 @@ ResolvedPassOutput AddResolveMSAARenderPass( FrameGraph& frameGraph,
         ResHandle_t InputVelocity;
         ResHandle_t InputLastFrame;
         ResHandle_t Output;
-        ResHandle_t ResolvedDepth;
         ResHandle_t PerPassBuffer;
         ResHandle_t AutoExposureBuffer;
     };
@@ -241,16 +233,7 @@ ResolvedPassOutput AddResolveMSAARenderPass( FrameGraph& frameGraph,
                                                                              | FrameGraphBuilder::eImageFlags::USE_PIPELINE_DIMENSIONS );
             
             copiedImageDesc->bindFlags |= RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
-
-            ImageDesc* copiedDepthImageDesc;
-            passData.ResolvedDepth = builder.copyImage( inputDepthImage, &copiedDepthImageDesc, FrameGraphBuilder::eImageFlags::NO_MULTISAMPLE
-                                                                                              | FrameGraphBuilder::eImageFlags::USE_PIPELINE_DIMENSIONS );
-            copiedDepthImageDesc->bindFlags |= RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
             
-            // Old APIs don't allow both DepthStencil and UAV at the same.
-            copiedDepthImageDesc->bindFlags &= ~RESOURCE_BIND_DEPTH_STENCIL;
-            copiedDepthImageDesc->DefaultView.ViewFormat = VIEW_FORMAT_R32_FLOAT;
-
             BufferDesc bufferDesc;
             bufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
             bufferDesc.SizeInBytes = sizeof( AntiAliasing::ResolveMSAAx2WithTAAProperties );
@@ -266,8 +249,6 @@ ResolvedPassOutput AddResolveMSAARenderPass( FrameGraph& frameGraph,
             Image* inputDepthTarget = resources->getImage( passData.InputDepth );
             Image* inputLastFrame = resources->getPersitentImage( passData.InputLastFrame );
             Image* outputTarget = resources->getImage( passData.Output );
-            Image* resolveDepthTarget = resources->getImage( passData.ResolvedDepth );
-
             Buffer* autoExposureBuffer = resources->getPersistentBuffer( passData.AutoExposureBuffer );
             
             const CameraData* cameraData = resources->getMainCamera();
@@ -287,8 +268,7 @@ ResolvedPassOutput AddResolveMSAARenderPass( FrameGraph& frameGraph,
             // In the future, we should remove duplicated hashes to avoid bloating generated metadata headers.
             cmdList->bindImage( AntiAliasing::ResolveMSAAx2_TextureInput_Hashcode, inputTarget );
             cmdList->bindImage( AntiAliasing::ResolveMSAAx2_ResolvedTarget_Hashcode, outputTarget );
-            cmdList->bindImage( AntiAliasing::ResolveMSAAx2_ResolvedDepthTarget_Hashcode, resolveDepthTarget );
-            
+
             if ( UseTemporalAA ) {
                 cmdList->bindImage( AntiAliasing::ResolveMSAAx2WithTAA_VelocityTexture_Hashcode, inputVelocityTarget );
                 cmdList->bindImage( AntiAliasing::ResolveMSAAx2WithTAA_DepthBuffer_Hashcode, inputDepthTarget );
@@ -321,13 +301,10 @@ ResolvedPassOutput AddResolveMSAARenderPass( FrameGraph& frameGraph,
         }
     );
 
-    ResolvedPassOutput resolvedOuput;
-    resolvedOuput.ResolvedColor = passData.Output;
-    resolvedOuput.ResolvedDepth = passData.ResolvedDepth;
-    return resolvedOuput;
+    return passData.Output;
 }
 
-ResolvedPassOutput AddMSAAResolveRenderPass(
+ResHandle_t AddMSAAResolveRenderPass(
     FrameGraph& frameGraph,
     ResHandle_t inputImage,
     ResHandle_t inputVelocityImage,
@@ -350,7 +327,9 @@ ResolvedPassOutput AddMSAAResolveRenderPass(
             ? AddResolveMSAARenderPass<8, true>( frameGraph, inputImage, inputVelocityImage, inputDepthImage )
             : AddResolveMSAARenderPass<8, false>( frameGraph, inputImage, inputVelocityImage, inputDepthImage );
     default:
-        return AddTAAResolveRenderPass( frameGraph, inputImage, inputVelocityImage, inputDepthImage );
+        return ( enableTAA ) 
+            ? AddTAAResolveRenderPass( frameGraph, inputImage, inputVelocityImage, inputDepthImage ) 
+            : inputImage;
     }
 }
 

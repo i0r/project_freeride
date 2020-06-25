@@ -521,6 +521,7 @@ void CommandList::clearDepthStencil( Image* depthStencilView, const f32 clearVal
 void SetupFramebuffer_Replay( RenderContext* renderContext, Image** renderTargetViews, Image* depthStencilView )
 {
     ID3D11RenderTargetView* RenderTargets[8] = { nullptr };
+    ID3D11DepthStencilView* DepthStencilView = nullptr;
 
     if ( renderContext->FramebufferDepthBuffer != nullptr ) {
         renderContext->FramebufferDepthBuffer->IsBindedToFBO = false;
@@ -528,6 +529,8 @@ void SetupFramebuffer_Replay( RenderContext* renderContext, Image** renderTarget
     }
 
     if ( depthStencilView != nullptr ) {
+        DepthStencilView = depthStencilView->DefaultDepthStencilView;
+
         depthStencilView->IsBindedToFBO = true;
         renderContext->FramebufferDepthBuffer = depthStencilView;
     }
@@ -584,8 +587,7 @@ void SetupFramebuffer_Replay( RenderContext* renderContext, Image** renderTarget
         FlushSRVRegisterUpdate( renderContext );
     }
 
-    ID3D11DepthStencilView* DepthStencilView = ( renderContext->FramebufferDepthBuffer != nullptr ) ? renderContext->FramebufferDepthBuffer->DefaultDepthStencilView : nullptr;
-    if ( DepthStencilView != nullptr && bindedPipelineState->clearDsv ) {
+    if ( bindedPipelineState->clearDsv ) {
         immediateCtx->ClearDepthStencilView( DepthStencilView, D3D11_CLEAR_DEPTH, bindedPipelineState->depthClearValue, bindedPipelineState->stencilClearValue );
     }
 
