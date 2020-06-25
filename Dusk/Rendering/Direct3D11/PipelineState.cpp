@@ -343,12 +343,11 @@ void FillStageBinding( Shader* shader, const eShaderStage shaderStage, PipelineS
 
     i32& resourceToBindCount = pipelineState->resourceCount;
 
-#define DUSK_RESOURCE_STAGE_BIND( stage, index, resourceInternalType, bindType )\
+#define DUSK_RESOURCE_STAGE_BIND( stage, index )\
 if ( shaderStage == SHADER_STAGE_##stage ) {\
-    resourceEntry->stageBindings[index].##resourceInternalType = &pipelineState->##bindType##.##stage##[reflectedRes.bindingIndex];\
-    resourceEntry->stageBindings[index].RegisterIndex = reflectedRes.bindingIndex;\
-    resourceEntry->stageBindings[index].ShaderStageIndex = index;\
-    resourceEntry->activeBindings[resourceEntry->activeStageCount++] = &resourceEntry->stageBindings[index];\
+    PipelineState::ResourceEntry::StageBinding& stageBinding = resourceEntry->activeBindings[resourceEntry->activeStageCount++];\
+    stageBinding.RegisterIndex = reflectedRes.bindingIndex;\
+    stageBinding.ShaderStageIndex = index;\
 }
 
     for ( u32 i = 0; i < shader->reflectedResourceCount; i++ ) {
@@ -371,28 +370,31 @@ if ( shaderStage == SHADER_STAGE_##stage ) {\
 
         switch ( reflectedRes.type ) {
         case PipelineState::InternalResourceType::RESOURCE_TYPE_CBUFFER_VIEW: {
-            DUSK_RESOURCE_STAGE_BIND( VERTEX, 0, cbufferView, constantBuffers )
-            DUSK_RESOURCE_STAGE_BIND( PIXEL, 1, cbufferView, constantBuffers )
-            DUSK_RESOURCE_STAGE_BIND( TESSELATION_CONTROL, 2, cbufferView, constantBuffers )
-            DUSK_RESOURCE_STAGE_BIND( TESSELATION_EVALUATION, 3, cbufferView, constantBuffers )
-            DUSK_RESOURCE_STAGE_BIND( COMPUTE, 4, cbufferView, constantBuffers )
+            DUSK_RESOURCE_STAGE_BIND( VERTEX, 0 )
+            DUSK_RESOURCE_STAGE_BIND( PIXEL, 1 )
+            DUSK_RESOURCE_STAGE_BIND( TESSELATION_CONTROL, 2 )
+            DUSK_RESOURCE_STAGE_BIND( TESSELATION_EVALUATION, 3 )
+            DUSK_RESOURCE_STAGE_BIND( COMPUTE, 4 )
         } break;
 
         case PipelineState::InternalResourceType::RESOURCE_TYPE_SHADER_RESOURCE_VIEW: {
-            DUSK_RESOURCE_STAGE_BIND( VERTEX, 0, shaderResourceView, shaderResourceViews )
-            DUSK_RESOURCE_STAGE_BIND( PIXEL, 1, shaderResourceView, shaderResourceViews )
-            DUSK_RESOURCE_STAGE_BIND( TESSELATION_CONTROL, 2, shaderResourceView, shaderResourceViews )
-            DUSK_RESOURCE_STAGE_BIND( TESSELATION_EVALUATION, 3, shaderResourceView, shaderResourceViews )
-            DUSK_RESOURCE_STAGE_BIND( COMPUTE, 4, shaderResourceView, shaderResourceViews )
+            DUSK_RESOURCE_STAGE_BIND( VERTEX, 0 )
+            DUSK_RESOURCE_STAGE_BIND( PIXEL, 1 )
+            DUSK_RESOURCE_STAGE_BIND( TESSELATION_CONTROL, 2 )
+            DUSK_RESOURCE_STAGE_BIND( TESSELATION_EVALUATION, 3 )
+            DUSK_RESOURCE_STAGE_BIND( COMPUTE, 4 )
         } break;
         
         case PipelineState::InternalResourceType::RESOURCE_TYPE_UNORDERED_ACCESS_VIEW: {
-            if ( shaderStage == SHADER_STAGE_COMPUTE ) {
-                resourceEntry->stageBindings[4].unorderedAccessView = &pipelineState->uavBuffers[reflectedRes.bindingIndex];
-                resourceEntry->stageBindings[4].RegisterIndex = reflectedRes.bindingIndex;
-                resourceEntry->stageBindings[4].ShaderStageIndex = 4;
-                resourceEntry->activeBindings[resourceEntry->activeStageCount++] = &resourceEntry->stageBindings[4];
-            }
+			if ( shaderStage == SHADER_STAGE_COMPUTE ) {
+				PipelineState::ResourceEntry::StageBinding& stageBinding = resourceEntry->activeBindings[resourceEntry->activeStageCount++];
+                stageBinding.RegisterIndex = reflectedRes.bindingIndex;
+                stageBinding.ShaderStageIndex = 4;
+			} else if ( shaderStage == SHADER_STAGE_PIXEL ) {
+                PipelineState::ResourceEntry::StageBinding& stageBinding = resourceEntry->activeBindings[resourceEntry->activeStageCount++];
+				stageBinding.RegisterIndex = reflectedRes.bindingIndex;
+				stageBinding.ShaderStageIndex = 1;
+			}
         } break;
 
         default:
@@ -410,7 +412,6 @@ PipelineState* RenderDevice::createPipelineState( const PipelineStateDesc& descr
 
     // Resource List
     pipelineState->resourceCount = 0;
-    pipelineState->uavBuffersBindCount = 0;
 
     pipelineState->PrimitiveTopology = _D3D11_PRIMITIVE_TOPOLOGY[description.PrimitiveTopology];
 
@@ -809,10 +810,10 @@ void BindBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hashc
         ID3D11ShaderResourceView* srv = buffer->DefaultShaderResourceView;
 
         for ( i32 i = 0; i < resource->activeStageCount; i++ ) {
-            PipelineState::ResourceEntry::StageBinding* stageBinding = resource->activeBindings[i];
+            PipelineState::ResourceEntry::StageBinding& stageBinding = resource->activeBindings[i];
 
-            const u32 shaderStageIndex = stageBinding->ShaderStageIndex;
-            const u32 srvRegisterIndex = stageBinding->RegisterIndex;
+            const u32 shaderStageIndex = stageBinding.ShaderStageIndex;
+            const u32 srvRegisterIndex = stageBinding.RegisterIndex;
 
             // Update RenderContext register data
             RenderContext::RegisterData& registerData = renderContext->SrvRegistersInfo[shaderStageIndex][srvRegisterIndex];
@@ -835,10 +836,10 @@ void BindBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hashc
         ID3D11UnorderedAccessView* uav = buffer->DefaultUnorderedAccessView;
 
         for ( i32 i = 0; i < resource->activeStageCount; i++ ) {
-            PipelineState::ResourceEntry::StageBinding* stageBinding = resource->activeBindings[i];
+            PipelineState::ResourceEntry::StageBinding& stageBinding = resource->activeBindings[i];
 
             // Update RenderContext register data
-            RenderContext::RegisterData& registerData = renderContext->CsUavRegistersInfo[stageBinding->RegisterIndex];
+            RenderContext::RegisterData& registerData = renderContext->CsUavRegistersInfo[stageBinding.RegisterIndex];
 
             if ( registerData.ResourceType == RenderContext::RegisterData::Type::BUFFER_RESOURCE ) {
                 registerData.BufferObject->UAVRegisterIndex = ~0;
@@ -849,9 +850,9 @@ void BindBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hashc
             registerData.BufferObject = buffer;
             registerData.ResourceType = RenderContext::RegisterData::Type::BUFFER_RESOURCE;
 
-            UpdateUAVRegister( renderContext, stageBinding->RegisterIndex, uav );
+            UpdateUAVRegister( renderContext, stageBinding.RegisterIndex, uav );
 
-            buffer->UAVRegisterIndex = stageBinding->RegisterIndex;
+            buffer->UAVRegisterIndex = stageBinding.RegisterIndex;
         }
     }
 }
@@ -869,10 +870,10 @@ void BindCBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hash
     PipelineState::ResourceEntry* resource = it->second;
 
     for ( i32 i = 0; i < resource->activeStageCount; i++ ) {
-        PipelineState::ResourceEntry::StageBinding* stageBinding = resource->activeBindings[i];
-        UpdateCBufferRegister( renderContext, stageBinding->ShaderStageIndex, stageBinding->RegisterIndex, buffer->BufferObject );
+        PipelineState::ResourceEntry::StageBinding& stageBinding = resource->activeBindings[i];
+        UpdateCBufferRegister( renderContext, stageBinding.ShaderStageIndex, stageBinding.RegisterIndex, buffer->BufferObject );
 
-        buffer->CbufferRegisterIndex[stageBinding->ShaderStageIndex] = stageBinding->RegisterIndex;
+        buffer->CbufferRegisterIndex[stageBinding.ShaderStageIndex] = stageBinding.RegisterIndex;
     }
 }
 
@@ -903,10 +904,10 @@ void BindImage_Replay( RenderContext* renderContext, const dkStringHash_t hashco
         ID3D11ShaderResourceView* srv = image->DefaultShaderResourceView;
 
         for ( i32 i = 0; i < resource->activeStageCount; i++ ) {
-            PipelineState::ResourceEntry::StageBinding* stageBinding = resource->activeBindings[i];
+            PipelineState::ResourceEntry::StageBinding& stageBinding = resource->activeBindings[i];
 
-            const u32 shaderStageIndex = stageBinding->ShaderStageIndex;
-            const u32 srvRegisterIndex = stageBinding->RegisterIndex;
+            const u32 shaderStageIndex = stageBinding.ShaderStageIndex;
+            const u32 srvRegisterIndex = stageBinding.RegisterIndex;
 
             // Update RenderContext register data
             RenderContext::RegisterData& registerData = renderContext->SrvRegistersInfo[shaderStageIndex][srvRegisterIndex];
@@ -920,19 +921,19 @@ void BindImage_Replay( RenderContext* renderContext, const dkStringHash_t hashco
             registerData.ImageObject = image;
             registerData.ResourceType = RenderContext::RegisterData::Type::IMAGE_RESOURCE;
 
-            UpdateSRVRegister( renderContext, stageBinding->ShaderStageIndex, stageBinding->RegisterIndex, srv );
+            UpdateSRVRegister( renderContext, stageBinding.ShaderStageIndex, stageBinding.RegisterIndex, srv );
 
-            image->SRVRegisterIndex[stageBinding->ShaderStageIndex] = stageBinding->RegisterIndex;
+            image->SRVRegisterIndex[stageBinding.ShaderStageIndex] = stageBinding.RegisterIndex;
         }
     } else if ( resource->type == PipelineState::InternalResourceType::RESOURCE_TYPE_UNORDERED_ACCESS_VIEW ) {
         // TODO Custom Image view support
         ID3D11UnorderedAccessView* uav = image->DefaultUnorderedAccessView;
 
         for ( i32 i = 0; i < resource->activeStageCount; i++ ) {
-            PipelineState::ResourceEntry::StageBinding* stageBinding = resource->activeBindings[i];
+            PipelineState::ResourceEntry::StageBinding& stageBinding = resource->activeBindings[i];
 
             // Update RenderContext register data
-            RenderContext::RegisterData& registerData = renderContext->CsUavRegistersInfo[stageBinding->RegisterIndex];
+            RenderContext::RegisterData& registerData = renderContext->CsUavRegistersInfo[stageBinding.RegisterIndex];
 
             if ( registerData.ResourceType == RenderContext::RegisterData::Type::BUFFER_RESOURCE ) {
                 registerData.BufferObject->UAVRegisterIndex = ~0;
@@ -943,9 +944,9 @@ void BindImage_Replay( RenderContext* renderContext, const dkStringHash_t hashco
             registerData.ImageObject = image;
             registerData.ResourceType = RenderContext::RegisterData::Type::IMAGE_RESOURCE;
 
-            UpdateUAVRegister( renderContext, stageBinding->RegisterIndex, uav );
+            UpdateUAVRegister( renderContext, stageBinding.RegisterIndex, uav );
 
-            image->UAVRegisterIndex = stageBinding->RegisterIndex;
+            image->UAVRegisterIndex = stageBinding.RegisterIndex;
         }
     }
 }

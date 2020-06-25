@@ -22,6 +22,34 @@ struct ID3D11SamplerState;
 
 struct PipelineState
 {
+	enum class InternalResourceType
+	{
+		RESOURCE_TYPE_UNKNOWN,
+		RESOURCE_TYPE_SHADER_RESOURCE_VIEW,
+		RESOURCE_TYPE_UNORDERED_ACCESS_VIEW,
+		RESOURCE_TYPE_CBUFFER_VIEW
+	};
+
+	struct ResourceEntry
+	{
+		struct StageBinding
+		{
+			u32 RegisterIndex;
+			i32 ShaderStageIndex;
+		};
+
+		StageBinding            activeBindings[eShaderStage::SHADER_STAGE_COUNT];
+		i32                     activeStageCount;
+		InternalResourceType    type;
+
+		ResourceEntry()
+			: type( InternalResourceType::RESOURCE_TYPE_UNKNOWN )
+			, activeStageCount( 0 )
+		{
+			memset( activeBindings, 0, sizeof( StageBinding ) * eShaderStage::SHADER_STAGE_COUNT );
+		}
+	};
+
     ID3D11VertexShader*                 vertexShader;
     ID3D11HullShader*                   tesselationControlShader;
     ID3D11DomainShader*                 tesselationEvalShader;
@@ -45,56 +73,10 @@ struct PipelineState
     ID3D11SamplerState*                 staticSamplers[8];
     u32                                 staticSamplerCount;
 
-    enum class InternalResourceType {
-        RESOURCE_TYPE_UNKNOWN,
-        RESOURCE_TYPE_SHADER_RESOURCE_VIEW,
-        RESOURCE_TYPE_UNORDERED_ACCESS_VIEW,
-        RESOURCE_TYPE_CBUFFER_VIEW
-    };
-
-    struct ResourceEntry {
-        struct StageBinding {
-            union {
-                ID3D11ShaderResourceView**   shaderResourceView;
-                ID3D11UnorderedAccessView**  unorderedAccessView;
-                ID3D11SamplerState**         samplerState;
-                ID3D11Buffer**               cbufferView;
-            };
-            u32 RegisterIndex;
-            i32 ShaderStageIndex;
-        } stageBindings[eShaderStage::SHADER_STAGE_COUNT];
-        StageBinding*   activeBindings[eShaderStage::SHADER_STAGE_COUNT];
-        
-        i32 activeStageCount;
-        InternalResourceType type;
-
-        ResourceEntry()
-            : type( InternalResourceType::RESOURCE_TYPE_UNKNOWN )
-            , activeStageCount( 0 )
-        {
-            memset( stageBindings, 0, sizeof( StageBinding ) * eShaderStage::SHADER_STAGE_COUNT );
-            memset( activeBindings, 0, sizeof( StageBinding* ) );
-        }
-    } resources[PipelineStateDesc::MAX_RESOURCE_COUNT];
+    ResourceEntry   resources[PipelineStateDesc::MAX_RESOURCE_COUNT];
     
     i32 resourceCount;
     std::unordered_map<dkStringHash_t, ResourceEntry*>  bindingSet;
-
-    template<typename Res, i32 MAX>
-    struct ResourceBinding {
-        Res  VERTEX[MAX];
-        Res  TESSELATION_CONTROL[MAX];
-        Res  TESSELATION_EVALUATION[MAX];
-        Res  PIXEL[MAX];
-        Res  COMPUTE[MAX];
-    };
-
-    ResourceBinding<ID3D11ShaderResourceView*, D3D11_COMMONSHADER_INPUT_RESOURCE_REGISTER_COUNT>  shaderResourceViews;
-    ResourceBinding<ID3D11Buffer*, D3D11_COMMONSHADER_CONSTANT_BUFFER_HW_SLOT_COUNT>   constantBuffers;
-    ResourceBinding<ID3D11SamplerState*, D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT>        samplers;
-
-    ID3D11UnorderedAccessView*                  uavBuffers[16];
-    UINT                                        uavBuffersBindCount;
 
     FLOAT                       colorClearValue[4];
     FLOAT                       depthClearValue;
