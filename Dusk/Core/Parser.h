@@ -40,6 +40,10 @@ struct TypeAST {
         PRIMITIVE_TYPE_STRING,
         PRIMITIVE_TYPE_FLOAT4X4,
 		PRIMITIVE_TYPE_CINT,
+		PRIMITIVE_TYPE_RAWBUFFER,
+		PRIMITIVE_TYPE_RWRAWBUFFER,
+		PRIMITIVE_TYPE_ASBUFFER,
+		PRIMITIVE_TYPE_CSBUFFER,
         // TODO Anything below this line is temporary and should be DATA DRIVEN
         // since it has nothing todo with the parser itself.
         PRIMITIVE_TYPE_LINEINFO,
@@ -116,6 +120,10 @@ static constexpr const char* PRIMITIVE_TYPES[TypeAST::ePrimitiveType::PRIMITIVE_
     "string",
     "float4x4",
     "cint",
+    "ByteAddressBuffer",
+    "RWByteAddressBuffer",
+    "AppendStructuredBuffer",
+    "ConsumeStructuredBuffer",
     "LineInfos",
     "AtmosphereParameters",
     ""
@@ -153,6 +161,10 @@ static constexpr size_t PRIMITIVE_TYPE_SIZE[TypeAST::ePrimitiveType::PRIMITIVE_T
     0,
     16,
     4,
+    0,
+    0,
+    0,
+    0,
     48,
     16,
     0,

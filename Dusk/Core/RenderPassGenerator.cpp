@@ -24,7 +24,8 @@ DUSK_INLINE static bool IsReadOnlyResourceType( const TypeAST::ePrimitiveType ty
         || type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_ROIMAGE1D
         || type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_ROIMAGE2D
         || type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_ROIMAGE3D
-        || type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_SAMPLER;
+		|| type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_SAMPLER
+		|| type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_RAWBUFFER;
 }
 
 struct CbufferEntry {
@@ -1125,6 +1126,7 @@ void RenderLibraryGenerator::appendSharedShaderHeader( std::string& hlslSource )
     hlslSource.append( "\tfloat3           g_ViewDirection;\n" );
 	hlslSource.append( "\tfloat            g_ImageQuality;\n" );
 	hlslSource.append( "\tfloat2           g_CameraJitteringOffset;\n" );
+	hlslSource.append( "\tuint2            g_CursorPosition;\n" );
     hlslSource.append( "};\n" );
 
     // PerWorldBuffer
