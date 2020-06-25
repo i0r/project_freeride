@@ -846,36 +846,37 @@ void MainLoop()
         // LightPass.
         LightPassOutput primRenderPass = AddPrimitiveLightTest( frameGraph, lightGridData.PerSceneBuffer, scenario );
 
-        // Atmosphere Rendering.
-        ResHandle_t presentRt = g_WorldRenderer->AtmosphereRendering->renderAtmosphere( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
-
-        // Line Rendering.
-        presentRt = g_WorldRenderer->LineRendering->renderLines( frameGraph, presentRt );
-
-        // AntiAliasing resolve. (we merge both TAA and MSAA in a single pass to avoid multiple dispatch). 
+        // AntiAliasing resolve. (we merge both TAA and MSAA in a single pass to avoid multiple dispatch).
+        ResolvedPassOutput resolvedOutput = { primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget };
         if ( MSAASamplerCount > 1 || EnableTAA ) {
-            presentRt = AddMSAAResolveRenderPass( frameGraph, presentRt, primRenderPass.OutputVelocityTarget, primRenderPass.OutputDepthTarget, MSAASamplerCount, EnableTAA );
+            resolvedOutput = AddMSAAResolveRenderPass( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputVelocityTarget, primRenderPass.OutputDepthTarget, MSAASamplerCount, EnableTAA );
         }
 
         if ( EnableTAA ) {
-            frameGraph.saveLastFrameRenderTarget( presentRt );
+            frameGraph.saveLastFrameRenderTarget( resolvedOutput.ResolvedColor );
         }
 
         // Rescale the main render target for post-fx (if SSAA is used to down/upscale).
         if ( ImageQuality != 1.0f ) {
-            presentRt = AddSSAAResolveRenderPass( frameGraph, presentRt );
+            resolvedOutput.ResolvedColor = AddSSAAResolveRenderPass( frameGraph, resolvedOutput.ResolvedColor );
         }
 
+        // Atmosphere Rendering.
+        ResHandle_t worldRenderTarget = g_WorldRenderer->AtmosphereRendering->renderAtmosphere( frameGraph, resolvedOutput.ResolvedColor, resolvedOutput.ResolvedDepth );
+
         // Glare Rendering.
-        FFTPassOutput frequencyDomainRt = AddFFTComputePass( frameGraph, presentRt, static_cast< f32 >( viewportSize.x ), static_cast< f32 >( viewportSize.y ) );
+        FFTPassOutput frequencyDomainRt = AddFFTComputePass( frameGraph, worldRenderTarget, static_cast< f32 >( viewportSize.x ), static_cast< f32 >( viewportSize.y ) );
         FFTPassOutput convolutedFFT = g_WorldRenderer->GlareRendering->addGlareComputePass( frameGraph, frequencyDomainRt );
         ResHandle_t inverseFFT = AddInverseFFTComputePass( frameGraph, convolutedFFT, static_cast< f32 >( viewportSize.x ), static_cast< f32 >( viewportSize.y ) );
 
         // Automatic Exposure.
-        g_WorldRenderer->AutomaticExposure->computeExposure( frameGraph, presentRt, dkVec2u( static_cast< u32 >( viewportSize.x ), static_cast< u32 >( viewportSize.y ) ) );
+        g_WorldRenderer->AutomaticExposure->computeExposure( frameGraph, worldRenderTarget, dkVec2u( static_cast< u32 >( viewportSize.x ), static_cast< u32 >( viewportSize.y ) ) );
 
         // Frame composition.
-        presentRt = g_WorldRenderer->FrameComposition->addFrameCompositionPass( frameGraph, presentRt, inverseFFT );
+        ResHandle_t presentRt = g_WorldRenderer->FrameComposition->addFrameCompositionPass( frameGraph, worldRenderTarget, inverseFFT );
+
+        // Line Rendering.
+        presentRt = g_WorldRenderer->LineRendering->renderLines( frameGraph, presentRt );
 
         // Render editor grid.
         presentRt = g_EditorGridModule->addEditorGridPass( frameGraph, presentRt );

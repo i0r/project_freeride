@@ -21,7 +21,7 @@ lib AntiAliasing {
         }
         
         Texture2D DepthBuffer {
-            swizzle = float4;
+            swizzle = float;
             isMultisampled = true;
         }
         
@@ -31,6 +31,10 @@ lib AntiAliasing {
         
         RWTexture2D ResolvedTarget {
             swizzle = float4;
+        }
+        
+        RWTexture2D ResolvedDepthTarget {
+            swizzle = float;
         }
         
         StructuredBuffer AutoExposureBuffer {
@@ -104,7 +108,7 @@ lib AntiAliasing {
                         int2 samplePos = pixelPos + int2( vx, vy );
                         
                         float2 neighborVelocity = VelocityTexture.Load( samplePos, vsIdx ).rg;
-                        float neighborDepth = DepthBuffer.Load( samplePos, vsIdx ).r;
+                        float neighborDepth = DepthBuffer.Load( samplePos, vsIdx );
                         
                         if ( neighborDepth >= closestDepth ) {
                             velocity = neighborVelocity;
@@ -245,6 +249,16 @@ lib AntiAliasing {
         #endif
         
         ResolvedTarget[$SV_DispatchThreadID.xy] = float4( output, 1.0f );
+        
+        // Resolve Depth Buffer
+        float maxDepth = 0.0f;
+
+        [unroll]
+        for ( uint i = 0; i < $SamplerCount; ++i ) {
+            maxDepth = max( maxDepth, DepthBuffer.Load( pixelPos, i ) );
+        }
+        
+        ResolvedDepthTarget[$SV_DispatchThreadID.xy] = maxDepth;
     }
     
     pass ResolveTAA {
