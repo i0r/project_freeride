@@ -17,8 +17,8 @@ lib AtmosphereBruneton {
             swizzle = float4;
         }
         
-        Texture2D OutputDepthTarget {
-            swizzle = float4;
+        Texture2D DepthBuffer {
+            swizzle = float;
         }
         
         Texture2D TransmittanceTextureInput {
@@ -233,11 +233,16 @@ lib AtmosphereBruneton {
         
         float4 ScreenSpacePos = float4( x * 4 - 1, y * 4 - 1, 0, 1 );
         
-        $POSITION0 = float4( mul( ScreenSpacePos, g_InverseViewProjectionMatrix ).xzy, 1 );
         $SV_Position = ScreenSpacePos;
+        $POSITION0 = float4( mul( ScreenSpacePos, g_InverseViewProjectionMatrix ).xzy, 1 );
     }
     
-    shader BrunetonSkyPS {            
+    shader BrunetonSkyPS {
+        uint2 texelPos = $SV_Position.xy;
+        float zbufferSample = DepthBuffer[texelPos];
+        
+        clip( $SV_Position.z - zbufferSample );
+        
         float3 viewDirection = normalize( $POSITION0.xyz );
         
         float3 transmittance;
@@ -264,7 +269,6 @@ lib AtmosphereBruneton {
         vertex = BrunetonSkyVS;
         pixel = BrunetonSkyPS;
         rendertargets = { OutputRenderTarget };
-        depthStencil = OutputDepthTarget;
         UseAutomaticExposure = true;
     }
 }

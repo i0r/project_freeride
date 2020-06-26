@@ -846,13 +846,10 @@ void MainLoop()
 
         LightGrid::Data lightGridData = g_LightGrid->updateClusters( frameGraph );
 
-        Material::RenderScenario scenario = ( g_MaterialEditor->isUsingInteractiveMode() ) ? Material::RenderScenario::Default_Editor : Material::RenderScenario::Default;
+        Material::RenderScenario scenario = ( g_MaterialEditor->isUsingInteractiveMode() ) ? Material::RenderScenario::Default_Picking_Editor : Material::RenderScenario::Default_Picking;
 
         // LightPass.
         LightPassOutput primRenderPass = AddPrimitiveLightTest( frameGraph, lightGridData.PerSceneBuffer, scenario );
-
-        // Atmosphere Rendering.
-        ResHandle_t presentRt = g_WorldRenderer->AtmosphereRendering->renderAtmosphere( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
 
         // AntiAliasing resolve. (we merge both TAA and MSAA in a single pass to avoid multiple dispatch).
         ResolvedPassOutput resolvedOutput = { primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget };
@@ -869,7 +866,8 @@ void MainLoop()
             resolvedOutput = AddSSAAResolveRenderPass( frameGraph, resolvedOutput );
         }
 
-        presentRt = resolvedOutput.ResolvedColor;
+        // Atmosphere Rendering.
+        ResHandle_t presentRt = g_WorldRenderer->AtmosphereRendering->renderAtmosphere( frameGraph, resolvedOutput.ResolvedColor, resolvedOutput.ResolvedDepth );
 
         // Glare Rendering.
         FFTPassOutput frequencyDomainRt = AddFFTComputePass( frameGraph, presentRt, static_cast< f32 >( viewportSize.x ), static_cast< f32 >( viewportSize.y ) );

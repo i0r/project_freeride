@@ -91,25 +91,6 @@ ResHandle_t AtmosphereRenderModule::renderSky( FrameGraph& frameGraph, ResHandle
             passData.PerViewBuffer = builder.retrievePerViewBuffer();
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
-            // Update viewport (using image quality scaling)
-            const CameraData* camera = resources->getMainCamera();
-
-            dkVec2f scaledViewportSize = camera->viewportSize * camera->imageQuality;
-
-            Viewport vp;
-            vp.X = 0;
-            vp.Y = 0;
-            vp.Width = static_cast<i32>( scaledViewportSize.x );
-            vp.Height = static_cast<i32>( scaledViewportSize.y );
-            vp.MinDepth = 0.0f;
-            vp.MaxDepth = 1.0f;
-
-            ScissorRegion sr;
-            sr.Top = 0;
-            sr.Left = 0;
-            sr.Right = static_cast< i32 >( scaledViewportSize.x );
-            sr.Bottom = static_cast< i32 >( scaledViewportSize.y );
-
             PipelineStateDesc psoDesc;
             psoDesc.PrimitiveTopology = ePrimitiveTopology::PRIMITIVE_TOPOLOGY_TRIANGLELIST;
             psoDesc.RasterizerState.CullMode = eCullMode::CULL_MODE_BACK;
@@ -118,7 +99,6 @@ ResHandle_t AtmosphereRenderModule::renderSky( FrameGraph& frameGraph, ResHandle
             psoDesc.DepthStencilState.DepthComparisonFunc = eComparisonFunction::COMPARISON_FUNCTION_GEQUAL;
             psoDesc.FramebufferLayout.declareRTV( 0, eViewFormat::VIEW_FORMAT_R16G16B16A16_FLOAT );
             psoDesc.FramebufferLayout.declareDSV( eViewFormat::VIEW_FORMAT_D32_FLOAT );
-            psoDesc.samplerCount = camera->msaaSamplerCount;
 
             psoDesc.addStaticSampler( RenderingHelpers::S_BilinearClampEdge );
 
@@ -145,21 +125,25 @@ ResHandle_t AtmosphereRenderModule::renderSky( FrameGraph& frameGraph, ResHandle
 
             // Bind resources
 
+            cmdList->bindImage( AtmosphereBruneton::BrunetonSky_DepthBuffer_Hashcode, depthBuffer );
             cmdList->bindImage( AtmosphereBruneton::BrunetonSky_TransmittanceTextureInput_Hashcode, transmittanceLut );
             cmdList->bindImage( AtmosphereBruneton::BrunetonSky_IrradianceTextureInput_Hashcode, irradianceLut );
             cmdList->bindImage( AtmosphereBruneton::BrunetonSky_ScatteringTextureInput_Hashcode, scatteringLut );
             cmdList->bindImage( AtmosphereBruneton::BrunetonSky_MieScatteringTextureInput_Hashcode, mieScatteringLut );
-
+            
             cmdList->bindBuffer( AtmosphereBruneton::BrunetonSky_AutoExposureBuffer_Hashcode, autoExposureBuffer );
            
             cmdList->bindConstantBuffer( PerViewBufferHashcode, viewBuffer );
             cmdList->bindConstantBuffer( PerPassBufferHashcode, passBuffer );
 
+            cmdList->setViewport( *resources->getMainViewport() );
+            cmdList->setScissor( *resources->getMainScissorRegion() );
+
             cmdList->prepareAndBindResourceList( pipelineState );
 
             cmdList->updateBuffer( *passBuffer, &AtmosphereBruneton::BrunetonSkyProperties, sizeof( AtmosphereBruneton::BrunetonSkyRuntimeProperties ) );
 
-            cmdList->setupFramebuffer( &outputImage, depthBuffer );
+            cmdList->setupFramebuffer( &outputImage );
 
             cmdList->draw( 3, 1 );
 
