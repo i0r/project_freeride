@@ -591,6 +591,17 @@ void SetupFramebuffer_Replay( RenderContext* renderContext, Image** renderTarget
         immediateCtx->ClearDepthStencilView( DepthStencilView, D3D11_CLEAR_DEPTH, bindedPipelineState->depthClearValue, bindedPipelineState->stencilClearValue );
     }
 
-    immediateCtx->OMSetRenderTargets( rtvCount, RenderTargets, DepthStencilView );
+    if ( renderContext->PsUavRegisterUpdateCount == 0 ) {
+        // If we don't need to bind UAVs, use OMSetRenderTargets.
+        immediateCtx->OMSetRenderTargets( rtvCount, RenderTargets, DepthStencilView );
+    } else {
+        // Shift registers to match UAVStartSlot (should be equal to the number of render-target views being bound).
+        ID3D11UnorderedAccessView** ShiftedUAVRegisters = &renderContext->PsUavRegisters[rtvCount];
+       
+        immediateCtx->OMSetRenderTargetsAndUnorderedAccessViews( rtvCount, RenderTargets, DepthStencilView, rtvCount, renderContext->PsUavRegisterUpdateCount, ShiftedUAVRegisters, nullptr );
+        
+        renderContext->PsUavRegisterUpdateCount = 0;
+        renderContext->PsUavRegisterUpdateStart = ~0;
+    }
 }
 #endif

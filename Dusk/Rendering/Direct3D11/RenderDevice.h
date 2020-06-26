@@ -69,6 +69,13 @@ struct RenderContext
 
     i32                         CsUavRegisterUpdateCount;
 
+    // Current UAV register usage (for pixel shader stage).
+    ID3D11UnorderedAccessView*  PsUavRegisters[D3D11_1_UAV_SLOT_COUNT];
+
+    u32                         PsUavRegisterUpdateStart;
+
+    i32                         PsUavRegisterUpdateCount;
+
     u32                         SrvRegisterUpdateStart[eShaderStage::SHADER_STAGE_COUNT];
 
     i32                         SrvRegisterUpdateCount[eShaderStage::SHADER_STAGE_COUNT];

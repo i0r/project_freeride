@@ -34,6 +34,9 @@ RenderContext::RenderContext()
     , CsUavRegisters{ nullptr }
     , CsUavRegisterUpdateStart( ~0 )
     , CsUavRegisterUpdateCount( 0 )
+    , PsUavRegisters{ nullptr }
+    , PsUavRegisterUpdateStart( ~0 )
+    , PsUavRegisterUpdateCount( 0 )
     , FramebufferDepthBuffer( nullptr )
     , BindedPipelineState( nullptr )
 #if DUSK_DEVBUILD

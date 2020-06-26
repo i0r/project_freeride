@@ -29,6 +29,9 @@ struct Buffer
     // Current UAV register index (=0xffffffff if the resource is not binded to the device).
     i32                         UAVRegisterIndex;
 
+    // Current UAV register index (=0xffffffff if the resource is not binded to the device).
+    i32                         PSUAVRegisterIndex;
+
     // Current SRV register index (=0xffffffff if the resource is not binded to the device).
     i32                         SRVRegisterIndex[eShaderStage::SHADER_STAGE_COUNT];
 
@@ -42,6 +45,7 @@ struct Buffer
         , DefaultShaderResourceView( nullptr )
         , DefaultUnorderedAccessView( nullptr )
         , UAVRegisterIndex( ~0 )
+        , PSUAVRegisterIndex( ~0 )
     {
         memset( SRVRegisterIndex, 0xff, sizeof( i32 ) * eShaderStage::SHADER_STAGE_COUNT );
         memset( CbufferRegisterIndex, 0xff, sizeof( i32 ) * eShaderStage::SHADER_STAGE_COUNT );

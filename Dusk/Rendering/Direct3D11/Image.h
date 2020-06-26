@@ -37,6 +37,9 @@ struct Image
     // Current UAV register index (=0xffffffff if the resource is not binded to the device).
     i32                             UAVRegisterIndex;
 
+    // Current UAV register index (=0xffffffff if the resource is not binded to the device).
+    i32                             PSUAVRegisterIndex;
+
     // Current SRV register index (=0xffffffff if the resource is not binded to the device).
     i32                             SRVRegisterIndex[eShaderStage::SHADER_STAGE_COUNT];
 
@@ -52,6 +55,7 @@ struct Image
         , DefaultUnorderedAccessView( nullptr )
         , DefaultRenderTargetView( nullptr )
         , UAVRegisterIndex( ~0 )
+        , PSUAVRegisterIndex( ~0 )
         , IsBindedToFBO( false )
         , Description()
     {

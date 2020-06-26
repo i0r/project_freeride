@@ -670,14 +670,23 @@ void UpdateSRVRegister( RenderContext* renderContext, const i32 shaderStageIndex
     renderContext->SrvRegisterUpdateCount[shaderStageIndex] = Max( renderContext->SrvRegisterUpdateCount[shaderStageIndex], updateCount );
 }
 
-void UpdateUAVRegister( RenderContext* renderContext, const u32 uavRegisterIndex, ID3D11UnorderedAccessView* uav )
+void UpdateUAVRegister( RenderContext* renderContext, const i32 shaderStageIndex, const u32 uavRegisterIndex, ID3D11UnorderedAccessView* uav )
 {
-    renderContext->CsUavRegisters[uavRegisterIndex] = uav;
-    renderContext->CsUavRegisterUpdateStart = Min( renderContext->CsUavRegisterUpdateStart, uavRegisterIndex );
+    if ( shaderStageIndex == 1 ) {
+        renderContext->PsUavRegisters[uavRegisterIndex] = uav;
+        renderContext->PsUavRegisterUpdateStart = Min( renderContext->PsUavRegisterUpdateStart, uavRegisterIndex );
 
-    i32 registersDiff = ( uavRegisterIndex - renderContext->CsUavRegisterUpdateStart );
-    i32 updateCount = dk::maths::abs( registersDiff ) + 1;
-    renderContext->CsUavRegisterUpdateCount = Max( renderContext->CsUavRegisterUpdateCount, updateCount );
+        i32 registersDiff = ( uavRegisterIndex - renderContext->PsUavRegisterUpdateStart );
+        i32 updateCount = dk::maths::abs( registersDiff ) + 1;
+        renderContext->PsUavRegisterUpdateCount = Max( renderContext->PsUavRegisterUpdateCount, updateCount );
+    } else {
+        renderContext->CsUavRegisters[uavRegisterIndex] = uav;
+        renderContext->CsUavRegisterUpdateStart = Min( renderContext->CsUavRegisterUpdateStart, uavRegisterIndex );
+
+        i32 registersDiff = ( uavRegisterIndex - renderContext->CsUavRegisterUpdateStart );
+        i32 updateCount = dk::maths::abs( registersDiff ) + 1;
+        renderContext->CsUavRegisterUpdateCount = Max( renderContext->CsUavRegisterUpdateCount, updateCount );
+    }
 }
 
 void UpdateCBufferRegister( RenderContext* renderContext, const i32 shaderStageIndex, const u32 cbufferRegisterIndex, ID3D11Buffer* cbuffer )
@@ -690,18 +699,44 @@ void UpdateCBufferRegister( RenderContext* renderContext, const i32 shaderStageI
     renderContext->CBufferRegisterUpdateCount[shaderStageIndex] = Max( renderContext->CBufferRegisterUpdateCount[shaderStageIndex], updateCount );
 }
 
+void ClearFBO( RenderContext* renderContext )
+{
+    // Update all FBO attachment states (so that we don't clear the framebuffer twice...).
+    for ( i32 i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; i++ ) {
+        if ( renderContext->FramebufferAttachment[i] != nullptr ) {
+            renderContext->FramebufferAttachment[i]->IsBindedToFBO = false;
+            renderContext->FramebufferAttachment[i] = nullptr;
+        }
+    }
+    if ( renderContext->FramebufferDepthBuffer != nullptr ) {
+        renderContext->FramebufferDepthBuffer->IsBindedToFBO = false;
+        renderContext->FramebufferDepthBuffer = nullptr;
+    }
+
+    // Clear framebuffer. Technically we flush all the registers so we unbind UAV at the same time.
+    ID3D11RenderTargetView* RenderTargets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = { nullptr };
+    ID3D11DepthStencilView* DepthStencilView = nullptr;
+    renderContext->ImmediateContext->OMSetRenderTargets( D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, RenderTargets, DepthStencilView );
+}
+
 bool ClearImageUAVRegister( RenderContext* renderContext, Image* image )
 {
     bool needFlush = false;
 
     i32 uavRegister = image->UAVRegisterIndex;
-
     if ( uavRegister != ~0 ) {
         needFlush = true;
-        UpdateUAVRegister( renderContext, uavRegister, nullptr );
+        UpdateUAVRegister( renderContext, 4, uavRegister, nullptr );
 
         image->UAVRegisterIndex = ~0;
     }
+
+    i32 psUavRegister = image->PSUAVRegisterIndex;
+    if ( psUavRegister != ~0 ) {
+        ClearFBO( renderContext );
+        image->PSUAVRegisterIndex = ~0;
+    }
+
     return needFlush;
 }
 
@@ -731,9 +766,15 @@ bool ClearBufferUAVRegister( RenderContext* renderContext, Buffer* buffer )
 
     if ( uavRegister != ~0 ) {
         needFlush = true;
-        UpdateUAVRegister( renderContext, uavRegister, nullptr );
+        UpdateUAVRegister( renderContext, 4, uavRegister, nullptr );
 
         buffer->UAVRegisterIndex = ~0;
+    }
+
+    i32 psUavRegister = buffer->PSUAVRegisterIndex;
+    if ( psUavRegister != ~0 ) {
+        ClearFBO( renderContext );
+        buffer->PSUAVRegisterIndex = ~0;
     }
 
     return needFlush;
@@ -755,26 +796,6 @@ bool ClearBufferSRVRegister( RenderContext* renderContext, Buffer* buffer )
     }
 
     return needFlush;
-}
-
-void ClearFBO( RenderContext* renderContext )
-{
-    // Update all FBO attachment states (so that we don't clear the framebuffer twice...).
-    for ( i32 i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; i++ ) {
-        if ( renderContext->FramebufferAttachment[i] != nullptr ) {
-            renderContext->FramebufferAttachment[i]->IsBindedToFBO = false;
-            renderContext->FramebufferAttachment[i] = nullptr;
-        }
-    }
-    if ( renderContext->FramebufferDepthBuffer != nullptr ) {
-        renderContext->FramebufferDepthBuffer->IsBindedToFBO = false;
-        renderContext->FramebufferDepthBuffer = nullptr;
-    }
-
-    // Clear framebuffer
-    ID3D11RenderTargetView* RenderTargets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = { nullptr };
-    ID3D11DepthStencilView* DepthStencilView = nullptr;
-    renderContext->ImmediateContext->OMSetRenderTargets( D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, RenderTargets, DepthStencilView );
 }
 
 void ClearImageFBOAttachment( RenderContext* renderContext, Image* image )
@@ -850,9 +871,13 @@ void BindBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hashc
             registerData.BufferObject = buffer;
             registerData.ResourceType = RenderContext::RegisterData::Type::BUFFER_RESOURCE;
 
-            UpdateUAVRegister( renderContext, stageBinding.RegisterIndex, uav );
+            UpdateUAVRegister( renderContext, stageBinding.ShaderStageIndex, stageBinding.RegisterIndex, uav );
 
-            buffer->UAVRegisterIndex = stageBinding.RegisterIndex;
+            if ( stageBinding.ShaderStageIndex == 1 ) {
+                buffer->PSUAVRegisterIndex = stageBinding.RegisterIndex;
+            } else {
+                buffer->UAVRegisterIndex = stageBinding.RegisterIndex;
+            }
         }
     }
 }
@@ -944,9 +969,13 @@ void BindImage_Replay( RenderContext* renderContext, const dkStringHash_t hashco
             registerData.ImageObject = image;
             registerData.ResourceType = RenderContext::RegisterData::Type::IMAGE_RESOURCE;
 
-            UpdateUAVRegister( renderContext, stageBinding.RegisterIndex, uav );
+            UpdateUAVRegister( renderContext, stageBinding.ShaderStageIndex, stageBinding.RegisterIndex, uav );
 
-            image->UAVRegisterIndex = stageBinding.RegisterIndex;
+            if ( stageBinding.ShaderStageIndex == 1 ) {
+                image->PSUAVRegisterIndex = stageBinding.RegisterIndex;
+            } else {
+                image->UAVRegisterIndex = stageBinding.RegisterIndex;
+            }
         }
     }
 }
