@@ -188,10 +188,14 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
 
     // Generate material descriptor (pipeline flags, external assets required, etc.).
     const std::string namedGenericPass = std::string( editableMaterial.Name ) + "LightPass";
-	const std::string namedGenericPassEd = std::string( editableMaterial.Name ) + "LightPassEd";
+    const std::string namedGenericPassEd = std::string( editableMaterial.Name ) + "LightPassEd";
+    const std::string namedGenericPickingPass = std::string( editableMaterial.Name ) + "LightPickingPass";
+    const std::string namedGenericPickingPassEd = std::string( editableMaterial.Name ) + "LightPickingPassEd";
 
     ScenarioBinding DefaultBinding;
-	ScenarioBinding DefaultEdBinding;
+    ScenarioBinding DefaultEdBinding;
+    ScenarioBinding DefaultPickingBinding;
+    ScenarioBinding DefaultPickingEdBinding;
 
     const std::vector<RenderLibraryGenerator::RenderPassInfos>& renderPasses = renderLibGenerator.getGeneratedRenderPasses();
     for ( const RenderLibraryGenerator::RenderPassInfos& renderPass : renderPasses ) {
@@ -202,8 +206,12 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
             matchingBinding = &DefaultBinding;
 		} else if ( renderPass.RenderPassName == namedGenericPassEd ) {
             matchingBinding = &DefaultEdBinding;
-		} else {
-            DUSK_LOG_WARN( "Unknown RenderPass '%s' found!\n", renderPass.RenderPassName.c_str() );
+        } else if ( renderPass.RenderPassName == namedGenericPickingPass ) {
+            matchingBinding = &DefaultPickingBinding;
+        } else if ( renderPass.RenderPassName == namedGenericPickingPassEd ) {
+            matchingBinding = &DefaultPickingEdBinding;
+        } else {
+            DUSK_LOG_WARN( "Unknown RenderPass '%hs' found!\n", renderPass.RenderPassName.c_str() );
             continue;
         }
 
@@ -246,7 +254,9 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
 
         // Write each Rendering scenario.
 		SerializeScenario( materialDescriptor, "Default", DefaultBinding );
-		SerializeScenario( materialDescriptor, "Editor_Default", DefaultEdBinding );
+        SerializeScenario( materialDescriptor, "Editor_Default", DefaultEdBinding );
+        SerializeScenario( materialDescriptor, "Default_Picking", DefaultPickingBinding );
+        SerializeScenario( materialDescriptor, "Editor_Default_Picking", DefaultPickingEdBinding );
 
         materialDescriptor->writeString( "}\n" );
 

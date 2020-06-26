@@ -227,7 +227,7 @@ static void WriteConstantBufferDecl( const TypeAST* bufferData, const char* buff
     hlslSourceOutput.append( "};\n\n" );
 }
 
-static DUSK_INLINE void WriteResourceList( const TypeAST* resourceList, const TypeAST* properties, std::string& hlslSource )
+static DUSK_INLINE void WriteResourceList( const TypeAST* resourceList, const TypeAST* properties, const RenderLibraryGenerator::RenderPassInfos& renderPassInfos, std::string& hlslSource )
 {
     if ( resourceList != nullptr ) {
         u32 samplerRegisterIdx = 0;
@@ -286,8 +286,12 @@ static DUSK_INLINE void WriteResourceList( const TypeAST* resourceList, const Ty
                     registerAddr.append( "t" );
                     registerAddr.append( std::to_string( srvRegisterIdx++ ) );
                 } else {
+                    // UAV bindings on the Graphics pipeline share the same register space as the framebuffer render targets
+                    // which is why we need to offset the register index with the number of rendertarget.
+                    const u32 uavRegisterOffset = ( renderPassInfos.PipelineStateType == PipelineStateDesc::GRAPHICS ) ? static_cast<u32>( renderPassInfos.ColorRenderTargets.size() ) : 0;
+
                     registerAddr.append( "u" );
-                    registerAddr.append( std::to_string( uavRegisterIdx++ ) );
+                    registerAddr.append( std::to_string( uavRegisterOffset + uavRegisterIdx++ ) );
                 }
             }
 
@@ -428,7 +432,7 @@ static void PreprocessShaderSource( const std::string& bodySource, const i32 sta
 
                             srcCodeLine.append( defineProxyName );
                         } else {
-                            DUSK_LOG_WARN( "Unknown cflag specified by preprocessor guards: '%s'\n", semanticName.c_str() );
+                            DUSK_LOG_WARN( "Unknown cflag specified by preprocessor guards: '%hs'\n", semanticName.c_str() );
                         }
                     }
 
@@ -462,7 +466,7 @@ static void PreprocessShaderSource( const std::string& bodySource, const i32 sta
 
                             srcCodeLine.append( flagValue );
                         } else {
-                            DUSK_LOG_WARN( "Unknown cflag specified by preprocessor guards: '%s'\n", semanticName.c_str() );
+                            DUSK_LOG_WARN( "Unknown cflag specified by preprocessor guards: '%hs'\n", semanticName.c_str() );
                         }
 
                         do {
@@ -1032,7 +1036,7 @@ void RenderLibraryGenerator::processShaderStage( const i32 stageIndex, const std
     WriteConstantBufferDecl( propertiesNode, "PerPassBuffer", 1, constantMap, generatedShader.GeneratedSource );
 
     // Create resource list
-    WriteResourceList( resourceListNode, propertiesNode, generatedShader.GeneratedSource );
+    WriteResourceList( resourceListNode, propertiesNode, passInfos, generatedShader.GeneratedSource );
 
     // NOTE We want the shared header first in the hlsl source (since it might add includes to the file
     // used by the resource list)
