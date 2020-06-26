@@ -75,6 +75,13 @@ namespace CommandPacket
         void*           Data;
     };
 
+	struct CopyResource
+	{
+		u32             Identifier;
+		ID3D11Resource* SourceResource;
+		ID3D11Resource* DestResource;
+	};
+
     struct SetupFramebuffer
     {
         u32                     Identifier;
@@ -237,6 +244,9 @@ enum CommandPacketIdentifier
 
     // Clear Depth stencil view (stencil clear is optional).
     CPI_CLEAR_DEPTH_STENCIL,
+
+    // Copy one resource to another one.
+    CPI_COPY_RESOURCE,
 
     // TODO IMPLEMENT PACKETS BELOW THIS LINE
     // ===============================================

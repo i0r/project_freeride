@@ -3,7 +3,7 @@
     Copyright (C) 2019 Prevost Baptiste
 */
 #include <Shared.h>
-#include "PrimitiveLightingTest.h"
+#include "WorldRenderModule.h"
 
 #include <Graphics/ShaderCache.h>
 #include <Graphics/FrameGraph.h>
@@ -24,9 +24,54 @@ struct PerPassData
 };
 
 static constexpr size_t MAX_VECTOR_PER_INSTANCE = 1024;
-static constexpr dkStringHash_t InstanceVectorBufferHashcode = DUSK_STRING_HASH( "InstanceVectorBuffer" );
 
-LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, Material::RenderScenario scenario )
+static constexpr dkStringHash_t InstanceVectorBufferHashcode = DUSK_STRING_HASH( "InstanceVectorBuffer" );
+static constexpr dkStringHash_t PickingBufferHashcode = DUSK_STRING_HASH( "PickingBuffer" );
+
+WorldRenderModule::WorldRenderModule()
+    : pickingBuffer( nullptr )
+    , pickingReadbackBuffer( nullptr )
+{
+
+}
+
+WorldRenderModule::~WorldRenderModule()
+{
+
+}
+
+void WorldRenderModule::destroy( RenderDevice& renderDevice )
+{
+    if ( pickingBuffer != nullptr ) {
+        renderDevice.destroyBuffer( pickingBuffer );
+        pickingBuffer = nullptr;
+	}
+
+	if ( pickingReadbackBuffer != nullptr ) {
+		renderDevice.destroyBuffer( pickingReadbackBuffer );
+        pickingReadbackBuffer = nullptr;
+	}
+}
+
+void WorldRenderModule::loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache )
+{
+	// Create the picking buffer.
+	BufferDesc pickingBufferDesc;
+	pickingBufferDesc.BindFlags = RESOURCE_BIND_UNORDERED_ACCESS_VIEW | RESOURCE_BIND_RAW;
+	pickingBufferDesc.SizeInBytes = sizeof( dkVec4u );
+	pickingBufferDesc.StrideInBytes = 1;
+	pickingBufferDesc.Usage = RESOURCE_USAGE_DEFAULT;
+
+	pickingBuffer = renderDevice.createBuffer( pickingBufferDesc );
+
+	// Create the staging buffer for results readback.
+    pickingBufferDesc.BindFlags = 0;
+	pickingBufferDesc.Usage = RESOURCE_USAGE_STAGING;
+
+	pickingReadbackBuffer = renderDevice.createBuffer( pickingBufferDesc );
+}
+
+WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, Material::RenderScenario scenario )
 {
     struct PassData {
         ResHandle_t output;
@@ -159,6 +204,9 @@ LightPassOutput AddPrimitiveLightTest( FrameGraph& frameGraph, ResHandle_t perSc
                 cmdList->bindConstantBuffer( PerWorldBufferHashcode, perWorldBuffer );
                 if ( scenario == Material::RenderScenario::Default_Editor ) {
                     cmdList->bindConstantBuffer( MaterialEditorBufferHashcode, materialEdBuffer );
+                } else if ( scenario == Material::RenderScenario::Default_Picking
+                         || scenario == Material::RenderScenario::Default_Picking_Editor ) {
+                    cmdList->bindBuffer( PickingBufferHashcode, pickingBuffer );
                 }
 
                 // Re-setup the framebuffer (some permutations have a different framebuffer layout).

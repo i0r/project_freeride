@@ -960,10 +960,10 @@ FrameGraphScheduler::FrameGraphScheduler( BaseAllocator* allocator, RenderDevice
 
     perViewBuffer = renderDevice->createBuffer( perViewBufferDesc );
 
-    BufferDesc matEdBufferDesc;
+	BufferDesc matEdBufferDesc;
+	matEdBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
     matEdBufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
     matEdBufferDesc.SizeInBytes = sizeof( MaterialEdData );
-    matEdBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
 
     materialEditorBuffer = renderDevice->createBuffer( matEdBufferDesc );
 

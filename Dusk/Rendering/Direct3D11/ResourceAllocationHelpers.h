@@ -72,6 +72,10 @@ static UINT GetMiscFlags( const u32 bindFlags, const u32 miscFlags = 0 )
         nativeMiscFlags |= D3D11_RESOURCE_MISC_DRAWINDIRECT_ARGS;
     }
 
+    if ( bindFlags & RESOURCE_BIND_RAW ) {
+        nativeMiscFlags |= D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS;
+    }
+
     if ( miscFlags & ImageDesc::ENABLE_HARDWARE_MIP_GENERATION ) {
         nativeMiscFlags |= D3D11_RESOURCE_MISC_GENERATE_MIPS;
     }
@@ -445,7 +449,15 @@ static ID3D11UnorderedAccessView* CreateBufferUnorderedAccessView( ID3D11Device*
     unorderedAccessViewDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
     unorderedAccessViewDesc.Buffer.FirstElement = viewDesc.FirstElement;
     unorderedAccessViewDesc.Buffer.NumElements = viewDesc.NumElements;
-    unorderedAccessViewDesc.Buffer.Flags = ( buffer.BindFlags & RESOURCE_BIND_APPEND_STRUCTURED_BUFFER ) ? D3D11_BUFFER_UAV_FLAG_APPEND : 0;
+    unorderedAccessViewDesc.Buffer.Flags = 0;
+    
+    if ( buffer.BindFlags & RESOURCE_BIND_APPEND_STRUCTURED_BUFFER ) {
+        unorderedAccessViewDesc.Buffer.Flags |= D3D11_BUFFER_UAV_FLAG_APPEND;
+    }
+
+	if ( buffer.BindFlags & RESOURCE_BIND_RAW ) {
+		unorderedAccessViewDesc.Buffer.Flags |= D3D11_BUFFER_UAV_FLAG_RAW;
+	}
 
     ID3D11UnorderedAccessView* unorderedAccessView = nullptr;
     HRESULT operationResult = device->CreateUnorderedAccessView( buffer.BufferObject, &unorderedAccessViewDesc, &unorderedAccessView );

@@ -29,7 +29,7 @@
 #include "Graphics/RenderModules/FrameCompositionModule.h"
 #include "Graphics/RenderModules/AutomaticExposure.h"
 #include "Graphics/RenderModules/TextRenderingModule.h"
-#include "Graphics/RenderModules/PrimitiveLightingTest.h"
+#include "Graphics/RenderModules/WorldRenderModule.h"
 #include "Graphics/RenderModules/GlareRenderModule.h"
 #include "Graphics/RenderModules/FFTRenderPass.h"
 #include "Graphics/RenderModules/LineRenderingModule.h"
@@ -849,7 +849,7 @@ void MainLoop()
         Material::RenderScenario scenario = ( g_MaterialEditor->isUsingInteractiveMode() ) ? Material::RenderScenario::Default_Picking_Editor : Material::RenderScenario::Default_Picking;
 
         // LightPass.
-        LightPassOutput primRenderPass = AddPrimitiveLightTest( frameGraph, lightGridData.PerSceneBuffer, scenario );
+        WorldRenderModule::LightPassOutput primRenderPass = g_WorldRenderer->WorldRendering->addPrimitiveLightPass( frameGraph, lightGridData.PerSceneBuffer, scenario );
 
         // AntiAliasing resolve. (we merge both TAA and MSAA in a single pass to avoid multiple dispatch).
         ResolvedPassOutput resolvedOutput = { primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget };

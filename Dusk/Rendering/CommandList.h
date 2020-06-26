@@ -165,6 +165,8 @@ public:
     void                            pushEventMarker( const dkChar_t* eventName );
     void                            popEventMarker();
 
+    void                            copyBuffer( Buffer* sourceBuffer, Buffer* destBuffer );
+
     // NOTE Transition should be handled by higher level APIs (RenderGraph, etc.)
     // Use explicit transition for special cases only
     void                            transitionImage( Image& image, const eResourceState state, const u32 mipIndex = 0, const TransitionType transitionType = TRANSITION_SAME_QUEUE );

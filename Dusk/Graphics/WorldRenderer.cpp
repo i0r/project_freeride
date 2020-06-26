@@ -22,6 +22,7 @@
 #include "RenderModules/TextRenderingModule.h"
 #include "RenderModules/GlareRenderModule.h"
 #include "RenderModules/LineRenderingModule.h"
+#include "RenderModules/WorldRenderModule.h"
 
 static constexpr size_t MAX_DRAW_CMD_COUNT = 4096;
 
@@ -94,6 +95,7 @@ WorldRenderer::WorldRenderer( BaseAllocator* allocator )
     , LineRendering( dk::core::allocate<LineRenderingModule>( allocator, allocator ) )
     , FrameComposition( dk::core::allocate<FrameCompositionModule>( allocator ) )
     , AtmosphereRendering( dk::core::allocate<AtmosphereRenderModule>( allocator ) )
+    , WorldRendering( dk::core::allocate<WorldRenderModule>( allocator ) )
     , memoryAllocator( allocator )
     , primitiveCache( dk::core::allocate<PrimitiveCache>( allocator ) )
     , drawCmdAllocator( dk::core::allocate<LinearAllocator>( allocator, sizeof( DrawCmd ) * MAX_DRAW_CMD_COUNT, allocator->allocate( sizeof( DrawCmd ) * MAX_DRAW_CMD_COUNT ) ) )
@@ -112,7 +114,8 @@ WorldRenderer::~WorldRenderer()
     dk::core::free( memoryAllocator, GlareRendering );
     dk::core::free( memoryAllocator, LineRendering );
     dk::core::free( memoryAllocator, FrameComposition );
-    dk::core::free( memoryAllocator, AtmosphereRendering );
+	dk::core::free( memoryAllocator, AtmosphereRendering );
+	dk::core::free( memoryAllocator, WorldRendering );
     dk::core::free( memoryAllocator, primitiveCache );
     dk::core::free( memoryAllocator, drawCmdAllocator );
     dk::core::free( memoryAllocator, frameGraph );
@@ -131,6 +134,7 @@ void WorldRenderer::destroy( RenderDevice* renderDevice )
     GlareRendering->destroy( *renderDevice );
     LineRendering->destroy( *renderDevice );
     AtmosphereRendering->destroy( *renderDevice );
+    WorldRendering->destroy( *renderDevice );
 }
 
 void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache* shaderCache, GraphicsAssetCache* graphicsAssetCache, VirtualFileSystem* virtualFileSystem )
@@ -145,6 +149,7 @@ void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache
     LineRendering->createPersistentResources( *renderDevice );
     FrameComposition->loadCachedResources( *graphicsAssetCache );
     AtmosphereRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
+    WorldRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
 
     // Debug resources.
     wireframeMaterial = graphicsAssetCache->getMaterial( DUSK_STRING( "GameData/materials/wireframe.mat" ), true );

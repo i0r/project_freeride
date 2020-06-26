@@ -476,6 +476,7 @@ static constexpr size_t MAX_INSTANCE_COUNT_PER_MODEL = 256;
 struct ModelInstance 
 {
     const Model*    ModelResource;
+    dkStringHash_t  EntityHashcode;
     dkMat4x4f		ModelMatrix;
 };
 

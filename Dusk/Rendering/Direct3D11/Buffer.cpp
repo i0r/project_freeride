@@ -49,6 +49,11 @@ Buffer* RenderDevice::createBuffer( const BufferDesc& description, const void* i
     // We need to copy the default view descriptor since the input descriptor is immutable (we could use const_cast crap tho)
     BufferViewDesc defaultViewDesc = description.DefaultView;
 
+    // Standard says that the view format must be DXGI_FORMAT_R32_TYPELESS.
+    if ( description.BindFlags & RESOURCE_BIND_RAW ) {
+        defaultViewDesc.ViewFormat = VIEW_FORMAT_R32_TYPELESS;
+    }
+
     const u16 elementCount = defaultViewDesc.NumElements;
     defaultViewDesc.NumElements = ( elementCount == 0 ) ? description.StrideInBytes : elementCount;
 
@@ -81,6 +86,14 @@ void RenderDevice::setDebugMarker( Buffer& buffer, const dkChar_t* objectName )
 #if DUSK_ENABLE_GPU_DEBUG_MARKER
     buffer.BufferObject->SetPrivateData( WKPDID_D3DDebugObjectName, static_cast< UINT >( wcslen( objectName ) ), WideStringToString( objectName ).c_str() );
 #endif
+}
+
+void CommandList::copyBuffer( Buffer* sourceBuffer, Buffer* destBuffer )
+{
+	CommandPacket::CopyResource* commandPacket = dk::core::allocate<CommandPacket::CopyResource>( nativeCommandList->CommandPacketAllocator );
+	commandPacket->Identifier = CPI_COPY_RESOURCE;
+	commandPacket->SourceResource = sourceBuffer->BufferObject;
+	commandPacket->DestResource = destBuffer->BufferObject;
 }
 
 void CommandList::bindVertexBuffer( const Buffer** buffers, const u32 bufferCount, const u32 startBindIndex )

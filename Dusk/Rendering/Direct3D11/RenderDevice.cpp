@@ -580,6 +580,13 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
             renderContext->ImmediateContext->ClearDepthStencilView( cmdPacket.DepthStencil->DefaultDepthStencilView, ClearValue, cmdPacket.ClearValue, cmdPacket.ClearStencilValue );
             break;
         }
+        case CPI_COPY_RESOURCE:
+		{
+			CommandPacket::CopyResource cmdPacket = *( CommandPacket::CopyResource* )bufferPointer;
+
+			renderContext->ImmediateContext->CopyResource( cmdPacket.SourceResource, cmdPacket.DestResource );
+			break;
+        }
         };
     }
 }
