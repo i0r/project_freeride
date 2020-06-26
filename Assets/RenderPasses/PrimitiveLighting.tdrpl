@@ -2,6 +2,7 @@ lib PrimitiveLighting {
     properties {
         cflag       WriteVelocity = false;
         cflag       MaterialEditor = false;
+        cflag       DoPickingCheck = true;
         float       StartVector;
         float       VectorPerInstance;
     }
@@ -186,8 +187,8 @@ lib PrimitiveLighting {
     pass LightPass {
         vertex = PrimitiveVS;
         pixel = PrimitivePS;
+        MaterialEditor = false;
         WriteVelocity = true;
-        UseInstancing = false;
         rendertargets = { OutputRenderTarget, OutputVelocity };
         depthStencil = OutputDepthTarget;
     }
@@ -197,7 +198,26 @@ lib PrimitiveLighting {
         pixel = PrimitivePS;
         MaterialEditor = true;
         WriteVelocity = true;
-        UseInstancing = false;
+        rendertargets = { OutputRenderTarget, OutputVelocity };
+        depthStencil = OutputDepthTarget;
+    }
+    
+    pass LightPickingPass {
+        vertex = PrimitiveVS;
+        pixel = PrimitivePS;
+        MaterialEditor = false;
+        WriteVelocity = true;
+        DoPickingCheck = true;
+        rendertargets = { OutputRenderTarget, OutputVelocity };
+        depthStencil = OutputDepthTarget;
+    }
+    
+    pass LightPickingPassEd {
+        vertex = PrimitiveVS;
+        pixel = PrimitivePS;
+        MaterialEditor = true;
+        WriteVelocity = true;
+        DoPickingCheck = true;
         rendertargets = { OutputRenderTarget, OutputVelocity };
         depthStencil = OutputDepthTarget;
     }

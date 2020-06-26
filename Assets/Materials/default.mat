@@ -13,4 +13,12 @@ material "default" {
 		vertex = "d7dd6a229530fcc32c06f59eda0932b3";
 		pixel = "b9e70f6fa8d1e2f1639a829d5d30c8a8";
 	}
+	scenario "Default_Picking" {
+		vertex = "9644d7c6700905c091f4255fe5ed795d";
+		pixel = "60e0605d1ca7ec09970e275853280db4";
+	}
+	scenario "Editor_Default_Picking" {
+		vertex = "7ead57e5b8cc77adc94add931b74e8b9";
+		pixel = "ad61623f84e7cd01ae066ab7c61db89e";
+	}
 }

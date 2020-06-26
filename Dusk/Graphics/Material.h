@@ -22,6 +22,12 @@ public:
         // has an obvious performance cost.
         Default_Editor,
 
+        // Default scenario; withing writing to the UAV buffer enabled.
+        Default_Picking,
+
+        // Default_Editor scenario; withing writing to the UAV buffer enabled.
+        Default_Picking_Editor,
+
         // Depth only render pass. It will output non-linearized depth.
         DepthOnly,
 
@@ -112,6 +118,12 @@ private:
     // Pipeline binding for the default render scenario in the material editor (forward+ light pass).
     RenderScenarioBinding defaultEditorScenario;
 
+    // (EDITOR ONLY) defaultScenario when picking is required.
+    RenderScenarioBinding defaultPickingScenario;
+
+    // (EDITOR ONLY) defaultEditorScenario when picking is required.
+    RenderScenarioBinding defaultPickingEditorScenario;
+
     // If true, this material will invalidate previously cached states (pipeline states, shaders, etc.) and will request
     // the resources from the hard drive.
     u8 invalidateCachedStates : 1;
@@ -130,4 +142,7 @@ private:
 
     // True if this material should be rendered with wireframe fillmode.
     u8 isWireframe : 1;
+    
+private:
+    const PipelineStateCache::ShaderBinding& Material::getScenarioShaderBinding( const RenderScenario scenario ) const;
 };

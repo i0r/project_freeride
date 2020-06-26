@@ -98,6 +98,14 @@ void Material::deserialize( FileSystemObject* object )
 
                     switch ( type.Type ) {
                     case TypeAST::RENDER_SCENARIO: {
+                        if ( dk::core::ExpectKeyword( name.StreamPointer, name.Length, "Editor_Default_Picking" ) ) {
+                            ParseScenario( defaultPickingEditorScenario, type );
+                        }
+
+                        if ( dk::core::ExpectKeyword( name.StreamPointer, name.Length, "Default_Picking" ) ) {
+                            ParseScenario( defaultPickingScenario, type );
+                        }
+
                         if ( dk::core::ExpectKeyword( name.StreamPointer, name.Length, "Editor_Default" ) ) {
                             ParseScenario( defaultEditorScenario, type );
                         } 
@@ -140,6 +148,8 @@ PipelineState* Material::bindForScenario( const RenderScenario scenario, Command
     switch ( scenario ) {
     case RenderScenario::Default:
     case RenderScenario::Default_Editor:
+    case RenderScenario::Default_Picking:
+    case RenderScenario::Default_Picking_Editor:
     {
         // TODO Cache the descriptors so that we don't have to recreate those each frame?
         PipelineStateDesc DefaultPipelineState( PipelineStateDesc::GRAPHICS );
@@ -164,7 +174,9 @@ PipelineState* Material::bindForScenario( const RenderScenario scenario, Command
 
         DefaultPipelineState.addStaticSampler( RenderingHelpers::S_BilinearWrap );
 
-		const PipelineStateCache::ShaderBinding& shaderBinding = ( ( scenario == RenderScenario::Default_Editor ) ? defaultEditorScenario : defaultScenario ).PsoShaderBinding;
+        // Retrieve the appropriate shader binding for the given scenario.
+        const PipelineStateCache::ShaderBinding& shaderBinding = getScenarioShaderBinding( scenario );
+
 		scenarioPso = psoCache->getOrCreatePipelineState( DefaultPipelineState, shaderBinding, invalidateCachedStates );
     } break;
     default:
@@ -186,6 +198,23 @@ PipelineState* Material::bindForScenario( const RenderScenario scenario, Command
     }
 
     return scenarioPso;
+}
+
+const PipelineStateCache::ShaderBinding& Material::getScenarioShaderBinding( const RenderScenario scenario ) const
+{
+    switch ( scenario ) {
+    case RenderScenario::Default:
+        return defaultEditorScenario.PsoShaderBinding;
+    case RenderScenario::Default_Editor:
+        return defaultScenario.PsoShaderBinding;
+    case RenderScenario::Default_Picking:
+        return defaultPickingScenario.PsoShaderBinding;
+    case RenderScenario::Default_Picking_Editor:
+        return defaultPickingEditorScenario.PsoShaderBinding;
+    case RenderScenario::DepthOnly:
+    default:
+        return defaultScenario.PsoShaderBinding;
+    }
 }
 
 const char* Material::getName() const
