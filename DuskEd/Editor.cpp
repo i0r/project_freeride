@@ -571,7 +571,7 @@ void MainLoop()
             + std::to_string( framerateCounter.MaxDeltaTime ).substr( 0, 6 ) + " ms ("
             + std::to_string( framerateCounter.AvgFramePerSecond ).substr( 0, 6 ) + " FPS)";
 
-        std::string mousePos = "Picked Entity ID: " + std::to_string( g_WorldRenderer->WorldRendering->getPickedEntityId() );
+        std::string mousePos = "Picked Entity ID: " + std::to_string( g_PickedEntity.getIdentifier() );
 
         // Convert screenspace cursor position to viewport space.
 		i32 shiftedMouseX = dk::maths::clamp( static_cast< i32 >( g_CursorPosition.x - g_ViewportWindowPosition.x ), 0, vp.Width );
@@ -788,6 +788,24 @@ void MainLoop()
                 winSize.y -= 32;
 
                 ImGui::Image( static_cast< ImTextureID >( frameGraph.getPresentRenderTarget() ), winSize );
+
+				if ( ImGui::BeginPopupContextWindow( "Viewport Popup" ) ) {
+					if ( ImGui::BeginMenu( "New Entity..." ) ) {
+						if ( ImGui::MenuItem( "Static Mesh" ) ) {
+                            g_PickedEntity = g_World->createStaticMesh();
+						}
+						
+                        ImGui::EndMenu();
+					}
+
+					if ( g_PickedEntity.getIdentifier() != Entity::INVALID_ID ) {
+						if ( ImGui::MenuItem( "Delete" ) ) {
+                            g_World->releaseEntity( g_PickedEntity );
+						}
+                    }
+
+					ImGui::EndPopup();
+				}
             }
             ImGui::End();
             
@@ -824,6 +842,7 @@ void MainLoop()
 
         Material::RenderScenario scenario = ( g_MaterialEditor->isUsingInteractiveMode() ) ? Material::RenderScenario::Default_Editor : Material::RenderScenario::Default;
 
+        // TODO Remove me once entity add/remove is implemented
         static bool crap = false;
         if ( g_RequestPickingUpdate ) {
             scenario = ( scenario == Material::RenderScenario::Default ) ? Material::RenderScenario::Default_Picking : Material::RenderScenario::Default_Picking_Editor;

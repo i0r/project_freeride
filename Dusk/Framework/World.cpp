@@ -74,6 +74,13 @@ Entity World::createStaticMesh( const char* name )
     return entity;
 }
 
+void World::releaseEntity( Entity& entity )
+{
+	staticGeometry.remove( entity );
+ 
+    entityDatabase->releaseEntity( entity );
+}
+
 void World::attachTransformComponent( Entity& entity )
 {
     transformDatabase->allocateComponent( entity );

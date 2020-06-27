@@ -36,6 +36,8 @@ public:
 
     Entity                  createStaticMesh( const char* name = "Static Mesh" );
 
+    void                    releaseEntity( Entity& entity );
+
     void                    attachTransformComponent( Entity& entity );
 
     void                    attachStaticGeometryComponent( Entity& entity );
@@ -54,11 +56,11 @@ private:
     // TODO Might need allocation/logic improvement.
     std::list<Entity>       staticGeometry;
 
-    TransformDatabase* transformDatabase;
+    TransformDatabase*      transformDatabase;
 
     StaticGeometryDatabase* staticGeometryDatabase;
 
-    EntityNameRegister* entityNameRegister;
+    EntityNameRegister*     entityNameRegister;
 
 private:
 	// Update this World area streaming.

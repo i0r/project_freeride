@@ -25,6 +25,8 @@ void EntityNameRegister::create( const size_t entityCount )
 	registerCapacity = entityCount;
 
 	registerData = dk::core::allocateArray<u8>( memoryAllocator, registerCapacity * sizeof( char ) * Entity::MAX_NAME_LENGTH );
+    
+    memset( registerData, '\0', registerCapacity * sizeof( char ) * Entity::MAX_NAME_LENGTH );
 
 	names = reinterpret_cast< char* >( registerData );
 }
@@ -39,12 +41,12 @@ void EntityNameRegister::setName( const Entity& entity, const char* name )
 
 char* EntityNameRegister::getNameBuffer( const Entity& entity )
 {
-	return &names[entity.extractIndex()];
+	return &names[entity.extractIndex() * Entity::MAX_NAME_LENGTH];
 }
 
 const char* EntityNameRegister::getName( const Entity& entity ) const
 {
-	return &names[entity.extractIndex()];
+	return &names[entity.extractIndex() * Entity::MAX_NAME_LENGTH];
 }
 
 bool EntityNameRegister::exist( const dkStringHash_t hashcode ) const
