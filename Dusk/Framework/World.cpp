@@ -50,7 +50,7 @@ void World::collectRenderables( DrawCommandBuilder2* drawCmdBuilder ) const
             continue;
         }
 
-        drawCmdBuilder->addStaticModelInstance( model, modelMatrix );
+        drawCmdBuilder->addStaticModelInstance( model, modelMatrix, geom.getIdentifier() );
     }
 }
 

@@ -167,7 +167,7 @@ ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_
 
             cmdList->bindConstantBuffer( PerPassBufferHashcode, parametersBuffer );
             cmdList->bindImage( dkImGui::ImGui_FontAtlasTexture_Hashcode, fontAtlas );
-            cmdList->prepareAndBindResourceList( pipelineState );
+            cmdList->prepareAndBindResourceList();
 
             cmdList->setupFramebuffer( &outputTarget, nullptr );
 
@@ -199,7 +199,7 @@ ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_
                     if ( cmdTexId != activeTexId ) {
                         Image* cmdImage = static_cast< Image* >( pcmd->TextureId );
                         cmdList->bindImage( dkImGui::ImGui_FontAtlasTexture_Hashcode, cmdImage );
-                        cmdList->prepareAndBindResourceList( pipelineState );
+                        cmdList->prepareAndBindResourceList();
 
                         activeTexId = static_cast< ImTextureID >( cmdImage );
                     }

@@ -118,7 +118,10 @@ static bool                    g_IsFirstLaunch = false;
 static bool                    g_IsMouseOverViewportWindow = false;
 static bool                    g_CanMoveCamera = false;
 static bool                    g_IsResizing = true;
+static bool                    g_RequestPickingUpdate = false;
 static dkVec2u                 g_CursorPosition = dkVec2u( 0, 0 );
+static dkVec2u                 g_ViewportWindowPosition = dkVec2u( 0, 0 );
+static Entity                  g_PickedEntity = Entity();
 
 DUSK_ENV_VAR( EnableVSync, true, bool ); // "Enable Vertical Synchronisation [false/true]"
 DUSK_ENV_VAR( EnableTAA, false, bool ); // "Enable Temporal AntiAliasing [false/true]"
@@ -198,52 +201,11 @@ void RegisterInputContexts()
              }*/
         }
 
-        //if ( !io.WantCaptureMouse ) {
-        //    if ( input.Actions.find( DUSK_STRING_HASH( "PickNode" ) ) != input.Actions.end() ) {
-        //        CameraData& cameraData = g_FreeCamera->getData();
-        //        const dkMat4x4f& viewMat = cameraData.viewMatrix;
-        //        const dkMat4x4f& projMat = cameraData.depthProjectionMatrix;
-
-        //        dkMat4x4f inverseViewProj = ( projMat * viewMat ).inverse();
-
-        //        dkVec4f ray =
-        //        {
-        //            ( io.MousePos.x / io.DisplaySize.x ) * 2.f - 1.f,
-        //            ( 1.f - ( io.MousePos.y / io.DisplaySize.y ) ) * 2.f - 1.f,
-        //            0.0f,
-        //            1.0f
-        //        };
-
-        //        dkVec4f rayOrigin =
-        //        {
-        //            ray.x * inverseViewProj[0][0] + ray.y * inverseViewProj[1][0] + ray.z * inverseViewProj[2][0] + ray.w * inverseViewProj[3][0],
-        //            ray.x * inverseViewProj[0][1] + ray.y * inverseViewProj[1][1] + ray.z * inverseViewProj[2][1] + ray.w * inverseViewProj[3][1],
-        //            ray.x * inverseViewProj[0][2] + ray.y * inverseViewProj[1][2] + ray.z * inverseViewProj[2][2] + ray.w * inverseViewProj[3][2],
-        //            ray.x * inverseViewProj[0][3] + ray.y * inverseViewProj[1][3] + ray.z * inverseViewProj[2][3] + ray.w * inverseViewProj[3][3],
-        //        };
-        //        rayOrigin *= ( 1.0f / rayOrigin.w );
-
-        //        ray.z = 1.0f;
-        //        dkVec4f rayEnd =
-        //        {
-        //            ray.x * inverseViewProj[0][0] + ray.y * inverseViewProj[1][0] + ray.z * inverseViewProj[2][0] + ray.w * inverseViewProj[3][0],
-        //            ray.x * inverseViewProj[0][1] + ray.y * inverseViewProj[1][1] + ray.z * inverseViewProj[2][1] + ray.w * inverseViewProj[3][1],
-        //            ray.x * inverseViewProj[0][2] + ray.y * inverseViewProj[1][2] + ray.z * inverseViewProj[2][2] + ray.w * inverseViewProj[3][2],
-        //            ray.x * inverseViewProj[0][3] + ray.y * inverseViewProj[1][3] + ray.z * inverseViewProj[2][3] + ray.w * inverseViewProj[3][3],
-        //        };
-        //        rayEnd *= ( 1.0f / rayEnd.w );
-
-        //        dkVec3f rayDir = ( rayEnd - rayOrigin ).normalize();
-
-        //        dkVec3f rayDirection = dkVec3f( rayDir );
-        //        dkVec3f rayOrig = dkVec3f( rayOrigin );
-
-        //        /*g_PickingRay.origin = rayOrig;
-        //        g_PickingRay.direction = rayDirection;
-
-        //        g_PickedNode = g_SceneTest->intersect( g_PickingRay );*/
-        //    }
-        //}
+		if ( g_IsMouseOverViewportWindow ) {
+            if ( input.States.find( DUSK_STRING_HASH( "LeftMouseButton" ) ) != input.States.end() ) {
+                g_RequestPickingUpdate = true;
+            }
+        }
 
         // Forward input states to ImGui
         f32 rawX = dk::maths::clamp( static_cast< f32 >( g_InputReader->getAbsoluteAxisValue( dk::input::eInputAxis::MOUSE_X ) ), 0.0f, static_cast< f32 >( ScreenSize.x ) );
@@ -253,7 +215,7 @@ void RegisterInputContexts()
 		g_CursorPosition.x = static_cast< u32 >( rawX );
 		g_CursorPosition.y = static_cast< u32 >( rawY );
 
-        ImGuiIO& io = ImGui::GetIO();
+		ImGuiIO& io = ImGui::GetIO();
         io.MousePos = ImVec2( rawX, rawY );
         io.MouseWheel = mouseWheel;
 
@@ -554,10 +516,12 @@ void MainLoop()
     dkVec2f viewportSize = dkVec2f( static_cast< f32 >( ScreenSize.x ), static_cast< f32 >( ScreenSize.y ) );
 
     Entity modelEntity = g_World->createStaticMesh();
+
     StaticGeometryDatabase* staticGeomDb = g_World->getStaticGeometryDatabase();
     staticGeomDb->setModel( staticGeomDb->lookup( modelEntity ), nullptr );
 
-    g_EntityEditor->setActiveEntity( &modelEntity );
+	g_PickedEntity = Entity( modelEntity.extractIndex(), modelEntity.extractGenerationIndex() );
+    g_EntityEditor->setActiveEntity( &g_PickedEntity );
     // TEST TEST TEST
 
     Timer logicTimer;
@@ -607,11 +571,19 @@ void MainLoop()
             + std::to_string( framerateCounter.MaxDeltaTime ).substr( 0, 6 ) + " ms ("
             + std::to_string( framerateCounter.AvgFramePerSecond ).substr( 0, 6 ) + " FPS)";
 
+        std::string mousePos = "Picked Entity ID: " + std::to_string( g_WorldRenderer->WorldRendering->getPickedEntityId() );
+
+        // Convert screenspace cursor position to viewport space.
+		i32 shiftedMouseX = dk::maths::clamp( static_cast< i32 >( g_CursorPosition.x - g_ViewportWindowPosition.x ), 0, vp.Width );
+		i32 shiftedMouseY = dk::maths::clamp( static_cast< i32 >( g_CursorPosition.y - g_ViewportWindowPosition.y ), 0, vp.Height );
+
+        dkVec2u shiftedMouse = dkVec2u( shiftedMouseX, shiftedMouseY );
+
         // Wait for previous frame completion
         FrameGraph& frameGraph = g_WorldRenderer->prepareFrameGraph( vp, sr, &g_FreeCamera->getData() );
         frameGraph.acquireCurrentMaterialEdData( g_MaterialEditor->getRuntimeEditionData() );
         frameGraph.setScreenSize( ScreenSize );
-        frameGraph.updateMouseCoordinates( g_CursorPosition );
+        frameGraph.updateMouseCoordinates( shiftedMouse );
         
         // TODO We should use a snapshot of the world instead of having to wait the previous frame completion...
 		g_World->collectRenderables( g_DrawCommandBuilder );
@@ -784,6 +756,9 @@ void MainLoop()
                 viewportWinSize = ImGui::GetWindowSize();
                 viewportWinPos = ImGui::GetWindowPos();
 
+				g_ViewportWindowPosition.x = static_cast< u32 >( viewportWinPos.x );
+				g_ViewportWindowPosition.y = static_cast< u32 >( viewportWinPos.y );
+
                 if ( !g_IsResizing && ( winSize.x != prevWinSize.x || winSize.y != prevWinSize.y ) ) {
                     g_IsResizing = true;
                 } else if ( g_IsResizing ) {
@@ -830,7 +805,8 @@ void MainLoop()
         // Rendering
 
         // TEST TEST TEST TEST
-        g_WorldRenderer->TextRendering->addOutlinedText( str.c_str(), 0.4f, 8.0f, 8.0f, dkVec4f( 1, 1, 1, 1 ) );
+		g_WorldRenderer->TextRendering->addOutlinedText( str.c_str(), 0.4f, 8.0f, 8.0f, dkVec4f( 1, 1, 1, 1 ) );
+		g_WorldRenderer->TextRendering->addOutlinedText( mousePos.c_str(), 0.4f, 8.0f, 24.0f, dkVec4f( 1, 1, 1, 1 ) );
 
         dkVec3f UpVector = g_FreeCamera->getUpVector();
         dkVec3f RightVector = g_FreeCamera->getRightVector();
@@ -846,10 +822,21 @@ void MainLoop()
 
         LightGrid::Data lightGridData = g_LightGrid->updateClusters( frameGraph );
 
-        Material::RenderScenario scenario = ( g_MaterialEditor->isUsingInteractiveMode() ) ? Material::RenderScenario::Default_Picking_Editor : Material::RenderScenario::Default_Picking;
+        Material::RenderScenario scenario = ( g_MaterialEditor->isUsingInteractiveMode() ) ? Material::RenderScenario::Default_Editor : Material::RenderScenario::Default;
+
+        static bool crap = false;
+        if ( g_RequestPickingUpdate ) {
+            scenario = ( scenario == Material::RenderScenario::Default ) ? Material::RenderScenario::Default_Picking : Material::RenderScenario::Default_Picking_Editor;
+            crap = true;
+        }
+
+        if ( crap ) {
+			g_PickedEntity.setIdentifier( g_WorldRenderer->WorldRendering->getPickedEntityId() );
+        }
 
         // LightPass.
         WorldRenderModule::LightPassOutput primRenderPass = g_WorldRenderer->WorldRendering->addPrimitiveLightPass( frameGraph, lightGridData.PerSceneBuffer, scenario );
+        g_RequestPickingUpdate = false;
 
         // AntiAliasing resolve. (we merge both TAA and MSAA in a single pass to avoid multiple dispatch).
         ResolvedPassOutput resolvedOutput = { primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget };

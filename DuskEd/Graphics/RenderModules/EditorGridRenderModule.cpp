@@ -84,7 +84,7 @@ ResHandle_t EditorGridModule::addEditorGridPass( FrameGraph& frameGraph, ResHand
 			cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
 			cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
 
-            cmdList->prepareAndBindResourceList( passPipelineState );
+            cmdList->prepareAndBindResourceList();
 
             cmdList->draw( 6u, 1 );
 

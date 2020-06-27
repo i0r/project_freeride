@@ -33,6 +33,10 @@ public:
     // Extract the generation index from its identifier and return it.
     u32     extractGenerationIndex() const { return ( identifier >> INDEX_BITS ) & GENERATION_MASK; }
 
+    u32     getIdentifier() const { return identifier; }
+
+    void    setIdentifier( const u32 id ) { identifier = id; }
+
     bool operator == ( const Entity& r )
     {
         return ( identifier == r.identifier );
