@@ -116,7 +116,7 @@ ResHandle_t AutomaticExposureModule::addBinComputePass( FrameGraph& frameGraph, 
             cmdList->bindBuffer( AutoExposure::BinCompute_HistogramBuffer_Hashcode, outputBuffer, VIEW_FORMAT_R32_UINT );
             cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
 
-            cmdList->prepareAndBindResourceList( pipelineState );
+            cmdList->prepareAndBindResourceList();
 
             cmdList->dispatchCompute( 1u, static_cast< u32 >( ceilf( screenSize.y / static_cast<f32>( AutoExposure::BinCompute_DispatchY ) ) ), 1u );
 
@@ -164,7 +164,7 @@ ResHandle_t AutomaticExposureModule::addHistogramMergePass( FrameGraph& frameGra
             cmdList->bindBuffer( AutoExposure::HistogramMerge_Histogram_Hashcode, inputBuffer, VIEW_FORMAT_R32_UINT );
             cmdList->bindBuffer( AutoExposure::HistogramMerge_FinalHistogram_Hashcode, outputBuffer, VIEW_FORMAT_R32_UINT );
 
-            cmdList->prepareAndBindResourceList( pipelineState );
+            cmdList->prepareAndBindResourceList();
             cmdList->dispatchCompute( 128u, 1u, 1u );
 
             cmdList->popEventMarker();
@@ -219,7 +219,7 @@ ResHandle_t AutomaticExposureModule::addExposureComputePass( FrameGraph& frameGr
             cmdList->bindBuffer( AutoExposure::TileHistogramCompute_RAutoExposureBuffer_Hashcode, bufferToRead, VIEW_FORMAT_R32_UINT );
             cmdList->bindBuffer( AutoExposure::TileHistogramCompute_WAutoExposureBuffer_Hashcode, bufferToWrite, VIEW_FORMAT_R32_UINT );
 
-            cmdList->prepareAndBindResourceList( pipelineState );
+            cmdList->prepareAndBindResourceList();
 
             cmdList->updateBuffer( *parametersBuffer, &AutoExposure::TileHistogramComputeProperties, sizeof( AutoExposure::TileHistogramComputeRuntimeProperties ) );
             

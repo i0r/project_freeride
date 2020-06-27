@@ -476,7 +476,7 @@ static constexpr size_t MAX_INSTANCE_COUNT_PER_MODEL = 256;
 struct ModelInstance 
 {
     const Model*    ModelResource;
-    dkStringHash_t  EntityHashcode;
+    dkStringHash_t  EntityIdentifier;
     dkMat4x4f		ModelMatrix;
 };
 
@@ -523,7 +523,7 @@ DrawCommandBuilder2::DrawCommandBuilder2( BaseAllocator* allocator )
     : memoryAllocator( allocator )
     , cameraToRenderAllocator( dk::core::allocate<LinearAllocator>( allocator, MAX_SIMULTANEOUS_VIEWPORT_COUNT * sizeof( CameraData ), allocator->allocate( MAX_SIMULTANEOUS_VIEWPORT_COUNT * sizeof( CameraData ) ) ) )
     , staticModelsToRender( dk::core::allocate<LinearAllocator>( allocator, MAX_STATIC_MODEL_COUNT * sizeof( ModelInstance ), allocator->allocate( MAX_STATIC_MODEL_COUNT * sizeof( ModelInstance ) ) ) )
-    , instanceMatricesAllocator( dk::core::allocate<LinearAllocator>( allocator, MAX_STATIC_MODEL_COUNT * MAX_INSTANCE_COUNT_PER_MODEL * sizeof( dkMat4x4f ), allocator->allocate( MAX_STATIC_MODEL_COUNT * MAX_INSTANCE_COUNT_PER_MODEL * sizeof( dkMat4x4f ) ) ) )
+    , instanceDataAllocator( dk::core::allocate<LinearAllocator>( allocator, MAX_STATIC_MODEL_COUNT * MAX_INSTANCE_COUNT_PER_MODEL * sizeof( DrawCommandInfos::InstanceData ), allocator->allocate( MAX_STATIC_MODEL_COUNT * MAX_INSTANCE_COUNT_PER_MODEL * sizeof( DrawCommandInfos::InstanceData ) ) ) )
 {
 
 }
@@ -532,7 +532,7 @@ DrawCommandBuilder2::~DrawCommandBuilder2()
 {
 	dk::core::free( memoryAllocator, cameraToRenderAllocator );
 	dk::core::free( memoryAllocator, staticModelsToRender );
-	dk::core::free( memoryAllocator, instanceMatricesAllocator );
+	dk::core::free( memoryAllocator, instanceDataAllocator );
 }
 
 void DrawCommandBuilder2::addWorldCameraToRender( CameraData* cameraData )
@@ -546,11 +546,12 @@ void DrawCommandBuilder2::addWorldCameraToRender( CameraData* cameraData )
     *camera = *cameraData;
 }
 
-void DrawCommandBuilder2::addStaticModelInstance( const Model* model, const dkMat4x4f& modelMatrix )
+void DrawCommandBuilder2::addStaticModelInstance( const Model* model, const dkMat4x4f& modelMatrix, const u32 entityIndex )
 {
     ModelInstance* modelInstance = dk::core::allocate<ModelInstance>( staticModelsToRender );
     modelInstance->ModelResource = model;
     modelInstance->ModelMatrix = modelMatrix;
+    modelInstance->EntityIdentifier = entityIndex;
 }
 
 void DrawCommandBuilder2::prepareAndDispatchCommands( WorldRenderer* worldRenderer, LightGrid* lightGrid )
@@ -572,7 +573,7 @@ void DrawCommandBuilder2::resetAllocators()
 {
     cameraToRenderAllocator->clear();
     staticModelsToRender->clear();
-    instanceMatricesAllocator->clear();
+    instanceDataAllocator->clear();
 }
 
 void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, const CameraData* camera, const u8 cameraIdx, const u8 layer, const u8 viewportLayer )
@@ -580,12 +581,13 @@ void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, c
     struct LODBatch
     {
         const Model::LevelOfDetail* ModelLOD;
-        dkMat4x4f*                  InstanceMatrices;
+        DrawCommandInfos::InstanceData* Instances;
         u32                         InstanceCount;
     };
     std::unordered_map<dkStringHash_t, LODBatch> lodBatches;
-
-    dkMat4x4f* boundingSphereModelMatrices = dk::core::allocateArray<dkMat4x4f>( instanceMatricesAllocator, MAX_INSTANCE_COUNT_PER_MODEL );
+    
+    // TODO Add EnvVar debug var to conditionally enable this.
+    DrawCommandInfos::InstanceData* boundingSphereInstanceData = dk::core::allocateArray<DrawCommandInfos::InstanceData>( instanceDataAllocator, MAX_INSTANCE_COUNT_PER_MODEL );
     i32 boundingSphereCount = 0;
 
     // Do a first pass to perform a basic frustum culling and batch static geometry.
@@ -596,6 +598,7 @@ void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, c
 
         const dkMat4x4f& modelMatrix = modelInstance.ModelMatrix;
         const Model* model = modelInstance.ModelResource;
+        const u32 entityIdx = modelInstance.EntityIdentifier;
 
         // Retrieve instance location and scale.
 		const dkVec3f instancePosition = dk::maths::ExtractTranslation( modelMatrix );
@@ -616,23 +619,29 @@ void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, c
             if ( batchIt == lodBatches.end() ) {
                 LODBatch batch;
                 batch.ModelLOD = &activeLOD;
-				batch.InstanceMatrices = dk::core::allocateArray<dkMat4x4f>( instanceMatricesAllocator, MAX_INSTANCE_COUNT_PER_MODEL );
-                batch.InstanceMatrices[0] = modelMatrix;
+				batch.Instances = dk::core::allocateArray<DrawCommandInfos::InstanceData>( instanceDataAllocator, MAX_INSTANCE_COUNT_PER_MODEL );
+                batch.Instances[0].ModelMatrix = modelMatrix;
+                batch.Instances[0].EntityIdentifier = entityIdx;
 				batch.InstanceCount = 1;
 
                 lodBatches.insert( std::make_pair( activeLOD.Hashcode, batch ) );
             } else {
                 LODBatch& batch = batchIt->second;
 
-                u32 instanceIdx = batch.InstanceCount;
-                batch.InstanceMatrices[instanceIdx] = modelMatrix;
+				u32 instanceIdx = batch.InstanceCount;
+				batch.Instances[instanceIdx].ModelMatrix = modelMatrix;
+				batch.Instances[instanceIdx].EntityIdentifier = entityIdx;
                 batch.InstanceCount++;
             }
 
             // Draw debug bounding sphere.
             dkMat4x4f translationMat = dk::maths::MakeTranslationMat( instanceBoundingSphere.center );
             dkMat4x4f scaleMat = dk::maths::MakeScaleMat( dkVec3f( instanceBoundingSphere.radius ) );
-            boundingSphereModelMatrices[boundingSphereCount++] = translationMat * scaleMat;
+
+            const u32 bbIndex = boundingSphereCount;
+			boundingSphereInstanceData[bbIndex].ModelMatrix = translationMat * scaleMat;
+            boundingSphereInstanceData[bbIndex].EntityIdentifier = 0;
+            boundingSphereCount++;
         }
     }
 
@@ -665,7 +674,7 @@ void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, c
 			infos.indiceBufferCount = mesh.IndiceCount;
 			infos.alphaDitheringValue = 1.0f;
 			infos.instanceCount = batch.InstanceCount;
-			infos.modelMatrix = batch.InstanceMatrices;
+			infos.modelMatrix = batch.Instances;
         }
     }
 
@@ -686,6 +695,6 @@ void DrawCommandBuilder2::buildGeometryDrawCmds( WorldRenderer* worldRenderer, c
         DrawCommandInfos& infos2 = drawCmd.infos;
         infos2.material = wireframeMat;
         infos2.instanceCount = boundingSphereCount;
-        infos2.modelMatrix = boundingSphereModelMatrices;
+		infos2.modelMatrix = boundingSphereInstanceData;
     }
 }

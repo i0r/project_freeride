@@ -41,7 +41,7 @@ public:
 	// Add a static model instance to the world. If the model has already been added
 	// to the world, the model will automatically use instantied draw (no action/
 	// batching is required by the user).
-	void				addStaticModelInstance( const Model* model, const dkMat4x4f& modelMatrix );
+	void				addStaticModelInstance( const Model* model, const dkMat4x4f& modelMatrix, const u32 entityIndex = 0 );
 
 	// Build render queues for each type of render scenario and enqueued cameras.
 	// This call will also update/stream the light grid entities.
@@ -57,8 +57,8 @@ private:
 	// Allocator used to allocate local copies of incoming models.
 	LinearAllocator*	staticModelsToRender;
 
-	// Allocator used to allocate matrices to render batched models/geometry.
-	LinearAllocator*	instanceMatricesAllocator;
+	// Allocator used to allocate instance data to render batched models/geometry.
+	LinearAllocator*	instanceDataAllocator;
 
 private:
 	// Reset entities allocators (camera, models, etc.). Should be called once the cmds are built and we don't longer need

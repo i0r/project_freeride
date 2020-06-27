@@ -193,7 +193,7 @@ ResolvedPassOutput AddResolveMSAARenderPass( FrameGraph& frameGraph,
 
         cmdList->bindBuffer( AntiAliasing::ResolveMSAAx2_AutoExposureBuffer_Hashcode, autoExposureBuffer );
 
-        cmdList->prepareAndBindResourceList( pso );
+        cmdList->prepareAndBindResourceList();
 
         auto& PassRuntimeProperties = AntiAliasing::ResolveMSAAx2WithTAAProperties;
         PassRuntimeProperties.InputTargetDimension.x = static_cast< f32 >( vp->Width * cameraData->imageQuality );
@@ -310,7 +310,7 @@ ResolvedPassOutput AddSSAAResolveRenderPass( FrameGraph& frameGraph, ResolvedPas
 			cmdList->bindImage( AntiAliasing::ResolveSSAA_ResolvedTargetInput_Hashcode, input );
 			cmdList->bindImage( AntiAliasing::ResolveSSAA_ResolvedDepthTargetInput_Hashcode, inputDepth );
 
-			cmdList->prepareAndBindResourceList( pso );
+			cmdList->prepareAndBindResourceList();
 			Image* Framebuffer[2] = { output, outputDepth };
 			cmdList->setupFramebuffer( Framebuffer );
 

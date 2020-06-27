@@ -86,7 +86,7 @@ ResHandle_t LineRenderingModule::renderLines( FrameGraph& frameGraph, ResHandle_
         cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
         cmdList->bindConstantBuffer( PerPassBufferHashcode, linePointsConstantBuffer );
 
-        cmdList->prepareAndBindResourceList( pipelineState );
+        cmdList->prepareAndBindResourceList();
 
         cmdList->setupFramebuffer( &outputTarget, nullptr );
 

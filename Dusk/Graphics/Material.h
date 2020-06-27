@@ -51,9 +51,8 @@ public:
     void            deserialize( FileSystemObject* object );
 
     // Bind this material for a certain rendering scenario (depth only, lighting, etc.).
-    // Return the pso required to render the given Scenario (or null if the scenario is invalid/unavailable/etc.).
-    PipelineState*  bindForScenario( const RenderScenario scenario, CommandList* cmdList, PipelineStateCache* psoCache, const u32 samplerCount = 1u );
-
+    void            bindForScenario( const RenderScenario scenario, CommandList* cmdList, PipelineStateCache* psoCache, const u32 samplerCount = 1u );
+        
     // Return the name of this material.
     const char*     getName() const;
 

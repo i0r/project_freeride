@@ -659,7 +659,7 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
 
             cmdList->updateBuffer( *perPassBuffer, &parameters, sizeof( AtmosphereLUTCompute::ComputeTransmittanceRuntimeProperties ) );
 
-            cmdList->prepareAndBindResourceList( pipelineState );
+            cmdList->prepareAndBindResourceList();
 
             constexpr u32 ThreadCountX = TRANSMITTANCE_TEXTURE_WIDTH / AtmosphereLUTCompute::ComputeTransmittance_DispatchX;
             constexpr u32 ThreadCountY = TRANSMITTANCE_TEXTURE_HEIGHT / AtmosphereLUTCompute::ComputeTransmittance_DispatchY;
@@ -718,7 +718,7 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
 
             cmdList->updateBuffer( *perPassBuffer, &parameters, sizeof( AtmosphereLUTCompute::ComputeTransmittanceRuntimeProperties ) );
 
-            cmdList->prepareAndBindResourceList( pipelineState );
+            cmdList->prepareAndBindResourceList();
 
             constexpr u32 ThreadCountX = IRRADIANCE_TEXTURE_WIDTH / AtmosphereLUTCompute::ComputeDirectIrradiance_DispatchX;
             constexpr u32 ThreadCountY = IRRADIANCE_TEXTURE_HEIGHT / AtmosphereLUTCompute::ComputeDirectIrradiance_DispatchY;
@@ -779,7 +779,7 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
 
             cmdList->updateBuffer( *perPassBuffer, &parameters, sizeof( AtmosphereLUTCompute::ComputeTransmittanceRuntimeProperties ) );
 
-            cmdList->prepareAndBindResourceList( pipelineState );
+            cmdList->prepareAndBindResourceList();
 
             constexpr u32 ThreadCountX = SCATTERING_TEXTURE_WIDTH / AtmosphereLUTCompute::ComputeSingleScatteringPass_DispatchX;
             constexpr u32 ThreadCountY = SCATTERING_TEXTURE_HEIGHT / AtmosphereLUTCompute::ComputeSingleScatteringPass_DispatchY;
@@ -842,7 +842,7 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
 
                 cmdList->updateBuffer( *perPassBuffer, &parameters, sizeof( AtmosphereLUTCompute::ComputeScatteringDensityRuntimeProperties ) );
 
-                cmdList->prepareAndBindResourceList( pipelineState );
+                cmdList->prepareAndBindResourceList();
 
                 constexpr u32 ThreadCountX = SCATTERING_TEXTURE_WIDTH / AtmosphereLUTCompute::ComputeScatteringDensity_DispatchX;
                 constexpr u32 ThreadCountY = SCATTERING_TEXTURE_HEIGHT / AtmosphereLUTCompute::ComputeScatteringDensity_DispatchY;
@@ -907,7 +907,7 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
 
 			    cmdList->updateBuffer( *perPassBuffer, &parameters, sizeof( AtmosphereLUTCompute::ComputeIndirectIrradianceRuntimeProperties ) );
 
-			    cmdList->prepareAndBindResourceList( pipelineState );
+			    cmdList->prepareAndBindResourceList();
 
 			    constexpr u32 ThreadCountX = IRRADIANCE_TEXTURE_WIDTH / AtmosphereLUTCompute::ComputeIndirectIrradiance_DispatchX;
 			    constexpr u32 ThreadCountY = IRRADIANCE_TEXTURE_HEIGHT / AtmosphereLUTCompute::ComputeIndirectIrradiance_DispatchY;
@@ -974,7 +974,7 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
 
 			    cmdList->updateBuffer( *perPassBuffer, &parameters, sizeof( AtmosphereLUTCompute::ComputeMultipleScatteringRuntimeProperties ) );
 
-			    cmdList->prepareAndBindResourceList( pipelineState );
+			    cmdList->prepareAndBindResourceList();
 
 			    constexpr u32 ThreadCountX = SCATTERING_TEXTURE_WIDTH / AtmosphereLUTCompute::ComputeMultipleScattering_DispatchX;
 			    constexpr u32 ThreadCountY = SCATTERING_TEXTURE_HEIGHT / AtmosphereLUTCompute::ComputeMultipleScattering_DispatchY;

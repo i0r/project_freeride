@@ -370,7 +370,7 @@ CommandList& RenderDevice::allocateGraphicsCommandList()
         graphicsCmdListAllocator[bufferIdx]->clear();
     }
     CommandList* cmdList = static_cast< CommandList* >( graphicsCmdListAllocator[bufferIdx]->allocate( sizeof( CommandList ) ) );
-    cmdList->setResourceFrameIndex( static_cast< i32 >( frameIndex ) );
+    cmdList->setFrameIndex( static_cast< i32 >( frameIndex ) );
 
     return *cmdList;
 }
@@ -384,7 +384,7 @@ CommandList& RenderDevice::allocateComputeCommandList()
         computeCmdListAllocator[bufferIdx]->clear();
     }
     CommandList* cmdList = static_cast< CommandList* >( computeCmdListAllocator[bufferIdx]->allocate( sizeof( CommandList ) ) );
-    cmdList->setResourceFrameIndex( static_cast< i32 >( frameIndex ) );
+    cmdList->setFrameIndex( static_cast< i32 >( frameIndex ) );
 
     return *cmdList;
 }
@@ -584,7 +584,7 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
 		{
 			CommandPacket::CopyResource cmdPacket = *( CommandPacket::CopyResource* )bufferPointer;
 
-			renderContext->ImmediateContext->CopyResource( cmdPacket.SourceResource, cmdPacket.DestResource );
+			renderContext->ImmediateContext->CopyResource( cmdPacket.DestResource, cmdPacket.SourceResource );
 			break;
         }
         };

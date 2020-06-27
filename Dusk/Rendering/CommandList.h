@@ -114,7 +114,8 @@ public:
     DUSK_INLINE NativeCommandList*  getNativeCommandList() const { return nativeCommandList; }
     DUSK_INLINE void                setNativeCommandList( NativeCommandList* cmdList ) { nativeCommandList = cmdList; }
     DUSK_INLINE Type                getCommandListType() const { return commandListType; }
-    DUSK_INLINE i32                 getCommandListPooledIndex() const { return commandListPoolIndex; }
+	DUSK_INLINE i32                 getCommandListPooledIndex() const { return commandListPoolIndex; }
+	DUSK_INLINE i32                 getFrameIndex() const { return frameIndex; }
 
 public:
                                     CommandList( const Type cmdListType );
@@ -122,7 +123,7 @@ public:
                                     CommandList& operator = ( CommandList& ) = delete;
                                     ~CommandList();
 
-    void                            setResourceFrameIndex( const i32 frameIndex );
+    void                            setFrameIndex( const i32 deviceFrameIndex );
     void                            initialize( BaseAllocator* allocator, const i32 pooledIndex );
 
     void                            begin();
@@ -135,7 +136,7 @@ public:
     void                            clearRenderTargets( Image** renderTargetViews, const u32 renderTargetCount, const f32 clearValues[4] );
     void                            clearDepthStencil( Image* depthStencilView, const f32 clearValue, const bool clearStencil = false, const u8 clearStencilValue = 0xff );
 
-    void                            prepareAndBindResourceList( const PipelineState* pipelineState );
+    void                            prepareAndBindResourceList();
 
     void                            bindPipelineState( PipelineState* pipelineState );
     void                            bindConstantBuffer( const dkStringHash_t hashcode, Buffer* buffer );
@@ -179,6 +180,7 @@ private:
     BaseAllocator*                  memoryAllocator;
     Type                            commandListType;
     i32                             resourceFrameIndex;
+    i32                             frameIndex;
 
     // Internal pool index to figure out which external resource is bound
     // to the command list

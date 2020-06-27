@@ -15,6 +15,9 @@
 #include <Core/ViewFormat.h>
 
 #include <Rendering/CommandList.h>
+#include <Framework/Entity.h>
+
+#include <Graphics/RenderModules/Generated/BuiltIn.generated.h>
 
 struct PerPassData 
 {
@@ -31,6 +34,8 @@ static constexpr dkStringHash_t PickingBufferHashcode = DUSK_STRING_HASH( "Picki
 WorldRenderModule::WorldRenderModule()
     : pickingBuffer( nullptr )
     , pickingReadbackBuffer( nullptr )
+    , pickingFrameIndex( ~0 )
+    , pickedEntityId( Entity::INVALID_ID )
 {
 
 }
@@ -58,17 +63,23 @@ void WorldRenderModule::loadCachedResources( RenderDevice& renderDevice, Graphic
 	// Create the picking buffer.
 	BufferDesc pickingBufferDesc;
 	pickingBufferDesc.BindFlags = RESOURCE_BIND_UNORDERED_ACCESS_VIEW | RESOURCE_BIND_RAW;
-	pickingBufferDesc.SizeInBytes = sizeof( dkVec4u );
-	pickingBufferDesc.StrideInBytes = 1;
+    pickingBufferDesc.SizeInBytes = 4 * sizeof( u32 );
+	pickingBufferDesc.StrideInBytes = 4;
 	pickingBufferDesc.Usage = RESOURCE_USAGE_DEFAULT;
+    pickingBufferDesc.DefaultView.ViewFormat = VIEW_FORMAT_R32_TYPELESS;
 
 	pickingBuffer = renderDevice.createBuffer( pickingBufferDesc );
 
 	// Create the staging buffer for results readback.
-    pickingBufferDesc.BindFlags = 0;
+	pickingBufferDesc.BindFlags = 0;
 	pickingBufferDesc.Usage = RESOURCE_USAGE_STAGING;
 
 	pickingReadbackBuffer = renderDevice.createBuffer( pickingBufferDesc );
+
+#if DUSK_DEVBUILD
+	renderDevice.setDebugMarker( *pickingBuffer, DUSK_STRING( "PickingBuffer" ) );
+	renderDevice.setDebugMarker( *pickingReadbackBuffer, DUSK_STRING( "ReadBackPickingBuffer" ) );
+#endif
 }
 
 WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, Material::RenderScenario scenario )
@@ -82,10 +93,38 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
         ResHandle_t PerSceneBuffer;
 		ResHandle_t MaterialEdBuffer;
 		ResHandle_t VectorDataBuffer;
-    };
+	};
+
+	const bool isPickingRequested = ( scenario == Material::RenderScenario::Default_Picking
+								   || scenario == Material::RenderScenario::Default_Picking_Editor );
+
+    // We need to clear the UAV buffer first. This is done with a cheap compute shader.
+    if ( isPickingRequested ) {
+        struct PassDataDummy {};
+        frameGraph.addRenderPass<PassDataDummy>(
+			BuiltIn::ClearPickingBuffer_Name,
+            [&]( FrameGraphBuilder& builder, PassDataDummy& passData ) {
+                builder.setUncullablePass();
+                builder.useAsyncCompute();
+            },
+            [=]( const PassDataDummy& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+			    cmdList->pushEventMarker( BuiltIn::ClearPickingBuffer_EventName );
+
+				PipelineState* pso = psoCache->getOrCreatePipelineState( RenderingHelpers::PS_Compute, BuiltIn::ClearPickingBuffer_ShaderBinding );
+
+				cmdList->bindPipelineState( pso );
+				cmdList->bindBuffer( BuiltIn::ClearPickingBuffer_PickingBuffer_Hashcode, pickingBuffer );
+				cmdList->prepareAndBindResourceList();
+
+				cmdList->dispatchCompute( 1, 1, 1 );
+
+                cmdList->popEventMarker();
+            }
+        );
+    }
 
     PassData& data = frameGraph.addRenderPass<PassData>(
-        "Primitive Light",
+        "Forward+ Light Pass",
         [&]( FrameGraphBuilder& builder, PassData& passData ) {
             ImageDesc rtDesc;
             rtDesc.dimension = ImageDesc::DIMENSION_2D;
@@ -178,6 +217,10 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
 			cmdList->updateBuffer( *vectorBuffer, vectorBufferData, sizeof( dkVec4f ) * MAX_VECTOR_PER_INSTANCE );
 
             const u32 samplerCount = camera->msaaSamplerCount;
+            const bool isInMaterialEdition = ( scenario == Material::RenderScenario::Default_Editor
+                                            || scenario == Material::RenderScenario::Default_Picking_Editor );
+
+            // Retrieve draw commands for the pass.
             const FrameGraphResources::DrawCmdBucket& bucket = resources->getDrawCmdBucket( DrawCommandKey::LAYER_WORLD, DrawCommandKey::WORLD_VIEWPORT_LAYER_DEFAULT );
 
             PerPassData perPassData;
@@ -195,23 +238,25 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
                 // TODO Cache the current PSO binded (if the PSO is the same; don't rebind anything).
                 // TODO We need to make material mutable (since the scenario bind updates the streaming/caching).
                 //      It simply require some refactoring at higher level (Mesh struct; gfx cache; etc.)
-                PipelineState* pipelineState = const_cast<Material*>( material )->bindForScenario( scenario, cmdList, psoCache, samplerCount );
+                const_cast<Material*>( material )->bindForScenario( scenario, cmdList, psoCache, samplerCount );
                 
                 // NOTE Since buffer registers are cached those calls have a low cost on the CPU side.
 				cmdList->bindBuffer( InstanceVectorBufferHashcode, vectorBuffer );
                 cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
                 cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
                 cmdList->bindConstantBuffer( PerWorldBufferHashcode, perWorldBuffer );
-                if ( scenario == Material::RenderScenario::Default_Editor ) {
+
+                if ( isInMaterialEdition ) {
                     cmdList->bindConstantBuffer( MaterialEditorBufferHashcode, materialEdBuffer );
-                } else if ( scenario == Material::RenderScenario::Default_Picking
-                         || scenario == Material::RenderScenario::Default_Picking_Editor ) {
+                }
+
+                if ( isPickingRequested ) {
                     cmdList->bindBuffer( PickingBufferHashcode, pickingBuffer );
                 }
 
                 // Re-setup the framebuffer (some permutations have a different framebuffer layout).
                 cmdList->setupFramebuffer( Framebuffer, zbufferTarget );
-                cmdList->prepareAndBindResourceList( pipelineState );
+                cmdList->prepareAndBindResourceList();
 
                 const Buffer* bufferList[3] = { 
                     cmdInfos.vertexBuffers[eMeshAttribute::Position],
@@ -227,6 +272,26 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
 
 				// Update vector buffer offset data
 				perPassData.StartVector += ( cmdInfos.instanceCount * bucket.vectorPerInstance );
+            }
+
+            // TODO Might worth moving the copy call to a copy command queue?
+			// (maybe have a separate pass dedicated to buffer readback)
+			i32 frameIndex = cmdList->getFrameIndex();
+            if ( pickingFrameIndex != ~0 && ( frameIndex - pickingFrameIndex ) > 3 ) {
+                void* readBackData = cmdList->mapBuffer( *pickingReadbackBuffer );
+
+                if ( readBackData != nullptr ) {
+                    u8* dataPointer = reinterpret_cast< u8* >( readBackData );
+                    pickedEntityId = *reinterpret_cast< u32* >( dataPointer + sizeof( u32 ) );
+                    cmdList->unmapBuffer( *pickingReadbackBuffer );
+
+                    pickingFrameIndex = ~0;
+                }
+            }
+
+			if ( isPickingRequested ) {
+				cmdList->copyBuffer( pickingBuffer, pickingReadbackBuffer );
+                pickingFrameIndex = frameIndex;
             }
 
             cmdList->popEventMarker();

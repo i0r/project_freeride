@@ -141,7 +141,7 @@ void Material::deserialize( FileSystemObject* object )
     }
 }
 
-PipelineState* Material::bindForScenario( const RenderScenario scenario, CommandList* cmdList, PipelineStateCache* psoCache, const u32 samplerCount )
+void Material::bindForScenario( const RenderScenario scenario, CommandList* cmdList, PipelineStateCache* psoCache, const u32 samplerCount )
 {
     PipelineState* scenarioPso = nullptr;
 
@@ -196,16 +196,14 @@ PipelineState* Material::bindForScenario( const RenderScenario scenario, Command
             cmdList->bindImage( mutableParam.first, mutableParam.second.CachedImageAsset );
         }
     }
-
-    return scenarioPso;
 }
 
 const PipelineStateCache::ShaderBinding& Material::getScenarioShaderBinding( const RenderScenario scenario ) const
 {
     switch ( scenario ) {
-    case RenderScenario::Default:
-        return defaultEditorScenario.PsoShaderBinding;
     case RenderScenario::Default_Editor:
+        return defaultEditorScenario.PsoShaderBinding;
+    case RenderScenario::Default:
         return defaultScenario.PsoShaderBinding;
     case RenderScenario::Default_Picking:
         return defaultPickingScenario.PsoShaderBinding;

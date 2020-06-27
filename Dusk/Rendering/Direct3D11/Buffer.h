@@ -20,6 +20,9 @@ struct Buffer
     // Buffer bind flags (copied from BufferDesc).
     u32                         BindFlags;
 
+    // Buffer usage flags (copied from BufferDesc).
+    eResourceUsage              UsageFlags;
+
     // Buffer default SRV (if BindFlags allow SRV bind).
     ID3D11ShaderResourceView*   DefaultShaderResourceView;
 
@@ -42,6 +45,7 @@ struct Buffer
         : BufferObject( nullptr )
         , Stride( 0 )
         , BindFlags( 0 )
+        , UsageFlags( eResourceUsage::RESOURCE_USAGE_DEFAULT )
         , DefaultShaderResourceView( nullptr )
         , DefaultUnorderedAccessView( nullptr )
         , UAVRegisterIndex( ~0 )

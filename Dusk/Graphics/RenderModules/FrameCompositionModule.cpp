@@ -103,7 +103,7 @@ ResHandle_t FrameCompositionModule::addFrameCompositionPass( FrameGraph& frameGr
             cmdList->updateBuffer( *passBuffer, &PostEffects::DefaultProperties, sizeof( PostEffects::DefaultRuntimeProperties ) );
             cmdList->bindConstantBuffer( PerPassBufferHashcode, passBuffer );
             
-            cmdList->prepareAndBindResourceList( passPipelineState );
+            cmdList->prepareAndBindResourceList();
 
             cmdList->dispatchCompute( vp->Width / PostEffects::Default_DispatchX, vp->Height / PostEffects::Default_DispatchY, PostEffects::Default_DispatchZ );
             cmdList->insertComputeBarrier( *outputTarget );

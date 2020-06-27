@@ -7,7 +7,8 @@
 
 #include "RenderDevice.h"
 
-void CommandList::setResourceFrameIndex( const i32 frameIndex )
+void CommandList::setFrameIndex( const i32 deviceFrameIndex )
 {
-    resourceFrameIndex = ( frameIndex % RenderDevice::PENDING_FRAME_COUNT );
+    resourceFrameIndex = ( deviceFrameIndex % RenderDevice::PENDING_FRAME_COUNT );
+    frameIndex = deviceFrameIndex;
 }

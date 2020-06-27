@@ -606,7 +606,7 @@ CommandList& RenderDevice::allocateGraphicsCommandList()
     ID3D12CommandAllocator* cmdListAllocator = renderContext->directCmdAllocator[bufferIdx][cmdList->getCommandListPooledIndex()];
     cmdListAllocator->Reset();
 
-    cmdList->setResourceFrameIndex( static_cast<i32>( frameIndex ) );
+    cmdList->setFrameIndex( static_cast<i32>( frameIndex ) );
 
     return *cmdList;
 }
@@ -627,7 +627,7 @@ CommandList& RenderDevice::allocateComputeCommandList()
     ID3D12CommandAllocator* cmdListAllocator = renderContext->computeCmdAllocator[bufferIdx][cmdList->getCommandListPooledIndex()];
     cmdListAllocator->Reset();
 
-    cmdList->setResourceFrameIndex( static_cast< i32 >( frameIndex ) );
+    cmdList->setFrameIndex( static_cast< i32 >( frameIndex ) );
 
     return *cmdList;
 }

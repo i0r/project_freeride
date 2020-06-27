@@ -97,7 +97,7 @@ LightGrid::Data LightGrid::updateClusters( FrameGraph& frameGraph )
             cmdList->pushEventMarker( DUSK_STRING( "LightCulling Buffer Update" ) );
             cmdList->updateBuffer( *perSceneBuffer, &perSceneBufferData, sizeof( PerSceneBufferData ) );
 
-            //cmdList->prepareAndBindResourceList( pipelineState );
+            //cmdList->prepareAndBindResourceList();
 
             //cmdList->dispatchCompute( CLUSTER_X, CLUSTER_Y, CLUSTER_Z );
 

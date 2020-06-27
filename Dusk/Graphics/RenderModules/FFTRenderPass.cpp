@@ -103,7 +103,7 @@ FFTPassOutput AddFFTComputePass( FrameGraph& frameGraph, ResHandle_t input, f32 
                 // Bind resources
                 cmdList->bindImage( BuiltIn::CopyImagePass_InputRenderTarget_Hashcode, input );
 
-                cmdList->prepareAndBindResourceList( pso );
+                cmdList->prepareAndBindResourceList();
                 cmdList->setupFramebuffer( &output );
 
                 cmdList->draw( 3, 1 );
@@ -152,7 +152,7 @@ FFTPassOutput AddFFTComputePass( FrameGraph& frameGraph, ResHandle_t input, f32 
             cmdList->bindImage( FFT::FFTComputeRow_TextureTargetR_Hashcode, outputReal );
             cmdList->bindImage( FFT::FFTComputeRow_TextureTargetI_Hashcode, outputImaginary );
 
-            cmdList->prepareAndBindResourceList( pso );
+            cmdList->prepareAndBindResourceList();
 
             cmdList->dispatchCompute( 1, FFT_TEXTURE_DIMENSION, 1 );
 
@@ -173,7 +173,7 @@ FFTPassOutput AddFFTComputePass( FrameGraph& frameGraph, ResHandle_t input, f32 
             cmdList->bindImage( FFT::FFTComputeCol_TextureTargetR_Hashcode, outputReal2 );
             cmdList->bindImage( FFT::FFTComputeCol_TextureTargetI_Hashcode, outputImaginary2 );
 
-            cmdList->prepareAndBindResourceList( psoCol );
+            cmdList->prepareAndBindResourceList();
 
             cmdList->dispatchCompute( 1, FFT_TEXTURE_DIMENSION, 1 );
 
@@ -236,7 +236,7 @@ ResHandle_t AddInverseFFTComputePass( FrameGraph& frameGraph, FFTPassOutput& inp
             cmdList->bindImage( FFT::InverseFFTComputeRow_TextureTargetR_Hashcode, outputReal );
             cmdList->bindImage( FFT::InverseFFTComputeRow_TextureTargetI_Hashcode, outputImaginary );
 
-            cmdList->prepareAndBindResourceList( pso );
+            cmdList->prepareAndBindResourceList();
 
             cmdList->dispatchCompute( 1, FFT_TEXTURE_DIMENSION, 1 );
 
@@ -290,7 +290,7 @@ ResHandle_t AddInverseFFTComputePass( FrameGraph& frameGraph, FFTPassOutput& inp
             cmdList->bindImage( FFT::InverseFFTComputeCol_TextureTargetR_Hashcode, outputReal );
             cmdList->bindImage( FFT::InverseFFTComputeCol_TextureTargetI_Hashcode, outputImaginary );
 
-            cmdList->prepareAndBindResourceList( pso );
+            cmdList->prepareAndBindResourceList();
 
             cmdList->dispatchCompute( 1, FFT_TEXTURE_DIMENSION, 1 );
 
@@ -305,7 +305,7 @@ ResHandle_t AddInverseFFTComputePass( FrameGraph& frameGraph, FFTPassOutput& inp
             cmdList->bindImage( FFT::FFTRealShift_TextureSourceR_Hashcode, outputReal );
             cmdList->bindImage( FFT::FFTRealShift_TextureTargetR_Hashcode, inputReal );
 
-            cmdList->prepareAndBindResourceList( pso );
+            cmdList->prepareAndBindResourceList();
 
             cmdList->dispatchCompute( FFT_TEXTURE_DIMENSION / FFT::FFTRealShift_DispatchX, FFT_TEXTURE_DIMENSION / FFT::FFTRealShift_DispatchY, FFT::FFTRealShift_DispatchZ );
 
@@ -401,7 +401,7 @@ ResHandle_t AddInverseFFTComputePass( FrameGraph& frameGraph, FFTPassOutput& inp
                 cmdList->bindImage( FFT::UpscaleConvolutedFFT_InputRenderTarget_Hashcode, input );
                 cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
 
-                cmdList->prepareAndBindResourceList( pso );
+                cmdList->prepareAndBindResourceList();
                 cmdList->setupFramebuffer( &output );
 
                 cmdList->draw( 4, 1 );

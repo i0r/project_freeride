@@ -758,7 +758,7 @@ CommandList& RenderDevice::allocateGraphicsCommandList()
 
     nativeCmdList->descriptorPool = renderContext->descriptorPool[bufferIdx];
 
-    cmdList->setResourceFrameIndex( static_cast< i32 >( frameIndex ) );
+    cmdList->setFrameIndex( static_cast< i32 >( frameIndex ) );
 
     return *cmdList;
 }
@@ -777,7 +777,7 @@ CommandList& RenderDevice::allocateComputeCommandList()
 
     nativeCmdList->descriptorPool = renderContext->descriptorPool[bufferIdx];
 
-    cmdList->setResourceFrameIndex( static_cast< i32 >( frameIndex ) );
+    cmdList->setFrameIndex( static_cast< i32 >( frameIndex ) );
 
     return *cmdList;
 }

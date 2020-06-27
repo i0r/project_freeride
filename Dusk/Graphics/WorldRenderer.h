@@ -5,6 +5,7 @@
 #pragma once
 
 #include <Rendering/CommandList.h>
+#include <Maths/Matrix.h>
 
 class RenderDevice;
 class ShaderCache;
@@ -92,6 +93,14 @@ struct DrawCommandKey
 
 struct DrawCommandInfos
 {
+    struct InstanceData
+    {
+        dkMat4x4f   ModelMatrix;
+        u32         EntityIdentifier;
+        f32         LodDitheringAlpha;
+        u32         __PADDING__[2];
+    };
+
     const Material*             material; // Geom cmd
     const Buffer* const *       vertexBuffers;
     const Buffer*               indiceBuffer;
@@ -100,7 +109,8 @@ struct DrawCommandInfos
     u32                         vertexBufferCount;
     f32                         alphaDitheringValue; // 0..1 (1.0f if disabled)
     u32                         instanceCount; // 0 or 1 implicitly disable instancing
-    const dkMat4x4f*            modelMatrix; // Points to a single matrix or an array of matrix (if instanciation is used)
+    const InstanceData*         modelMatrix; // Points to a single matrix or an array of matrix (if instancing is used)
+    
     u8                          useShortIndices : 1;
 };
 

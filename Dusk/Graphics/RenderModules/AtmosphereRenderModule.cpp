@@ -139,7 +139,7 @@ ResHandle_t AtmosphereRenderModule::renderSky( FrameGraph& frameGraph, ResHandle
             cmdList->setViewport( *resources->getMainViewport() );
             cmdList->setScissor( *resources->getMainScissorRegion() );
 
-            cmdList->prepareAndBindResourceList( pipelineState );
+            cmdList->prepareAndBindResourceList();
 
             cmdList->updateBuffer( *passBuffer, &AtmosphereBruneton::BrunetonSkyProperties, sizeof( AtmosphereBruneton::BrunetonSkyRuntimeProperties ) );
 

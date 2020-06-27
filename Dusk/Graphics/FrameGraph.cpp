@@ -396,17 +396,17 @@ void FrameGraphResources::updateVectorBuffer( const DrawCmd& cmd, size_t& instan
 {
     switch ( cmd.key.bitfield.layer ) {
     case DrawCommandKey::LAYER_DEPTH: {
-        const size_t instancesDataSize = sizeof( dkMat4x4f ) * cmd.infos.instanceCount;
+       /* const size_t instancesDataSize = sizeof( DrawCommandInfos::InstanceData ) * cmd.infos.instanceCount;
 
         dkMat4x4f modelViewProjection = *cmd.infos.modelMatrix * activeCameraData.shadowViewMatrix[cmd.key.bitfield.viewportLayer - 1u];
         memcpy( reinterpret_cast<u8*>( instanceBufferData ) + instanceBufferOffset, &modelViewProjection, sizeof( dkMat4x4f ) );
 
-        instanceBufferOffset += instancesDataSize;
+        instanceBufferOffset += instancesDataSize;*/
     } break;
 
     case DrawCommandKey::LAYER_WORLD:
     default: {
-        const size_t instancesDataSize = sizeof( dkMat4x4f ) * cmd.infos.instanceCount;
+        const size_t instancesDataSize = sizeof( DrawCommandInfos::InstanceData ) * cmd.infos.instanceCount;
 
         memcpy( reinterpret_cast<u8*>( instanceBufferData ) + instanceBufferOffset, cmd.infos.modelMatrix, instancesDataSize );
 
@@ -436,7 +436,7 @@ void FrameGraphResources::dispatchToBuckets( DrawCmd* drawCmds, const size_t dra
 
     DrawCmdBucket * previousBucket = &drawCmdBuckets[layer][viewportLayer];
     previousBucket->instanceDataStartOffset = 0.0f;
-    previousBucket->vectorPerInstance = static_cast< float >( sizeof( dkMat4x4f ) / sizeof( dkVec4f ) );
+    previousBucket->vectorPerInstance = static_cast< float >( sizeof( DrawCommandInfos::InstanceData ) / sizeof( dkVec4f ) );
 
     for ( size_t drawCmdIdx = 1; drawCmdIdx < drawCmdCount; drawCmdIdx++ ) {
         const auto& drawCmdKey = drawCmds[drawCmdIdx].key.bitfield;
@@ -446,7 +446,7 @@ void FrameGraphResources::dispatchToBuckets( DrawCmd* drawCmds, const size_t dra
 
             auto & bucket = drawCmdBuckets[drawCmdKey.layer][drawCmdKey.viewportLayer];
             bucket.beginAddr = ( drawCmds + drawCmdIdx );
-            bucket.vectorPerInstance = static_cast< float >( sizeof( dkMat4x4f ) / sizeof( dkVec4f ) );
+            bucket.vectorPerInstance = static_cast< float >( sizeof( DrawCommandInfos::InstanceData ) / sizeof( dkVec4f ) );
             bucket.instanceDataStartOffset = static_cast< float >( instanceBufferOffset / sizeof( dkVec4f ) );
 
             layer = drawCmdKey.layer;
@@ -871,7 +871,7 @@ DUSK_INLINE void AddCopyImagePass( FrameGraph& frameGraph, ResHandle_t inputRend
             // Bind resources
             cmdList->bindImage( BuiltIn::CopyImagePass_InputRenderTarget_Hashcode, input );
 
-            cmdList->prepareAndBindResourceList( pso );
+            cmdList->prepareAndBindResourceList();
             cmdList->setupFramebuffer( &output );
 
             cmdList->draw( 3, 1 );

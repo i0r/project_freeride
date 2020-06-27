@@ -20,6 +20,7 @@ CommandList::CommandList( const CommandList::Type cmdListType )
     , commandListType( cmdListType )
     , resourceFrameIndex( 0 )
     , commandListPoolIndex( 0 )
+    , frameIndex( 0 )
 {
 
 }

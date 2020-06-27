@@ -25,6 +25,11 @@ public:
 	};
 
 public:
+	// Return picked entity id (or Entity::INVALID_ID if no entity is picked/picking has not been
+	// requested by the application).
+	DUSK_INLINE const u32 getPickedEntityId() const { return pickedEntityId; }
+
+public:
                         WorldRenderModule();
                         WorldRenderModule( WorldRenderModule& ) = delete;
                         WorldRenderModule& operator = ( WorldRenderModule& ) = delete;
@@ -36,7 +41,15 @@ public:
 	LightPassOutput     addPrimitiveLightPass( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, Material::RenderScenario scenario );
 
 private:
+	// Buffer used to store picking infos on the GPU.
 	Buffer*				pickingBuffer;
 
+	// Staging buffer used to read back picking results from the GPU.
 	Buffer*				pickingReadbackBuffer;
+
+	// Frame index at which the latest picking request has been done.
+	u32					pickingFrameIndex;
+
+	// Index of the latest picked entity.
+	u32					pickedEntityId;
 };

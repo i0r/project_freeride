@@ -24,6 +24,7 @@ Buffer* RenderDevice::createBuffer( const BufferDesc& description, const void* i
     Buffer* buffer = dk::core::allocate<Buffer>( memoryAllocator );
     buffer->Stride = description.StrideInBytes; // Stride might be used for UAV/SRV creation (deferred until first usage)
     buffer->BindFlags = description.BindFlags;
+    buffer->UsageFlags = description.Usage;
 
     D3D11_SUBRESOURCE_DATA subresourceDataDesc;
     subresourceDataDesc.pSysMem = initialData;
@@ -94,6 +95,8 @@ void CommandList::copyBuffer( Buffer* sourceBuffer, Buffer* destBuffer )
 	commandPacket->Identifier = CPI_COPY_RESOURCE;
 	commandPacket->SourceResource = sourceBuffer->BufferObject;
 	commandPacket->DestResource = destBuffer->BufferObject;
+
+	nativeCommandList->Commands.push( reinterpret_cast< u32* >( commandPacket ) );
 }
 
 void CommandList::bindVertexBuffer( const Buffer** buffers, const u32 bufferCount, const u32 startBindIndex )
@@ -141,7 +144,12 @@ void* CommandList::mapBuffer( Buffer& buffer, const u32 startOffsetInBytes, cons
 {
     D3D11_MAPPED_SUBRESOURCE mappedSubresource;
 
-    HRESULT operationResult = nativeCommandList->ImmediateContext->Map( buffer.BufferObject, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedSubresource );
+    const bool IsStagingBuffer = ( buffer.UsageFlags == RESOURCE_USAGE_STAGING );
+    
+    const D3D11_MAP MapType = ( IsStagingBuffer ) ? D3D11_MAP_READ : D3D11_MAP_WRITE_DISCARD;
+    const UINT MapFlags = ( IsStagingBuffer ) ? D3D11_MAP_FLAG_DO_NOT_WAIT : 0;
+
+    HRESULT operationResult = nativeCommandList->ImmediateContext->Map( buffer.BufferObject, 0, MapType, MapFlags, &mappedSubresource );
     DUSK_DEV_ASSERT( SUCCEEDED( operationResult ), "Failed to map buffer! (error code: 0x%x)", operationResult );
 
     return mappedSubresource.pData;

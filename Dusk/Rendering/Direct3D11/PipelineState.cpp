@@ -524,10 +524,8 @@ PipelineState* RenderDevice::createPipelineState( const PipelineStateDesc& descr
 #undef BIND_IF_AVAILABLE
 }
 
-void CommandList::prepareAndBindResourceList( const PipelineState* pipelineState )
+void CommandList::prepareAndBindResourceList()
 {
-    DUSK_UNUSED_VARIABLE( pipelineState );
-
     CommandPacket::ArgumentLessPacket* commandPacket = dk::core::allocate<CommandPacket::ArgumentLessPacket>( nativeCommandList->CommandPacketAllocator );
     commandPacket->Identifier = CPI_PREPARE_AND_BIND_RESOURCES;
 
@@ -859,25 +857,25 @@ void BindBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hashc
         for ( i32 i = 0; i < resource->activeStageCount; i++ ) {
             PipelineState::ResourceEntry::StageBinding& stageBinding = resource->activeBindings[i];
 
-            // Update RenderContext register data
-            RenderContext::RegisterData& registerData = renderContext->CsUavRegistersInfo[stageBinding.RegisterIndex];
-
-            if ( registerData.ResourceType == RenderContext::RegisterData::Type::BUFFER_RESOURCE ) {
-                registerData.BufferObject->UAVRegisterIndex = ~0;
-            } else if ( registerData.ResourceType == RenderContext::RegisterData::Type::IMAGE_RESOURCE ) {
-                registerData.ImageObject->UAVRegisterIndex = ~0;
-            }
-
-            registerData.BufferObject = buffer;
-            registerData.ResourceType = RenderContext::RegisterData::Type::BUFFER_RESOURCE;
-
-            UpdateUAVRegister( renderContext, stageBinding.ShaderStageIndex, stageBinding.RegisterIndex, uav );
-
             if ( stageBinding.ShaderStageIndex == 1 ) {
                 buffer->PSUAVRegisterIndex = stageBinding.RegisterIndex;
             } else {
+				// Update RenderContext register data
+				RenderContext::RegisterData& registerData = renderContext->CsUavRegistersInfo[stageBinding.RegisterIndex];
+
+				if ( registerData.ResourceType == RenderContext::RegisterData::Type::BUFFER_RESOURCE ) {
+					registerData.BufferObject->UAVRegisterIndex = ~0;
+				} else if ( registerData.ResourceType == RenderContext::RegisterData::Type::IMAGE_RESOURCE ) {
+					registerData.ImageObject->UAVRegisterIndex = ~0;
+				}
+
+				registerData.BufferObject = buffer;
+				registerData.ResourceType = RenderContext::RegisterData::Type::BUFFER_RESOURCE;
+
                 buffer->UAVRegisterIndex = stageBinding.RegisterIndex;
             }
+
+			UpdateUAVRegister( renderContext, stageBinding.ShaderStageIndex, stageBinding.RegisterIndex, uav );
         }
     }
 }

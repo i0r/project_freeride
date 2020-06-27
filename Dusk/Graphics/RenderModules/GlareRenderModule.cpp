@@ -76,7 +76,7 @@ FFTPassOutput GlareRenderModule::addGlareComputePass( FrameGraph& frameGraph, FF
             cmdList->bindImage( FFT::FrequencyDomainMul_Texture2SourceI_Hashcode, glarePatternFFT[1] );
             cmdList->bindImage( FFT::FrequencyDomainMul_Texture2SourceR_Hashcode, glarePatternFFT[0] );
 
-            cmdList->prepareAndBindResourceList( pso );
+            cmdList->prepareAndBindResourceList();
 
             cmdList->dispatchCompute( FFT_TEXTURE_DIMENSION / FFT::FrequencyDomainMul_DispatchX, FFT_TEXTURE_DIMENSION / FFT::FrequencyDomainMul_DispatchY, FFT::FrequencyDomainMul_DispatchZ);
 
@@ -154,7 +154,7 @@ void GlareRenderModule::precomputePipelineResources( FrameGraph& frameGraph )
             cmdList->bindImage( FFT::FFTComputeRow_TextureTargetR_Hashcode, outputReal );
             cmdList->bindImage( FFT::FFTComputeRow_TextureTargetI_Hashcode, outputImaginary );
 
-            cmdList->prepareAndBindResourceList( pso );
+            cmdList->prepareAndBindResourceList();
 
             cmdList->dispatchCompute( 1, FFT_TEXTURE_DIMENSION, 1 );
 
@@ -172,7 +172,7 @@ void GlareRenderModule::precomputePipelineResources( FrameGraph& frameGraph )
             cmdList->bindImage( FFT::FFTComputeCol_TextureTargetR_Hashcode, glarePatternFFT[1] );
             cmdList->bindImage( FFT::FFTComputeCol_TextureTargetI_Hashcode, glarePatternFFT[0] );
 
-            cmdList->prepareAndBindResourceList( pso );
+            cmdList->prepareAndBindResourceList();
 
             cmdList->dispatchCompute( 1, FFT_TEXTURE_DIMENSION, 1 );
 

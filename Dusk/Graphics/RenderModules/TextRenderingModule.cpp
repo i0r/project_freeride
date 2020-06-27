@@ -104,7 +104,7 @@ ResHandle_t TextRenderingModule::renderText( FrameGraph& frameGraph, ResHandle_t
 
             cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
             cmdList->bindImage( HUD::RenderText_FontAtlasTexture_Hashcode, fontAtlas );
-            cmdList->prepareAndBindResourceList( pipelineState );
+            cmdList->prepareAndBindResourceList();
 
             cmdList->updateBuffer( *glyphVertexBuffers[vertexBufferIndex], buffer, static_cast< size_t >( bufferOffset ) * sizeof( f32 ) );
 

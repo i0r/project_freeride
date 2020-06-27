@@ -588,7 +588,7 @@ private:
         u8              StartMipIndex;
         u8              MipCount;
         u8              ImageCount;
-        eViewFormat    ImageFormat;
+        eViewFormat     ImageFormat;
     };
 
 private:
