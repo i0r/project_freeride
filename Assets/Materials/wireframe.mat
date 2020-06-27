@@ -13,4 +13,12 @@ material "wireframe" {
 		vertex = "b12cce78062bce1b28b4a8cd6b40da44";
 		pixel = "10cb8d34a1bac370c12087c79dba9afd";
 	}
+	scenario "Default_Picking" {
+		vertex = "dfb5e66984eb0b4e66f5b9684161e43a";
+		pixel = "1323984d59facf6a66ed31ab0c90b964";
+	}
+	scenario "Editor_Default_Picking" {
+		vertex = "dedc358b0bc3cd97ed89dfdeedbcb106";
+		pixel = "3f1379f3d9aa70eba2822d7e01424a23";
+	}
 }

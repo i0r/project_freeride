@@ -54,7 +54,7 @@ lib PrimitiveLighting {
         #include <MaterialEditor.hlsli>
         #endif
         
-        float4x4 GetInstanceModelMatrix( Buffer instanceVectorBuffer, const uint instanceIdx )
+        float4x4 GetInstanceModelMatrix( Buffer instanceVectorBuffer, const uint instanceIdx, inout uint entityIndex )
         {
             uint modelMatrixVectorOffset = StartVector + instanceIdx * VectorPerInstance;
             
@@ -62,6 +62,9 @@ lib PrimitiveLighting {
             float4 r1 = instanceVectorBuffer.Load( modelMatrixVectorOffset + 1 );
             float4 r2 = instanceVectorBuffer.Load( modelMatrixVectorOffset + 2 );
             float4 r3 = instanceVectorBuffer.Load( modelMatrixVectorOffset + 3 );
+            
+            float4 extraInfos = instanceVectorBuffer.Load( modelMatrixVectorOffset + 4 );
+            entityIndex = asuint( extraInfos.x );
             
             return float4x4( r0, r1, r2, r3 );
         }
@@ -87,7 +90,9 @@ lib PrimitiveLighting {
                 return;
             }
             
-            if (pos.x != g_CursorPosition.x || pos.y != g_CursorPosition.y) {
+            // Apply SSAA factor to the cursor pos.
+            uint2 scaledCursorPos = g_CursorPosition * g_ImageQuality;
+            if (pos.x != scaledCursorPos.x  || pos.y != scaledCursorPos.y) {
                 return;
             }
             
@@ -105,7 +110,7 @@ lib PrimitiveLighting {
                     PickingBuffer.InterlockedCompareExchange(0, d, asuint(-(int)d), last_d);
                     
                     if (last_d == d) {
-                        PickingBuffer.Store2(4, identity);
+                        PickingBuffer.Store(4, identity);
                         uint dummy;
                         PickingBuffer.InterlockedExchange(0, d, dummy);
                     }
@@ -141,10 +146,12 @@ lib PrimitiveLighting {
     }
     
     shader PrimitiveVS {
-        float4x4 ModelMatrix = GetInstanceModelMatrix( InstanceVectorBuffer, $SV_InstanceID );
+        uint entityIdx = 0;
+        float4x4 ModelMatrix = GetInstanceModelMatrix( InstanceVectorBuffer, $SV_InstanceID, entityIdx );
         float4 positionWS = mul( float4( $POSITION.xyz, 1.0f ), ModelMatrix );
         
         $TEXCOORD0 = $TEXCOORD;
+        $BLENDINDICES0 = entityIdx;
         $POSITION0 = positionWS;
         $NORMAL0 = normalize( mul( ModelMatrix, float4( $NORMAL.xyz, 0.0f ) ) );
         $POSITION1 = mul( g_PreviousViewProjectionMatrix, float4( positionWS.xyz, 1.0f ) );
@@ -161,6 +168,8 @@ lib PrimitiveLighting {
         // Return a ready to use material named BlendedMaterial.
         DUSK_LAYERS_GET;
 #endif
+
+        uint identity = $BLENDINDICES0;
         
         float3 V = normalize( g_WorldPosition - $POSITION0.xyz );
         float3 N = normalize( $NORMAL0.xyz );
@@ -180,7 +189,7 @@ lib PrimitiveLighting {
 #endif
 
 #ifdef $DoPickingCheck
-        UpdatePickingBuffer( (uint2)$SV_POSITION.xy, 0, $SV_POSITION.z, 1.0f );
+        UpdatePickingBuffer( (uint2)$SV_POSITION.xy, identity, $SV_POSITION.z, 1.0f );
 #endif
     }
     
@@ -189,6 +198,7 @@ lib PrimitiveLighting {
         pixel = PrimitivePS;
         MaterialEditor = false;
         WriteVelocity = true;
+        DoPickingCheck = false;
         rendertargets = { OutputRenderTarget, OutputVelocity };
         depthStencil = OutputDepthTarget;
     }
@@ -198,6 +208,7 @@ lib PrimitiveLighting {
         pixel = PrimitivePS;
         MaterialEditor = true;
         WriteVelocity = true;
+        DoPickingCheck = false;
         rendertargets = { OutputRenderTarget, OutputVelocity };
         depthStencil = OutputDepthTarget;
     }

@@ -11,6 +11,10 @@ lib BuiltIn {
         sampler BilinearSampler {
             format = BilinearClampEdge;
         }
+        
+        RWByteAddressBuffer PickingBuffer {
+            format = uint;
+        }
     }
     
     shader FullscreenTriangle {
@@ -36,6 +40,10 @@ lib BuiltIn {
         float Dummy = $Sv_GroupID.x;
     }
     
+    shader ClearPickingBufferCS {
+        PickingBuffer.Store2( 0, uint2( asuint(1000.0f), ~0 ) );
+    }
+    
     pass PresentPass {
         vertex        = FullscreenTriangle;    
         pixel         = CopyImage;
@@ -56,6 +64,11 @@ lib BuiltIn {
     
     pass ErrorCompute {
         compute       = EmptyShader;
+        dispatch      = { 1, 1, 1 };
+    }
+    
+    pass ClearPickingBuffer {
+        compute       = ClearPickingBufferCS;
         dispatch      = { 1, 1, 1 };
     }
 }
