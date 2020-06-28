@@ -76,8 +76,6 @@ Entity World::createStaticMesh( const char* name )
 
 void World::releaseEntity( Entity& entity )
 {
-	staticGeometry.remove( entity );
- 
     entityDatabase->releaseEntity( entity );
 }
 

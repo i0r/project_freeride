@@ -117,8 +117,12 @@ static bool                    g_IsGamePaused = false;
 static bool                    g_IsFirstLaunch = false;
 static bool                    g_IsMouseOverViewportWindow = false;
 static bool                    g_CanMoveCamera = false;
+static bool                    g_SingleRightClickTest = false;
+static bool                    g_SingleRightClick = false;
+static Timer                   g_SingleRightClickTimer;
 static bool                    g_IsResizing = true;
 static bool                    g_RequestPickingUpdate = false;
+static bool                    g_RightClickMenuOpened = false;
 static dkVec2u                 g_CursorPosition = dkVec2u( 0, 0 );
 static dkVec2u                 g_ViewportWindowPosition = dkVec2u( 0, 0 );
 static Entity                  g_PickedEntity = Entity();
@@ -136,8 +140,8 @@ DUSK_DEV_VAR_PERSISTENT( UseRenderDocCapture, false, bool );// "Use RenderDoc fr
 
 void RegisterInputContexts()
 {
-    g_InputMapper->pushContext( DUSK_STRING_HASH( "Editor" ) );
-	g_InputMapper->pushContext( DUSK_STRING_HASH( "DebugUI" ) );
+    g_InputMapper->pushContext( DUSK_STRING_HASH( "Game" ) );
+	g_InputMapper->pushContext( DUSK_STRING_HASH( "Editor" ) );
 
     // Free Camera
     g_InputMapper->addCallback( [&]( MappedInput& input, float frameTime ) {
@@ -179,14 +183,30 @@ void RegisterInputContexts()
     // DebugUI
     g_InputMapper->addCallback( [&]( MappedInput& input, float frameTime ) {
         const bool previousCamState = g_CanMoveCamera;
-        const bool isRightButtonDown = input.States.find( DUSK_STRING_HASH( "RightMouseButton" ) ) != input.States.end();
-        g_CanMoveCamera = ( g_IsMouseOverViewportWindow && isRightButtonDown );
+		const bool isRightButtonDown = input.States.find( DUSK_STRING_HASH( "RightMouseButton" ) ) != input.States.end();
+		const bool newCanMoveCamera = ( g_IsMouseOverViewportWindow && isRightButtonDown );
 
-        if ( previousCamState != g_CanMoveCamera ) {
+		if ( g_SingleRightClickTest ) {
+			if ( g_SingleRightClickTimer.getElapsedTimeAsMiliseconds() >= 100 ) {
+                g_SingleRightClick = ( g_SingleRightClickTest && !isRightButtonDown );
+                g_SingleRightClickTest = false;
+			}
+        } else {
+            g_SingleRightClick = false;
+			g_SingleRightClickTest = ( !g_CanMoveCamera && newCanMoveCamera );
+
+			if ( g_SingleRightClickTest ) {
+				g_SingleRightClickTimer.start();
+			}
+        }
+
+        g_CanMoveCamera = newCanMoveCamera;
+
+        if ( !g_SingleRightClickTest && previousCamState != g_CanMoveCamera ) {
             if ( g_CanMoveCamera ) {
                 g_InputMapper->popContext();
             } else {
-                g_InputMapper->pushContext( DUSK_STRING_HASH( "DebugUI" ) );
+                g_InputMapper->pushContext( DUSK_STRING_HASH( "Editor" ) );
             }
         }
 
@@ -203,7 +223,7 @@ void RegisterInputContexts()
 
 		if ( g_IsMouseOverViewportWindow ) {
             if ( input.States.find( DUSK_STRING_HASH( "LeftMouseButton" ) ) != input.States.end() ) {
-                g_RequestPickingUpdate = true;
+                g_RequestPickingUpdate = ( !g_RightClickMenuOpened );
             }
         }
 
@@ -245,8 +265,8 @@ void RegisterInputContexts()
         io.KeysDown[io.KeyMap[ImGuiKey_RightArrow]] = ( input.States.find( DUSK_STRING_HASH( "KeyRightArrow" ) ) != input.States.end() );
         io.KeysDown[io.KeyMap[ImGuiKey_LeftArrow]] = ( input.States.find( DUSK_STRING_HASH( "KeyLeftArrow" ) ) != input.States.end() );
 
-        io.MouseDown[0] = ( input.States.find( DUSK_STRING_HASH( "LeftMouseButton" ) ) != input.States.end() );
-        io.MouseDown[1] = ( input.States.find( DUSK_STRING_HASH( "RightMouseButton" ) ) != input.States.end() );
+        io.MouseDown[0] = !g_RequestPickingUpdate && ( input.States.find( DUSK_STRING_HASH( "LeftMouseButton" ) ) != input.States.end() );
+        io.MouseDown[1] = g_SingleRightClick;
         io.MouseDown[2] = ( input.States.find( DUSK_STRING_HASH( "MiddleMouseButton" ) ) != input.States.end() );
 
         fnKeyStrokes_t keyStrokes = g_InputReader->getAndFlushKeyStrokes();
@@ -789,7 +809,7 @@ void MainLoop()
 
                 ImGui::Image( static_cast< ImTextureID >( frameGraph.getPresentRenderTarget() ), winSize );
 
-				if ( ImGui::BeginPopupContextWindow( "Viewport Popup" ) ) {
+				if ( g_RightClickMenuOpened = ImGui::BeginPopupContextWindow( "Viewport Popup" ) ) {
 					if ( ImGui::BeginMenu( "New Entity..." ) ) {
 						if ( ImGui::MenuItem( "Static Mesh" ) ) {
                             g_PickedEntity = g_World->createStaticMesh();
