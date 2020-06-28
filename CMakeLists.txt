@@ -47,6 +47,7 @@ set( DUSK_DEVBUILD TRUE CACHE BOOL "Build with developper features" )
 set( DUSK_USE_IMGUI TRUE CACHE BOOL "Use imgui as debug GUI middleware" )
 set( DUSK_USE_FBXSDK TRUE CACHE BOOL "Use FBX SDK for geometry baking" )
 set( DUSK_USE_RENDERDOC TRUE CACHE BOOL "Use RenderDoc API for graphics debugging" )
+set( DUSK_USE_BULLET TRUE CACHE BOOL "Use Bullet Physics as physics library" )
 set( DUSK_USE_UNITY_BUILD TRUE CACHE BOOL "Use UnityBuild for project compilation" )
 set( DUSK_ENABLE_GPU_DEBUG_MARKER TRUE CACHE BOOL "Enable GPU Debug Markers (resource/region markers, etc.)" )
 

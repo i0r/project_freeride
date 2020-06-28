@@ -17,16 +17,23 @@ file(GLOB_RECURSE INC "${DUSK_BASE_FOLDER}Dusk/Core/*.h"
     "${DUSK_BASE_FOLDER}Dusk/Maths/*.inl"
     "${DUSK_BASE_FOLDER}Dusk/Parsing/*.h"
     "${DUSK_BASE_FOLDER}Dusk/Rendering/*.h"
-    "${DUSK_BASE_FOLDER}Dusk/Graphics/*.h"
-    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/*.h"
-    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/*.hpp"
-    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/*.inl")
+    "${DUSK_BASE_FOLDER}Dusk/Graphics/*.h")
     
+if ( DUSK_USE_BULLET )
+file(GLOB_RECURSE BULLET_HEADERS 
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/bullet3/*.hpp"
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/bullet3/*.h" )
+endif ( DUSK_USE_BULLET )
+
 file(GLOB_RECURSE SRC_THIRD_PARTY 
-    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/*.cpp"
-    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/*.c"
-    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/*.hpp"
-    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/*.h" )
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/SPIRV-Cross/*.cpp"
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/SPIRV-Cross/*.c"
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/SPIRV-Cross/*.hpp"
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/SPIRV-Cross/*.h"
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/dxc/*.hpp"
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/dxc/*.h"
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/stb_image.h"
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/stb_image_write.h" )
     
 set( SOURCES ${SRC} ${INC} "${DUSK_BASE_FOLDER}Dusk/Shared.cpp" "${DUSK_BASE_FOLDER}Dusk/Shared.h" )
 add_precompiled_header( "${SOURCES}" Shared.h )
@@ -35,7 +42,7 @@ if ( ${DUSK_USE_UNITY_BUILD} )
 	enable_unity_build( Dusk SRC 16 cpp)
 endif ( ${DUSK_USE_UNITY_BUILD} )
 
-set( SOURCES ${SRC} ${INC} ${SRC_THIRD_PARTY} "${DUSK_BASE_FOLDER}Dusk/Shared.cpp" "${DUSK_BASE_FOLDER}Dusk/Shared.h" )
+set( SOURCES ${SRC} ${INC}  ${BULLET_HEADERS} ${SRC_THIRD_PARTY} "${DUSK_BASE_FOLDER}Dusk/Shared.cpp" "${DUSK_BASE_FOLDER}Dusk/Shared.h" )
 
 add_library( Dusk STATIC ${SOURCES} )
 
