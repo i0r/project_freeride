@@ -60,14 +60,16 @@ void EntityEditor::displayEditorWindow( CameraData& viewportCamera, const dkVec4
     }
 
 	if ( ImGui::Begin( "Inspector", &isOpened ) ) {
-		// Name Edition.
-		char* entityName = activeWorld->getEntityNameRegister()->getNameBuffer( *activeEntity );
-		ImGui::InputText( "Name", entityName, Entity::MAX_NAME_LENGTH * sizeof( char ) );
+		if ( activeEntity->getIdentifier() != Entity::INVALID_ID ) {
+			// Name Edition.
+			char* entityName = activeWorld->getEntityNameRegister()->getNameBuffer( *activeEntity );
+			ImGui::InputText( "Name", entityName, Entity::MAX_NAME_LENGTH * sizeof( char ) );
 
-        // Display component edition. We have a finite number of component type so it shouldn't
-        // be too bad to manage this by hand...
-        displayTransformSection( viewportBounds, viewportCamera );
-        displayStaticGeometrySection();
+			// Display component edition. We have a finite number of component type so it shouldn't
+			// be too bad to manage this by hand...
+			displayTransformSection( viewportBounds, viewportCamera );
+			displayStaticGeometrySection();
+        }
     }
 
     ImGui::End();
@@ -80,6 +82,7 @@ void EntityEditor::displayTransformSection( const dkVec4f& viewportBounds, Camer
         return;
     }
 
+	ImGui::SetNextItemOpen( true );
     if ( ImGui::TreeNode( "Transform" ) ) {
         // Retrieve this instance transform information.
         TransformDatabase* transformDb = activeWorld->getTransformDatabase();
@@ -154,6 +157,7 @@ void EntityEditor::displayStaticGeometrySection()
 		return;
 	}
 
+    ImGui::SetNextItemOpen( true );
 	if ( ImGui::TreeNode( "Static Geometry" ) ) {
 		// Retrieve this instance static geometry information.
 		StaticGeometryDatabase* staticGeoDb = activeWorld->getStaticGeometryDatabase();

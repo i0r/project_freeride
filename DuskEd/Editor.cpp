@@ -117,9 +117,8 @@ static bool                    g_IsGamePaused = false;
 static bool                    g_IsFirstLaunch = false;
 static bool                    g_IsMouseOverViewportWindow = false;
 static bool                    g_CanMoveCamera = false;
-static bool                    g_SingleRightClickTest = false;
+static bool                    g_WasPressingRight = false;
 static bool                    g_SingleRightClick = false;
-static Timer                   g_SingleRightClickTimer;
 static bool                    g_IsResizing = true;
 static bool                    g_RequestPickingUpdate = false;
 static bool                    g_RightClickMenuOpened = false;
@@ -184,29 +183,12 @@ void RegisterInputContexts()
     g_InputMapper->addCallback( [&]( MappedInput& input, float frameTime ) {
         const bool previousCamState = g_CanMoveCamera;
 		const bool isRightButtonDown = input.States.find( DUSK_STRING_HASH( "RightMouseButton" ) ) != input.States.end();
-        const bool isRightButtonPushed = input.Actions.find( DUSK_STRING_HASH( "ContextMenuTest" ) ) != input.Actions.end();
 		const bool newCanMoveCamera = ( g_IsMouseOverViewportWindow && isRightButtonDown );
 
-		if ( !g_SingleRightClickTest && isRightButtonPushed ) {
-			g_SingleRightClickTest = true;
-            g_SingleRightClickTimer.reset();
-		} else if ( g_SingleRightClickTest ) {
-			if ( g_SingleRightClickTimer.getElapsedTimeAsMiliseconds() >= 300 ) {
-				g_SingleRightClick = !isRightButtonDown;
-				/*g_SingleRightClickTest = true;
-				g_SingleRightClickTimer.reset();*/
-			}
-        }
+		g_SingleRightClick = ( g_WasPressingRight && !isRightButtonDown );
 
+        g_WasPressingRight = isRightButtonDown;
         g_CanMoveCamera = newCanMoveCamera;
-
-        if ( !g_SingleRightClickTest && previousCamState != g_CanMoveCamera ) {
-            if ( g_CanMoveCamera ) {
-                g_InputMapper->popContext();
-            } else {
-                g_InputMapper->pushContext( DUSK_STRING_HASH( "Editor" ) );
-            }
-        }
 
         // Default: Ctrl
         if ( input.States.find( DUSK_STRING_HASH( "Modifier1" ) ) != input.States.end() ) {
@@ -271,7 +253,7 @@ void RegisterInputContexts()
         io.KeysDown[io.KeyMap[ImGuiKey_LeftArrow]] = ( input.States.find( DUSK_STRING_HASH( "KeyLeftArrow" ) ) != input.States.end() );
 
         io.MouseDown[0] = ( input.States.find( DUSK_STRING_HASH( "LeftMouseButton" ) ) != input.States.end() );
-        io.MouseDown[1] = g_RightClickMenuOpened || g_SingleRightClick; // g_SingleRightClick;
+        io.MouseDown[1] = g_SingleRightClick;
         io.MouseDown[2] = ( input.States.find( DUSK_STRING_HASH( "MiddleMouseButton" ) ) != input.States.end() );
 
         fnKeyStrokes_t keyStrokes = g_InputReader->getAndFlushKeyStrokes();
@@ -507,6 +489,7 @@ void Initialize( const char* cmdLineArgs )
 	g_EntityEditor = dk::core::allocate<EntityEditor>( g_GlobalAllocator, g_GlobalAllocator, g_GraphicsAssetCache, g_VirtualFileSystem, g_RenderWorld, g_RenderDevice );
 	g_EntityEditor->setActiveWorld( g_World );
     g_EntityEditor->setActiveEntity( &g_PickedEntity );
+    g_EntityEditor->openEditorWindow();
 
 	g_EditorGridModule = dk::core::allocate<EditorGridModule>( g_GlobalAllocator );
 
@@ -587,8 +570,6 @@ void MainLoop()
             + " ms / "
             + std::to_string( framerateCounter.MaxDeltaTime ).substr( 0, 6 ) + " ms ("
             + std::to_string( framerateCounter.AvgFramePerSecond ).substr( 0, 6 ) + " FPS)";
-
-        std::string mousePos = "Picked Entity ID: " + std::to_string( g_PickedEntity.getIdentifier() );
 
         // Convert screenspace cursor position to viewport space.
 		i32 shiftedMouseX = dk::maths::clamp( static_cast< i32 >( g_CursorPosition.x - g_ViewportWindowPosition.x ), 0, vp.Width );
@@ -842,7 +823,6 @@ void MainLoop()
 
         // TEST TEST TEST TEST
 		g_WorldRenderer->TextRendering->addOutlinedText( str.c_str(), 0.4f, 8.0f, 8.0f, dkVec4f( 1, 1, 1, 1 ) );
-		g_WorldRenderer->TextRendering->addOutlinedText( mousePos.c_str(), 0.4f, 8.0f, 24.0f, dkVec4f( 1, 1, 1, 1 ) );
 
         dkVec3f UpVector = g_FreeCamera->getUpVector();
         dkVec3f RightVector = g_FreeCamera->getRightVector();

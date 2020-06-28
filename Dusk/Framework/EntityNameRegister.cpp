@@ -53,3 +53,16 @@ bool EntityNameRegister::exist( const dkStringHash_t hashcode ) const
 {
     return ( nameHashmap.find( hashcode ) != nameHashmap.end() );
 }
+
+void EntityNameRegister::releaseEntityName( const Entity& entity )
+{
+    const char* entityName = getName( entity );
+    if ( entityName == nullptr ) {
+        return;
+    }
+
+	dkStringHash_t nameHashcode = dk::core::CRC32( entityName );
+    nameHashmap.erase( nameHashcode );
+
+    memset( &names[entity.extractIndex() * Entity::MAX_NAME_LENGTH], '\0', sizeof( char ) * Entity::MAX_NAME_LENGTH );
+}

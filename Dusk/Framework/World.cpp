@@ -82,6 +82,7 @@ void World::releaseEntity( Entity& entity )
     staticGeometry.remove_if( [entity]( Entity& sge ) { return sge == entity; } );
 
     entityDatabase->releaseEntity( entity );
+    entityNameRegister->releaseEntityName( entity );
 }
 
 void World::attachTransformComponent( Entity& entity )

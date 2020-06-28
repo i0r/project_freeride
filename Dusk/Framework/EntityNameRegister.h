@@ -29,6 +29,8 @@ public:
     // Return true if the hashcode exist; false otherwise.
     bool            exist( const dkStringHash_t hashcode ) const;
 
+    void            releaseEntityName( const Entity& entity );
+
 private:
     // The memory allocator owning this instance.
     BaseAllocator*  memoryAllocator;
