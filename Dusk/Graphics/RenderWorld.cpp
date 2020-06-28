@@ -10,6 +10,9 @@
 #include <Graphics/DrawCommandBuilder.h>
 #include <Graphics/ModelBuilder.h>
 #include <Graphics/Model.h>
+#include <Graphics/Mesh.h>
+#include <Graphics/Material.h>
+#include <Graphics/GraphicsAssetCache.h>
 
 RenderWorld::RenderWorld( BaseAllocator* allocator )
     : memoryAllocator( allocator )

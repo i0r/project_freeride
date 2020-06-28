@@ -8,6 +8,7 @@ class BaseAllocator;
 struct Entity;
 
 #include <unordered_map>
+#include <queue>
 
 struct Instance
 {
@@ -44,6 +45,10 @@ public:
     // Return true if the given entity has a component from this database; false otherwise.
     bool        hasComponent( const Entity& e ) const;
 
+    // Remove the component attached to the given entity (does nothing if the given entity
+    // don't have a component attached).
+    void        removeComponent( const Entity& e );
+
 protected:
     struct MemoryBuffer {
         // The number of instance allocated by the database.
@@ -72,6 +77,8 @@ protected:
 
     // The allocator owning this database.
     BaseAllocator* memoryAllocator;
+
+	std::queue<Instance>    freeInstances;
 
 protected:
     // Allocate the "raw" memory chunk used to allocate the entries of the database.

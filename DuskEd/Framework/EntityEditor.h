@@ -14,6 +14,8 @@ class FbxParser;
 class RenderWorld;
 class RenderDevice;
 
+#include <Maths/Vector.h>
+
 class EntityEditor
 {
 public:

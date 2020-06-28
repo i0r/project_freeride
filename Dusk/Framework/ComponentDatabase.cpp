@@ -33,6 +33,16 @@ bool ComponentDatabase::hasComponent( const Entity& e ) const
     return entityToInstanceMap.find( static_cast< size_t >( e.extractIndex() ) ) != entityToInstanceMap.end();
 }
 
+void ComponentDatabase::removeComponent( const Entity& e )
+{
+    if ( !hasComponent( e ) ) {
+        return;
+    }
+
+    freeInstances.push( lookup( e ) );
+    entityToInstanceMap.at( static_cast< size_t >( e.extractIndex() ) ) = Instance();
+}
+
 void ComponentDatabase::allocateMemoryChunk( const size_t singleComponentSize, const size_t componentCount )
 {
     const size_t allocationSize = singleComponentSize * componentCount;

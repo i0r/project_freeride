@@ -4,6 +4,9 @@
 #include "FbxParser.h"
 #include <fbxsdk.h>
 
+#include <Core/Environment.h>
+#include <Core/StringHelpers.h>
+
 // Return the index for an element array accordingly to its reference mode.
 static i32 GetArrayIndexByReferenceMode( 
     const FbxLayerElement::EReferenceMode referenceMode, 

@@ -184,19 +184,17 @@ void RegisterInputContexts()
     g_InputMapper->addCallback( [&]( MappedInput& input, float frameTime ) {
         const bool previousCamState = g_CanMoveCamera;
 		const bool isRightButtonDown = input.States.find( DUSK_STRING_HASH( "RightMouseButton" ) ) != input.States.end();
+        const bool isRightButtonPushed = input.Actions.find( DUSK_STRING_HASH( "ContextMenuTest" ) ) != input.Actions.end();
 		const bool newCanMoveCamera = ( g_IsMouseOverViewportWindow && isRightButtonDown );
 
-		if ( g_SingleRightClickTest ) {
-			if ( g_SingleRightClickTimer.getElapsedTimeAsMiliseconds() >= 100 ) {
-                g_SingleRightClick = ( g_SingleRightClickTest && !isRightButtonDown );
-                g_SingleRightClickTest = false;
-			}
-        } else {
-            g_SingleRightClick = false;
-			g_SingleRightClickTest = ( !g_CanMoveCamera && newCanMoveCamera );
-
-			if ( g_SingleRightClickTest ) {
-				g_SingleRightClickTimer.start();
+		if ( !g_SingleRightClickTest && isRightButtonPushed ) {
+			g_SingleRightClickTest = true;
+            g_SingleRightClickTimer.reset();
+		} else if ( g_SingleRightClickTest ) {
+			if ( g_SingleRightClickTimer.getElapsedTimeAsMiliseconds() >= 300 ) {
+				g_SingleRightClick = !isRightButtonDown;
+				/*g_SingleRightClickTest = true;
+				g_SingleRightClickTimer.reset();*/
 			}
         }
 
@@ -224,6 +222,13 @@ void RegisterInputContexts()
 		if ( g_IsMouseOverViewportWindow ) {
             if ( input.States.find( DUSK_STRING_HASH( "LeftMouseButton" ) ) != input.States.end() ) {
                 g_RequestPickingUpdate = ( !g_RightClickMenuOpened );
+            }
+        }
+
+		if ( input.States.find( DUSK_STRING_HASH( "KeyDelete" ) ) != input.States.end() ) {
+            if ( g_PickedEntity.getIdentifier() != Entity::INVALID_ID ) {
+                g_World->releaseEntity( g_PickedEntity );
+                g_PickedEntity.setIdentifier( Entity::INVALID_ID );
             }
         }
 
@@ -265,8 +270,8 @@ void RegisterInputContexts()
         io.KeysDown[io.KeyMap[ImGuiKey_RightArrow]] = ( input.States.find( DUSK_STRING_HASH( "KeyRightArrow" ) ) != input.States.end() );
         io.KeysDown[io.KeyMap[ImGuiKey_LeftArrow]] = ( input.States.find( DUSK_STRING_HASH( "KeyLeftArrow" ) ) != input.States.end() );
 
-        io.MouseDown[0] = !g_RequestPickingUpdate && ( input.States.find( DUSK_STRING_HASH( "LeftMouseButton" ) ) != input.States.end() );
-        io.MouseDown[1] = g_SingleRightClick;
+        io.MouseDown[0] = ( input.States.find( DUSK_STRING_HASH( "LeftMouseButton" ) ) != input.States.end() );
+        io.MouseDown[1] = g_RightClickMenuOpened || g_SingleRightClick; // g_SingleRightClick;
         io.MouseDown[2] = ( input.States.find( DUSK_STRING_HASH( "MiddleMouseButton" ) ) != input.States.end() );
 
         fnKeyStrokes_t keyStrokes = g_InputReader->getAndFlushKeyStrokes();
@@ -501,6 +506,7 @@ void Initialize( const char* cmdLineArgs )
 
 	g_EntityEditor = dk::core::allocate<EntityEditor>( g_GlobalAllocator, g_GlobalAllocator, g_GraphicsAssetCache, g_VirtualFileSystem, g_RenderWorld, g_RenderDevice );
 	g_EntityEditor->setActiveWorld( g_World );
+    g_EntityEditor->setActiveEntity( &g_PickedEntity );
 
 	g_EditorGridModule = dk::core::allocate<EditorGridModule>( g_GlobalAllocator );
 
@@ -534,15 +540,6 @@ void MainLoop()
     sr.Right = ScreenSize.x;
 
     dkVec2f viewportSize = dkVec2f( static_cast< f32 >( ScreenSize.x ), static_cast< f32 >( ScreenSize.y ) );
-
-    Entity modelEntity = g_World->createStaticMesh();
-
-    StaticGeometryDatabase* staticGeomDb = g_World->getStaticGeometryDatabase();
-    staticGeomDb->setModel( staticGeomDb->lookup( modelEntity ), nullptr );
-
-	g_PickedEntity = Entity( modelEntity.extractIndex(), modelEntity.extractGenerationIndex() );
-    g_EntityEditor->setActiveEntity( &g_PickedEntity );
-    // TEST TEST TEST
 
     Timer logicTimer;
     logicTimer.start();
@@ -819,8 +816,9 @@ void MainLoop()
 					}
 
 					if ( g_PickedEntity.getIdentifier() != Entity::INVALID_ID ) {
-						if ( ImGui::MenuItem( "Delete" ) ) {
-                            g_World->releaseEntity( g_PickedEntity );
+					    if ( ImGui::MenuItem( "Delete" ) ) {
+							g_World->releaseEntity( g_PickedEntity );
+							g_PickedEntity.setIdentifier( Entity::INVALID_ID );
 						}
                     }
 
@@ -862,20 +860,17 @@ void MainLoop()
 
         Material::RenderScenario scenario = ( g_MaterialEditor->isUsingInteractiveMode() ) ? Material::RenderScenario::Default_Editor : Material::RenderScenario::Default;
 
-        // TODO Remove me once entity add/remove is implemented
-        static bool crap = false;
         if ( g_RequestPickingUpdate ) {
             scenario = ( scenario == Material::RenderScenario::Default ) ? Material::RenderScenario::Default_Picking : Material::RenderScenario::Default_Picking_Editor;
-            crap = true;
-        }
-
-        if ( crap ) {
-			g_PickedEntity.setIdentifier( g_WorldRenderer->WorldRendering->getPickedEntityId() );
+			g_RequestPickingUpdate = false;
         }
 
         // LightPass.
         WorldRenderModule::LightPassOutput primRenderPass = g_WorldRenderer->WorldRendering->addPrimitiveLightPass( frameGraph, lightGridData.PerSceneBuffer, scenario );
-        g_RequestPickingUpdate = false;
+		
+        if ( g_WorldRenderer->WorldRendering->isPickingResultAvailable() ) {
+			g_PickedEntity.setIdentifier( g_WorldRenderer->WorldRendering->getAndConsumePickedEntityId() );
+        }
 
         // AntiAliasing resolve. (we merge both TAA and MSAA in a single pass to avoid multiple dispatch).
         ResolvedPassOutput resolvedOutput = { primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget };

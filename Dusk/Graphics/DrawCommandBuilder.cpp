@@ -468,6 +468,7 @@ void DrawCommandBuilder::buildHUDDrawCmds( WorldRenderer* worldRenderer, CameraD
 #include <Graphics/Mesh.h>
 
 #include <Core/Allocators/LinearAllocator.h>
+#include <Maths/MatrixTransformations.h>
 
 static constexpr size_t MAX_SIMULTANEOUS_VIEWPORT_COUNT = 8;
 static constexpr size_t MAX_STATIC_MODEL_COUNT = 4096;

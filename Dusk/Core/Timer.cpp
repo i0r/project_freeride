@@ -42,7 +42,7 @@ Timer::Timer()
     : startTime( 0ull )
     , previousTime( 0ull )
 {
-
+	reset();
 }
 
 void Timer::start()

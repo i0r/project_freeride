@@ -36,6 +36,7 @@ WorldRenderModule::WorldRenderModule()
     , pickingReadbackBuffer( nullptr )
     , pickingFrameIndex( ~0 )
     , pickedEntityId( Entity::INVALID_ID )
+    , isResultAvailable( false )
 {
 
 }
@@ -285,6 +286,7 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
                     pickedEntityId = *reinterpret_cast< u32* >( dataPointer + sizeof( u32 ) );
                     cmdList->unmapBuffer( *pickingReadbackBuffer );
 
+                    isResultAvailable = true;
                     pickingFrameIndex = ~0;
                 }
             }

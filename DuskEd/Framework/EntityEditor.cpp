@@ -8,6 +8,7 @@
 #if DUSK_USE_IMGUI
 #include <imgui/imgui.h>
 #include <imgui/imgui_internal.h>
+#include <ImGuizmo/ImGuizmo.h>
 #endif
 
 #if DUSK_USE_FBXSDK
@@ -20,6 +21,7 @@
 
 #include <Framework/Cameras/Camera.h>
 
+#include "Framework/World.h"
 #include "Framework/MaterialEditor.h"
 #include "Framework/StaticGeometry.h"
 #include "Framework/Transform.h"

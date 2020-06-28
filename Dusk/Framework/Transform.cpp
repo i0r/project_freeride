@@ -43,9 +43,15 @@ void TransformDatabase::create( const size_t dbCapacity )
 void TransformDatabase::allocateComponent( Entity& entity )
 {
     // Update buffer infos.
-    Instance instance = Instance( databaseBuffer.AllocationCount );
-    ++databaseBuffer.AllocationCount;
-    databaseBuffer.MemoryUsed += TRANSFORM_SINGLE_ENTRY_SIZE;
+    Instance instance;
+    if ( !freeInstances.empty() ) {
+        instance = freeInstances.front();
+        freeInstances.pop();
+    } else {
+		instance = Instance( databaseBuffer.AllocationCount );
+		++databaseBuffer.AllocationCount;
+		databaseBuffer.MemoryUsed += TRANSFORM_SINGLE_ENTRY_SIZE;
+    }
 
     entityToInstanceMap[entity.extractIndex()] = instance;
 

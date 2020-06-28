@@ -65,7 +65,7 @@ private:
     };
 
 private:
-    InstanceData        instanceData;
+    InstanceData            instanceData;
 
 private:
     void    applyParentMatrixRecurse( const dkMat4x4f& parent, Instance i );

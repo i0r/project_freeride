@@ -27,7 +27,9 @@ public:
 public:
 	// Return picked entity id (or Entity::INVALID_ID if no entity is picked/picking has not been
 	// requested by the application).
-	DUSK_INLINE const u32 getPickedEntityId() const { return pickedEntityId; }
+	DUSK_INLINE u32 getAndConsumePickedEntityId() { isResultAvailable = false; return pickedEntityId; }
+
+	DUSK_INLINE const bool isPickingResultAvailable() const { return isResultAvailable; }
 
 public:
                         WorldRenderModule();
@@ -52,4 +54,7 @@ private:
 
 	// Index of the latest picked entity.
 	u32					pickedEntityId;
+
+	// True if result readback is available; false otherwise.
+	bool				isResultAvailable;
 };

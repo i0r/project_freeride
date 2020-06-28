@@ -33,10 +33,16 @@ void StaticGeometryDatabase::create( const size_t dbCapacity )
 
 void StaticGeometryDatabase::allocateComponent( Entity& entity )
 {
-    // Update buffer infos.
-    Instance instance = Instance( databaseBuffer.AllocationCount );
-    ++databaseBuffer.AllocationCount;
-    databaseBuffer.MemoryUsed += STATIC_GEOM_SINGLE_ENTRY_SIZE;
+	// Update buffer infos.
+	Instance instance;
+	if ( !freeInstances.empty() ) {
+		instance = freeInstances.front();
+		freeInstances.pop();
+	} else {
+		instance = Instance( databaseBuffer.AllocationCount );
+		++databaseBuffer.AllocationCount;
+		databaseBuffer.MemoryUsed += STATIC_GEOM_SINGLE_ENTRY_SIZE;
+	}
 
     entityToInstanceMap[entity.extractIndex()] = instance;
 

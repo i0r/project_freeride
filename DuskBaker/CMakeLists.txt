@@ -24,6 +24,13 @@ elseif( UNIX )
     target_link_libraries( DuskBaker dl X11 xcb xcb-keysyms X11-xcb ${X11_LIBRARIES} )
 endif ( WIN32 )
 
+if ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
+    target_link_libraries( DuskBaker d3d11 )
+    target_link_libraries( DuskBaker dxgi )
+    target_link_libraries( DuskBaker d3dcompiler )
+    target_link_libraries( DuskBaker dxguid )
+endif ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
+
 if(MSVC)
   target_compile_options(DuskBaker PRIVATE /W3 /WX)
 else()
