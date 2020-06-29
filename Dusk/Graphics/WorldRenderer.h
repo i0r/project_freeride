@@ -25,6 +25,7 @@ class LineRenderingModule;
 class FrameCompositionModule;
 class AtmosphereRenderModule;
 class WorldRenderModule;
+class IBLUtilitiesModule;
 
 template <typename Precision, int RowCount, int ColumnCount>
 struct Matrix;
@@ -141,6 +142,7 @@ public:
     FrameCompositionModule*  FrameComposition;
     AtmosphereRenderModule*  AtmosphereRendering;
     WorldRenderModule*       WorldRendering;
+    IBLUtilitiesModule*      IBLUtilities;
 
 public:
                      WorldRenderer( BaseAllocator* allocator );

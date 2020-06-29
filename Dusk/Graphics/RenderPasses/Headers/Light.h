@@ -142,4 +142,5 @@ struct IBLProbeGPU
 };
 DUSK_IS_MEMORY_ALIGNED_STATIC( IBLProbeGPU, 16 );
 
+#define BRDF_LUT_SIZE 512
 #endif
