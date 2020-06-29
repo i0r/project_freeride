@@ -73,6 +73,7 @@
 #include "Framework/StaticGeometry.h"
 
 #include "Framework/Cameras/FreeCamera.h"
+#include "Framework/Transform.h"
 #include "DefaultInputConfig.h"
 
 #include "Graphics/RenderModules/EditorGridRenderModule.h"
@@ -117,8 +118,6 @@ static bool                    g_IsGamePaused = false;
 static bool                    g_IsFirstLaunch = false;
 static bool                    g_IsMouseOverViewportWindow = false;
 static bool                    g_CanMoveCamera = false;
-static bool                    g_WasPressingRight = false;
-static bool                    g_SingleRightClick = false;
 static bool                    g_IsResizing = true;
 static bool                    g_RequestPickingUpdate = false;
 static bool                    g_RightClickMenuOpened = false;
@@ -185,10 +184,15 @@ void RegisterInputContexts()
 		const bool isRightButtonDown = input.States.find( DUSK_STRING_HASH( "RightMouseButton" ) ) != input.States.end();
 		const bool newCanMoveCamera = ( g_IsMouseOverViewportWindow && isRightButtonDown );
 
-		g_SingleRightClick = ( g_WasPressingRight && !isRightButtonDown );
-
-        g_WasPressingRight = isRightButtonDown;
         g_CanMoveCamera = newCanMoveCamera;
+
+        if ( previousCamState != g_CanMoveCamera ) {
+            if ( g_CanMoveCamera ) {
+                g_InputMapper->popContext();
+            } else {
+                g_InputMapper->pushContext( DUSK_STRING_HASH( "Editor" ) );
+            }
+        }
 
         // Default: Ctrl
         if ( input.States.find( DUSK_STRING_HASH( "Modifier1" ) ) != input.States.end() ) {
@@ -203,7 +207,7 @@ void RegisterInputContexts()
 
 		if ( g_IsMouseOverViewportWindow ) {
             if ( input.States.find( DUSK_STRING_HASH( "LeftMouseButton" ) ) != input.States.end() ) {
-                g_RequestPickingUpdate = ( !g_RightClickMenuOpened );
+                g_RequestPickingUpdate = ( !g_RightClickMenuOpened && !g_EntityEditor->isManipulatingTransform() );
             }
         }
 
@@ -253,7 +257,7 @@ void RegisterInputContexts()
         io.KeysDown[io.KeyMap[ImGuiKey_LeftArrow]] = ( input.States.find( DUSK_STRING_HASH( "KeyLeftArrow" ) ) != input.States.end() );
 
         io.MouseDown[0] = ( input.States.find( DUSK_STRING_HASH( "LeftMouseButton" ) ) != input.States.end() );
-        io.MouseDown[1] = g_SingleRightClick;
+        io.MouseDown[1] = isRightButtonDown;
         io.MouseDown[2] = ( input.States.find( DUSK_STRING_HASH( "MiddleMouseButton" ) ) != input.States.end() );
 
         fnKeyStrokes_t keyStrokes = g_InputReader->getAndFlushKeyStrokes();
@@ -786,11 +790,54 @@ void MainLoop()
                 winSize.y -= 32;
 
                 ImGui::Image( static_cast< ImTextureID >( frameGraph.getPresentRenderTarget() ), winSize );
-
-				if ( g_RightClickMenuOpened = ImGui::BeginPopupContextWindow( "Viewport Popup" ) ) {
+				if ( g_RightClickMenuOpened = ImGui::BeginPopupContextWindow( "Viewport Popup", 2 ) ) {
 					if ( ImGui::BeginMenu( "New Entity..." ) ) {
 						if ( ImGui::MenuItem( "Static Mesh" ) ) {
                             g_PickedEntity = g_World->createStaticMesh();
+
+                            CameraData& cameraData = g_FreeCamera->getData();
+
+                            const dkMat4x4f& projMat = cameraData.finiteProjectionMatrix;
+                            const dkMat4x4f& viewMat = cameraData.viewMatrix;
+
+                            dkMat4x4f inverseViewProj = ( viewMat * projMat ).inverse();
+
+                            dkVec3f ray = {
+                                ( ( ( 2.0f * shiftedMouseX ) / viewportWinSize.x ) - 1 ) / inverseViewProj[0][0],
+                                -( ( ( 2.0f * shiftedMouseY ) / viewportWinSize.y ) - 1 ) / inverseViewProj[1][1],
+                                1.0f
+                            };
+
+                            //dkVec3f rayOrigin =
+                            //{
+                            //    inverseViewProj[0][3],
+                            //    inverseViewProj[1][3],
+                            //    inverseViewProj[2][3]
+                            //};
+
+
+                            dkVec3f rayDirection =
+                            {
+                                ray.x * inverseViewProj[0][0] + ray.y * inverseViewProj[1][0] + ray.z * inverseViewProj[2][0],
+                                ray.x * inverseViewProj[0][1] + ray.y * inverseViewProj[1][1] + ray.z * inverseViewProj[2][1],
+                                ray.x * inverseViewProj[0][2] + ray.y * inverseViewProj[1][2] + ray.z * inverseViewProj[2][2]
+                            };
+
+                            f32 w = ray.x * inverseViewProj[0][3] + ray.y * inverseViewProj[1][3] + ray.z * inverseViewProj[2][3];
+
+                            rayDirection *= ( 1.0f / w );
+                            
+                            f32 backup = rayDirection.y;
+                            rayDirection.y = rayDirection.z;
+                            rayDirection.z = backup;
+
+                            dkVec3f entityPosition = cameraData.worldPosition + ( g_FreeCamera->getEyeDirection() * 10.0f + rayDirection );
+                            TransformDatabase* transformDatabase = g_World->getTransformDatabase();
+                            
+                            TransformDatabase::EdInstanceData instanceData = transformDatabase->getEditorInstanceData( transformDatabase->lookup( g_PickedEntity ) );
+                            instanceData.Position->x = entityPosition.x;
+                            instanceData.Position->y = entityPosition.y;
+                            instanceData.Position->z = entityPosition.z;
 						}
 						
                         ImGui::EndMenu();
@@ -822,7 +869,7 @@ void MainLoop()
         // Rendering
 
         // TEST TEST TEST TEST
-		g_WorldRenderer->TextRendering->addOutlinedText( str.c_str(), 0.4f, 8.0f, 8.0f, dkVec4f( 1, 1, 1, 1 ) );
+        g_WorldRenderer->TextRendering->addOutlinedText( str.c_str(), 0.4f, 8.0f, 8.0f, dkVec4f( 1, 1, 1, 1 ) );
 
         dkVec3f UpVector = g_FreeCamera->getUpVector();
         dkVec3f RightVector = g_FreeCamera->getRightVector();

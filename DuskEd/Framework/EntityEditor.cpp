@@ -226,3 +226,12 @@ void EntityEditor::setActiveWorld( World* world )
 {
     activeWorld = world;
 }
+
+bool EntityEditor::isManipulatingTransform() const
+{
+#ifdef DUSK_USE_IMGUI
+    return ImGuizmo::IsUsing() || ImGuizmo::IsOver();
+#else
+    return false;
+#endif
+}

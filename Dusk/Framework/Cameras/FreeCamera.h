@@ -29,6 +29,11 @@ public:
         return dkVec3f::cross( rightVector, getUpVector() ).normalize();
     }
 
+    DUSK_INLINE dkVec3f getEyeDirection() const
+    {
+        return eyeDirection;
+    }
+
 public:
                     FreeCamera( const f32 camSpeed = 50.0f );
                     FreeCamera( FreeCamera& camera ) = default;

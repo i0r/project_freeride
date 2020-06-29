@@ -36,6 +36,8 @@ public:
     // Set the world being edited.
     void                setActiveWorld( World* world );
 
+    bool                isManipulatingTransform() const;
+
 private:
     // True if the editor window is opened in the editor workspace.
     bool                isOpened;
