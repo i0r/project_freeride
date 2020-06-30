@@ -95,7 +95,7 @@ static WorldRenderer* g_WorldRenderer;
 static LightGrid* g_LightGrid;
 static RenderWorld* g_RenderWorld;
 static World* g_World;
-static DrawCommandBuilder2* g_DrawCommandBuilder;
+static DrawCommandBuilder* g_DrawCommandBuilder;
 static EntityEditor* g_EntityEditor;
 
 static FreeCamera* g_FreeCamera;
@@ -450,7 +450,7 @@ void InitializeRenderSubsystems()
 #endif
 #endif
 
-    g_DrawCommandBuilder = dk::core::allocate<DrawCommandBuilder2>( g_GlobalAllocator, g_GlobalAllocator );
+    g_DrawCommandBuilder = dk::core::allocate<DrawCommandBuilder>( g_GlobalAllocator, g_GlobalAllocator );
 
     // TODO Retrieve pointer to camera instance from scene db
     g_FreeCamera = new FreeCamera();
@@ -874,7 +874,7 @@ void MainLoop()
         dkVec3f UpVector = g_FreeCamera->getUpVector();
         dkVec3f RightVector = g_FreeCamera->getRightVector();
         dkVec3f FwdVector = g_FreeCamera->getForwardVector();
-
+        
         dkVec3f GuizmoLinesOrigin = dkVec3f( 40.0f, viewportSize.y - 32.0f, 0 );
 
         g_WorldRenderer->LineRendering->addLine( GuizmoLinesOrigin, dkVec4f( 1, 0, 0, 1 ), GuizmoLinesOrigin - RightVector * 32.0f, dkVec4f( 1, 0, 0, 1 ), 2.0f );

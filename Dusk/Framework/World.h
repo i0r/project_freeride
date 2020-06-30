@@ -5,7 +5,7 @@
 #pragma once
 
 class BaseAllocator;
-class DrawCommandBuilder2;
+class DrawCommandBuilder;
 class EntityDatabase;
 class EntityNameRegister;
 class TransformDatabase;
@@ -30,7 +30,7 @@ public:
 
     // Iterate over the streamed entities in the World and collect any
     // entity that is renderable (e.g. static geometry; lights; etc.).
-    void                    collectRenderables( DrawCommandBuilder2* drawCmdBuilder ) const;
+    void                    collectRenderables( DrawCommandBuilder* drawCmdBuilder ) const;
 
     void                    update( const f32 deltaTime );
 

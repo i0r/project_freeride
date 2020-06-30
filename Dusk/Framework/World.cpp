@@ -39,7 +39,7 @@ void World::create()
     staticGeometryDatabase->create( MAX_ENTITY_COUNT );
 }
 
-void World::collectRenderables( DrawCommandBuilder2* drawCmdBuilder ) const
+void World::collectRenderables( DrawCommandBuilder* drawCmdBuilder ) const
 {
 	for ( const Entity& geom : staticGeometry ) {
 		const Model* model = staticGeometryDatabase->getModel( staticGeometryDatabase->lookup( geom ) );
