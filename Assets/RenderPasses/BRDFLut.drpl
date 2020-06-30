@@ -1,11 +1,30 @@
 lib BrdfLut {
     properties {
         cint    SAMPLE_COUNT = 2048;
+        cint    MipCount = 6;
+        float   Roughness;
+        float   Width;
     }
     
     resources {
         RWTexture2D ComputedLUT {
             swizzle = float2;
+        } 
+        
+        RWTexture2D IBLDiffuseOutput {
+            swizzle = float4;
+        }
+        
+        RWTexture2D IBLSpecularOutput {
+            swizzle = float4;
+        }
+        
+        TextureCube EnvironmentCube {
+            swizzle = float4;
+        }
+        
+        sampler BilinearSampler {
+            format = BilinearClampEdge;
         }
     }
     
@@ -83,6 +102,152 @@ lib BrdfLut {
 
             return ggx1 * ggx2;
         }
+    
+        float3 ThreadIDToDir(uint3 cubeCoord, float2 cubemapSize)
+        {
+            float2 texCoord = float2( cubeCoord.xy ) / cubemapSize;
+            texCoord = texCoord * 2.0f - 1.0f;
+            switch(cubeCoord.z)
+            {
+              case (0): return float3(1.0f, -texCoord.yx);
+              case (1): return float3(-1.0f, -texCoord.y, texCoord.x);
+              case (2): return float3(texCoord.x, 1.0f, texCoord.y);
+              case (3): return float3(texCoord.x, -1.0f, -texCoord.y);
+              case (4): return float3(texCoord.x, -texCoord.y, 1.0f);
+              case (5): return float3(-texCoord.xy, -1.0f);
+            }
+            return float3(0.0f, 0.0f, 0.0f);
+        }
+                
+        void importanceSampleCosDir(
+            in float2 u,
+            in float3 N,
+            out float3 L,
+            out float NdotL,
+            out float pdf )
+        {
+            // Local referencial
+            float3 upVector = abs( N.z ) < 0.999 ? float3( 0, 0, 1 ) : float3( 1, 0, 0 );
+            float3 tangentX = normalize( cross( upVector, N ) );
+            float3 tangentY = cross( N, tangentX );
+
+            float u1 = u.x;
+            float u2 = u.y;
+
+            float r = sqrt( u1 );
+            float phi = u2 * PI * 2;
+
+            L = float3( r*cos( phi ), r*sin( phi ), sqrt( max( 0.0f, 1.0f - u1 ) ) );
+            L = normalize( tangentX * L.y + tangentY * L.x + N * L.z );
+
+            NdotL = dot( L, N );
+            pdf = NdotL * INV_PI;
+        }
+
+        float D_GGX( float NdotH, float m )
+        {
+            // Divide by PI is apply later
+            float m2 = m * m;
+            float f = ( NdotH * m2 - NdotH ) * NdotH + 1;
+            return m2 / ( f * f );
+        }
+
+        float D_GGX_Divide_Pi( float NdotH, float roughness )
+        {
+            return D_GGX( NdotH, roughness ) / PI;
+        }
+        
+        struct Referential
+        {
+            float3 upVector;
+            float3 tangentX;
+            float3 tangentY;
+        };
+
+        Referential CreateReferential( in float3 N )
+        {
+            Referential referential;
+            referential.upVector = abs( N.z ) < 0.999 ? float3( 0, 0, 1 ) : float3( 1, 0, 0 );
+            referential.tangentX = normalize( cross( referential.upVector, N ) );
+            referential.tangentY = cross( N, referential.tangentX );
+            return referential;
+        }
+        
+        float3 ImportanceSampleGGX( float2 Xi, float Roughness, float3 N, Referential referential )
+        {
+            float a = Roughness * Roughness;
+            float Phi = 2 * PI * Xi.x;
+            float CosTheta = sqrt( ( 1 - Xi.y ) / ( 1 + ( a*a - 1 ) * Xi.y ) );
+            float SinTheta = sqrt( 1 - CosTheta * CosTheta );
+            float3 H;
+            H.x = SinTheta * cos( Phi );
+            H.y = SinTheta * sin( Phi );
+            H.z = CosTheta;
+            // Tangent to world space
+            return referential.tangentX * H.x + referential.tangentY * H.y + N * H.z;
+        }
+
+        void ImportanceSampleGGXDir( in float2 Xi, in float3 V, in float3 N, in float Roughness, out float3 H, out float3 L )
+        {
+            Referential referential = CreateReferential( N );
+            H = ImportanceSampleGGX( Xi, Roughness, N, referential );
+            L = 2 * dot( V, H ) * H - V;
+        }
+
+        float4 IntegrateDiffuseCube( in float3 N )
+        {
+            float3 accBrdf = float3( 0, 0, 0 );
+
+            for ( uint i = 0; i < $SAMPLE_COUNT; ++i ) {
+                float2 eta = Hammersley( i, $SAMPLE_COUNT );
+
+                float3 L;
+                float NdotL;
+                float pdf;
+
+                // see reference code in appendix
+                importanceSampleCosDir( eta, N, L, NdotL, pdf );
+
+                if ( NdotL > 0 ) {
+                    accBrdf += EnvironmentCube.SampleLevel( BilinearSampler, L, 0 ).rgb;
+                }
+            }
+
+            return float4 ( accBrdf * ( 1.0f / $SAMPLE_COUNT ), 1.0f );
+        }
+        
+        float4 IntegrateCubeLDOnly( in float3 V, in float3 N, in float roughness )
+        {
+            float3 accBrdf = float3( 0, 0, 0 );
+            float accBrdfWeight = 0;
+            for ( uint i = 0; i< $SAMPLE_COUNT; ++i ) {
+                float2 eta = Hammersley( i, $SAMPLE_COUNT );
+                float3 L;
+                float3 H;
+                ImportanceSampleGGXDir( eta, V, N, roughness, H, L );
+                float NdotL = dot( N, L );
+                if ( NdotL > 0 ) {                   
+                    float mipLevel = 0;
+                    float NdotH = saturate( dot( N, H ) );
+                    float LdotH = saturate( dot( L, H ) );
+                    float pdf = D_GGX_Divide_Pi( NdotH, roughness ) * NdotH / ( 4 * LdotH );
+                    if ( pdf > 0.0 ) {
+                        float omegaS = 1.0 / ( $SAMPLE_COUNT * pdf );
+                        float omegaP = 4.0 * PI / ( 6.0 * Width * Width );
+                        float mipLevel = clamp( 0.5 * log2( omegaS / omegaP ), 0, $MipCount );
+
+                        mipLevel = clamp( 0.5 * log2( omegaS / omegaP ), 0, $MipCount );
+                    }
+
+                    float4 Li = EnvironmentCube.SampleLevel( BilinearSampler, L, mipLevel ); 
+                    
+                    accBrdf += Li.rgb * NdotL;
+                    accBrdfWeight += NdotL;
+                }
+            }
+
+            return float4( accBrdf * ( 1.0f / accBrdfWeight ), 1.0f );
+        }
     }
     
     shader MSLutPrecompute {
@@ -126,6 +291,14 @@ lib BrdfLut {
         B /= float($SAMPLE_COUNT);
         
         ComputedLUT[texelPos] = float2(A, B);
+    }
+    
+    shader ConvoluteCubeFace {
+        uint3 texelPos = $SV_DispatchThreadID.xyz;
+        float3 dir = ThreadIDToDir( texelPos, float2( Width, Width ) );
+        
+        IBLDiffuseOutput[texelPos] = IntegrateDiffuseCube( dir );
+        IBLSpecularOutput[texelPos] = IntegrateCubeLDOnly( dir, dir, Roughness );
     }
     
     pass ComputeBRDFLut {
