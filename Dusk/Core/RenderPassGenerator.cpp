@@ -24,6 +24,10 @@ DUSK_INLINE static bool IsReadOnlyResourceType( const TypeAST::ePrimitiveType ty
         || type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_ROIMAGE1D
         || type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_ROIMAGE2D
         || type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_ROIMAGE3D
+        || type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_ROIMAGECUBE
+        || type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_ROIMAGECUBE_ARRAY
+        || type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_ROIMAGE1D_ARRAY
+        || type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_ROIMAGE2D_ARRAY
 		|| type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_SAMPLER
 		|| type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_RAWBUFFER;
 }

@@ -11,6 +11,10 @@ class FileSystemObject;
 
 struct TypeAST {
     enum ePrimitiveType {
+        PRIMITIVE_TYPE_ROIMAGECUBE,
+        PRIMITIVE_TYPE_ROIMAGECUBE_ARRAY,
+        PRIMITIVE_TYPE_ROIMAGE1D_ARRAY,
+        PRIMITIVE_TYPE_ROIMAGE2D_ARRAY,
         PRIMITIVE_TYPE_I8,
         PRIMITIVE_TYPE_U8,
         PRIMITIVE_TYPE_I16,
@@ -91,6 +95,10 @@ struct TypeAST {
 };
 
 static constexpr const char* PRIMITIVE_TYPES[TypeAST::ePrimitiveType::PRIMITIVE_TYPE_COUNT] = {
+    "TextureCube",
+    "TextureCubeArray",
+    "Texture1DArray",
+    "Texture2DArray",
     "i8",
     "u8",
     "i16",
@@ -132,6 +140,10 @@ static constexpr const char* PRIMITIVE_TYPES[TypeAST::ePrimitiveType::PRIMITIVE_
 // Size of ePrimitiveType (in bytes)
 static constexpr size_t PRIMITIVE_TYPE_SIZE[TypeAST::ePrimitiveType::PRIMITIVE_TYPE_COUNT] =
 {
+    0,
+    0,
+    0,
+    0,
     1,
     1,
     2,
