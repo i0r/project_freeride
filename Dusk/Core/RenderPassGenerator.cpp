@@ -1135,6 +1135,10 @@ void RenderLibraryGenerator::appendSharedShaderHeader( std::string& hlslSource )
 	hlslSource.append( "\tfloat            g_ImageQuality;\n" );
 	hlslSource.append( "\tfloat2           g_CameraJitteringOffset;\n" );
 	hlslSource.append( "\tuint2            g_CursorPosition;\n" );
+	hlslSource.append( "\tfloat3           g_UpVector;\n" );
+	hlslSource.append( "\tfloat            g_Fov;\n" );
+	hlslSource.append( "\tfloat3           g_RightVector;\n" );
+	hlslSource.append( "\tfloat            g_AspectRatio;\n" );
     hlslSource.append( "};\n" );
 
     // PerWorldBuffer

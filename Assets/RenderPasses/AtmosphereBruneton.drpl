@@ -13,7 +13,7 @@ lib AtmosphereBruneton {
     }
     
     resources {
-        Texture2D OutputRenderTarget {
+        RWTexture2D OutputRenderTarget {
             swizzle = float4;
         }
         
@@ -227,48 +227,39 @@ lib AtmosphereBruneton {
         }
     }
     
-    shader BrunetonSkyVS {
-        float x = ( float )( $SV_VertexId / 2 );
-        float y = ( float )( $SV_VertexId % 2 );
-        
-        float4 ScreenSpacePos = float4( x * 4 - 1, y * 4 - 1, 0, 1 );
-        
-        $SV_Position = ScreenSpacePos;
-        $POSITION0 = float4( mul( ScreenSpacePos, g_InverseViewProjectionMatrix ).xzy, 1 );
-    }
-    
-    shader BrunetonSkyPS {
-        uint2 texelPos = $SV_Position.xy;
+    shader BrunetonSkyCS {
+        uint2 texelPos = $SV_DispatchThreadId.xy;
         float zbufferSample = DepthBuffer[texelPos];
         
-        clip( $SV_Position.z - zbufferSample );
+        if ( zbufferSample > 0.0f ) {
+            return;
+        }
         
-        float3 viewDirection = normalize( $POSITION0.xyz );
-        
+        float xPixelCoordShifted = (2 * (($SV_DispatchThreadId.x + 0.5f) / g_ScreenSize.x) - 1) * g_AspectRatio; 
+        float yPixelCoordShifted = (2 * (($SV_DispatchThreadId.y + 0.5f) / g_ScreenSize.y) - 1); 
+
+        float3 rightShift = mul(xPixelCoordShifted, -g_RightVector);
+        float3 upShift = mul(yPixelCoordShifted, -g_UpVector);
+        float3 viewDirection =  normalize(g_ViewDirection + rightShift + upShift).xzy;
+
         float3 transmittance;
         float3 radiance = GetSkyRadiance( float3( g_WorldPosition.xz * 0.05f, 0.05f ) - EarthCenter, viewDirection, 0, SunDirection, transmittance );
 
         float4 color = float4( 1.0 - exp( -radiance ), 1.0f );
-            
-        if ( $UseAutomaticExposure ) {
-            AutoExposureInfos currentExposure = AutoExposureBuffer[0];
-            
-            color = float4( 1.0 - exp( -radiance / ( currentExposure.EngineLuminanceFactor * 0.10f ) ), 1.0f );
-        }
         
-        if ( $RenderSunDisc ) {
-            float cosTheta = saturate( dot( viewDirection, SunDirection ) );
-            float sunGradient = pow( cosTheta, SunExponant );
-            color.rgb = lerp( color.rgb, transmittance * GetSolarRadiance() * 0.002f, sunGradient );
-        }
+        AutoExposureInfos currentExposure = AutoExposureBuffer[0];
         
-        $SV_TARGET0 = color;  
+        color = float4( 1.0 - exp( -radiance / ( currentExposure.EngineLuminanceFactor * 0.10f ) ), 1.0f );
+    
+        float cosTheta = saturate( dot( viewDirection, SunDirection ) );
+        float sunGradient = pow( cosTheta, SunExponant );
+        color.rgb = lerp( color.rgb, transmittance * GetSolarRadiance() * 0.002f, sunGradient );
+    
+        OutputRenderTarget[$SV_DispatchThreadId.xy] = color;  
     }
     
     pass BrunetonSky {
-        vertex = BrunetonSkyVS;
-        pixel = BrunetonSkyPS;
-        rendertargets = { OutputRenderTarget };
-        UseAutomaticExposure = true;
+        compute  = BrunetonSkyCS;   
+        dispatch = { 16, 16, 1 };
     }
 }

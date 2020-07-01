@@ -360,8 +360,8 @@ IrradianceSpectrum GetCombinedScattering(
       uvwz.z, uvwz.w);
   float3 uvw1 = float3((tex_x + 1.0 + uvwz.y) / Number(SCATTERING_TEXTURE_NU_SIZE),
       uvwz.z, uvwz.w);
-  float4 combined_scattering = scattering_texture.Sample( lutSampler, uvw0) * (1.0 - lerp) +
-      scattering_texture.Sample( lutSampler, uvw1) * lerp;
+  float4 combined_scattering = scattering_texture.SampleLevel( lutSampler, uvw0, 0 ) * (1.0 - lerp) +
+      scattering_texture.SampleLevel( lutSampler, uvw1, 0 ) * lerp;
   IrradianceSpectrum scattering = IrradianceSpectrum(combined_scattering.rgb);
   single_mie_scattering =
       GetExtrapolatedSingleMieScattering(atmosphere, combined_scattering);

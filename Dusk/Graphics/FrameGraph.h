@@ -79,6 +79,14 @@ struct PerViewBufferData
 
     // Mouse coordinates (in screen space). Uses top-left referential.
     dkVec2u     MouseCoordinates;
+
+    dkVec3f     UpVector;
+
+    f32         FieldOfView;
+
+    dkVec3f     RightVector;
+
+    f32         AspectRatio;
 };
 DUSK_IS_MEMORY_ALIGNED_STATIC( PerViewBufferData, 16 );
 

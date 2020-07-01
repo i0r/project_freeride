@@ -644,7 +644,11 @@ FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevi
     perViewData.CameraJitteringOffset = dkVec2f( 0.0f, 0.0f );
 	perViewData.ImageQuality = 1.0f;
 	perViewData.ViewDirection = dkVec3f( 0.0f, 0.0f, 0.0f );
-    perViewData.MouseCoordinates = dkVec2u( 0, 0 );
+	perViewData.MouseCoordinates = dkVec2u( 0, 0 );
+	perViewData.UpVector = dkVec3f( 0.0f, 1.0f, 0.0f );
+    perViewData.FieldOfView = 90.0f;
+	perViewData.RightVector = dkVec3f( 0.0f, 0.0f, 1.0f );
+	perViewData.AspectRatio = 1.0f;
 }
 
 FrameGraph::~FrameGraph()
@@ -720,7 +724,11 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
         perViewData.FrameIndex = activeCamera->cameraFrameNumber;
         perViewData.CameraJitteringOffset = activeCamera->jitteringOffset;
 		perViewData.ImageQuality = activeCamera->imageQuality;
-		perViewData.ViewDirection = dkVec3f( activeCamera->viewMatrix[0][2], activeCamera->viewMatrix[1][2], activeCamera->viewMatrix[2][2] );
+        perViewData.ViewDirection = activeCamera->viewDirection;
+        perViewData.UpVector = activeCamera->upVector;
+		perViewData.FieldOfView = activeCamera->fov;
+        perViewData.RightVector = activeCamera->rightVector;
+        perViewData.AspectRatio = activeCamera->aspectRatio;
     }
     
     graphScheduler.updateMaterialEdBuffer( &localMaterialEdData );

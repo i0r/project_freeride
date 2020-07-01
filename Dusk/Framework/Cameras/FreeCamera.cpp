@@ -104,7 +104,7 @@ void FreeCamera::update( const f32 frameTime )
     data.depthViewProjectionMatrix = data.depthProjectionMatrix * data.viewMatrix;
     data.viewProjectionMatrix = data.projectionMatrix * data.viewMatrix;
 
-    //if ( data.flags.enableTAA ) {
+    if ( data.flags.enableTAA ) {
         const uint32_t samplingIndex = ( data.cameraFrameNumber % 16 );
 
         static constexpr f32 TAAJitteringScale = 0.01f;
@@ -117,8 +117,15 @@ void FreeCamera::update( const f32 frameTime )
 
         data.jitteringOffset = ( projectionJittering - data.previousJitteringOffset ) * 0.5f;
         data.previousJitteringOffset = projectionJittering;
-    //}
+    }
     
+    data.viewDirection = eyeDirection;
+    data.upVector = upVector;
+    data.fov = fov;
+
+    data.rightVector = rightVector;
+    data.aspectRatio = aspectRatio;
+
     data.inverseViewProjectionMatrix = data.viewProjectionMatrix.inverse();
 
     // Update frustum with the latest view projection matrix

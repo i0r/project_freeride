@@ -30,6 +30,14 @@ struct CameraData
     uint32_t   msaaSamplerCount;
     float      imageQuality;
 
+    dkVec3f    viewDirection;
+
+    dkVec3f     upVector;
+    f32         fov;
+
+    dkVec3f     rightVector;
+    f32         aspectRatio;
+
     union
     {
         struct {
