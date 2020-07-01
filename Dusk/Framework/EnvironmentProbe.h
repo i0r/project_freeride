@@ -15,6 +15,18 @@ struct Entity;
 class EnvironmentProbeDatabase : public ComponentDatabase
 {
 public:
+    enum eProbeDirtyFlags {
+        // The probe gbuffer needs to be recaptured (all six faces).
+        PROBE_DIRTY_FLAG_NEED_RECAPTURE = 1 << 1,
+
+        // The probe captures needs to be convoluted (both diffuse and specular).
+        PROBE_DIRTY_FLAG_NEED_CONVOLUTION = 2 << 1,
+
+        // The probe needs to be relighted (using previously captured gbuffer).
+        PROBE_DIRTY_FLAG_NEED_RELIGHT = 3 << 1,
+    };
+
+public:
             EnvironmentProbeDatabase( BaseAllocator* allocator );
             ~EnvironmentProbeDatabase();
 
@@ -35,7 +47,10 @@ private:
         dkMat4x4f*  InverseModelMatrix;
 
         // Index in the streaming probe array (-1 if the probe is not streamed).
-        i32*        ProbeArrayIndex;
+        i32*        ArrayIndex;
+
+        // Bits toggled if the probe has to be recaptured/relighted/convoluted/etc. (see eProbeDirtyFlags)
+        u32*        DirtyFlags;
     };
 
 private:

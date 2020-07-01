@@ -7,7 +7,7 @@
 
 #include "Entity.h"
 
-constexpr size_t ENVPROBE_SINGLE_ENTRY_SIZE = sizeof( f32 ) + sizeof( dkMat4x4f ) + sizeof( i32 );
+constexpr size_t ENVPROBE_SINGLE_ENTRY_SIZE = sizeof( f32 ) + sizeof( dkMat4x4f ) + sizeof( i32 ) + sizeof( u32 );
 
 EnvironmentProbeDatabase::EnvironmentProbeDatabase( BaseAllocator* allocator )
     : ComponentDatabase( allocator )
@@ -29,7 +29,8 @@ void EnvironmentProbeDatabase::create( const size_t dbCapacity )
     // cache coherency).
     instanceData.Radius = static_cast< f32* >( databaseBuffer.Data );
     instanceData.InverseModelMatrix = reinterpret_cast< dkMat4x4f* >( instanceData.Radius + dbCapacity );
-    instanceData.ProbeArrayIndex = reinterpret_cast< i32* >( instanceData.InverseModelMatrix + dbCapacity );
+    instanceData.ArrayIndex = reinterpret_cast< i32* >( instanceData.InverseModelMatrix + dbCapacity );
+    instanceData.DirtyFlags = reinterpret_cast< u32* >( instanceData.ArrayIndex + dbCapacity );
 }
 
 void EnvironmentProbeDatabase::allocateComponent( Entity& entity )
@@ -51,7 +52,8 @@ void EnvironmentProbeDatabase::allocateComponent( Entity& entity )
     const size_t instanceIndex = instance.getIndex();
     instanceData.Radius[instanceIndex] = 1.0f;
     instanceData.InverseModelMatrix[instanceIndex] = dkMat4x4f::Identity;
-    instanceData.ProbeArrayIndex[instanceIndex] = -1;
+    instanceData.ArrayIndex[instanceIndex] = -1;
+    instanceData.DirtyFlags[instanceIndex] = 0;
 }
 
 void EnvironmentProbeDatabase::update( const f32 deltaTime )
