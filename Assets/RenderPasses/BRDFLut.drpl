@@ -26,6 +26,10 @@ lib BrdfLut {
         sampler BilinearSampler {
             format = BilinearClampEdge;
         }
+        
+        sampler TrilinearSampler {
+            format = TrilinearClampEdge;
+        }        
     }
     
     shared {
@@ -239,7 +243,7 @@ lib BrdfLut {
                         mipLevel = clamp( 0.5 * log2( omegaS / omegaP ), 0, $MipCount );
                     }
 
-                    float4 Li = EnvironmentCube.SampleLevel( BilinearSampler, L, mipLevel ); 
+                    float4 Li = EnvironmentCube.SampleLevel( TrilinearSampler, L, mipLevel ); 
                     
                     accBrdf += Li.rgb * NdotL;
                     accBrdfWeight += NdotL;
