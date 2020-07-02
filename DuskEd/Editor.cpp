@@ -461,6 +461,20 @@ void InitializeRenderSubsystems()
     // END TEMP
 }
 
+#if DUSK_USE_IMGUI
+static bool IsItemActiveLastFrame()
+{
+    ImGuiContext& g = *GImGui;
+
+    if ( g.ActiveIdPreviousFrame )
+        return g.ActiveIdPreviousFrame == g.CurrentWindow->DC.LastItemId;
+    return false;
+}
+
+static bool IsItemJustReleased() { return IsItemActiveLastFrame() && !ImGui::IsItemActive(); }
+static bool IsItemJustActivated() { return !IsItemActiveLastFrame() && ImGui::IsItemActive(); }
+#endif
+
 void Initialize( const char* cmdLineArgs )
 {
     Timer profileTimer;
@@ -721,10 +735,9 @@ void MainLoop()
                     if ( overrideTod ) {
                         ImGui::Text( "Sun Settings" );
 
-                        dkVec2f sphericalCoords = dk::maths::CarthesianToSphericalCoordinates( g_LightGrid->getDirectionalLightData()->NormalizedDirection );
-                        if ( ImGui::SliderFloat2( "Sun Pos", ( float* )&sphericalCoords, -1.0f, 1.0f ) ) {
-                            g_LightGrid->getDirectionalLightData()->NormalizedDirection = dk::maths::SphericalToCarthesianCoordinates( sphericalCoords[0], sphericalCoords[1] );
-                            g_WorldRenderer->AtmosphereRendering->setSunAngles( sphericalCoords[0], sphericalCoords[1] );
+                        if ( ImGui::SliderFloat2( "Sun Pos", ( float* )&g_LightGrid->getDirectionalLightData()->SphericalCoordinates, -1.0f, 1.0f ) ) {
+                            g_LightGrid->getDirectionalLightData()->NormalizedDirection = dk::maths::SphericalToCarthesianCoordinates( g_LightGrid->getDirectionalLightData()->SphericalCoordinates[0], g_LightGrid->getDirectionalLightData()->SphericalCoordinates[1] );
+                            g_WorldRenderer->AtmosphereRendering->setSunAngles( g_LightGrid->getDirectionalLightData()->SphericalCoordinates[0], g_LightGrid->getDirectionalLightData()->SphericalCoordinates[1] );
                         }
 
                         ImGui::InputFloat( "Angular Radius", &g_LightGrid->getDirectionalLightData()->AngularRadius );

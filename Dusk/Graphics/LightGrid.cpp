@@ -27,6 +27,7 @@ LightGrid::LightGrid( BaseAllocator* allocator )
     setSceneBounds( dkVec3f( 2048.0f, 2048.0f, 2048.0f ), -dkVec3f( 2048.0f, 2048.0f, 2048.0f ) );
 
     // Set Default directional light values.
+    perSceneBufferData.SunLight.SphericalCoordinates = dkVec2f( 0.5f, 0.5f );
     perSceneBufferData.SunLight.NormalizedDirection = dk::maths::SphericalToCarthesianCoordinates( 0.5f, 0.5f );
 
     constexpr f32 kSunAngularRadius = 0.00935f / 2.0f;
