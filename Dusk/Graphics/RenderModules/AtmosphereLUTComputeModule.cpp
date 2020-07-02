@@ -381,6 +381,29 @@ void AtmosphereLUTComputeModule::loadCachedResources( RenderDevice& renderDevice
     deltaScatteringDensity = renderDevice.createImage( scatteringDesc );
 }
 
+void ConvertSpectrumToLinearSrgb(
+    const std::vector<double>& wavelengths,
+    const std::vector<double>& spectrum,
+    double* r, double* g, double* b )
+{
+    double x = 0.0;
+    double y = 0.0;
+    double z = 0.0;
+    const int dlambda = 1;
+    for ( int lambda = kLambdaMin; lambda < kLambdaMax; lambda += dlambda ) {
+        double value = Interpolate( wavelengths, spectrum, lambda );
+        x += CieColorMatchingFunctionTableValue( lambda, 1 ) * value;
+        y += CieColorMatchingFunctionTableValue( lambda, 2 ) * value;
+        z += CieColorMatchingFunctionTableValue( lambda, 3 ) * value;
+    }
+    *r = MAX_LUMINOUS_EFFICACY *
+        ( XYZ_TO_SRGB[0] * x + XYZ_TO_SRGB[1] * y + XYZ_TO_SRGB[2] * z ) * dlambda;
+    *g = MAX_LUMINOUS_EFFICACY *
+        ( XYZ_TO_SRGB[3] * x + XYZ_TO_SRGB[4] * y + XYZ_TO_SRGB[5] * z ) * dlambda;
+    *b = MAX_LUMINOUS_EFFICACY *
+        ( XYZ_TO_SRGB[6] * x + XYZ_TO_SRGB[7] * y + XYZ_TO_SRGB[8] * z ) * dlambda;
+}
+
 void AtmosphereLUTComputeModule::precomputePipelineResources( FrameGraph& frameGraph )
 {
     // Values from "Reference Solar Spectral Irradiance: ASTM G-173", ETR column
@@ -492,6 +515,18 @@ void AtmosphereLUTComputeModule::precomputePipelineResources( FrameGraph& frameG
         f64 b = Interpolate( wavelengths, v, lambdas[2] ) * scale;
         return dkVec3f( static_cast< f32 >( r ), static_cast< f32 >( g ), static_cast< f32 >( b ) );
     };
+
+    double white_point_r = 1.0;
+    double white_point_g = 1.0;
+    double white_point_b = 1.0;
+    ConvertSpectrumToLinearSrgb( wavelengths, solar_irradiance,
+                                 &white_point_r, &white_point_g, &white_point_b );
+    double white_point = ( white_point_r + white_point_g + white_point_b ) / 3.0;
+    white_point_r /= white_point;
+    white_point_g /= white_point;
+    white_point_b /= white_point;
+
+    whitePoint = dkVec3f( static_cast< f32 >( white_point_r ), static_cast< f32 >( white_point_g ), static_cast< f32 >( white_point_b ) );
 
     // Compute the values for the SKY_RADIANCE_TO_LUMINANCE constant. In theory
     // this should be 1 in precomputed illuminance mode (because the precomputed

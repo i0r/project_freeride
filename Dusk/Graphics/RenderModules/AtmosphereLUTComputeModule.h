@@ -30,6 +30,8 @@ public:
 
     DUSK_INLINE const AtmosphereParameters& getAtmosphereParameters() const { return properties.AtmosphereParams; }
 
+    DUSK_INLINE const dkVec3f& getWhitePoint() const { return whitePoint; }
+
 public:
                                 AtmosphereLUTComputeModule();
                                 AtmosphereLUTComputeModule( AtmosphereLUTComputeModule& ) = delete;
@@ -69,6 +71,7 @@ private:
 
     dkVec3f SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
     dkVec3f SUN_SPECTRAL_RADIANCE_TO_LUMINANCE;
+    dkVec3f whitePoint;
 
 private:
     // Perform a precompute iteration. The actual precomputations depend on whether we want to store precomputed

@@ -1,5 +1,9 @@
 lib AtmosphereBruneton { 
     properties {
+        cflag UseDepthComparison = true;
+        cflag UseAutomaticExposure = true;
+        cflag UseCustomViewport = false;
+        
         AtmosphereParameters AtmosphereParams;
         float3  	EarthCenter;
         float3  	SunDirection;
@@ -10,6 +14,13 @@ lib AtmosphereBruneton {
         cflag       UseAutomaticExposure = false;
         float3      SUN_SPECTRAL_RADIANCE_TO_LUMINANCE;
         float3      SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
+        float3      WhitePoint;
+        float2      ScreenSize;
+        float3      ViewDirection;
+        float3      RightVector;
+        float3      UpVector;
+        float3      WorldPosition;
+        float       AspectRatio;
     }
     
     resources {
@@ -229,28 +240,52 @@ lib AtmosphereBruneton {
     
     shader BrunetonSkyCS {
         uint2 texelPos = $SV_DispatchThreadId.xy;
+        
+#ifdef $UseDepthComparison
         float zbufferSample = DepthBuffer[texelPos];
         
         if ( zbufferSample > 0.0f ) {
             return;
         }
-        
-        float xPixelCoordShifted = (2 * (($SV_DispatchThreadId.x + 0.5f) / g_ScreenSize.x) - 1) * g_AspectRatio; 
-        float yPixelCoordShifted = (2 * (($SV_DispatchThreadId.y + 0.5f) / g_ScreenSize.y) - 1); 
+#endif
 
-        float3 rightShift = mul(xPixelCoordShifted, -g_RightVector);
-        float3 upShift = mul(yPixelCoordShifted, -g_UpVector);
-        float3 viewDirection =  normalize(g_ViewDirection + rightShift + upShift).xzy;
+// TODO This is only temporary and will be removed once multi viewport support is implemented.
+#ifdef $UseCustomViewport
+        float2 ParamRenderTargetSize = ScreenSize;
+        float3 ParamViewDirection = ViewDirection;
+        float3 ParamRightVector = RightVector;
+        float3 ParamUpVector = UpVector;
+        float3 ParamWorldPosition = WorldPosition;
+        float ParamAspectRatio = AspectRatio;
+#else
+        float2 ParamRenderTargetSize = g_ScreenSize;
+        float3 ParamViewDirection = g_ViewDirection;
+        float3 ParamRightVector = g_RightVector;
+        float3 ParamUpVector = g_UpVector;
+        float3 ParamWorldPosition = g_WorldPosition;
+        float ParamAspectRatio = g_AspectRatio;
+#endif
+
+        // Generate a view ray (in world space).
+        float xPixelCoordShifted = (2 * (($SV_DispatchThreadId.x + 0.5f) / ParamRenderTargetSize.x) - 1) * ParamAspectRatio; 
+        float yPixelCoordShifted = (2 * (($SV_DispatchThreadId.y + 0.5f) / ParamRenderTargetSize.y) - 1); 
+
+        float3 rightShift = mul(xPixelCoordShifted, -ParamRightVector);
+        float3 upShift = mul(yPixelCoordShifted, -ParamUpVector);
+        float3 viewDirection =  normalize(ParamViewDirection + rightShift + upShift).xzy;
 
         float3 transmittance;
-        float3 radiance = GetSkyRadiance( float3( g_WorldPosition.xz * 0.05f, 0.05f ) - EarthCenter, viewDirection, 0, SunDirection, transmittance );
+        float3 radiance = GetSkyRadiance( float3( ParamWorldPosition.xz * 0.05f, 0.05f ) - EarthCenter, viewDirection, 0, SunDirection, transmittance );
 
-        float4 color = float4( 1.0 - exp( -radiance ), 1.0f );
-        
+#ifdef $UseAutomaticExposure
         AutoExposureInfos currentExposure = AutoExposureBuffer[0];
+        float exposure = currentExposure.EngineLuminanceFactor;
+#else
+        static const float exposure = 1.0f;
+#endif
+
+        float4 color = float4( pow(float3(1,1,1) - exp(-radiance / WhitePoint * exposure), 1.0 / 2.2), 1 );
         
-        color = float4( 1.0 - exp( -radiance / ( currentExposure.EngineLuminanceFactor * 0.10f ) ), 1.0f );
-    
         float cosTheta = saturate( dot( viewDirection, SunDirection ) );
         float sunGradient = pow( cosTheta, SunExponant );
         color.rgb = lerp( color.rgb, transmittance * GetSolarRadiance() * 0.002f, sunGradient );
@@ -261,5 +296,16 @@ lib AtmosphereBruneton {
     pass BrunetonSky {
         compute  = BrunetonSkyCS;   
         dispatch = { 16, 16, 1 };
+        UseAutomaticExposure = true;
+        UseCustomViewport = false;
+        UseDepthComparison = true;
+    }
+    
+    pass BrunetonSkyProbeCapture {
+        compute  = BrunetonSkyCS;   
+        dispatch = { 16, 16, 1 };
+        UseAutomaticExposure = false;
+        UseCustomViewport = true;
+        UseDepthComparison = false;
     }
 }

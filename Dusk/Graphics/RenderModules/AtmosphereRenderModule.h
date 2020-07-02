@@ -31,6 +31,9 @@ public:
     // atmospheric fog.
     ResHandle_t                 renderSky( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer );
 
+    // Render sky only for probe capture.
+    void                        renderSkyForProbeCapture( FrameGraph& frameGraph, Image* outputImage, const ImageViewDesc& outputImageTarget, const CameraData& cameraData );
+
     // Render atmospheric fog. Will be applied on anything which has been written to the depth buffer, which is why the fog
     // should be applied after geometry rendering.
     ResHandle_t                 renderAtmoshpericFog( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer );

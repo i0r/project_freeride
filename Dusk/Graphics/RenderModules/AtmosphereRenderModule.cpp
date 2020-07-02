@@ -100,11 +100,12 @@ ResHandle_t AtmosphereRenderModule::renderSky( FrameGraph& frameGraph, ResHandle
             AtmosphereBruneton::BrunetonSkyProperties.EarthCenter = dkVec3f( 0.0, 0.0, -kBottomRadius / kLengthUnitInMeters );
             AtmosphereBruneton::BrunetonSkyProperties.SunDirection = dk::maths::SphericalToCarthesianCoordinates( sunHorizontalAngle, sunVerticalAngle );
             AtmosphereBruneton::BrunetonSkyProperties.SunSizeX = tanf( static_cast<f32>( kSunAngularRadius ) );
-            AtmosphereBruneton::BrunetonSkyProperties.SunSizeY = cosf( static_cast< f32 >( kSunAngularRadius ) * 5.0f );
+            AtmosphereBruneton::BrunetonSkyProperties.SunSizeY = cosf( static_cast< f32 >( kSunAngularRadius ) * 2.0f );
             AtmosphereBruneton::BrunetonSkyProperties.SunExponant = 2400.0f; // TODO Should be set accordingly to the ToD
             AtmosphereBruneton::BrunetonSkyProperties.SKY_SPECTRAL_RADIANCE_TO_LUMINANCE = lutComputeModule.getSkySpectralRadianceToLuminance();
             AtmosphereBruneton::BrunetonSkyProperties.SUN_SPECTRAL_RADIANCE_TO_LUMINANCE = lutComputeModule.getSunSpectralRadianceToLuminance();
             AtmosphereBruneton::BrunetonSkyProperties.AtmosphereParams = parameters;
+            AtmosphereBruneton::BrunetonSkyProperties.WhitePoint = lutComputeModule.getWhitePoint();
 
             cmdList->pushEventMarker( AtmosphereBruneton::BrunetonSky_EventName );
             cmdList->bindPipelineState( pipelineState );
@@ -143,6 +144,78 @@ ResHandle_t AtmosphereRenderModule::renderSky( FrameGraph& frameGraph, ResHandle
     );
 
     return passData.Output;
+}
+
+void AtmosphereRenderModule::renderSkyForProbeCapture( FrameGraph& frameGraph, Image* outputImage, const ImageViewDesc& outputImageTarget, const CameraData& cameraData )
+{
+    struct PassData {
+        ResHandle_t         PerPassBuffer;
+        ResHandle_t         PerViewBuffer;
+    };
+
+    PassData& passData = frameGraph.addRenderPass<PassData>(
+        AtmosphereBruneton::BrunetonSkyProbeCapture_Name,
+        [&]( FrameGraphBuilder& builder, PassData& passData ) {
+            BufferDesc perPassBufferDesc;
+            perPassBufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
+            perPassBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
+            perPassBufferDesc.SizeInBytes = sizeof( AtmosphereBruneton::BrunetonSkyRuntimeProperties );
+            passData.PerPassBuffer = builder.allocateBuffer( perPassBufferDesc, SHADER_STAGE_COMPUTE );
+
+            passData.PerViewBuffer = builder.retrievePerViewBuffer();
+        },
+        [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+            PipelineStateDesc psoDesc( PipelineStateDesc::COMPUTE );
+            psoDesc.addStaticSampler( RenderingHelpers::S_BilinearClampEdge );
+
+            PipelineState* pipelineState = psoCache->getOrCreatePipelineState( psoDesc, AtmosphereBruneton::BrunetonSkyProbeCapture_ShaderBinding );
+
+            // Update Parameters
+            AtmosphereBruneton::BrunetonSkyProperties.EarthCenter = dkVec3f( 0.0, 0.0, -kBottomRadius / kLengthUnitInMeters );
+            AtmosphereBruneton::BrunetonSkyProperties.SunDirection = dk::maths::SphericalToCarthesianCoordinates( sunHorizontalAngle, sunVerticalAngle );
+            AtmosphereBruneton::BrunetonSkyProperties.SunSizeX = tanf( static_cast<f32>( kSunAngularRadius ) );
+            AtmosphereBruneton::BrunetonSkyProperties.SunSizeY = cosf( static_cast< f32 >( kSunAngularRadius ) * 2.0f );
+            AtmosphereBruneton::BrunetonSkyProperties.SunExponant = 2400.0f; // TODO Should be set accordingly to the ToD
+            AtmosphereBruneton::BrunetonSkyProperties.SKY_SPECTRAL_RADIANCE_TO_LUMINANCE = lutComputeModule.getSkySpectralRadianceToLuminance();
+            AtmosphereBruneton::BrunetonSkyProperties.SUN_SPECTRAL_RADIANCE_TO_LUMINANCE = lutComputeModule.getSunSpectralRadianceToLuminance();
+            AtmosphereBruneton::BrunetonSkyProperties.AtmosphereParams = parameters;
+            AtmosphereBruneton::BrunetonSkyProperties.WhitePoint = lutComputeModule.getWhitePoint();
+            AtmosphereBruneton::BrunetonSkyProperties.AspectRatio = cameraData.aspectRatio;
+            AtmosphereBruneton::BrunetonSkyProperties.ScreenSize = cameraData.viewportSize;
+            AtmosphereBruneton::BrunetonSkyProperties.ViewDirection = cameraData.viewDirection;
+            AtmosphereBruneton::BrunetonSkyProperties.RightVector = cameraData.rightVector;
+            AtmosphereBruneton::BrunetonSkyProperties.UpVector = cameraData.upVector;
+            AtmosphereBruneton::BrunetonSkyProperties.WorldPosition = cameraData.worldPosition;
+
+            cmdList->pushEventMarker( AtmosphereBruneton::BrunetonSkyProbeCapture_EventName );
+            cmdList->bindPipelineState( pipelineState );
+
+            Buffer* passBuffer = resources->getBuffer( passData.PerPassBuffer );
+            Buffer* viewBuffer = resources->getPersistentBuffer( passData.PerViewBuffer );
+
+			// Bind resources
+			cmdList->bindImage( AtmosphereBruneton::BrunetonSkyProbeCapture_OutputRenderTarget_Hashcode, outputImage, outputImageTarget );
+            cmdList->bindImage( AtmosphereBruneton::BrunetonSkyProbeCapture_TransmittanceTextureInput_Hashcode, transmittanceLut );
+            cmdList->bindImage( AtmosphereBruneton::BrunetonSkyProbeCapture_IrradianceTextureInput_Hashcode, irradianceLut );
+            cmdList->bindImage( AtmosphereBruneton::BrunetonSkyProbeCapture_ScatteringTextureInput_Hashcode, scatteringLut );
+            cmdList->bindImage( AtmosphereBruneton::BrunetonSkyProbeCapture_MieScatteringTextureInput_Hashcode, mieScatteringLut );
+            
+            cmdList->bindConstantBuffer( PerViewBufferHashcode, viewBuffer );
+            cmdList->bindConstantBuffer( PerPassBufferHashcode, passBuffer );
+
+            cmdList->prepareAndBindResourceList();
+
+            cmdList->updateBuffer( *passBuffer, &AtmosphereBruneton::BrunetonSkyProperties, sizeof( AtmosphereBruneton::BrunetonSkyRuntimeProperties ) );
+
+            const dkVec2f rtSize = resources->getMainCamera()->viewportSize;
+			const u32 ThreadCountX = static_cast< u32 >( rtSize.x ) / AtmosphereBruneton::BrunetonSkyProbeCapture_DispatchX;
+			const u32 ThreadCountY = static_cast< u32 >( rtSize.y ) / AtmosphereBruneton::BrunetonSkyProbeCapture_DispatchY;
+            
+            cmdList->dispatchCompute( ThreadCountX, ThreadCountY, 1u );
+
+            cmdList->popEventMarker();
+        }
+    );
 }
 
 ResHandle_t AtmosphereRenderModule::renderAtmoshpericFog( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer )
