@@ -12,6 +12,7 @@ class RenderDevice;
 class CommandList;
 class FrameGraph;
 class ShaderCache;
+class WorldRenderer;
 
 enum eProbeUpdateStep
 {
@@ -41,7 +42,7 @@ public:
                 EnvironmentProbeStreaming();
                 ~EnvironmentProbeStreaming();
 
-    void        updateProbeCapture( FrameGraph& frameGraph );
+    void        updateProbeCapture( FrameGraph& frameGraph, WorldRenderer* worldRenderer );
 
     u32         addProbeForStreaming( const dkVec3f& worldPosition, const f32 probeRadius, const dkMat4x4f& inverseModelMatrix );
 
@@ -78,6 +79,6 @@ private:
     Image*              probeAtlas[PROBE_COMPONENT_COUNT];
 
 private:
-    void                updateDistantProbe( FrameGraph& frameGraph );
+    void                updateDistantProbe( FrameGraph& frameGraph, WorldRenderer* worldRenderer );
 };
 

@@ -13,47 +13,35 @@
 #include <Rendering/CommandList.h>
 #include <Core/ViewFormat.h>
 
+#include "RenderPasses/Headers/Light.h"
+
+#include <Graphics/RenderModules/AtmosphereRenderModule.h>
+
+static constexpr dkVec3f PROBE_FACE_VIEW_DIRECTION[eProbeUpdateFace::FACE_COUNT] = {
+	dkVec3f( +1.0f, 0.0f, 0.0f ),
+	dkVec3f( -1.0f, 0.0f, 0.0f ),
+	dkVec3f( 0.0f, -1.0f, 0.0f ),
+	dkVec3f( 0.0f, +1.0f, 0.0f ),
+	dkVec3f( 0.0f, 0.0f, +1.0f ),
+	dkVec3f( 0.0f, 0.0f, -1.0f )
+};
+
+static constexpr dkVec3f PROBE_FACE_RIGHT_DIRECTION[eProbeUpdateFace::FACE_COUNT] = {
+    dkVec3f( 0.0f, 0.0f, +1.0f ),
+    dkVec3f( 0.0f, 0.0f, -1.0f ),
+
+    dkVec3f( +1.0f, 0.0f, 0.0f ),
+    dkVec3f( -1.0f, 0.0f, 0.0f ),
+	
+	dkVec3f( 0.0f, 0.0f, +1.0f ),
+    dkVec3f( 0.0f, 0.0f, -1.0f ),
+};
+
+static constexpr dkVec3f PROBE_UP_VECTOR = dkVec3f( 0, 1, 0 );
+
 static dkMat4x4f GetProbeCaptureViewMatrix( const dkVec3f& probePositionWorldSpace, const eProbeUpdateFace captureStep )
 {
-	switch ( captureStep ) {
-	case eProbeUpdateFace::FACE_X_PLUS:
-		return dk::maths::MakeLookAtMat(
-			probePositionWorldSpace,
-			probePositionWorldSpace + dkVec3f( 1.0f, 0.0f, 0.0f ),
-			dkVec3f( 0.0f, 1.0f, 0.0f ) );
-
-	case eProbeUpdateFace::FACE_X_MINUS:
-		return dk::maths::MakeLookAtMat(
-			probePositionWorldSpace,
-			probePositionWorldSpace + dkVec3f( -1.0f, 0.0f, 0.0f ),
-			dkVec3f( 0.0f, 1.0f, 0.0f ) );
-
-	case eProbeUpdateFace::FACE_Y_MINUS:
-		return dk::maths::MakeLookAtMat(
-			probePositionWorldSpace,
-			probePositionWorldSpace + dkVec3f( 0.0f, -1.0f, 0.0f ),
-			dkVec3f( 0.0f, 0.0f, 1.0f ) );
-
-	case eProbeUpdateFace::FACE_Y_PLUS:
-		return dk::maths::MakeLookAtMat(
-			probePositionWorldSpace,
-			probePositionWorldSpace + dkVec3f( 0.0f, 1.0f, 0.0f ),
-			dkVec3f( 0.0f, 0.0f, -1.0f ) );
-
-	case eProbeUpdateFace::FACE_Z_PLUS:
-		return dk::maths::MakeLookAtMat(
-			probePositionWorldSpace,
-			probePositionWorldSpace + dkVec3f( 0.0f, 0.0f, 1.0f ),
-			dkVec3f( 0.0f, 1.0f, 0.0f ) );
-
-	case eProbeUpdateFace::FACE_Z_MINUS:
-		return dk::maths::MakeLookAtMat(
-			probePositionWorldSpace,
-			probePositionWorldSpace + dkVec3f( 0.0f, 0.0f, -1.0f ),
-			dkVec3f( 0.0f, 1.0f, 0.0f ) );
-	}
-
-	return dkMat4x4f::Identity;
+    return dk::maths::MakeLookAtMat( probePositionWorldSpace, probePositionWorldSpace + PROBE_FACE_VIEW_DIRECTION[captureStep], PROBE_UP_VECTOR );
 }
 
 EnvironmentProbeStreaming::EnvironmentProbeStreaming()
@@ -85,9 +73,9 @@ EnvironmentProbeStreaming::~EnvironmentProbeStreaming()
 	}
 }
 
-void EnvironmentProbeStreaming::updateProbeCapture( FrameGraph& frameGraph )
+void EnvironmentProbeStreaming::updateProbeCapture( FrameGraph& frameGraph, WorldRenderer* worldRenderer )
 {
-	updateDistantProbe( frameGraph );
+	updateDistantProbe( frameGraph, worldRenderer );
 }
 
 u32 EnvironmentProbeStreaming::addProbeForStreaming( const dkVec3f& worldPosition, const f32 probeRadius, const dkMat4x4f& inverseModelMatrix )
@@ -110,12 +98,28 @@ void EnvironmentProbeStreaming::addProbeRecapture( const u32 probeIndex )
 
 }
 
-void EnvironmentProbeStreaming::updateDistantProbe( FrameGraph& frameGraph )
+void EnvironmentProbeStreaming::updateDistantProbe( FrameGraph& frameGraph, WorldRenderer* worldRenderer )
 {
 	switch ( distantProbeUpdateStep ) {
 	case PROBE_CAPTURE:
 	{
 		dkMat4x4f viewMatrix = GetProbeCaptureViewMatrix( dkVec3f::Zero, distantProbeFace );
+
+		CameraData cameraData;
+		cameraData.viewportSize = dkVec2f( PROBE_FACE_SIZE, PROBE_FACE_SIZE );
+		cameraData.upVector = PROBE_UP_VECTOR;
+		cameraData.viewDirection = PROBE_FACE_VIEW_DIRECTION[distantProbeFace];
+        cameraData.rightVector = PROBE_FACE_RIGHT_DIRECTION[distantProbeFace];
+        cameraData.worldPosition = dkVec3f::Zero;
+		cameraData.aspectRatio = 1.0f;
+
+        ImageViewDesc viewDesc;
+        viewDesc.StartImageIndex = distantProbeFace;
+        viewDesc.StartMipIndex = 0;
+        viewDesc.MipCount = 1;
+		viewDesc.ImageCount = 1;
+
+		worldRenderer->AtmosphereRendering->renderSkyForProbeCapture( frameGraph, distantProbe[distantProbeWriteIndex][0], viewDesc, cameraData );
 	} break;
 	case PROBE_CONVOLUTION:
 	{

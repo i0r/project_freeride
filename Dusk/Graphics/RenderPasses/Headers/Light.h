@@ -67,6 +67,10 @@ struct DirectionalLightGPU
     // Angular measurement describing how large a distant light source (with a circular shape) appears from a given 
     // point of view (in radians).
     float AngularRadius;
+
+    float2 SphericalCoordinates;
+
+    uint    PADDING[2];
 };
 DUSK_IS_MEMORY_ALIGNED_STATIC( DirectionalLightGPU, 16 );
 
@@ -143,4 +147,5 @@ struct IBLProbeGPU
 DUSK_IS_MEMORY_ALIGNED_STATIC( IBLProbeGPU, 16 );
 
 #define BRDF_LUT_SIZE 512
+#define PROBE_FACE_SIZE 256
 #endif
