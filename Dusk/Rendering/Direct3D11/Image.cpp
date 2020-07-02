@@ -424,19 +424,84 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
     // Create default UAV
     if ( description.bindFlags & RESOURCE_BIND_UNORDERED_ACCESS_VIEW ) {
         image->DefaultUnorderedAccessView = CreateImageUnorderedAccessView( renderContext->PhysicalDevice, *image, defaultViewDesc );
+
+		image->UAVs[defaultViewDesc.SortKey] = image->DefaultUnorderedAccessView;
     }
 
     // Create default RTV
     if ( description.bindFlags & RESOURCE_BIND_RENDER_TARGET_VIEW ) {
         image->DefaultRenderTargetView = CreateImageRenderTargetView( renderContext->PhysicalDevice, *image, defaultViewDesc );
+
+		image->RTVs[defaultViewDesc.SortKey].RenderTargetView = image->DefaultRenderTargetView;
     }
 
     // Create default DSV
     if ( description.bindFlags & RESOURCE_BIND_DEPTH_STENCIL ) {
         image->DefaultDepthStencilView = CreateImageDepthStencilView( renderContext->PhysicalDevice, *image, defaultViewDesc );
+
+		image->RTVs[defaultViewDesc.SortKey].DepthStencilView = image->DefaultDepthStencilView;
     }
 
     return image;
+}
+
+void RenderDevice::createImageView( Image& image, const ImageViewDesc& viewDescription, const u32 creationFlags )
+{
+	if ( creationFlags & IMAGE_VIEW_CREATE_UAV ) {
+		if ( creationFlags & IMAGE_VIEW_COVER_WHOLE_MIPCHAIN ) {
+			ImageViewDesc perMipViewDescription = viewDescription;
+			for ( u32 i = 0; i < image.Description.mipCount; i++ ) {
+				perMipViewDescription.StartMipIndex = i;
+				perMipViewDescription.MipCount = 1;
+
+				image.UAVs[perMipViewDescription.SortKey] = CreateImageUnorderedAccessView( renderContext->PhysicalDevice, image, perMipViewDescription );
+			}
+		} else {
+			image.UAVs[viewDescription.SortKey] = CreateImageUnorderedAccessView( renderContext->PhysicalDevice, image, viewDescription );
+        }
+	}
+
+	if ( creationFlags & IMAGE_VIEW_CREATE_SRV ) {
+		if ( creationFlags & IMAGE_VIEW_COVER_WHOLE_MIPCHAIN ) {
+			ImageViewDesc perMipViewDescription = viewDescription;
+			for ( u32 i = 0; i < image.Description.mipCount; i++ ) {
+				perMipViewDescription.StartMipIndex = i;
+				perMipViewDescription.MipCount = 1;
+
+				image.SRVs[perMipViewDescription.SortKey] = CreateImageShaderResourceView( renderContext->PhysicalDevice, image, perMipViewDescription );
+			}
+		} else {
+			image.SRVs[viewDescription.SortKey] = CreateImageShaderResourceView( renderContext->PhysicalDevice, image, viewDescription );
+		}
+	}
+
+	if ( creationFlags & IMAGE_VIEW_CREATE_RTV_OR_DSV ) {
+        if ( image.Description.bindFlags & RESOURCE_BIND_RENDER_TARGET_VIEW ) {
+            if ( creationFlags & IMAGE_VIEW_COVER_WHOLE_MIPCHAIN ) {
+                ImageViewDesc perMipViewDescription = viewDescription;
+                for ( u32 i = 0; i < image.Description.mipCount; i++ ) {
+                    perMipViewDescription.StartMipIndex = i;
+                    perMipViewDescription.MipCount = 1;
+
+					image.RTVs[perMipViewDescription.SortKey].RenderTargetView = CreateImageRenderTargetView( renderContext->PhysicalDevice, image, perMipViewDescription );
+                }
+            } else {
+				image.RTVs[viewDescription.SortKey].RenderTargetView = CreateImageRenderTargetView( renderContext->PhysicalDevice, image, viewDescription );
+            }
+		} else if ( image.Description.bindFlags & RESOURCE_BIND_DEPTH_STENCIL ) {
+			if ( creationFlags & IMAGE_VIEW_COVER_WHOLE_MIPCHAIN ) {
+				ImageViewDesc perMipViewDescription = viewDescription;
+				for ( u32 i = 0; i < image.Description.mipCount; i++ ) {
+					perMipViewDescription.StartMipIndex = i;
+					perMipViewDescription.MipCount = 1;
+
+					image.RTVs[perMipViewDescription.SortKey].DepthStencilView = CreateImageDepthStencilView( renderContext->PhysicalDevice, image, perMipViewDescription );
+				}
+			} else {
+				image.RTVs[viewDescription.SortKey].DepthStencilView = CreateImageDepthStencilView( renderContext->PhysicalDevice, image, viewDescription );
+			}
+        }
+    }
 }
 
 void RenderDevice::destroyImage( Image* image )

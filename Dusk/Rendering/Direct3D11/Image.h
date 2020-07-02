@@ -41,6 +41,16 @@ struct Image
     // Current UAV register index (=0xffffffff if the resource is not binded to the device).
     i32                             PSUAVRegisterIndex;
 
+    struct FBOAttachment
+	{
+		union
+		{
+			ID3D11RenderTargetView* RenderTargetView;
+			ID3D11DepthStencilView* DepthStencilView;
+		};
+    };
+	std::unordered_map<u64, FBOAttachment> RTVs;
+
     std::unordered_map<u64, ID3D11ShaderResourceView*> SRVs;
 
     std::unordered_map<u64, ID3D11UnorderedAccessView*> UAVs;

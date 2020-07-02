@@ -888,6 +888,14 @@ namespace RenderingHelpers
     static constexpr PipelineStateDesc PS_Compute = PipelineStateDesc( PipelineStateDesc::COMPUTE );
 }
 
+enum eImageViewCreationFlags
+{
+    IMAGE_VIEW_CREATE_RTV_OR_DSV    = 1 << 1,
+    IMAGE_VIEW_CREATE_SRV           = 1 << 2,
+    IMAGE_VIEW_CREATE_UAV           = 1 << 3,
+    IMAGE_VIEW_COVER_WHOLE_MIPCHAIN = 1 << 4
+};
+
 class RenderDevice
 {
 public:
@@ -937,6 +945,9 @@ public:
     Sampler*                    createSampler( const SamplerDesc& description );
     PipelineState*              createPipelineState( const PipelineStateDesc& description );
     QueryPool*                  createQueryPool( const eQueryType type, const u32 poolCapacity );
+
+    // Create one or several image views for a given image. CreationFlags is a combination of one or several eImageViewCreationFlags.
+    void                        createImageView( Image& image, const ImageViewDesc& viewDescription, const u32 creationFlags );
 
     void                        destroyImage( Image* image );
     void                        destroyBuffer( Buffer* buffer );

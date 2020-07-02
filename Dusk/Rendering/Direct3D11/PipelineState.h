@@ -92,7 +92,7 @@ struct PipelineState
 void BindPipelineState_Replay( RenderContext* renderContext, PipelineState* pipelineState );
 void PrepareAndBindResources_Replay( RenderContext* renderContext, const PipelineState* pipelineState );
 void BindBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hashcode, Buffer* buffer );  
-void BindImage_Replay( RenderContext* renderContext, const dkStringHash_t hashcode, Image* image, const ImageViewDesc imageViewDesc );
+void BindImage_Replay( RenderContext* renderContext, Image* image, const u64 imageViewDesc, const dkStringHash_t hashcode );
 void BindCBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hashcode, Buffer* buffer );
 
 void FlushSRVRegisterUpdate( RenderContext* renderContext );

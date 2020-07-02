@@ -461,10 +461,7 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
         case CPI_BIND_IMAGE:
         {
             CommandPacket::BindResource cmdPacket = *( CommandPacket::BindResource* )bufferPointer;
-            
-            if ( cmdPacket.ImageObject != nullptr ) {
-                BindImage_Replay( renderContext, cmdPacket.ObjectHashcode, cmdPacket.ImageObject, ImageViewDesc( cmdPacket.ViewKey ) );
-            }
+            BindImage_Replay( renderContext, cmdPacket.ImageObject, cmdPacket.ViewKey, cmdPacket.ObjectHashcode );
             break;
         }
         case CPI_BIND_BUFFER:
