@@ -15,6 +15,7 @@ struct Sampler;
 
 #include <Core/ViewFormat.h>
 #include <Core/Types.h>
+#include "RenderDevice.h"
 
 struct ScissorRegion
 {
@@ -140,7 +141,7 @@ public:
 
     void                            bindPipelineState( PipelineState* pipelineState );
     void                            bindConstantBuffer( const dkStringHash_t hashcode, Buffer* buffer );
-    void                            bindImage( const dkStringHash_t hashcode, Image* image, const eViewFormat viewFormat = VIEW_FORMAT_UNKNOWN );
+    void                            bindImage( const dkStringHash_t hashcode, Image* image, const ImageViewDesc viewDescription = ImageViewDesc() );
     void                            bindBuffer( const dkStringHash_t hashcode, Buffer* buffer, const eViewFormat viewFormat = VIEW_FORMAT_UNKNOWN );
     void                            bindSampler( const dkStringHash_t hashcode, Sampler* sampler );
 

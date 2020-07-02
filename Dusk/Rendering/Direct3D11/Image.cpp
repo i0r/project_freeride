@@ -417,6 +417,8 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
     // Create default SRV
     if ( description.bindFlags & RESOURCE_BIND_SHADER_RESOURCE ) {
         image->DefaultShaderResourceView = CreateImageShaderResourceView( renderContext->PhysicalDevice, *image, defaultViewDesc );
+
+        image->SRVs[defaultViewDesc.SortKey] = image->DefaultShaderResourceView;
     }
 
     // Create default UAV

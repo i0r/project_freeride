@@ -322,8 +322,8 @@ struct ImageViewDesc
         u64 SortKey;
     };
 
-    constexpr ImageViewDesc()
-        : SortKey( 0 )
+    constexpr ImageViewDesc( const u64 key = 0ull )
+        : SortKey( key )
     {
 
     }

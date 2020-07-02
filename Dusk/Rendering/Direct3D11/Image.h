@@ -16,6 +16,7 @@ struct ID3D11RenderTargetView;
 enum DXGI_FORMAT;
 
 #include <Rendering/RenderDevice.h> // used by ImageDesc
+#include <unordered_map>
 
 struct Image
 {
@@ -39,6 +40,10 @@ struct Image
 
     // Current UAV register index (=0xffffffff if the resource is not binded to the device).
     i32                             PSUAVRegisterIndex;
+
+    std::unordered_map<u64, ID3D11ShaderResourceView*> SRVs;
+
+    std::unordered_map<u64, ID3D11UnorderedAccessView*> UAVs;
 
     // Current SRV register index (=0xffffffff if the resource is not binded to the device).
     i32                             SRVRegisterIndex[eShaderStage::SHADER_STAGE_COUNT];

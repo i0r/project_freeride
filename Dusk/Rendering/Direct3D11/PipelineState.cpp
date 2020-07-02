@@ -593,13 +593,13 @@ void CommandList::bindConstantBuffer( const dkStringHash_t hashcode, Buffer* buf
     nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
 
-void CommandList::bindImage( const dkStringHash_t hashcode, Image* image, const eViewFormat viewFormat )
+void CommandList::bindImage( const dkStringHash_t hashcode, Image* image, const ImageViewDesc viewDescription )
 {
     CommandPacket::BindResource* commandPacket = dk::core::allocate<CommandPacket::BindResource>( nativeCommandList->CommandPacketAllocator );
     commandPacket->Identifier = CPI_BIND_IMAGE;
     commandPacket->ImageObject = image;
     commandPacket->ObjectHashcode = hashcode;
-    commandPacket->ViewKey = 0ull;
+    commandPacket->ViewKey = viewDescription.SortKey;
 
     nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
@@ -900,7 +900,7 @@ void BindCBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hash
     }
 }
 
-void BindImage_Replay( RenderContext* renderContext, const dkStringHash_t hashcode, Image* image )
+void BindImage_Replay( RenderContext* renderContext, const dkStringHash_t hashcode, Image* image, const ImageViewDesc imageViewDesc )
 {
     std::unordered_map<dkStringHash_t, PipelineState::ResourceEntry*>& bindingSet = renderContext->BindedPipelineState->bindingSet;
 

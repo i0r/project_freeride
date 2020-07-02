@@ -463,7 +463,7 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
             CommandPacket::BindResource cmdPacket = *( CommandPacket::BindResource* )bufferPointer;
             
             if ( cmdPacket.ImageObject != nullptr ) {
-                BindImage_Replay( renderContext, cmdPacket.ObjectHashcode, cmdPacket.ImageObject );
+                BindImage_Replay( renderContext, cmdPacket.ObjectHashcode, cmdPacket.ImageObject, ImageViewDesc( cmdPacket.ViewKey ) );
             }
             break;
         }
