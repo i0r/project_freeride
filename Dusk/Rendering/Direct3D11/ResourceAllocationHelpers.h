@@ -159,7 +159,7 @@ static ID3D11ShaderResourceView* CreateImageShaderResourceView( ID3D11Device* de
             } else {
                 shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DMS;
             }
-        } else if ( isCubemap ) {
+        } else if ( isCubemap && imgCount == 0 ) {
             // TEXTURECUBE
             if ( isArrayView ) {
                 shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBEARRAY;
@@ -176,7 +176,7 @@ static ID3D11ShaderResourceView* CreateImageShaderResourceView( ID3D11Device* de
             }
         } else {
             // TEXTURE2D
-            if ( isArrayView ) {
+            if ( isArrayView || isCubemap ) {
                 shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
 
                 shaderResourceViewDesc.Texture2DArray.ArraySize = imgCount;
@@ -244,7 +244,7 @@ static ID3D11UnorderedAccessView* CreateImageUnorderedAccessView( ID3D11Device* 
             break;
         }
 
-        if ( isArrayView ) {
+        if ( isArrayView || isCubemap ) {
             unorderedAccessViewDesc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2DARRAY;
 
             unorderedAccessViewDesc.Texture2DArray.ArraySize = imgCount;

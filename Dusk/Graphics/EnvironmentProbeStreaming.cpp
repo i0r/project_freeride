@@ -20,8 +20,8 @@
 static constexpr dkVec3f PROBE_FACE_VIEW_DIRECTION[eProbeUpdateFace::FACE_COUNT] = {
 	dkVec3f( +1.0f, 0.0f, 0.0f ),
 	dkVec3f( -1.0f, 0.0f, 0.0f ),
-	dkVec3f( 0.0f, -1.0f, 0.0f ),
 	dkVec3f( 0.0f, +1.0f, 0.0f ),
+	dkVec3f( 0.0f, -1.0f, 0.0f ),
 	dkVec3f( 0.0f, 0.0f, +1.0f ),
 	dkVec3f( 0.0f, 0.0f, -1.0f )
 };
@@ -30,24 +30,34 @@ static constexpr dkVec3f PROBE_FACE_RIGHT_DIRECTION[eProbeUpdateFace::FACE_COUNT
     dkVec3f( 0.0f, 0.0f, +1.0f ),
     dkVec3f( 0.0f, 0.0f, -1.0f ),
 
-    dkVec3f( +1.0f, 0.0f, 0.0f ),
-    dkVec3f( -1.0f, 0.0f, 0.0f ),
-	
-	dkVec3f( 0.0f, 0.0f, +1.0f ),
-    dkVec3f( 0.0f, 0.0f, -1.0f ),
+	dkVec3f( +1.0f, 0.0f, 0.0f ),
+	dkVec3f( -1.0f, 0.0f, 0.0f ),
+
+	dkVec3f( -1.0f, 0.0f, 0.0f ),
+	dkVec3f( +1.0f, 0.0f, 0.0f ),
 };
 
-static constexpr dkVec3f PROBE_UP_VECTOR = dkVec3f( 0, 1, 0 );
+static constexpr dkVec3f PROBE_FACE_UP_DIRECTION[eProbeUpdateFace::FACE_COUNT] = {
+	dkVec3f( 0, 1, 0 ),
+	dkVec3f( 0, 1, 0 ),
+
+	dkVec3f( 0, 0, -1 ),
+	dkVec3f( 0, 0, +1 ),
+
+	dkVec3f( 0, 1, 0 ),
+	dkVec3f( 0, 1, 0 ),
+};
 
 static dkMat4x4f GetProbeCaptureViewMatrix( const dkVec3f& probePositionWorldSpace, const eProbeUpdateFace captureStep )
 {
-    return dk::maths::MakeLookAtMat( probePositionWorldSpace, probePositionWorldSpace + PROBE_FACE_VIEW_DIRECTION[captureStep], PROBE_UP_VECTOR );
+    return dk::maths::MakeLookAtMat( probePositionWorldSpace, probePositionWorldSpace + PROBE_FACE_VIEW_DIRECTION[captureStep], PROBE_FACE_UP_DIRECTION[captureStep] );
 }
 
 EnvironmentProbeStreaming::EnvironmentProbeStreaming()
 	: distantProbeUpdateStep( eProbeUpdateStep::PROBE_CAPTURE )
 	, distantProbeFace( eProbeUpdateFace::FACE_X_PLUS )
 	, distantProbeWriteIndex( 0 )
+	, distantProbeMipIndex( 0 )
 {
 	for ( i32 i = 0; i < DISTANT_PROBE_BUFFER_COUNT; i++ ) {
 		for ( i32 j = 0; j < PROBE_COMPONENT_COUNT; j++ ) {
@@ -149,7 +159,7 @@ void EnvironmentProbeStreaming::updateDistantProbe( FrameGraph& frameGraph, Worl
 
 		CameraData cameraData;
 		cameraData.viewportSize = dkVec2f( PROBE_FACE_SIZE, PROBE_FACE_SIZE );
-		cameraData.upVector = PROBE_UP_VECTOR;
+		cameraData.upVector = PROBE_FACE_UP_DIRECTION[distantProbeFace];
 		cameraData.viewDirection = PROBE_FACE_VIEW_DIRECTION[distantProbeFace];
         cameraData.rightVector = PROBE_FACE_RIGHT_DIRECTION[distantProbeFace];
         cameraData.worldPosition = dkVec3f::Zero;
@@ -161,18 +171,33 @@ void EnvironmentProbeStreaming::updateDistantProbe( FrameGraph& frameGraph, Worl
         viewDesc.MipCount = 1;
 		viewDesc.ImageCount = 1;
 
-		//worldRenderer->AtmosphereRendering->renderSkyForProbeCapture( frameGraph, distantProbe[distantProbeWriteIndex][0], viewDesc, cameraData );
+		worldRenderer->AtmosphereRendering->renderSkyForProbeCapture( frameGraph, distantProbe[distantProbeWriteIndex][0], viewDesc, cameraData );
+
+		distantProbeFace++;
 	} break;
 	case PROBE_CONVOLUTION:
 	{
+		ImageViewDesc viewDesc;
+		viewDesc.StartImageIndex = distantProbeFace;
+		viewDesc.StartMipIndex = distantProbeMipIndex;
+		viewDesc.MipCount = 1;
+		viewDesc.ImageCount = 1;
 
+		distantProbeMipIndex++;
 	} break;
 	}
 
-	if ( ++distantProbeFace == FACE_COUNT ) {
-		distantProbeFace = FACE_X_PLUS;
+	if ( distantProbeMipIndex == 6 ) {
+		distantProbeMipIndex = 0;
+		distantProbeFace++;
+	}
 
-		if ( ++distantProbeUpdateStep == PROBE_CONVOLUTION ) {
+	if ( distantProbeFace == FACE_COUNT ) {
+		distantProbeFace = FACE_X_PLUS;
+		distantProbeUpdateStep++;
+
+		if ( distantProbeUpdateStep == PROBE_RELIGHT ) {
+			distantProbeMipIndex = 0;
 			distantProbeUpdateStep = PROBE_CAPTURE;
 			distantProbeWriteIndex = ( ( distantProbeWriteIndex + 1 ) % 2 );
 		}

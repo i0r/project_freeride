@@ -33,7 +33,7 @@ DUSK_INLINE static bool IsReadOnlyResourceType( const TypeAST::ePrimitiveType ty
 }
 
 struct CbufferEntry {
-    size_t                  SizeInBytes;
+    i64                     SizeInBytes;
     const TypeAST*          Entry;
     const Token::StreamRef* Name;
     const Token::StreamRef* Value;
@@ -49,8 +49,8 @@ struct CbufferEntry {
 };
 
 struct CBufferLine {
-    size_t                     SpaceLeftInBytes;
-    std::list<CbufferEntry>    Entries;
+    i64                         SpaceLeftInBytes;
+    std::list<CbufferEntry>     Entries;
 
     CBufferLine()
         : SpaceLeftInBytes( 16 )
@@ -74,10 +74,10 @@ DUSK_INLINE static bool SortCbufferEntries( const CbufferEntry& l, const Cbuffer
 // and require a new cbuffer line
 DUSK_INLINE static bool AddDataInCBufferLine( std::list<CBufferLine>& cbufferLines, CbufferEntry& entry )
 {
-    const size_t typeSize = entry.SizeInBytes;
+    const i64 typeSize = static_cast<i64>( entry.SizeInBytes );
     // Check if the primitive fits in one of the cbuffer line
     for ( CBufferLine& line : cbufferLines ) {
-        if ( line.SpaceLeftInBytes >= typeSize ) {
+        if ( line.SpaceLeftInBytes > 0 && line.SpaceLeftInBytes >= typeSize ) {
             line.addEntry( entry );
             return true;
         }
@@ -749,6 +749,7 @@ void RenderLibraryGenerator::processRenderPassNode( const Token::StreamRef& astN
             }
         }
 
+        i32 paddingMemberCount = 0;
         for ( CBufferLine& line : perPassBufferLines ) {
             // Sort the line (this way data should perfectly fit)
             line.Entries.sort( SortCbufferEntries );
@@ -877,14 +878,23 @@ void RenderLibraryGenerator::processRenderPassNode( const Token::StreamRef& astN
                 }
                 propertyDecl.append( ";\n" );
             }
+        
+            // CPU structure requires explicit padding.
+			if ( line.SpaceLeftInBytes > 0 ) {
+                propertyDecl.append( "\t\tu8 __PADDING" );
+                propertyDecl.append( std::to_string( paddingMemberCount++ ) );
+                propertyDecl.append( "__[" );
+				propertyDecl.append( std::to_string( line.SpaceLeftInBytes ) );
+				propertyDecl.append( "];\n" );
+            }
         }
 
-        // Pad Cbuffer if needed (respect 16bytes alignment restriction).
-        if ( cbufferTotalSize % 16 != 0 ) {
-            propertyDecl.append( "\t\tu8 __PADDING__[" );
-            propertyDecl.append( std::to_string( 16 - ( cbufferTotalSize % 16 ) ) );
-            propertyDecl.append( "];\n" );
-        }
+        //// Pad Cbuffer if needed (respect 16bytes alignment restriction).
+        //if ( cbufferTotalSize % 16 != 0 ) {
+        //    propertyDecl.append( "\t\tu8 __PADDING__[" );
+        //    propertyDecl.append( std::to_string( 16 - ( cbufferTotalSize % 16 ) ) );
+        //    propertyDecl.append( "];\n" );
+        //}
 
         propertyDecl.append( "\t} " );
         propertyDecl.append( scopedPassName );

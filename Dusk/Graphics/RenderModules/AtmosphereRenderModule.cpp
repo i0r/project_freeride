@@ -152,7 +152,6 @@ void AtmosphereRenderModule::renderSkyForProbeCapture( FrameGraph& frameGraph, I
 {
     struct PassData {
         ResHandle_t         PerPassBuffer;
-        ResHandle_t         PerViewBuffer;
     };
 
     PassData& passData = frameGraph.addRenderPass<PassData>(
@@ -166,8 +165,6 @@ void AtmosphereRenderModule::renderSkyForProbeCapture( FrameGraph& frameGraph, I
             perPassBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
             perPassBufferDesc.SizeInBytes = sizeof( AtmosphereBruneton::BrunetonSkyRuntimeProperties );
             passData.PerPassBuffer = builder.allocateBuffer( perPassBufferDesc, SHADER_STAGE_COMPUTE );
-
-            passData.PerViewBuffer = builder.retrievePerViewBuffer();
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
             PipelineStateDesc psoDesc( PipelineStateDesc::COMPUTE );
@@ -196,7 +193,6 @@ void AtmosphereRenderModule::renderSkyForProbeCapture( FrameGraph& frameGraph, I
             cmdList->bindPipelineState( pipelineState );
 
             Buffer* passBuffer = resources->getBuffer( passData.PerPassBuffer );
-            Buffer* viewBuffer = resources->getPersistentBuffer( passData.PerViewBuffer );
 
 			// Bind resources
 			cmdList->bindImage( AtmosphereBruneton::BrunetonSkyProbeCapture_OutputRenderTarget_Hashcode, outputImage, outputImageTarget );
@@ -205,7 +201,6 @@ void AtmosphereRenderModule::renderSkyForProbeCapture( FrameGraph& frameGraph, I
             cmdList->bindImage( AtmosphereBruneton::BrunetonSkyProbeCapture_ScatteringTextureInput_Hashcode, scatteringLut );
             cmdList->bindImage( AtmosphereBruneton::BrunetonSkyProbeCapture_MieScatteringTextureInput_Hashcode, mieScatteringLut );
             
-            cmdList->bindConstantBuffer( PerViewBufferHashcode, viewBuffer );
             cmdList->bindConstantBuffer( PerPassBufferHashcode, passBuffer );
 
             cmdList->prepareAndBindResourceList();

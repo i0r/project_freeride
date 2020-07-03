@@ -16,9 +16,9 @@ class WorldRenderer;
 
 enum eProbeUpdateStep : u32
 {
-    PROBE_CAPTURE = 0,
+	PROBE_CAPTURE = 0,
+	PROBE_CONVOLUTION,
     PROBE_RELIGHT,
-    PROBE_CONVOLUTION,
     PROBE_UPDATE_COUNT,
 };
 
@@ -78,6 +78,10 @@ private:
 
     // Write index for distant probe update (to keep track of the ToD).
     i32                 distantProbeWriteIndex;
+
+    // Distant probe current mip being convoluted (if distantProbeUpdateStep
+    // is PROBE_CONVOLUTION).
+    i32                 distantProbeMipIndex;
 
     // Atlas of streamed environment probe.
     Image*              probeAtlas[PROBE_COMPONENT_COUNT];
