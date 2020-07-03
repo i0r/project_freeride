@@ -69,7 +69,7 @@ lib EditorGrid {
         float op_distance = (1.f - saturate(length(uv) / GridInfos.x));
         float op = op_gracing * op_distance;
 
-        c.a *= (lod2_a > 0 ? lod2_a : lod1_a > 0 ? lod1_a : (lod0_a * (1-lod_fade))); // * op;
+        c.a *= (lod2_a > 0 ? lod2_a : lod1_a > 0 ? lod1_a : (lod0_a * (1-lod_fade))) * op;
 
         $SV_Target0 = c;
     }

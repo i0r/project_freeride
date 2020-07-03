@@ -620,16 +620,16 @@ struct FramebufferLayoutDesc
     };
 
     enum BindMode {
-        UNUSED = 0,
+        UNUSED,
         WRITE_COLOR,
         WRITE_DEPTH,
         WRITE_SWAPCHAIN
     };
-
+    
     struct AttachmentDesc {
         BindMode     bindMode       : 16;
         InitialState targetState    : 16;
-        eViewFormat viewFormat     : 32;
+        eViewFormat  viewFormat     : 32;
 
         constexpr AttachmentDesc(
             const BindMode bindMode = UNUSED,

@@ -923,7 +923,7 @@ void BindImage_Replay( RenderContext* renderContext, Image* image, const u64 ima
     FlushSRVRegisterUpdate( renderContext );
 
     if ( resource->type == PipelineState::InternalResourceType::RESOURCE_TYPE_SHADER_RESOURCE_VIEW ) {
-        ID3D11ShaderResourceView* srv = image->SRVs[imageViewDesc];
+        ID3D11ShaderResourceView* srv = ( imageViewDesc == 0ull ) ? image->DefaultShaderResourceView : image->SRVs[imageViewDesc];
 
         for ( i32 i = 0; i < resource->activeStageCount; i++ ) {
             PipelineState::ResourceEntry::StageBinding& stageBinding = resource->activeBindings[i];
@@ -948,7 +948,7 @@ void BindImage_Replay( RenderContext* renderContext, Image* image, const u64 ima
             image->SRVRegisterIndex[stageBinding.ShaderStageIndex] = stageBinding.RegisterIndex;
         }
 	} else if ( resource->type == PipelineState::InternalResourceType::RESOURCE_TYPE_UNORDERED_ACCESS_VIEW ) {
-        ID3D11UnorderedAccessView* uav = image->UAVs[imageViewDesc];
+        ID3D11UnorderedAccessView* uav = ( imageViewDesc == 0ull ) ? image->DefaultUnorderedAccessView : image->UAVs[imageViewDesc];
 
         for ( i32 i = 0; i < resource->activeStageCount; i++ ) {
             PipelineState::ResourceEntry::StageBinding& stageBinding = resource->activeBindings[i];

@@ -188,6 +188,7 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
             // Clear render targets at the begining of the pass.
             constexpr f32 ClearValue[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
             Image* Framebuffer[2] = { outputTarget, velocityTarget };
+            FramebufferAttachment FramebufferAttachments[2] = { FramebufferAttachment( outputTarget ), FramebufferAttachment( velocityTarget ) };
             cmdList->clearRenderTargets( Framebuffer, 2u, ClearValue );
             cmdList->clearDepthStencil( zbufferTarget, 0.0f );
 
@@ -256,7 +257,7 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
                 }
 
                 // Re-setup the framebuffer (some permutations have a different framebuffer layout).
-                cmdList->setupFramebuffer( Framebuffer, zbufferTarget );
+                cmdList->setupFramebuffer( FramebufferAttachments, FramebufferAttachment( zbufferTarget ) );
                 cmdList->prepareAndBindResourceList();
 
                 const Buffer* bufferList[3] = { 

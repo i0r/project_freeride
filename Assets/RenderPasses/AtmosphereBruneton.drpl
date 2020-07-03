@@ -3,6 +3,7 @@ lib AtmosphereBruneton {
         cflag UseDepthComparison = true;
         cflag UseAutomaticExposure = true;
         cflag UseCustomViewport = false;
+        cflag RenderSunDisc = true;
         
         AtmosphereParameters AtmosphereParams;
         float3  	EarthCenter;
@@ -10,8 +11,6 @@ lib AtmosphereBruneton {
         float   	SunSizeY;
         float   	SunSizeX;
         float       SunExponant = 2400.0f;
-        cflag       RenderSunDisc = true;
-        cflag       UseAutomaticExposure = false;
         float3      SUN_SPECTRAL_RADIANCE_TO_LUMINANCE;
         float3      SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
         float3      WhitePoint;

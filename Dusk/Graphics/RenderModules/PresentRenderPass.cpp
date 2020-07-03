@@ -75,7 +75,8 @@ void AddPresentRenderPass( FrameGraph& frameGraph, ResHandle_t imageToPresent )
 
             cmdList->bindImage( BuiltIn::PresentPass_InputRenderTarget_Hashcode, inputTarget );
 
-            cmdList->setupFramebuffer( &outputTarget, nullptr );
+            FramebufferAttachment attachment( outputTarget );
+            cmdList->setupFramebuffer( &attachment );
             cmdList->prepareAndBindResourceList();
 
             cmdList->draw( 3, 1 );

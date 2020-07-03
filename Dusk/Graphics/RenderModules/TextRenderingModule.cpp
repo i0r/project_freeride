@@ -115,7 +115,8 @@ ResHandle_t TextRenderingModule::renderText( FrameGraph& frameGraph, ResHandle_t
             cmdList->bindVertexBuffer( vertexBuffer );
             cmdList->bindIndiceBuffer( glyphIndiceBuffer, true );
 
-            cmdList->setupFramebuffer( &outputTarget, nullptr );
+            FramebufferAttachment attachment( outputTarget );
+            cmdList->setupFramebuffer( &attachment );
             cmdList->drawIndexed( static_cast< u32 >( indiceCount ), 1u );
 
             cmdList->popEventMarker();

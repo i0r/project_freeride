@@ -14,7 +14,7 @@ class FrameGraph;
 class ShaderCache;
 class WorldRenderer;
 
-enum eProbeUpdateStep
+enum eProbeUpdateStep : u32
 {
     PROBE_CAPTURE = 0,
     PROBE_RELIGHT,
@@ -22,7 +22,7 @@ enum eProbeUpdateStep
     PROBE_UPDATE_COUNT,
 };
 
-enum eProbeUpdateFace
+enum eProbeUpdateFace : u32
 {
 	FACE_X_PLUS = 0,
 	FACE_X_MINUS,
@@ -52,6 +52,10 @@ public:
 
     void        addProbeRecapture( const u32 probeIndex );
 
+    void        createResources( RenderDevice* renderDevice );
+
+    void        destroyResources( RenderDevice* renderDevice );
+
 private:
     struct EnvironmentProbe {
         dkMat4x4f   InverseModelMatrix;
@@ -67,10 +71,10 @@ private:
     Image*              distantProbe[DISTANT_PROBE_BUFFER_COUNT][PROBE_COMPONENT_COUNT];
 
     // Distant probe current update step.
-    eProbeUpdateStep    distantProbeUpdateStep;
+    u32                 distantProbeUpdateStep;
 
     // Distant probe current face update (see distantProbeUpdateStep).
-    eProbeUpdateFace    distantProbeFace;
+    u32                 distantProbeFace;
 
     // Write index for distant probe update (to keep track of the ToD).
     i32                 distantProbeWriteIndex;

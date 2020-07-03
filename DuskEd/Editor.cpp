@@ -43,6 +43,7 @@
 #include "Graphics/LightGrid.h"
 #include "Graphics/RenderWorld.h"
 #include "Graphics/DrawCommandBuilder.h"
+#include "Graphics/EnvironmentProbeStreaming.h"
 
 #if DUSK_USE_RENDERDOC
 #include "Graphics/RenderDocHelper.h"
@@ -97,6 +98,7 @@ static RenderWorld* g_RenderWorld;
 static World* g_World;
 static DrawCommandBuilder* g_DrawCommandBuilder;
 static EntityEditor* g_EntityEditor;
+static EnvironmentProbeStreaming* g_EnvironmentProbeStreaming;
 
 static FreeCamera* g_FreeCamera;
 static MaterialEditor* g_MaterialEditor;
@@ -452,6 +454,9 @@ void InitializeRenderSubsystems()
 
     g_DrawCommandBuilder = dk::core::allocate<DrawCommandBuilder>( g_GlobalAllocator, g_GlobalAllocator );
 
+    g_EnvironmentProbeStreaming = dk::core::allocate<EnvironmentProbeStreaming>( g_GlobalAllocator );
+    g_EnvironmentProbeStreaming->createResources( g_RenderDevice );
+
     // TODO Retrieve pointer to camera instance from scene db
     g_FreeCamera = new FreeCamera();
     g_FreeCamera->setProjectionMatrix( DefaultCameraFov, static_cast< float >( ScreenSize.x ), static_cast< float >( ScreenSize.y ) );
@@ -462,6 +467,7 @@ void InitializeRenderSubsystems()
 }
 
 #if DUSK_USE_IMGUI
+// TODO Move this to an helper header
 static bool IsItemActiveLastFrame()
 {
     ImGuiContext& g = *GImGui;
@@ -799,8 +805,8 @@ void MainLoop()
 
                 g_IsMouseOverViewportWindow = ImGui::IsWindowHovered();
 
-                winSize.x -= 32;
-                winSize.y -= 32;
+                winSize.x -= 4;
+                winSize.y -= 4;
 
                 ImGui::Image( static_cast< ImTextureID >( frameGraph.getPresentRenderTarget() ), winSize );
 				if ( g_RightClickMenuOpened = ImGui::BeginPopupContextWindow( "Viewport Popup", 2 ) ) {
@@ -896,6 +902,8 @@ void MainLoop()
 
         g_WorldRenderer->AutomaticExposure->importResourcesToGraph( frameGraph );
 
+        g_EnvironmentProbeStreaming->updateProbeCapture( frameGraph, g_WorldRenderer );
+
         LightGrid::Data lightGridData = g_LightGrid->updateClusters( frameGraph );
 
         Material::RenderScenario scenario = ( g_MaterialEditor->isUsingInteractiveMode() ) ? Material::RenderScenario::Default_Editor : Material::RenderScenario::Default;
@@ -974,6 +982,7 @@ void Shutdown()
 
 	DUSK_LOG_INFO( "Releasing GPU resources...\n" );
 
+    g_EnvironmentProbeStreaming->destroyResources( g_RenderDevice );
     g_WorldRenderer->destroy( g_RenderDevice );
 
     DUSK_LOG_INFO( "Calling subsystems destructors...\n" );
@@ -995,7 +1004,8 @@ void Shutdown()
     dk::core::free( g_GlobalAllocator, g_EdAssetsFileSystem );
     dk::core::free( g_GlobalAllocator, g_RendererFileSystem );
 #endif
-
+    
+    dk::core::free( g_GlobalAllocator, g_EnvironmentProbeStreaming );
     dk::core::free( g_GlobalAllocator, g_WorldRenderer );
     dk::core::free( g_GlobalAllocator, g_GraphicsAssetCache );
     dk::core::free( g_GlobalAllocator, g_ShaderCache );

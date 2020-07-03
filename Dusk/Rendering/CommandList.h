@@ -89,6 +89,25 @@ enum eResourceState
     RESOURCE_STATE_INDEX_BUFFER,
 };
 
+struct FramebufferAttachment 
+{
+    // The image attachment to bind to the framebuffer.
+    Image*          ImageAttachment;
+
+    // The view used to bind the ImageAttachment. If the key is equal to zero, the default view will be used (the one
+    // provided at the creation of the Image).
+    ImageViewDesc   ViewDescription;
+
+    constexpr FramebufferAttachment( Image* attachment = nullptr, ImageViewDesc viewDesc = ImageViewDesc() )
+        : ImageAttachment( attachment )
+        , ViewDescription( viewDesc )
+    {
+
+    }
+};
+
+static constexpr FramebufferAttachment NO_ATTACHMENT = FramebufferAttachment( nullptr );
+
 static constexpr u32 QUERY_START_AT_RETRIEVAL_MARK = 0xffffffff;
 static constexpr u32 QUERY_COUNT_WHOLE_POOL = 0xffffffff;
 static constexpr u32 BUFFER_MAP_WHOLE_MEMORY = 0;
@@ -133,7 +152,7 @@ public:
     void                            bindVertexBuffer( const Buffer** buffers, const u32 bufferCount = 1, const u32 startBindIndex = 0 );
     void                            bindIndiceBuffer( const Buffer* buffer, const bool use32bitsIndices = false );
 
-    void                            setupFramebuffer( Image** renderTargetViews, Image* depthStencilView = nullptr );
+    void                            setupFramebuffer( FramebufferAttachment* renderTargetViews, FramebufferAttachment depthStencilView = NO_ATTACHMENT );
     void                            clearRenderTargets( Image** renderTargetViews, const u32 renderTargetCount, const f32 clearValues[4] );
     void                            clearDepthStencil( Image* depthStencilView, const f32 clearValue, const bool clearStencil = false, const u8 clearStencilValue = 0xff );
 

@@ -98,12 +98,54 @@ void EnvironmentProbeStreaming::addProbeRecapture( const u32 probeIndex )
 
 }
 
+void EnvironmentProbeStreaming::createResources( RenderDevice* renderDevice )
+{
+	ImageDesc cubemapDesc;
+    cubemapDesc.width = PROBE_FACE_SIZE;
+    cubemapDesc.height = PROBE_FACE_SIZE;
+    cubemapDesc.depth = 1;
+    cubemapDesc.arraySize = 6;
+    cubemapDesc.mipCount = 6;
+    cubemapDesc.bindFlags = RESOURCE_BIND_UNORDERED_ACCESS_VIEW | RESOURCE_BIND_RENDER_TARGET_VIEW | RESOURCE_BIND_SHADER_RESOURCE;
+	cubemapDesc.dimension = ImageDesc::DIMENSION_2D;
+	cubemapDesc.miscFlags = ImageDesc::IS_CUBE_MAP;
+    cubemapDesc.usage = RESOURCE_USAGE_DEFAULT;
+    cubemapDesc.format = VIEW_FORMAT_R16G16B16A16_FLOAT;
+
+    for ( i32 i = 0; i < DISTANT_PROBE_BUFFER_COUNT; i++ ) {
+		for ( i32 j = 0; j < PROBE_COMPONENT_COUNT; j++ ) {
+			distantProbe[i][j] = renderDevice->createImage( cubemapDesc );
+		}
+
+		// Create view for each face to capture
+        ImageViewDesc viewDesc;
+        viewDesc.MipCount = 1;
+        viewDesc.ImageCount = 1;
+
+        for ( i32 faceIdx = 0; faceIdx < 6; faceIdx++ ) {
+            viewDesc.StartImageIndex = faceIdx;
+            viewDesc.StartMipIndex = 0;
+
+			renderDevice->createImageView( *distantProbe[i][0], viewDesc, IMAGE_VIEW_CREATE_UAV | IMAGE_VIEW_CREATE_SRV );
+        }
+	}
+}
+
+void EnvironmentProbeStreaming::destroyResources( RenderDevice* renderDevice )
+{
+	for ( i32 i = 0; i < DISTANT_PROBE_BUFFER_COUNT; i++ ) {
+		for ( i32 j = 0; j < PROBE_COMPONENT_COUNT; j++ ) {
+			renderDevice->destroyImage( distantProbe[i][j] );
+		}
+	}
+}
+
 void EnvironmentProbeStreaming::updateDistantProbe( FrameGraph& frameGraph, WorldRenderer* worldRenderer )
 {
 	switch ( distantProbeUpdateStep ) {
 	case PROBE_CAPTURE:
 	{
-		dkMat4x4f viewMatrix = GetProbeCaptureViewMatrix( dkVec3f::Zero, distantProbeFace );
+		dkMat4x4f viewMatrix = GetProbeCaptureViewMatrix( dkVec3f::Zero, static_cast<eProbeUpdateFace>( distantProbeFace ) );
 
 		CameraData cameraData;
 		cameraData.viewportSize = dkVec2f( PROBE_FACE_SIZE, PROBE_FACE_SIZE );
@@ -119,11 +161,20 @@ void EnvironmentProbeStreaming::updateDistantProbe( FrameGraph& frameGraph, Worl
         viewDesc.MipCount = 1;
 		viewDesc.ImageCount = 1;
 
-		worldRenderer->AtmosphereRendering->renderSkyForProbeCapture( frameGraph, distantProbe[distantProbeWriteIndex][0], viewDesc, cameraData );
+		//worldRenderer->AtmosphereRendering->renderSkyForProbeCapture( frameGraph, distantProbe[distantProbeWriteIndex][0], viewDesc, cameraData );
 	} break;
 	case PROBE_CONVOLUTION:
 	{
 
 	} break;
+	}
+
+	if ( ++distantProbeFace == FACE_COUNT ) {
+		distantProbeFace = FACE_X_PLUS;
+
+		if ( ++distantProbeUpdateStep == PROBE_CONVOLUTION ) {
+			distantProbeUpdateStep = PROBE_CAPTURE;
+			distantProbeWriteIndex = ( ( distantProbeWriteIndex + 1 ) % 2 );
+		}
 	}
 }

@@ -84,9 +84,9 @@ namespace CommandPacket
 
     struct SetupFramebuffer
     {
-        u32                     Identifier;
-        Image*                  RenderTargetView[8];
-        Image*                  DepthStencilView;
+        u32                                    Identifier;
+        FramebufferAttachment                  RenderTargetView[8];
+        FramebufferAttachment                  DepthStencilView;
     };
 
     struct BindPipelineState

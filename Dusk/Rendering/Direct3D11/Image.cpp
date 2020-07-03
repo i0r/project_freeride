@@ -344,7 +344,7 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
     ID3D11Device* device = renderContext->PhysicalDevice;
 
     UINT bindFlags = GetNativeBindFlags( description.bindFlags );
-    UINT miscFlags = GetMiscFlags( description.bindFlags );
+    UINT miscFlags = GetMiscFlags( description.bindFlags, description.miscFlags );
     UINT cpuFlags = GetCPUUsageFlags( description.usage );
     D3D11_USAGE usage = GetNativeUsage( description.usage );
 
@@ -421,25 +421,27 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
         image->SRVs[defaultViewDesc.SortKey] = image->DefaultShaderResourceView;
     }
 
-    // Create default UAV
-    if ( description.bindFlags & RESOURCE_BIND_UNORDERED_ACCESS_VIEW ) {
-        image->DefaultUnorderedAccessView = CreateImageUnorderedAccessView( renderContext->PhysicalDevice, *image, defaultViewDesc );
+    if ( !( description.miscFlags & ImageDesc::IS_CUBE_MAP ) ) {
+        // Create default UAV
+        if ( description.bindFlags & RESOURCE_BIND_UNORDERED_ACCESS_VIEW ) {
+            image->DefaultUnorderedAccessView = CreateImageUnorderedAccessView( renderContext->PhysicalDevice, *image, defaultViewDesc );
 
-		image->UAVs[defaultViewDesc.SortKey] = image->DefaultUnorderedAccessView;
-    }
+            image->UAVs[defaultViewDesc.SortKey] = image->DefaultUnorderedAccessView;
+        }
 
-    // Create default RTV
-    if ( description.bindFlags & RESOURCE_BIND_RENDER_TARGET_VIEW ) {
-        image->DefaultRenderTargetView = CreateImageRenderTargetView( renderContext->PhysicalDevice, *image, defaultViewDesc );
+        // Create default RTV
+        if ( description.bindFlags & RESOURCE_BIND_RENDER_TARGET_VIEW ) {
+            image->DefaultRenderTargetView = CreateImageRenderTargetView( renderContext->PhysicalDevice, *image, defaultViewDesc );
 
-		image->RTVs[defaultViewDesc.SortKey].RenderTargetView = image->DefaultRenderTargetView;
-    }
+            image->RTVs[defaultViewDesc.SortKey].RenderTargetView = image->DefaultRenderTargetView;
+        }
 
-    // Create default DSV
-    if ( description.bindFlags & RESOURCE_BIND_DEPTH_STENCIL ) {
-        image->DefaultDepthStencilView = CreateImageDepthStencilView( renderContext->PhysicalDevice, *image, defaultViewDesc );
+        // Create default DSV
+        if ( description.bindFlags & RESOURCE_BIND_DEPTH_STENCIL ) {
+            image->DefaultDepthStencilView = CreateImageDepthStencilView( renderContext->PhysicalDevice, *image, defaultViewDesc );
 
-		image->RTVs[defaultViewDesc.SortKey].DepthStencilView = image->DefaultDepthStencilView;
+            image->RTVs[defaultViewDesc.SortKey].DepthStencilView = image->DefaultDepthStencilView;
+        }
     }
 
     return image;
@@ -544,14 +546,14 @@ void CommandList::insertComputeBarrier( Image& image )
 
 }
 
-void CommandList::setupFramebuffer( Image** renderTargetViews, Image* depthStencilView )
+void CommandList::setupFramebuffer( FramebufferAttachment* renderTargetViews, FramebufferAttachment depthStencilView )
 {
     CommandPacket::SetupFramebuffer* commandPacket = dk::core::allocate<CommandPacket::SetupFramebuffer>( nativeCommandList->CommandPacketAllocator );
     memset( commandPacket, 0, sizeof( CommandPacket::SetupFramebuffer ) );
 
     commandPacket->Identifier = CPI_SETUP_FRAMEBUFFER;
 
-    memcpy( commandPacket->RenderTargetView, renderTargetViews, sizeof( Image* ) * nativeCommandList->BindedPipelineState->rtvCount );
+    memcpy( commandPacket->RenderTargetView, renderTargetViews, sizeof( FramebufferAttachment ) * nativeCommandList->BindedPipelineState->rtvCount );
     commandPacket->DepthStencilView = depthStencilView;
 
     nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
@@ -585,7 +587,7 @@ void CommandList::clearDepthStencil( Image* depthStencilView, const f32 clearVal
     nativeCommandList->Commands.push( reinterpret_cast< u32* >( commandPacket ) );
 }
 
-void SetupFramebuffer_Replay( RenderContext* renderContext, Image** renderTargetViews, Image* depthStencilView )
+void SetupFramebuffer_Replay( RenderContext* renderContext, FramebufferAttachment* renderTargetViews, FramebufferAttachment depthStencilView )
 {
     ID3D11RenderTargetView* RenderTargets[8] = { nullptr };
     ID3D11DepthStencilView* DepthStencilView = nullptr;
@@ -595,11 +597,13 @@ void SetupFramebuffer_Replay( RenderContext* renderContext, Image** renderTarget
         renderContext->FramebufferDepthBuffer = nullptr;
     }
 
-    if ( depthStencilView != nullptr ) {
-        DepthStencilView = depthStencilView->DefaultDepthStencilView;
+    Image* dsvImage = depthStencilView.ImageAttachment;
+    if ( dsvImage != nullptr ) {
+        const u64 viewKey = depthStencilView.ViewDescription.SortKey;
+        DepthStencilView = ( viewKey != 0ull ) ? dsvImage->RTVs[viewKey].DepthStencilView : dsvImage->DefaultDepthStencilView;
 
-        depthStencilView->IsBindedToFBO = true;
-        renderContext->FramebufferDepthBuffer = depthStencilView;
+        dsvImage->IsBindedToFBO = true;
+        renderContext->FramebufferDepthBuffer = dsvImage;
     }
 
     const PipelineState* bindedPipelineState = renderContext->BindedPipelineState;
@@ -612,11 +616,13 @@ void SetupFramebuffer_Replay( RenderContext* renderContext, Image** renderTarget
 
     i32 attachmentIdx = 0;
     for ( ; attachmentIdx < rtvCount; attachmentIdx++ ) {
-        if ( ClearImageUAVRegister( renderContext, renderTargetViews[attachmentIdx] ) ) {
+        Image* rtvImage = renderTargetViews[attachmentIdx].ImageAttachment;
+
+        if ( ClearImageUAVRegister( renderContext, rtvImage ) ) {
             needUavFlush = true;
         }
 
-        if ( ClearImageSRVRegister( renderContext, renderTargetViews[attachmentIdx] ) ) {
+        if ( ClearImageSRVRegister( renderContext, rtvImage ) ) {
             needSrvFlush = true;
         }
 
@@ -625,10 +631,11 @@ void SetupFramebuffer_Replay( RenderContext* renderContext, Image** renderTarget
             renderContext->FramebufferAttachment[attachmentIdx]->IsBindedToFBO = false;
         }
 
-        renderContext->FramebufferAttachment[attachmentIdx] = renderTargetViews[attachmentIdx];
+        renderContext->FramebufferAttachment[attachmentIdx] = rtvImage;
         renderContext->FramebufferAttachment[attachmentIdx]->IsBindedToFBO = true;
 
-        RenderTargets[attachmentIdx] = renderTargetViews[attachmentIdx]->DefaultRenderTargetView;
+        const u64 viewKey = renderTargetViews[attachmentIdx].ViewDescription.SortKey;
+        RenderTargets[attachmentIdx] = ( viewKey != 0ull ) ? rtvImage->RTVs[viewKey].RenderTargetView : rtvImage->DefaultRenderTargetView;
 
         if ( bindedPipelineState->clearRtv[attachmentIdx] ) {
             immediateCtx->ClearRenderTargetView( RenderTargets[attachmentIdx], bindedPipelineState->colorClearValue );

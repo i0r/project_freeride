@@ -169,7 +169,8 @@ ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_
             cmdList->bindImage( dkImGui::ImGui_FontAtlasTexture_Hashcode, fontAtlas );
             cmdList->prepareAndBindResourceList();
 
-            cmdList->setupFramebuffer( &outputTarget, nullptr );
+            FramebufferAttachment output( outputTarget );
+            cmdList->setupFramebuffer( &output );
 
             cmdList->updateBuffer( *parametersBuffer, &dkImGui::ImGuiProperties, sizeof( dkImGui::ImGuiRuntimeProperties ) );
 

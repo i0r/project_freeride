@@ -104,7 +104,9 @@ FFTPassOutput AddFFTComputePass( FrameGraph& frameGraph, ResHandle_t input, f32 
                 cmdList->bindImage( BuiltIn::CopyImagePass_InputRenderTarget_Hashcode, input );
 
                 cmdList->prepareAndBindResourceList();
-                cmdList->setupFramebuffer( &output );
+
+                FramebufferAttachment fboAttachment( output );
+                cmdList->setupFramebuffer( &fboAttachment );
 
                 cmdList->draw( 3, 1 );
 
@@ -402,7 +404,9 @@ ResHandle_t AddInverseFFTComputePass( FrameGraph& frameGraph, FFTPassOutput& inp
                 cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
 
                 cmdList->prepareAndBindResourceList();
-                cmdList->setupFramebuffer( &output );
+
+                FramebufferAttachment fboAttachment( output );
+                cmdList->setupFramebuffer( &fboAttachment );
 
                 cmdList->draw( 4, 1 );
 

@@ -310,9 +310,10 @@ ResolvedPassOutput AddSSAAResolveRenderPass( FrameGraph& frameGraph, ResolvedPas
 			cmdList->bindImage( AntiAliasing::ResolveSSAA_ResolvedTargetInput_Hashcode, input );
 			cmdList->bindImage( AntiAliasing::ResolveSSAA_ResolvedDepthTargetInput_Hashcode, inputDepth );
 
-			cmdList->prepareAndBindResourceList();
-			Image* Framebuffer[2] = { output, outputDepth };
-			cmdList->setupFramebuffer( Framebuffer );
+            cmdList->prepareAndBindResourceList();
+
+            FramebufferAttachment fboAttachments[2] = { FramebufferAttachment( output ), FramebufferAttachment( outputDepth ) };
+			cmdList->setupFramebuffer( fboAttachments );
 
             cmdList->draw( 3, 1 );
 

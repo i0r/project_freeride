@@ -88,7 +88,8 @@ ResHandle_t LineRenderingModule::renderLines( FrameGraph& frameGraph, ResHandle_
 
         cmdList->prepareAndBindResourceList();
 
-        cmdList->setupFramebuffer( &outputTarget, nullptr );
+        FramebufferAttachment fboAttachment( outputTarget );
+        cmdList->setupFramebuffer( &fboAttachment );
 
         cmdList->draw( 6u, lineCount );
 

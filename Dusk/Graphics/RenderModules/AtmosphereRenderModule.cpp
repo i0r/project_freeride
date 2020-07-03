@@ -78,6 +78,8 @@ ResHandle_t AtmosphereRenderModule::renderSky( FrameGraph& frameGraph, ResHandle
     PassData& passData = frameGraph.addRenderPass<PassData>(
         AtmosphereBruneton::BrunetonSky_Name,
         [&]( FrameGraphBuilder& builder, PassData& passData ) {
+            builder.useAsyncCompute();
+
             passData.Output = builder.readImage( renderTarget );
             passData.DepthBuffer = builder.readImage( depthBuffer );
             passData.AutoExposureBuffer = builder.retrievePersistentBuffer( DUSK_STRING_HASH( "AutoExposure/ReadBuffer" ) );
@@ -156,6 +158,9 @@ void AtmosphereRenderModule::renderSkyForProbeCapture( FrameGraph& frameGraph, I
     PassData& passData = frameGraph.addRenderPass<PassData>(
         AtmosphereBruneton::BrunetonSkyProbeCapture_Name,
         [&]( FrameGraphBuilder& builder, PassData& passData ) {
+            builder.setUncullablePass();
+            builder.useAsyncCompute();
+
             BufferDesc perPassBufferDesc;
             perPassBufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
             perPassBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;

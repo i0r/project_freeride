@@ -71,7 +71,8 @@ ResHandle_t EditorGridModule::addEditorGridPass( FrameGraph& frameGraph, ResHand
             cmdList->setViewport( *resources->getMainViewport() );
             cmdList->setScissor( *resources->getMainScissorRegion() );
 
-            cmdList->setupFramebuffer( &outputTarget, nullptr );
+            FramebufferAttachment output( outputTarget );
+            cmdList->setupFramebuffer( &output );
 
             EditorGrid::RenderGridRuntimeProperties properties;
             properties.GridInfos = dkVec4f( 4096.0f, 2.0f, 0.0f, 0.0f );

@@ -880,7 +880,9 @@ DUSK_INLINE void AddCopyImagePass( FrameGraph& frameGraph, ResHandle_t inputRend
             cmdList->bindImage( BuiltIn::CopyImagePass_InputRenderTarget_Hashcode, input );
 
             cmdList->prepareAndBindResourceList();
-            cmdList->setupFramebuffer( &output );
+
+            FramebufferAttachment fboAttachment( output );
+            cmdList->setupFramebuffer( &fboAttachment );
 
             cmdList->draw( 3, 1 );
 
