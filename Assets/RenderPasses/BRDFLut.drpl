@@ -23,10 +23,6 @@ lib BrdfLut {
             swizzle = float4;
         }
         
-        sampler BilinearSampler {
-            format = BilinearClampEdge;
-        }
-        
         sampler TrilinearSampler {
             format = TrilinearClampEdge;
         }        
@@ -213,7 +209,7 @@ lib BrdfLut {
                 importanceSampleCosDir( eta, N, L, NdotL, pdf );
 
                 if ( NdotL > 0 ) {
-                    accBrdf += EnvironmentCube.SampleLevel( BilinearSampler, L, 0 ).rgb;
+                    accBrdf += EnvironmentCube.SampleLevel( TrilinearSampler, L, 0 ).rgb;
                 }
             }
 
