@@ -7,7 +7,6 @@
 #if DUSK_DEVBUILD
 #if DUSK_USE_IMGUI
 class RenderDevice;
-class ShaderCache;
 class GraphicsAssetCache;
 class FrameGraph;
 class CommandList;
@@ -31,7 +30,7 @@ public:
                                     ImGuiRenderModule& operator = ( ImGuiRenderModule& ) = delete;
                                     ~ImGuiRenderModule();
 
-    void                            loadCachedResources( RenderDevice& renderDevice, ShaderCache& shaderCache, GraphicsAssetCache& graphicsAssetCache );
+    void                            loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache );
     void                            destroy( RenderDevice& renderDevice );
 
     ResHandle_t                     render( FrameGraph& frameGraph, MutableResHandle_t renderTarget );

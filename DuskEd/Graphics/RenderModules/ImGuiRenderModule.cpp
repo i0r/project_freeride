@@ -45,7 +45,7 @@ ImGuiRenderModule::~ImGuiRenderModule()
 
 }
 
-void ImGuiRenderModule::loadCachedResources( RenderDevice& renderDevice, ShaderCache& shaderCache, GraphicsAssetCache& graphicsAssetCache )
+void ImGuiRenderModule::loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache )
 {
     ImGuiIO& io = ImGui::GetIO();
     io.BackendRendererName = "Dusk::ImGuiRenderModule";
