@@ -129,6 +129,9 @@ WorldRenderer::~WorldRenderer()
 
 void WorldRenderer::destroy( RenderDevice* renderDevice )
 {
+    // Wait for FrameGraph completion.
+    frameGraph->waitPendingFrameCompletion();
+
     primitiveCache->destroy( renderDevice );
     frameGraph->destroy( renderDevice );
 
