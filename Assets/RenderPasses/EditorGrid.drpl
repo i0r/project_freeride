@@ -64,7 +64,7 @@ lib EditorGrid {
 
         float4 c = lod2_a > 0 ? ThickLineColor : lod1_a > 0 ? lerp(ThickLineColor, ThinLineColor, lod_fade) : ThinLineColor;
 
-        float3 view_dir = normalize(g_ViewDirection);
+        float3 view_dir = normalize(float3( uv.x, 0, uv.y ) - g_WorldPosition);
         float op_gracing = 1.f - pow(1.f - abs(dot(view_dir, float3(0,1,0))), 16);
         float op_distance = (1.f - saturate(length(uv) / GridInfos.x));
         float op = op_gracing * op_distance;
