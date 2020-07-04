@@ -30,9 +30,11 @@
 #define MAX_GLOBAL_IBL_PROBE_COUNT          1
 
 #define MAX_IBL_PROBE_COUNT                 ( MAX_LOCAL_IBL_PROBE_COUNT + MAX_GLOBAL_IBL_PROBE_COUNT )
-#define IBL_PROBE_DIMENSION                 256
 
 #define LINE_RENDERING_MAX_LINE_COUNT       256
+
+#define BRDF_LUT_SIZE 256
+#define PROBE_FACE_SIZE 256
 
 struct LineInfos 
 {
@@ -145,7 +147,4 @@ struct IBLProbeGPU
     float4x4  InverseModelMatrix;
 };
 DUSK_IS_MEMORY_ALIGNED_STATIC( IBLProbeGPU, 16 );
-
-#define BRDF_LUT_SIZE 512
-#define PROBE_FACE_SIZE 256
 #endif

@@ -30,6 +30,7 @@ static constexpr size_t MAX_VECTOR_PER_INSTANCE = 1024;
 
 static constexpr dkStringHash_t InstanceVectorBufferHashcode = DUSK_STRING_HASH( "InstanceVectorBuffer" );
 static constexpr dkStringHash_t PickingBufferHashcode = DUSK_STRING_HASH( "PickingBuffer" );
+static constexpr dkStringHash_t BrdfDfgLUTHascode = DUSK_STRING_HASH( "BrdfDfgLut" );
 
 WorldRenderModule::WorldRenderModule()
     : pickingBuffer( nullptr )
@@ -37,6 +38,7 @@ WorldRenderModule::WorldRenderModule()
     , pickingFrameIndex( ~0 )
     , pickedEntityId( Entity::INVALID_ID )
     , isResultAvailable( false )
+    , brdfDfgLut( nullptr )
 {
 
 }
@@ -248,6 +250,8 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
                 cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
                 cmdList->bindConstantBuffer( PerWorldBufferHashcode, perWorldBuffer );
 
+                cmdList->bindImage( BrdfDfgLUTHascode, brdfDfgLut );
+
                 if ( isInMaterialEdition ) {
                     cmdList->bindConstantBuffer( MaterialEditorBufferHashcode, materialEdBuffer );
                 }
@@ -307,4 +311,9 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
     output.OutputVelocityTarget = data.velocityBuffer;
 
     return output;
+}
+
+void WorldRenderModule::setDefaultBrdfDfgLut( Image* brdfDfgLut )
+{
+    this->brdfDfgLut = brdfDfgLut;
 }

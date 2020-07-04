@@ -32,6 +32,18 @@ lib PrimitiveLighting {
             format = uint;
         }
         
+        Texture2D BrdfDfgLut {
+            swizzle = float2;
+        }
+        
+        TextureCube IBLDiffuse {
+            swizzle = float4;
+        }
+        
+        TextureCube IBLSpecular {
+            swizzle = float4;
+        }
+        
         // Injected at Material compile-time. DO NOT REMOVE.
         DUSK_LAYERS_RESOURCES;
     }

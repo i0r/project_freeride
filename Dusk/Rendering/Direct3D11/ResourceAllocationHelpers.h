@@ -159,9 +159,9 @@ static ID3D11ShaderResourceView* CreateImageShaderResourceView( ID3D11Device* de
             } else {
                 shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DMS;
             }
-        } else if ( isCubemap && imgCount == 0 ) {
+        } else if ( isCubemap && viewDesc.ImageCount == 0 ) {
             // TEXTURECUBE
-            if ( isArrayView ) {
+            if ( isArrayView && image.Description.depth > 1 ) {
                 shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBEARRAY;
 
                 shaderResourceViewDesc.TextureCubeArray.MipLevels = mipCount;
@@ -239,7 +239,7 @@ static ID3D11UnorderedAccessView* CreateImageUnorderedAccessView( ID3D11Device* 
         const bool isMultisampled = ( image.Description.samplerCount > 1 );
         const bool isCubemap = ( image.Description.miscFlags & ImageDesc::IS_CUBE_MAP );
 
-        if ( isMultisampled || ( isCubemap && imgCount == 0 ) ) {
+        if ( isMultisampled || ( isCubemap && viewDesc.ImageCount == 0 ) ) {
             DUSK_LOG_ERROR( "Failed to create UAV: the image provided is not suitable for UAV creation (IsMultisampled: %i == 1 or IsCubemap: %i == 1)", isMultisampled, isCubemap );
             break;
         }

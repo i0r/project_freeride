@@ -4,6 +4,7 @@ lib BrdfLut {
         cint    MipCount = 6;
         float   Roughness;
         float   Width;
+        uint    CubeFace;
     }
     
     resources {
@@ -103,11 +104,12 @@ lib BrdfLut {
             return ggx1 * ggx2;
         }
     
-        float3 ThreadIDToDir(uint3 cubeCoord, float2 cubemapSize)
+        float3 ThreadIDToDir(uint2 cubeCoord, uint cubeFace, float2 cubemapSize)
         {
-            float2 texCoord = float2( cubeCoord.xy ) / cubemapSize;
+            float2 texCoord = float2( cubeCoord ) / cubemapSize;
             texCoord = texCoord * 2.0f - 1.0f;
-            switch(cubeCoord.z)
+
+            switch(cubeFace)
             {
               case (0): return float3(1.0f, -texCoord.yx);
               case (1): return float3(-1.0f, -texCoord.y, texCoord.x);
@@ -248,61 +250,108 @@ lib BrdfLut {
 
             return float4( accBrdf * ( 1.0f / accBrdfWeight ), 1.0f );
         }
+        
+        // Based on Karis 2014
+        float3 importanceSampleGGX(float2 Xi, float roughness, float3 N)
+        {
+            float a = roughness * roughness;
+            
+            // Sample in spherical coordinates
+            float phi = 2.0 * PI * Xi.x;
+            float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a * a - 1.0) * Xi.y));
+            float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+            
+            // Construct tangent space vector
+            float3 H = float3(
+                sinTheta * cos(phi),
+                sinTheta * sin(phi),
+                cosTheta
+            );
+            
+            // Tangent to world space
+            float3 upVector = abs(N.z) < 0.999 ? float3(0.0, 0.0, 1.0) : float3(1.0, 0.0, 0.0);
+            float3 tangentX = normalize(cross(upVector, N));
+            float3 tangentY = normalize(cross(N, tangentX));
+            
+            // Convert to world Space
+            return normalize(tangentX * H.x + tangentY * H.y + N * H.z);
+        }
+        
+        // From the filament docs. Geometric Shadowing function
+        // https://google.github.io/filament/Filament.html#toc4.4.2
+        float V_SmithGGXCorrelated(float NoV, float NoL, float roughness) {
+            float a2 = pow(roughness, 4.0);
+            float GGXV = NoL * sqrt(NoV * NoV * (1.0 - a2) + a2);
+            float GGXL = NoV * sqrt(NoL * NoL * (1.0 - a2) + a2);
+            return ( 0.5f / (GGXV + GGXL));
+        }
+        
+        // Karis 2014
+        float2 IntegrateBRDF(float roughness, float NoV)
+        {
+            float3 V;
+            V.x = sqrt(1.0 - NoV * NoV); // sin
+            V.y = 0.0;
+            V.z = NoV; // cos
+
+            // N points straight upwards for this integration
+            const float3 N = float3(0.0, 0.0, 1.0);
+
+            float A = 0.0;
+            float B = 0.0;
+            const uint numSamples = 1024;
+
+            for (uint i = 0u; i < numSamples; i++) {
+                float2 Xi = Hammersley(i, numSamples);
+                // Sample microfacet direction
+                float3 H = importanceSampleGGX(Xi, roughness, N);
+
+                // Get the light direction
+                float3 L = 2.0 * dot(V, H) * H - V;
+
+                float NoL = saturate(dot(N, L));
+                float NoH = saturate(dot(N, H));
+                float VoH = saturate(dot(V, H));
+
+                if (NoL > 0.0) {
+                    // Terms besides V are from the GGX PDF we're dividing by
+                    float V_pdf = V_SmithGGXCorrelated(NoV, NoL, roughness) * VoH * NoL / NoH;
+                    float Fc = pow(1.0 - VoH, 5.0);
+                    A += (1.0 - Fc) * V_pdf;
+                    B += Fc * V_pdf;
+                }
+            }
+
+            return ( 4.0 * float2(A, B) / float(numSamples) );
+        }
     }
     
     shader MSLutPrecompute {
         uint2 texelPos = $SV_DispatchThreadID.xy;
         
-        float2 uvCoords = float2( texelPos ) + float2( 0.5f, 0.5f );
-        float NoV = uvCoords.x / float(BRDF_LUT_SIZE);
-        float roughness = uvCoords.y / float(BRDF_LUT_SIZE);
+        float2 uvCoords = ( float2( texelPos ) + 0.5f ) / float(BRDF_LUT_SIZE);
+        float NoV = uvCoords.x;
+        float roughness = max(0.045f, uvCoords.y );
         
-        float3 V;
-        V.x = sqrt(1.0 - NoV * NoV);
-        V.y = 0.0;
-        V.z = NoV;
-
-        float A = 0.0;
-        float B = 0.0;
-
-        float3 N = float3(0.0, 0.0, 1.0);     
-        for (uint i = 0u; i < $SAMPLE_COUNT; ++i) {
-            // generates a sample vector that's biased towards the
-            // preferred alignment direction (importance sampling).
-            float2 Xi = Hammersley(i, $SAMPLE_COUNT);
-            float3 H = ImportanceSampleGGX(Xi, N, roughness);
-            float3 L = normalize(2.0 * dot(V, H) * H - V);
-
-            float NdotL = max(L.z, 0.0);
-            float NdotH = max(H.z, 0.0);
-            float VdotH = max(dot(V, H), 0.0);
-
-            if (NdotL > 0.0) {
-                float G = GeometrySmith(N, V, L, roughness);
-                float G_Vis = (G * VdotH) / (NdotH * NoV);
-                float Fc = pow(1.0 - VdotH, 5.0);
-
-                A += (1.0 - Fc) * G_Vis;
-                B += Fc * G_Vis;
-            }
-        }
-        
-        A /= float($SAMPLE_COUNT);
-        B /= float($SAMPLE_COUNT);
-        
-        ComputedLUT[texelPos] = float2(A, B);
+        float2 result = IntegrateBRDF(roughness, NoV);
+        ComputedLUT[texelPos] = result;
     }
     
-    shader ConvoluteCubeFace {
-        uint3 texelPos = $SV_DispatchThreadID.xyz;
-        float3 dir = ThreadIDToDir( texelPos, float2( Width, Width ) );
+    shader ConvoluteCubeFaceCS {
+        uint2 texelPos = $SV_DispatchThreadID.xy;
+        float3 dir = ThreadIDToDir( texelPos, CubeFace, float2( Width, Width ) );
         
-        IBLDiffuseOutput[texelPos] = IntegrateDiffuseCube( dir );
-        IBLSpecularOutput[texelPos] = IntegrateCubeLDOnly( dir, dir, Roughness );
+        IBLDiffuseOutput[texelPos.xy] = IntegrateDiffuseCube( dir );
+        IBLSpecularOutput[texelPos.xy] = IntegrateCubeLDOnly( dir, dir, Roughness );
     }
     
     pass ComputeBRDFLut {
         compute       = MSLutPrecompute;       
+        dispatch      = { 16, 16, 1 };
+    }    
+    
+    pass ConvoluteCubeFace {
+        compute       = ConvoluteCubeFaceCS;       
         dispatch      = { 16, 16, 1 };
     }
 }

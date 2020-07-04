@@ -15,6 +15,9 @@ using ResHandle_t = u32;
 class IBLUtilitiesModule 
 {
 public:
+    DUSK_INLINE Image*          getBrdfDfgLut() const { return brdfDfgLUT; }
+
+public:
                                 IBLUtilitiesModule();
                                 IBLUtilitiesModule( IBLUtilitiesModule& ) = delete;
                                 IBLUtilitiesModule& operator = ( IBLUtilitiesModule& ) = delete;

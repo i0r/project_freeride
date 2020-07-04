@@ -285,10 +285,12 @@ lib AtmosphereBruneton {
 
         float4 color = float4( pow(float3(1,1,1) - exp(-radiance / WhitePoint * exposure), 1.0 / 2.2), 1 );
         
+#ifdef $RenderSunDisc
         float cosTheta = saturate( dot( viewDirection, SunDirection ) );
         float sunGradient = pow( cosTheta, SunExponant );
         color.rgb = lerp( color.rgb, transmittance * GetSolarRadiance() * 0.002f, sunGradient );
-    
+#endif
+
         OutputRenderTarget[$SV_DispatchThreadId.xy] = color;  
     }
     
@@ -298,6 +300,7 @@ lib AtmosphereBruneton {
         UseAutomaticExposure = true;
         UseCustomViewport = false;
         UseDepthComparison = true;
+        RenderSunDisc = true;
     }
     
     pass BrunetonSkyProbeCapture {
@@ -306,5 +309,6 @@ lib AtmosphereBruneton {
         UseAutomaticExposure = false;
         UseCustomViewport = true;
         UseDepthComparison = false;
+        RenderSunDisc = false;
     }
 }

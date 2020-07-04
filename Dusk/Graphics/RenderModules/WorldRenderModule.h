@@ -42,6 +42,8 @@ public:
 
 	LightPassOutput     addPrimitiveLightPass( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, Material::RenderScenario scenario );
 
+	void				setDefaultBrdfDfgLut( Image* brdfDfgLut );
+
 private:
 	// Buffer used to store picking infos on the GPU.
 	Buffer*				pickingBuffer;
@@ -57,4 +59,8 @@ private:
 
 	// True if result readback is available; false otherwise.
 	bool				isResultAvailable;
+
+	// Default BRDF DFG LUT. Not really a great design (especially if we want to support multiple BRDF later) so it'll
+	// most likely be refactored in the future.
+	Image*				brdfDfgLut;
 };

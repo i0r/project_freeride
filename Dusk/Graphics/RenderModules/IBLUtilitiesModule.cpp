@@ -38,7 +38,7 @@ void IBLUtilitiesModule::loadCachedResources( RenderDevice& renderDevice, Graphi
 {
     ImageDesc brdfLUTDesc;
     brdfLUTDesc.dimension = ImageDesc::DIMENSION_2D;
-    brdfLUTDesc.format = eViewFormat::VIEW_FORMAT_R32G32_FLOAT;
+    brdfLUTDesc.format = eViewFormat::VIEW_FORMAT_R16G16_FLOAT;
     brdfLUTDesc.width = BRDF_LUT_SIZE;
     brdfLUTDesc.height = BRDF_LUT_SIZE;
     brdfLUTDesc.bindFlags = eResourceBind::RESOURCE_BIND_UNORDERED_ACCESS_VIEW | eResourceBind::RESOURCE_BIND_SHADER_RESOURCE;

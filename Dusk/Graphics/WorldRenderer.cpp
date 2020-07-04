@@ -169,6 +169,8 @@ void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache
 
     // Execute precompute step.
     graph.execute( renderDevice, 0.0f );
+
+    WorldRendering->setDefaultBrdfDfgLut( IBLUtilities->getBrdfDfgLut() );
 }
 
 void WorldRenderer::drawDebugSphere( CommandList& cmdList )

@@ -87,6 +87,8 @@ private:
     Image*              probeAtlas[PROBE_COMPONENT_COUNT];
 
 private:
-    void                updateDistantProbe( FrameGraph& frameGraph, WorldRenderer* worldRenderer );
+    void            updateDistantProbe( FrameGraph& frameGraph, WorldRenderer* worldRenderer );
+
+    void            addProbeConvlutionPass( FrameGraph& frameGraph, Image* capturedCubemap, const u32 faceIndex, const u32 mipLevel, Image* outDiffuse, Image* outSpecular );
 };
 
