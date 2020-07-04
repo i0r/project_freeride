@@ -509,10 +509,28 @@ void RenderDevice::createImageView( Image& image, const ImageViewDesc& viewDescr
 void RenderDevice::destroyImage( Image* image )
 {
 #define RELEASE_IF_ALLOCATED( obj ) if ( obj != nullptr ) { obj->Release(); obj = nullptr; }
-    RELEASE_IF_ALLOCATED( image->DefaultRenderTargetView );
-    RELEASE_IF_ALLOCATED( image->DefaultShaderResourceView );
-    RELEASE_IF_ALLOCATED( image->DefaultUnorderedAccessView );
 
+	for ( auto& srv : image->SRVs ) {
+		RELEASE_IF_ALLOCATED( srv.second );
+	}
+    image->SRVs.clear();
+
+	for ( auto& uav : image->UAVs ) {
+		RELEASE_IF_ALLOCATED( uav.second );
+	}
+	image->UAVs.clear();
+
+	for ( auto& rtv : image->RTVs ) {
+		RELEASE_IF_ALLOCATED( rtv.second.RenderTargetView );
+	}
+	image->RTVs.clear();
+
+    // Those are shortcuts to the actual hashmap entry.
+    // We simply need to remove the reference for gc.
+	image->DefaultShaderResourceView = nullptr;
+	image->DefaultUnorderedAccessView = nullptr;
+    image->DefaultRenderTargetView = nullptr;
+	
     switch ( image->Description.dimension ) {
     case ImageDesc::DIMENSION_1D:
         RELEASE_IF_ALLOCATED( image->texture1D );

@@ -76,6 +76,11 @@ struct Image
     {
         memset( SRVRegisterIndex, 0xff, sizeof( i32 )* eShaderStage::SHADER_STAGE_COUNT );
     }
+
+    ~Image()
+    {
+
+    }
 };
 
 void SetupFramebuffer_Replay( RenderContext* renderContext, Image** renderTargetViews, Image* depthStencilView );

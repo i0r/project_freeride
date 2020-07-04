@@ -93,8 +93,7 @@ RenderDevice::~RenderDevice()
     }
     
     destroyImage( swapChainImage );
-    dk::core::free( memoryAllocator, swapChainImage );
-    
+
     dk::core::free( memoryAllocator, renderContext );
 }
 
