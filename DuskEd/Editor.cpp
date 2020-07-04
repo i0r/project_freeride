@@ -809,7 +809,7 @@ void MainLoop()
                 winSize.y -= 4;
 
                 ImGui::Image( static_cast< ImTextureID >( frameGraph.getPresentRenderTarget() ), winSize );
-				if ( g_RightClickMenuOpened = ImGui::BeginPopupContextWindow( "Viewport Popup", 2 ) ) {
+				if ( g_RightClickMenuOpened = ImGui::BeginPopupContextWindow( "Viewport Popup", 1 ) ) {
 					if ( ImGui::BeginMenu( "New Entity..." ) ) {
 						if ( ImGui::MenuItem( "Static Mesh" ) ) {
                             g_PickedEntity = g_World->createStaticMesh();
@@ -914,7 +914,7 @@ void MainLoop()
         }
 
         // LightPass.
-        WorldRenderModule::LightPassOutput primRenderPass = g_WorldRenderer->WorldRendering->addPrimitiveLightPass( frameGraph, lightGridData.PerSceneBuffer, scenario );
+        WorldRenderModule::LightPassOutput primRenderPass = g_WorldRenderer->WorldRendering->addPrimitiveLightPass( frameGraph, lightGridData.PerSceneBuffer, scenario, g_EnvironmentProbeStreaming->getReadDistantProbeIrradiance(), g_EnvironmentProbeStreaming->getReadDistantProbeRadiance() );
 		
         if ( g_WorldRenderer->WorldRendering->isPickingResultAvailable() ) {
 			g_PickedEntity.setIdentifier( g_WorldRenderer->WorldRendering->getAndConsumePickedEntityId() );

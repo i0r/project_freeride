@@ -32,6 +32,10 @@ public:
     // Precompute BRDF DFG LUT.
     void                        precomputePipelineResources( FrameGraph& frameGraph );
 
+    void                        addCubeFaceIrradianceComputePass( FrameGraph& frameGraph, Image* cubemap, Image* irradianceCube, const u32 faceIndex );
+
+    void                        addCubeFaceFilteringPass( FrameGraph& frameGraph, Image* cubemap, Image* filteredCube, const u32 faceIndex, const u32 mipIndex );
+
 private:
     Image*                      brdfDfgLUT;
 };

@@ -28,19 +28,16 @@ struct Material
     float   BlendMask;
 };
 
-float3 BRDF_Default( const float3 L, const float3 V, const float3 N, const Material material )
+float3 BRDF_Default( const float3 L, const float3 V, const float3 N, const Material material, const float3 F0, const float3 albedo )
 {
     const float3 H = normalize( V + L );
     const float LoH = saturate( dot( L, H ) );
     const float NoL = max( 0.00001f, dot( N, L ) ); // Avoid division per zero and NaN...
     const float NoV = saturate( dot( N, V ) );
     const float NoH = saturate( dot( N, H ) );
-    
-    float BaseColorLuminance = RGBToLuminance( material.BaseColor );    
-    float3 F0 = lerp( ( 0.16f * ( material.Reflectance * material.Reflectance ) ), BaseColorLuminance, material.Metalness );   
+       
     float F90 = saturate( 50.0f * dot( material.Reflectance, 0.33f ) );   
-    float3 albedo = lerp( material.BaseColor, 0.0f, material.Metalness );
-    
+
     // Alpha is roughness squared
     float alphaSquared =  Square( Square( material.Roughness ) );
     
@@ -53,6 +50,7 @@ float3 BRDF_Default( const float3 L, const float3 V, const float3 N, const Mater
     float3 diffuse = ( Fd * albedo * INV_PI );
     
     float3 specular = ( distribution * fresnel * visibility );
+    
     return ( diffuse + specular ) * NoL;
 }
 

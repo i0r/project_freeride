@@ -31,6 +31,8 @@ static constexpr size_t MAX_VECTOR_PER_INSTANCE = 1024;
 static constexpr dkStringHash_t InstanceVectorBufferHashcode = DUSK_STRING_HASH( "InstanceVectorBuffer" );
 static constexpr dkStringHash_t PickingBufferHashcode = DUSK_STRING_HASH( "PickingBuffer" );
 static constexpr dkStringHash_t BrdfDfgLUTHascode = DUSK_STRING_HASH( "BrdfDfgLut" );
+static constexpr dkStringHash_t IBLDiffuseHascode = DUSK_STRING_HASH( "IBLDiffuse" );
+static constexpr dkStringHash_t IBLSpecularHascode = DUSK_STRING_HASH( "IBLSpecular" );
 
 WorldRenderModule::WorldRenderModule()
     : pickingBuffer( nullptr )
@@ -85,7 +87,7 @@ void WorldRenderModule::loadCachedResources( RenderDevice& renderDevice, Graphic
 #endif
 }
 
-WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, Material::RenderScenario scenario )
+WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular )
 {
     struct PassData {
         ResHandle_t output;
@@ -251,6 +253,8 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
                 cmdList->bindConstantBuffer( PerWorldBufferHashcode, perWorldBuffer );
 
                 cmdList->bindImage( BrdfDfgLUTHascode, brdfDfgLut );
+                cmdList->bindImage( IBLDiffuseHascode, iblDiffuse );
+                cmdList->bindImage( IBLSpecularHascode, iblSpecular );
 
                 if ( isInMaterialEdition ) {
                     cmdList->bindConstantBuffer( MaterialEditorBufferHashcode, materialEdBuffer );

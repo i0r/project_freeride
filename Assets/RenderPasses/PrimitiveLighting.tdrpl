@@ -153,6 +153,25 @@ lib PrimitiveLighting {
             return illuminance + ( lightIlluminance * surfaceTransmittance );
         }
         
+        float3 getDiffuseDominantDir( float3 N, float3 V, float NdotV, float roughness )
+        {
+            float a = 1.02341f * roughness - 1.51174f;
+            float b = -0.511705f * roughness + 0.755868f;
+            float lerpFactor = saturate( ( NdotV * a + b ) * roughness );
+
+            // The result is not normalized as we fetch in a cubemap
+            return lerp( N, V, lerpFactor );
+        }
+        
+        float3 getSpecularDominantDir( float3 N, float3 R, float roughness )
+        {
+            float smoothness = saturate( 1 - roughness );
+            float lerpFactor = smoothness * ( sqrt( smoothness ) + roughness );
+
+            // The result is not normalized as we fetch in a cubemap
+            return lerp( N, R, lerpFactor );
+        }
+        
         // Injected at Material compile-time. DO NOT REMOVE.
         DUSK_LAYERS_FUNCTIONS;
     }
@@ -187,13 +206,39 @@ lib PrimitiveLighting {
         float3 N = normalize( $NORMAL0.xyz );
         float3 R = reflect( -V, N );
         
+        float BaseColorLuminance = RGBToLuminance( BlendedMaterial.BaseColor );  
+        float3 F0 = lerp( ( 0.16f * ( BlendedMaterial.Reflectance * BlendedMaterial.Reflectance ) ), BaseColorLuminance, BlendedMaterial.Metalness );  
+        float smoothness = 1.0f - BlendedMaterial.Roughness;
+        float3 albedo = lerp( BlendedMaterial.BaseColor, 0.0f, BlendedMaterial.Metalness );
+        
         float4 LightContribution = float4( 0, 0, 0, 1 );
         
         // Add explicit sun/moon light contribution
         float3 L;
-        float3 dirLightIlluminance = GetDirectionalLightIlluminance( g_DirectionalLight, R, N, L );        
-        LightContribution.rgb = BRDF_Default( L, V, N, BlendedMaterial ) * dirLightIlluminance;
+        float3 dirLightIlluminance = GetDirectionalLightIlluminance( g_DirectionalLight, R, N, L );   
+
+        const float NoV = saturate( dot( N, V ) );
+        float2 f_ab = BrdfDfgLut.Sample( TextureSampler, float2( NoV, BlendedMaterial.Roughness ) );
+        float lodLevel = BlendedMaterial.Roughness * PROBE_FILTERED_MIP_COUNT;
+
+        float3 radiance = IBLSpecular.SampleLevel( TextureSampler, getSpecularDominantDir( N, R, BlendedMaterial.Roughness ), lodLevel ).rgb;
+        float3 irradiance = IBLDiffuse.SampleLevel( TextureSampler, getDiffuseDominantDir( N, V, NoV, BlendedMaterial.Roughness ), 0 ).rgb;
+                
+        LightContribution.rgb = BRDF_Default( L, V, N, BlendedMaterial, F0, albedo ) * dirLightIlluminance;
         
+        float3 Fr = max(float3( smoothness, smoothness, smoothness ), F0) - F0;
+        float3 k_S = F0 + Fr * Pow5(1.0 - NoV);
+        
+        float3 FssEss = k_S * f_ab.x + f_ab.y;
+        
+        // Multiple scattering, from Fdez-Aguera
+        float Ems = (1.0 - (f_ab.x + f_ab.y));
+        float3 F_avg = F0 + (1.0 - F0) / 21.0;
+        float3 FmsEms = Ems * FssEss * F_avg / (1.0 - F_avg * Ems);
+        float3 k_D = albedo * (1.0 - FssEss - FmsEms);
+        float3 iblContribution = FssEss * radiance + (FmsEms + k_D) * irradiance;
+        LightContribution.rgb += iblContribution;
+               
         $SV_TARGET0 = LightContribution;
         
 #ifdef $WriteVelocity

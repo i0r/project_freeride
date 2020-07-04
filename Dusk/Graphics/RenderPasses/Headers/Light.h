@@ -33,8 +33,9 @@
 
 #define LINE_RENDERING_MAX_LINE_COUNT       256
 
-#define BRDF_LUT_SIZE 256
+#define BRDF_LUT_SIZE 128
 #define PROBE_FACE_SIZE 256
+#define PROBE_FILTERED_MIP_COUNT 5
 
 struct LineInfos 
 {

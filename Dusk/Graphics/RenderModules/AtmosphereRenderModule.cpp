@@ -69,7 +69,6 @@ ResHandle_t AtmosphereRenderModule::renderSky( FrameGraph& frameGraph, ResHandle
     struct PassData {
         ResHandle_t         Output;
         ResHandle_t         DepthBuffer;
-        ResHandle_t         AutoExposureBuffer;
 
         ResHandle_t         PerPassBuffer;
         ResHandle_t         PerViewBuffer;
@@ -82,7 +81,6 @@ ResHandle_t AtmosphereRenderModule::renderSky( FrameGraph& frameGraph, ResHandle
 
             passData.Output = builder.readImage( renderTarget );
             passData.DepthBuffer = builder.readImage( depthBuffer );
-            passData.AutoExposureBuffer = builder.retrievePersistentBuffer( DUSK_STRING_HASH( "AutoExposure/ReadBuffer" ) );
 
             BufferDesc perPassBufferDesc;
             perPassBufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
@@ -116,7 +114,6 @@ ResHandle_t AtmosphereRenderModule::renderSky( FrameGraph& frameGraph, ResHandle
             Buffer* viewBuffer = resources->getPersistentBuffer( passData.PerViewBuffer );
             Image* outputImage = resources->getImage( passData.Output );
             Image* depthBuffer = resources->getImage( passData.DepthBuffer );
-            Buffer* autoExposureBuffer = resources->getPersistentBuffer( passData.AutoExposureBuffer );
 
 			// Bind resources
 			cmdList->bindImage( AtmosphereBruneton::BrunetonSky_OutputRenderTarget_Hashcode, outputImage );
@@ -126,8 +123,6 @@ ResHandle_t AtmosphereRenderModule::renderSky( FrameGraph& frameGraph, ResHandle
             cmdList->bindImage( AtmosphereBruneton::BrunetonSky_ScatteringTextureInput_Hashcode, scatteringLut );
             cmdList->bindImage( AtmosphereBruneton::BrunetonSky_MieScatteringTextureInput_Hashcode, mieScatteringLut );
             
-            cmdList->bindBuffer( AtmosphereBruneton::BrunetonSky_AutoExposureBuffer_Hashcode, autoExposureBuffer );
-           
             cmdList->bindConstantBuffer( PerViewBufferHashcode, viewBuffer );
             cmdList->bindConstantBuffer( PerPassBufferHashcode, passBuffer );
 
@@ -207,7 +202,7 @@ void AtmosphereRenderModule::renderSkyForProbeCapture( FrameGraph& frameGraph, I
 
             cmdList->updateBuffer( *passBuffer, &AtmosphereBruneton::BrunetonSkyProperties, sizeof( AtmosphereBruneton::BrunetonSkyRuntimeProperties ) );
 
-            const dkVec2f rtSize = resources->getMainCamera()->viewportSize;
+            const dkVec2f rtSize = cameraData.viewportSize;
 			const u32 ThreadCountX = static_cast< u32 >( rtSize.x ) / AtmosphereBruneton::BrunetonSkyProbeCapture_DispatchX;
 			const u32 ThreadCountY = static_cast< u32 >( rtSize.y ) / AtmosphereBruneton::BrunetonSkyProbeCapture_DispatchY;
             

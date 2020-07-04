@@ -47,10 +47,6 @@ lib AtmosphereBruneton {
             swizzle = float4;
         }
         
-        StructuredBuffer AutoExposureBuffer {
-            swizzle = AutoExposureInfos;
-        }
-        
         sampler DefaultSampler {
             format = BilinearClampEdge;
         }
@@ -276,19 +272,12 @@ lib AtmosphereBruneton {
         float3 transmittance;
         float3 radiance = GetSkyRadiance( float3( ParamWorldPosition.xz * 0.05f, 0.05f ) - EarthCenter, viewDirection, 0, SunDirection, transmittance );
 
-#ifdef $UseAutomaticExposure
-        AutoExposureInfos currentExposure = AutoExposureBuffer[0];
-        float exposure = currentExposure.EngineLuminanceFactor;
-#else
-        static const float exposure = 1.0f;
-#endif
-
-        float4 color = float4( pow(float3(1,1,1) - exp(-radiance / WhitePoint * exposure), 1.0 / 2.2), 1 );
+        float4 color = float4( radiance, 1 );
         
 #ifdef $RenderSunDisc
         float cosTheta = saturate( dot( viewDirection, SunDirection ) );
         float sunGradient = pow( cosTheta, SunExponant );
-        color.rgb = lerp( color.rgb, transmittance * GetSolarRadiance() * 0.002f, sunGradient );
+        color.rgb = lerp( color.rgb, transmittance * GetSolarRadiance() * 0.001f, sunGradient );
 #endif
 
         OutputRenderTarget[$SV_DispatchThreadId.xy] = color;  
@@ -297,7 +286,6 @@ lib AtmosphereBruneton {
     pass BrunetonSky {
         compute  = BrunetonSkyCS;   
         dispatch = { 16, 16, 1 };
-        UseAutomaticExposure = true;
         UseCustomViewport = false;
         UseDepthComparison = true;
         RenderSunDisc = true;
@@ -306,7 +294,6 @@ lib AtmosphereBruneton {
     pass BrunetonSkyProbeCapture {
         compute  = BrunetonSkyCS;   
         dispatch = { 16, 16, 1 };
-        UseAutomaticExposure = false;
         UseCustomViewport = true;
         UseDepthComparison = false;
         RenderSunDisc = false;

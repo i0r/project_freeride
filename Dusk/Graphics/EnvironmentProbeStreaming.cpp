@@ -18,6 +18,7 @@
 #include "RenderModules/Generated/BrdfLut.generated.h"
 
 #include <Graphics/RenderModules/AtmosphereRenderModule.h>
+#include <Graphics/RenderModules/IBLUtilitiesModule.h>
 
 static constexpr dkVec3f PROBE_FACE_VIEW_DIRECTION[eProbeUpdateFace::FACE_COUNT] = {
 	dkVec3f( +1.0f, 0.0f, 0.0f ),
@@ -32,8 +33,8 @@ static constexpr dkVec3f PROBE_FACE_RIGHT_DIRECTION[eProbeUpdateFace::FACE_COUNT
     dkVec3f( 0.0f, 0.0f, +1.0f ),
     dkVec3f( 0.0f, 0.0f, -1.0f ),
 
-	dkVec3f( +1.0f, 0.0f, 0.0f ),
 	dkVec3f( -1.0f, 0.0f, 0.0f ),
+	dkVec3f( +1.0f, 0.0f, 0.0f ),
 
 	dkVec3f( -1.0f, 0.0f, 0.0f ),
 	dkVec3f( +1.0f, 0.0f, 0.0f ),
@@ -126,27 +127,31 @@ void EnvironmentProbeStreaming::createResources( RenderDevice* renderDevice )
 
     for ( i32 i = 0; i < DISTANT_PROBE_BUFFER_COUNT; i++ ) {
         cubemapDesc.mipCount = 1;
-        distantProbe[i][0] = renderDevice->createImage( cubemapDesc );
+		distantProbe[i][0] = renderDevice->createImage( cubemapDesc );
 
-        cubemapDesc.mipCount = 6;
-		for ( i32 j = 1; j < PROBE_COMPONENT_COUNT; j++ ) {
-			distantProbe[i][j] = renderDevice->createImage( cubemapDesc );
-		}
+		cubemapDesc.width = 64;
+		cubemapDesc.height = 64;
+		distantProbe[i][1] = renderDevice->createImage( cubemapDesc );
+
+		cubemapDesc.width = PROBE_FACE_SIZE;
+		cubemapDesc.height = PROBE_FACE_SIZE;
+		cubemapDesc.mipCount = PROBE_FILTERED_MIP_COUNT;
+		distantProbe[i][2] = renderDevice->createImage( cubemapDesc );
 
 		// Create view for each face to capture
         ImageViewDesc viewDesc;
         viewDesc.MipCount = 1;
         viewDesc.ImageCount = 1;
 
-        for ( i32 faceIdx = 0; faceIdx < 6; faceIdx++ ) {
+        for ( i32 faceIdx = 0; faceIdx < FACE_COUNT; faceIdx++ ) {
             viewDesc.StartImageIndex = faceIdx;
             viewDesc.StartMipIndex = 0;
 			renderDevice->createImageView( *distantProbe[i][0], viewDesc, IMAGE_VIEW_CREATE_UAV | IMAGE_VIEW_CREATE_SRV );
+			renderDevice->createImageView( *distantProbe[i][1], viewDesc, IMAGE_VIEW_CREATE_UAV | IMAGE_VIEW_CREATE_SRV );
 
-            for ( i32 mipIdx = 0; mipIdx < 6; mipIdx++ ) {
+            for ( i32 mipIdx = 0; mipIdx < PROBE_FILTERED_MIP_COUNT; mipIdx++ ) {
                 viewDesc.StartMipIndex = mipIdx;
 
-                renderDevice->createImageView( *distantProbe[i][1], viewDesc, IMAGE_VIEW_CREATE_UAV | IMAGE_VIEW_CREATE_SRV );
                 renderDevice->createImageView( *distantProbe[i][2], viewDesc, IMAGE_VIEW_CREATE_UAV | IMAGE_VIEW_CREATE_SRV );
 			}
         }
@@ -160,69 +165,6 @@ void EnvironmentProbeStreaming::destroyResources( RenderDevice* renderDevice )
 			renderDevice->destroyImage( distantProbe[i][j] );
 		}
 	}
-}
-
-void EnvironmentProbeStreaming::addProbeConvlutionPass( FrameGraph& frameGraph, Image* capturedCubemap, const u32 faceIndex, const u32 mipLevel, Image* outDiffuse, Image* outSpecular )
-{
-	struct PassData {
-		ResHandle_t         PerPassBuffer;
-	};
-
-	PassData& passData = frameGraph.addRenderPass<PassData>(
-		BrdfLut::ConvoluteCubeFace_Name,
-		[&]( FrameGraphBuilder& builder, PassData& passData ) {
-			builder.useAsyncCompute();
-			builder.setUncullablePass();
-
-			BufferDesc perPassBufferDesc;
-			perPassBufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
-			perPassBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
-			perPassBufferDesc.SizeInBytes = sizeof( BrdfLut::ConvoluteCubeFaceRuntimeProperties );
-			passData.PerPassBuffer = builder.allocateBuffer( perPassBufferDesc, SHADER_STAGE_COMPUTE );
-		},
-		[=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
-			PipelineStateDesc psoDesc( PipelineStateDesc::COMPUTE );
-			psoDesc.addStaticSampler( RenderingHelpers::S_TrilinearClampEdge );
-
-			PipelineState* pipelineState = psoCache->getOrCreatePipelineState( psoDesc, BrdfLut::ConvoluteCubeFace_ShaderBinding );
-
-			// Update Parameters
-			u32 currentFaceSize = ( PROBE_FACE_SIZE >> mipLevel );
-
-            BrdfLut::ConvoluteCubeFaceProperties.CubeFace = faceIndex;
-			BrdfLut::ConvoluteCubeFaceProperties.Width = static_cast< f32 >( currentFaceSize );
-			BrdfLut::ConvoluteCubeFaceProperties.Roughness = mipLevel / Max( 1.0f, std::log2( BrdfLut::ConvoluteCubeFaceProperties.Width ) );
-
-			cmdList->pushEventMarker( BrdfLut::ConvoluteCubeFace_EventName );
-			cmdList->bindPipelineState( pipelineState );
-
-			Buffer* passBuffer = resources->getBuffer( passData.PerPassBuffer );
-			
-			ImageViewDesc cubeView;
-			cubeView.ImageCount = 1;
-			cubeView.MipCount = 1;
-			cubeView.StartImageIndex = faceIndex;
-			cubeView.StartMipIndex = mipLevel;
-
-			// Bind resources
-            cmdList->bindImage( BrdfLut::ConvoluteCubeFace_IBLDiffuseOutput_Hashcode, outDiffuse, cubeView );
-            cmdList->bindImage( BrdfLut::ConvoluteCubeFace_IBLSpecularOutput_Hashcode, outSpecular, cubeView );
-            cmdList->bindImage( BrdfLut::ConvoluteCubeFace_EnvironmentCube_Hashcode, capturedCubemap );
-
-			cmdList->bindConstantBuffer( PerPassBufferHashcode, passBuffer );
-
-			cmdList->prepareAndBindResourceList();
-
-			cmdList->updateBuffer( *passBuffer, &BrdfLut::ConvoluteCubeFaceProperties, sizeof( BrdfLut::ConvoluteCubeFaceRuntimeProperties ) );
-
-			const u32 ThreadCountX = currentFaceSize / BrdfLut::ConvoluteCubeFace_DispatchX;
-			const u32 ThreadCountY = currentFaceSize / BrdfLut::ConvoluteCubeFace_DispatchY;
-
-			cmdList->dispatchCompute( ThreadCountX, ThreadCountY, 1u );
-
-			cmdList->popEventMarker();
-		}
-	);
 }
 
 void EnvironmentProbeStreaming::updateDistantProbe( FrameGraph& frameGraph, WorldRenderer* worldRenderer )
@@ -250,19 +192,27 @@ void EnvironmentProbeStreaming::updateDistantProbe( FrameGraph& frameGraph, Worl
 
 		distantProbeFace++;
 	} break;
-	case PROBE_CONVOLUTION:
+	case PROBE_COMPUTE_IRRADIANCE:
 	{
 		Image* cubemap = distantProbe[distantProbeWriteIndex][0];
 		Image* irradiance = distantProbe[distantProbeWriteIndex][1];
-        Image* specular = distantProbe[distantProbeWriteIndex][2];
 
-		addProbeConvlutionPass( frameGraph, cubemap, distantProbeFace, distantProbeMipIndex, irradiance, specular );
+		worldRenderer->IBLUtilities->addCubeFaceIrradianceComputePass( frameGraph, cubemap, irradiance, distantProbeFace );
+
+		distantProbeFace++;
+	} break;
+	case PROBE_PREFILTER:
+	{
+		Image* cubemap = distantProbe[distantProbeWriteIndex][0];
+		Image* filteredCubemap = distantProbe[distantProbeWriteIndex][2];
+
+		worldRenderer->IBLUtilities->addCubeFaceFilteringPass( frameGraph, cubemap, filteredCubemap, distantProbeFace, distantProbeMipIndex );
 
 		distantProbeMipIndex++;
 	} break;
 	}
 
-	if ( distantProbeMipIndex == 6 ) {
+	if ( distantProbeMipIndex == PROBE_FILTERED_MIP_COUNT ) {
 		distantProbeMipIndex = 0;
 		distantProbeFace++;
 	}

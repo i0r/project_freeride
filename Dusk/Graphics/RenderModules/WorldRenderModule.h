@@ -40,9 +40,11 @@ public:
     void                destroy( RenderDevice& renderDevice );
 	void                loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache );
 
-	LightPassOutput     addPrimitiveLightPass( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, Material::RenderScenario scenario );
+	LightPassOutput     addPrimitiveLightPass( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular );
 
 	void				setDefaultBrdfDfgLut( Image* brdfDfgLut );
+
+	void				setWorldIBLImages( Image* irradiance, Image* filteredRadiance );
 
 private:
 	// Buffer used to store picking infos on the GPU.

@@ -17,7 +17,8 @@ class WorldRenderer;
 enum eProbeUpdateStep : u32
 {
 	PROBE_CAPTURE = 0,
-	PROBE_CONVOLUTION,
+	PROBE_COMPUTE_IRRADIANCE,
+    PROBE_PREFILTER,
     PROBE_RELIGHT,
     PROBE_UPDATE_COUNT,
 };
@@ -38,6 +39,10 @@ enum eProbeUpdateFace : u32
 
 class EnvironmentProbeStreaming
 {
+public:
+	DUSK_INLINE Image* getReadDistantProbeIrradiance() const { return distantProbe[distantProbeWriteIndex == 0 ? 1 : 0][1]; }
+	DUSK_INLINE Image* getReadDistantProbeRadiance() const { return distantProbe[distantProbeWriteIndex == 0 ? 1 : 0][2]; }
+
 public:
                 EnvironmentProbeStreaming();
                 ~EnvironmentProbeStreaming();
@@ -89,6 +94,6 @@ private:
 private:
     void            updateDistantProbe( FrameGraph& frameGraph, WorldRenderer* worldRenderer );
 
-    void            addProbeConvlutionPass( FrameGraph& frameGraph, Image* capturedCubemap, const u32 faceIndex, const u32 mipLevel, Image* outDiffuse, Image* outSpecular );
+    //void            addProbeConvlutionPass( FrameGraph& frameGraph, Image* capturedCubemap, const u32 faceIndex, const u32 mipLevel, Image* outDiffuse, Image* outSpecular );
 };
 
