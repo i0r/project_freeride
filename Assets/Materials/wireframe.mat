@@ -1,10 +1,10 @@
 material "wireframe" {
-	version = 1;
+	version = 16777217;
 	isAlphaBlended = false;
-	isDoubleFace = true;
 	enableAlphaToCoverage = false;
 	isAlphaTested = false;
 	isWireframe = true;
+	isDoubleFace = true;
 	scenario "Default" {
 		vertex = "03d1bb7db62e17f27175eaa369cf1875";
 		pixel = "dc48c981da064dad59f880e2b3dad991";
