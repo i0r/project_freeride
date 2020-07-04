@@ -3,6 +3,7 @@ lib PrimitiveLighting {
         cflag       WriteVelocity = false;
         cflag       MaterialEditor = false;
         cflag       DoPickingCheck = true;
+        cflag       IsShadeless = false;
         float       StartVector;
         float       VectorPerInstance;
     }
@@ -182,7 +183,11 @@ lib PrimitiveLighting {
         float4 positionWS = mul( float4( $POSITION.xyz, 1.0f ), ModelMatrix );
         
         $TEXCOORD0 = $TEXCOORD;
+        
+#ifdef $DoPickingCheck
         $BLENDINDICES0 = entityIdx;
+#endif
+
         $POSITION0 = positionWS;
         $NORMAL0 = normalize( mul( ModelMatrix, float4( $NORMAL.xyz, 0.0f ) ) );
         $POSITION1 = mul( g_PreviousViewProjectionMatrix, float4( positionWS.xyz, 1.0f ) );
@@ -200,18 +205,23 @@ lib PrimitiveLighting {
         DUSK_LAYERS_GET;
 #endif
 
+#ifdef $DoPickingCheck
         uint identity = $BLENDINDICES0;
+#endif
         
         float3 V = normalize( g_WorldPosition - $POSITION0.xyz );
         float3 N = normalize( $NORMAL0.xyz );
         float3 R = reflect( -V, N );
         
+        float4 LightContribution = float4( 0, 0, 0, 1 );
+        
+#ifdef $IsShadeless
+        LightContribution.rgb = BlendedMaterial.BaseColor;
+#else             
         float BaseColorLuminance = RGBToLuminance( BlendedMaterial.BaseColor );  
         float3 F0 = lerp( ( 0.16f * ( BlendedMaterial.Reflectance * BlendedMaterial.Reflectance ) ), BaseColorLuminance, BlendedMaterial.Metalness );  
         float smoothness = 1.0f - BlendedMaterial.Roughness;
         float3 albedo = lerp( BlendedMaterial.BaseColor, 0.0f, BlendedMaterial.Metalness );
-        
-        float4 LightContribution = float4( 0, 0, 0, 1 );
         
         // Add explicit sun/moon light contribution
         float3 L;
@@ -238,7 +248,8 @@ lib PrimitiveLighting {
         float3 k_D = albedo * (1.0 - FssEss - FmsEms);
         float3 iblContribution = FssEss * radiance + (FmsEms + k_D) * irradiance;
         LightContribution.rgb += iblContribution;
-               
+#endif
+      
         $SV_TARGET0 = LightContribution;
         
 #ifdef $WriteVelocity
@@ -254,8 +265,8 @@ lib PrimitiveLighting {
         vertex = PrimitiveVS;
         pixel = PrimitivePS;
         MaterialEditor = false;
-        WriteVelocity = true;
         DoPickingCheck = false;
+        DUSK_COMPILE_TIME_FLAGS;     
         rendertargets = { OutputRenderTarget, OutputVelocity };
         depthStencil = OutputDepthTarget;
     }
@@ -264,8 +275,8 @@ lib PrimitiveLighting {
         vertex = PrimitiveVS;
         pixel = PrimitivePS;
         MaterialEditor = true;
-        WriteVelocity = true;
         DoPickingCheck = false;
+        DUSK_COMPILE_TIME_FLAGS;     
         rendertargets = { OutputRenderTarget, OutputVelocity };
         depthStencil = OutputDepthTarget;
     }
@@ -274,8 +285,8 @@ lib PrimitiveLighting {
         vertex = PrimitiveVS;
         pixel = PrimitivePS;
         MaterialEditor = false;
-        WriteVelocity = true;
         DoPickingCheck = true;
+        DUSK_COMPILE_TIME_FLAGS;
         rendertargets = { OutputRenderTarget, OutputVelocity };
         depthStencil = OutputDepthTarget;
     }
@@ -284,8 +295,8 @@ lib PrimitiveLighting {
         vertex = PrimitiveVS;
         pixel = PrimitivePS;
         MaterialEditor = true;
-        WriteVelocity = true;
         DoPickingCheck = true;
+        DUSK_COMPILE_TIME_FLAGS;
         rendertargets = { OutputRenderTarget, OutputVelocity };
         depthStencil = OutputDepthTarget;
     }

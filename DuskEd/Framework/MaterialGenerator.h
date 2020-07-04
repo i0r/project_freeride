@@ -64,6 +64,9 @@ private:
     // material edition.
     std::string         bakedTextureCode;
 
+	// The string building the drpl compile time flagset.
+	std::string         compileTimeFlags;
+
     // Array of mutable parameters required for the given rendering scenario.
     std::vector<MutableParameter> mutableParameters;
 
@@ -85,6 +88,8 @@ private:
 private:
     // Clear/Reset internal states for Material generation (string builders; indexes; etc.).
     void                resetMaterialTemporaryOutput();
+
+    void                buildCompileTimeFlagList( const EditableMaterial& material );
 
     // Append the HLSL code to blend two Material layer.
     // The blend result will be stored in the bottom layer (since the material layering
@@ -150,6 +155,7 @@ private:
     );
 
 private:
-    // Version of the MaterialCompiler. Should be bumped whenever a change has been made to the code.
-    static constexpr u32 Version = MakeFourCC( 1, 0, 0, 0 );
+	// Version of the MaterialCompiler. Should be bumped whenever a change has been made to the code.
+	static constexpr u32 Version = MakeFourCC( 1, 0, 0, 1 ); // Added IsShadeless flag.
+    // static constexpr u32 Version = MakeFourCC( 1, 0, 0, 0 );
 };

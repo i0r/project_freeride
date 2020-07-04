@@ -142,6 +142,7 @@ isMaterialDirty = true;\
         DUSK_DISPLAY_MATERIAL_FLAG( ScaleUVByModelScale );
 		DUSK_DISPLAY_MATERIAL_FLAG( UseRefraction );
 		DUSK_DISPLAY_MATERIAL_FLAG( IsWireframe );
+		DUSK_DISPLAY_MATERIAL_FLAG( IsShadeless );
         
         // Material Layers.
         for ( i32 layerIdx = 0; layerIdx < editedMaterial.LayerCount; layerIdx++ ) {

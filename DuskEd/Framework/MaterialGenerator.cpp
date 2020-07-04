@@ -108,6 +108,14 @@ EditableMaterial MaterialGenerator::createEditableMaterial( const Material* mate
     return editableMat;
 }
 
+void AppendCompileTimeFlag( std::string& output, const char* flagName, const bool flagValue )
+{
+    output.append( flagName );
+    output.append( " = " );
+    output.append( ( flagValue ) ? "true" : "false" );
+    output.append( ";\n" );
+}
+
 Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMaterial )
 {
     resetMaterialTemporaryOutput();
@@ -130,6 +138,10 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
         appendLayerBlend( rootLayer, aboveLayer, MaterialLayerNames[0], MaterialLayerNames[layerIdx] );
     }
 
+    // Build common flag list for generated renderpasses (required to bake 
+    // and resolve the permutations offline).
+    buildCompileTimeFlagList( editableMaterial );
+
     // "Inject" this material informations in the render pass template.
     FileSystemObject* matTemplate = virtualFs->openFile( DUSK_STRING( "EditorAssets/RenderPasses/PrimitiveLighting.tdrpl" ), eFileOpenMode::FILE_OPEN_MODE_READ );
     if ( matTemplate == nullptr ) {
@@ -145,8 +157,9 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
     dk::core::ReplaceWord( assetStr, "DUSK_LAYERS_RESOURCES;", materialResourcesCode );
     dk::core::ReplaceWord( assetStr, "DUSK_LAYERS_FUNCTIONS;", materialSharedCode );
     dk::core::ReplaceWord( assetStr, "DUSK_LAYERS_GET;", materialLayersGetter );
-    dk::core::ReplaceWord( assetStr, "DUSK_BAKED_TEXTURE_FETCH;", bakedTextureCode );
-   
+	dk::core::ReplaceWord( assetStr, "DUSK_BAKED_TEXTURE_FETCH;", bakedTextureCode );
+	dk::core::ReplaceWord( assetStr, "DUSK_COMPILE_TIME_FLAGS;", compileTimeFlags );
+    
     dk::core::ReplaceWord( assetStr, "pass ", std::string( "pass " ) + editableMaterial.Name );
 
     // Generate permutations for this material.
@@ -233,11 +246,11 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
         // Write Material flags (we only write flags affecting the pipeline state;
         // flags are directly baked in the shader binary otherwise).
         SerializeFlag( materialDescriptor, "\tisAlphaBlended", editableMaterial.IsAlphaBlended );
-        SerializeFlag( materialDescriptor, "\tisDoubleFace", editableMaterial.IsDoubleFace );
         SerializeFlag( materialDescriptor, "\tenableAlphaToCoverage", editableMaterial.UseAlphaToCoverage );
 		SerializeFlag( materialDescriptor, "\tisAlphaTested", editableMaterial.IsAlphaTested );
 		SerializeFlag( materialDescriptor, "\tisWireframe", editableMaterial.IsWireframe );
-
+		SerializeFlag( materialDescriptor, "\tisDoubleFace", editableMaterial.IsDoubleFace );
+        
         // Write Parameters.
         if ( !mutableParameters.empty() ) {
             materialDescriptor->writeString( "\tparameters {\n" );
@@ -278,11 +291,18 @@ void MaterialGenerator::resetMaterialTemporaryOutput()
     materialSharedCode.clear();
     materialResourcesCode.clear();
     bakedTextureCode.clear();
+    compileTimeFlags.clear();
 
     mutableParameters.clear();
 
     attributeGetterCount = 0;
     texResourceCount = 0;
+}
+
+void MaterialGenerator::buildCompileTimeFlagList( const EditableMaterial& material )
+{
+	AppendCompileTimeFlag( compileTimeFlags, "IsShadeless", material.IsShadeless );
+	AppendCompileTimeFlag( compileTimeFlags, "WriteVelocity", material.WriteVelocity );
 }
 
 void MaterialGenerator::appendLayerBlend( const EditableMaterialLayer& bottomLayer, const EditableMaterialLayer& topLayer, const char* bottomLayerName, const char* topLayerName )

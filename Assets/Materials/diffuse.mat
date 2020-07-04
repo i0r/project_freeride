@@ -1,0 +1,24 @@
+material "diffuse" {
+	version = 1;
+	isAlphaBlended = false;
+	isDoubleFace = false;
+	enableAlphaToCoverage = false;
+	isAlphaTested = false;
+	isWireframe = false;
+	scenario "Default" {
+		vertex = "a50fa70620ba70c82826e39812ff559a";
+		pixel = "02505e275e4f234f32e1214ec664d9cf";
+	}
+	scenario "Editor_Default" {
+		vertex = "9fb3d087a537bb8f185f482498dd003a";
+		pixel = "d389fe0491592ab49f8cd3357534e3ea";
+	}
+	scenario "Default_Picking" {
+		vertex = "98b1913e3baee677002859089f2ca306";
+		pixel = "b62448428ec5b3d30cb3959c5ac523d6";
+	}
+	scenario "Editor_Default_Picking" {
+		vertex = "8b0ad028f0753e376192823796cf811f";
+		pixel = "ef2baf8ca2422df4b71371bf3917f4a7";
+	}
+}

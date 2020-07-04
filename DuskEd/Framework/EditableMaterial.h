@@ -205,6 +205,10 @@ struct EditableMaterial
     // True if this material must be rasterized with a wireframe fill mode.
     u8                      IsWireframe : 1;
 
+	// True if this material ignore shading and lighting. Useful to render
+	// special/debug materials.
+	u8                      IsShadeless : 1;
+
     EditableMaterial()
         : SModel( ShadingModel::Default )
         , LayerCount( 1 )
@@ -218,6 +222,7 @@ struct EditableMaterial
         , ScaleUVByModelScale( false )
         , UseRefraction( false )
         , IsWireframe( false )
+        , IsShadeless( false )
     {
         memset( Name, 0, sizeof( char ) * DUSK_MAX_PATH );
     }
