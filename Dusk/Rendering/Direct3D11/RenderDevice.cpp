@@ -38,13 +38,15 @@ RenderContext::RenderContext()
     , PsUavRegisterUpdateStart( ~0 )
     , PsUavRegisterUpdateCount( 0 )
     , FramebufferDepthBuffer( nullptr )
+    , SamplerRegisterUpdateStart( ~0 )
+    , SamplerRegisterUpdateCount( 0 )
     , BindedPipelineState( nullptr )
 #if DUSK_DEVBUILD
     , ActiveDebugMarker( nullptr )
 #endif
 {
     memset( CsUavRegistersInfo, 0x00, sizeof( RegisterData )* D3D11_1_UAV_SLOT_COUNT );
-    memset( SrvRegistersInfo, 0x00, sizeof( RegisterData )* eShaderStage::SHADER_STAGE_COUNT* D3D11_COMMONSHADER_INPUT_RESOURCE_REGISTER_COUNT );
+	memset( SrvRegistersInfo, 0x00, sizeof( RegisterData )* eShaderStage::SHADER_STAGE_COUNT* D3D11_COMMONSHADER_INPUT_RESOURCE_REGISTER_COUNT );
 
     memset( SrvRegisterUpdateStart, 0xff, sizeof( u32 ) * eShaderStage::SHADER_STAGE_COUNT );
     memset( SrvRegisterUpdateCount, 0x00, sizeof( i32 ) * eShaderStage::SHADER_STAGE_COUNT );
@@ -54,6 +56,8 @@ RenderContext::RenderContext()
     memset( CBufferRegisterUpdateStart, 0xff, sizeof( u32 ) * eShaderStage::SHADER_STAGE_COUNT );
     memset( CBufferRegisterUpdateCount, 0x00, sizeof( i32 ) * eShaderStage::SHADER_STAGE_COUNT );
     memset( CBufferRegisters, 0x00, sizeof( ID3D11Buffer* ) * eShaderStage::SHADER_STAGE_COUNT * D3D11_COMMONSHADER_CONSTANT_BUFFER_REGISTER_COUNT );
+
+	memset( SamplerRegisters, 0x00, sizeof( ID3D11SamplerState* )* eShaderStage::SHADER_STAGE_COUNT* D3D11_COMMONSHADER_SAMPLER_REGISTER_COUNT );
 }
 
 RenderContext::~RenderContext()
@@ -471,7 +475,16 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
                 BindBuffer_Replay( renderContext, cmdPacket.ObjectHashcode, cmdPacket.BufferObject );
             }
             break;
-        }
+		}
+		case CPI_BIND_SAMPLER:
+		{
+			CommandPacket::BindResource cmdPacket = *( CommandPacket::BindResource* )bufferPointer;
+
+			if ( cmdPacket.SamplerObject != nullptr ) {
+				BindSampler_Replay( renderContext, cmdPacket.ObjectHashcode, cmdPacket.SamplerObject );
+			}
+			break;
+		}
         case CPI_SET_VIEWPORT:
         {
             CommandPacket::SetViewport cmdPacket = *( CommandPacket::SetViewport* )bufferPointer;

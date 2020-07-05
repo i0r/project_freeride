@@ -619,7 +619,27 @@ void CommandList::bindBuffer( const dkStringHash_t hashcode, Buffer* buffer, con
 
 void CommandList::bindSampler( const dkStringHash_t hashcode, Sampler* sampler )
 {
+	CommandPacket::BindResource* commandPacket = dk::core::allocate<CommandPacket::BindResource>( nativeCommandList->CommandPacketAllocator );
+	commandPacket->Identifier = CPI_BIND_SAMPLER;
+	commandPacket->SamplerObject = sampler;
+	commandPacket->ObjectHashcode = hashcode;
+	commandPacket->ViewKey = 0ull;
 
+	nativeCommandList->Commands.push( reinterpret_cast< u32* >( commandPacket ) );
+}
+
+void FlushSamplerRegisterUpdate( RenderContext* renderContext )
+{
+	if ( renderContext->SamplerRegisterUpdateStart != ~0 ) {
+		renderContext->ImmediateContext->VSSetSamplers( renderContext->SamplerRegisterUpdateStart, renderContext->SamplerRegisterUpdateCount, &renderContext->SamplerRegisters[renderContext->SamplerRegisterUpdateStart] );
+		renderContext->ImmediateContext->PSSetSamplers( renderContext->SamplerRegisterUpdateStart, renderContext->SamplerRegisterUpdateCount, &renderContext->SamplerRegisters[renderContext->SamplerRegisterUpdateStart] );
+		renderContext->ImmediateContext->HSSetSamplers( renderContext->SamplerRegisterUpdateStart, renderContext->SamplerRegisterUpdateCount, &renderContext->SamplerRegisters[renderContext->SamplerRegisterUpdateStart] );
+		renderContext->ImmediateContext->DSSetSamplers( renderContext->SamplerRegisterUpdateStart, renderContext->SamplerRegisterUpdateCount, &renderContext->SamplerRegisters[renderContext->SamplerRegisterUpdateStart] );
+		renderContext->ImmediateContext->CSSetSamplers( renderContext->SamplerRegisterUpdateStart, renderContext->SamplerRegisterUpdateCount, &renderContext->SamplerRegisters[renderContext->SamplerRegisterUpdateStart] );
+
+		renderContext->SamplerRegisterUpdateCount = 0;
+		renderContext->SamplerRegisterUpdateStart = ~0;
+	}
 }
 
 void PrepareAndBindResources_Replay( RenderContext* renderContext, const PipelineState* pipelineState )
@@ -629,6 +649,7 @@ void PrepareAndBindResources_Replay( RenderContext* renderContext, const Pipelin
     FlushUAVRegisterUpdate( renderContext );
     FlushSRVRegisterUpdate( renderContext );
     FlushCBufferRegisterUpdate( renderContext );
+    FlushSamplerRegisterUpdate( renderContext );
 
     if ( pipelineState->computeShader != nullptr ) {
         deviceContext->CSSetShader( pipelineState->computeShader, nullptr, 0 );
@@ -695,6 +716,16 @@ void UpdateCBufferRegister( RenderContext* renderContext, const i32 shaderStageI
     i32 registersDiff = ( cbufferRegisterIndex - renderContext->CBufferRegisterUpdateStart[shaderStageIndex] );
     i32 updateCount = dk::maths::abs( registersDiff ) + 1;
     renderContext->CBufferRegisterUpdateCount[shaderStageIndex] = Max( renderContext->CBufferRegisterUpdateCount[shaderStageIndex], updateCount );
+}
+
+void UpdateSamplerRegister( RenderContext* renderContext, const u32 samplerRegisterIndex, ID3D11SamplerState* sampler )
+{
+    renderContext->SamplerRegisters[samplerRegisterIndex] = sampler;
+    renderContext->SamplerRegisterUpdateStart = Min( renderContext->SamplerRegisterUpdateStart, samplerRegisterIndex );
+
+	i32 registersDiff = ( samplerRegisterIndex - renderContext->SamplerRegisterUpdateStart );
+	i32 updateCount = dk::maths::abs( registersDiff ) + 1;
+	renderContext->SamplerRegisterUpdateCount = Max( renderContext->SamplerRegisterUpdateCount, updateCount );
 }
 
 void ClearFBO( RenderContext* renderContext )
@@ -801,6 +832,31 @@ void ClearImageFBOAttachment( RenderContext* renderContext, Image* image )
     if ( image->IsBindedToFBO ) {
         ClearFBO( renderContext );
     }
+}
+
+void BindSampler_Replay( RenderContext* renderContext, const dkStringHash_t hashcode, Sampler* sampler )
+{
+	std::unordered_map<dkStringHash_t, PipelineState::ResourceEntry*>& bindingSet = renderContext->BindedPipelineState->bindingSet;
+
+	auto it = bindingSet.find( hashcode );
+	if ( it == bindingSet.end() ) {
+		return;
+	}
+
+	PipelineState::ResourceEntry* resource = it->second;
+	if ( resource == nullptr ) {
+		return;
+	}
+    
+    // TODO Implement state caching for sampler states?
+	for ( i32 i = 0; i < resource->activeStageCount; i++ ) {
+		PipelineState::ResourceEntry::StageBinding& stageBinding = resource->activeBindings[i];
+
+		const u32 shaderStageIndex = stageBinding.ShaderStageIndex;
+		const u32 samplerRegister = stageBinding.RegisterIndex;
+
+        UpdateSamplerRegister( renderContext, samplerRegister, sampler->samplerState );
+	}
 }
 
 void BindBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hashcode, Buffer* buffer )

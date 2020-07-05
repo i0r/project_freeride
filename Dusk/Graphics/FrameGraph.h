@@ -608,7 +608,8 @@ private:
     f32                     pipelineImageQuality;
     f32                     deltaTime;
     i32                     allocatedBuffersCount;
-    i32                     allocatedImageCount;
+	i32                     allocatedImageCount;
+	i32                     allocatedSamplerCount;
     dkVec2u                 activeScreenSize;
 
     void*                   instanceBufferData;
@@ -621,12 +622,16 @@ private:
     ImageDesc               imagesDesc[MAX_ALLOCABLE_RESOURCE_TYPE];
     bool                    isImageFree[MAX_ALLOCABLE_RESOURCE_TYPE];
 
+	Sampler*                allocatedSamplers[MAX_ALLOCABLE_RESOURCE_TYPE];
+	SamplerDesc             samplerDesc[MAX_ALLOCABLE_RESOURCE_TYPE];
+	bool                    isSamplerFree[MAX_ALLOCABLE_RESOURCE_TYPE];
+
     Buffer*                 inUseBuffers[MAX_ALLOCABLE_RESOURCE_TYPE];
     Image*                  inUseImages[MAX_ALLOCABLE_RESOURCE_TYPE];
+    Sampler*                inUseSamplers[MAX_ALLOCABLE_RESOURCE_TYPE];
 
     Buffer*                 persistentBuffers[MAX_ALLOCABLE_RESOURCE_TYPE];
     Image*                  persistentImages[MAX_ALLOCABLE_RESOURCE_TYPE];
-
 
     std::unordered_map<dkStringHash_t, Buffer*> persistentBuffersMap;
     std::unordered_map<dkStringHash_t, Image*>  persistentImagesMap;

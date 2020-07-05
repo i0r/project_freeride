@@ -221,8 +221,8 @@ ResHandle_t FrameGraphBuilder::allocateBuffer( BufferDesc& description, const u3
 
 ResHandle_t FrameGraphBuilder::allocateSampler( const SamplerDesc& description )
 {
-    DUSK_UNUSED_VARIABLE( description );
-    return 0;
+    samplers[samplerStateCount] = description;
+    return samplerStateCount++;
 }
 
 ResHandle_t FrameGraphBuilder::readReadOnlyImage( const ResHandle_t resourceHandle )
@@ -331,7 +331,8 @@ FrameGraphResources::FrameGraphResources( BaseAllocator* allocator )
     , pipelineImageQuality( 1.0f )
     , deltaTime( 0.0f )
     , allocatedBuffersCount( 0 )
-    , allocatedImageCount( 0 )
+	, allocatedImageCount( 0 )
+	, allocatedSamplerCount( 0 )
     , activeScreenSize( dkVec2u::Zero )
     , instanceBufferData( nullptr )
 {
@@ -347,8 +348,13 @@ FrameGraphResources::FrameGraphResources( BaseAllocator* allocator )
     memset( imagesDesc, 0, sizeof( ImageDesc ) * MAX_ALLOCABLE_RESOURCE_TYPE );
     memset( isImageFree, 0, sizeof( bool ) * MAX_ALLOCABLE_RESOURCE_TYPE );
 
+	memset( allocatedSamplers, 0, sizeof( Sampler* ) * MAX_ALLOCABLE_RESOURCE_TYPE );
+	memset( samplerDesc, 0, sizeof( ImageDesc ) * MAX_ALLOCABLE_RESOURCE_TYPE );
+	memset( isSamplerFree, 0, sizeof( bool ) * MAX_ALLOCABLE_RESOURCE_TYPE );
+
     memset( inUseBuffers, 0, sizeof( Buffer* ) * MAX_ALLOCABLE_RESOURCE_TYPE );
-    memset( inUseImages, 0, sizeof( Image* ) * MAX_ALLOCABLE_RESOURCE_TYPE );
+	memset( inUseImages, 0, sizeof( Image* ) * MAX_ALLOCABLE_RESOURCE_TYPE );
+	memset( inUseSamplers, 0, sizeof( Sampler* ) * MAX_ALLOCABLE_RESOURCE_TYPE );
 
     memset( persistentBuffers, 0, sizeof( Buffer* ) * MAX_ALLOCABLE_RESOURCE_TYPE );
     memset( persistentImages, 0, sizeof( Image* ) * MAX_ALLOCABLE_RESOURCE_TYPE );
@@ -370,13 +376,18 @@ void FrameGraphResources::releaseResources( RenderDevice* renderDevice )
 
     for ( i32 imageIdx = 0; imageIdx < allocatedImageCount; imageIdx++ ) {
         renderDevice->destroyImage( allocatedImages[imageIdx] );
-    }
+	}
+
+	for ( i32 samplerIdx = 0; samplerIdx < allocatedSamplerCount; samplerIdx++ ) {
+		renderDevice->destroySampler( allocatedSamplers[samplerIdx] );
+	}
 }
 
 void FrameGraphResources::unacquireResources()
 {
     memset( isBufferFree, 1, sizeof( bool ) * static_cast<u32>( allocatedBuffersCount ) );
-    memset( isImageFree, 1, sizeof( bool ) * static_cast<u32>( allocatedImageCount ) );
+	memset( isImageFree, 1, sizeof( bool ) * static_cast< u32 >( allocatedImageCount ) );
+	memset( isSamplerFree, 1, sizeof( bool ) * static_cast< u32 >( allocatedSamplerCount ) );
 }
 
 void FrameGraphResources::setPipelineViewport( const Viewport& viewport, const ScissorRegion& scissor, const CameraData* cameraData )
@@ -528,8 +539,7 @@ Image* FrameGraphResources::getImage( const ResHandle_t resourceHandle ) const
 
 Sampler* FrameGraphResources::getSampler( const ResHandle_t resourceHandle ) const
 {
-    DUSK_UNUSED_VARIABLE( resourceHandle );
-    return nullptr;
+    return inUseSamplers[resourceHandle];
 }
 
 Buffer* FrameGraphResources::getPersistentBuffer( const ResHandle_t resourceHandle ) const
@@ -588,9 +598,24 @@ void FrameGraphResources::allocateImage( RenderDevice* renderDevice, const ResHa
 
 void FrameGraphResources::allocateSampler( RenderDevice* renderDevice, const ResHandle_t resourceHandle, const SamplerDesc& description )
 {
-    DUSK_UNUSED_VARIABLE( renderDevice );
-    DUSK_UNUSED_VARIABLE( resourceHandle );
-    DUSK_UNUSED_VARIABLE( description );
+    Sampler* sampler = nullptr;
+
+    for ( i32 i = 0; i < allocatedSamplerCount; i++ ) {
+        if ( samplerDesc[i] == description && isSamplerFree[i] ) {
+            sampler = allocatedSamplers[i];
+            isSamplerFree[i] = false;
+            break;
+        }
+    }
+
+    if ( sampler == nullptr ) {
+        sampler = renderDevice->createSampler( description );
+        allocatedSamplers[allocatedSamplerCount] = sampler;
+        samplerDesc[allocatedSamplerCount] = description;
+        allocatedSamplerCount++;
+    }
+
+    inUseSamplers[resourceHandle] = sampler;
 }
 
 void FrameGraphResources::bindPersistentBuffers( const ResHandle_t resourceHandle, const dkStringHash_t hashcode )
