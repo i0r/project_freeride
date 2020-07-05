@@ -250,7 +250,10 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
 				cmdList->bindBuffer( InstanceVectorBufferHashcode, vectorBuffer );
                 cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
                 cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
-                cmdList->bindConstantBuffer( PerWorldBufferHashcode, perWorldBuffer );
+
+                if ( !material->skipLighting() ) {
+                    cmdList->bindConstantBuffer( PerWorldBufferHashcode, perWorldBuffer );
+                }
 
                 cmdList->bindImage( BrdfDfgLUTHascode, brdfDfgLut );
                 cmdList->bindImage( IBLDiffuseHascode, iblDiffuse );

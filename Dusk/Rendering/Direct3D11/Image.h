@@ -83,5 +83,5 @@ struct Image
     }
 };
 
-void SetupFramebuffer_Replay( RenderContext* renderContext, Image** renderTargetViews, Image* depthStencilView );
+void SetupFramebuffer_Replay( RenderContext* renderContext, FramebufferAttachment* renderTargetViews, FramebufferAttachment depthStencilView );
 #endif

@@ -249,7 +249,8 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
         SerializeFlag( materialDescriptor, "\tenableAlphaToCoverage", editableMaterial.UseAlphaToCoverage );
 		SerializeFlag( materialDescriptor, "\tisAlphaTested", editableMaterial.IsAlphaTested );
 		SerializeFlag( materialDescriptor, "\tisWireframe", editableMaterial.IsWireframe );
-		SerializeFlag( materialDescriptor, "\tisDoubleFace", editableMaterial.IsDoubleFace );
+        SerializeFlag( materialDescriptor, "\tisDoubleFace", editableMaterial.IsDoubleFace );
+        SerializeFlag( materialDescriptor, "\tisShadeless", editableMaterial.IsShadeless );
         
         // Write Parameters.
         if ( !mutableParameters.empty() ) {
