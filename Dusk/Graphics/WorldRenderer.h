@@ -7,6 +7,9 @@
 #include <Rendering/CommandList.h>
 #include <Maths/Matrix.h>
 
+#include "Material.h"
+
+class LightGrid;
 class RenderDevice;
 class ShaderCache;
 class GraphicsAssetCache;
@@ -26,13 +29,13 @@ class FrameCompositionModule;
 class AtmosphereRenderModule;
 class WorldRenderModule;
 class IBLUtilitiesModule;
-
-template <typename Precision, int RowCount, int ColumnCount>
-struct Matrix;
-using dkMat4x4f = Matrix<float, 4, 4>;
+class EnvironmentProbeStreaming;
 
 struct CameraData;
 struct Buffer;
+struct Image;
+
+using ResHandle_t = u32;
 
 struct DrawCommandKey
 {
@@ -135,14 +138,14 @@ class WorldRenderer
 {
 public:
     // TODO Avoid exposing stuff like this...
-    AutomaticExposureModule* AutomaticExposure;
-    TextRenderingModule*     TextRendering;
-    GlareRenderModule*       GlareRendering;
-    LineRenderingModule*     LineRendering;
-    FrameCompositionModule*  FrameComposition;
-    AtmosphereRenderModule*  AtmosphereRendering;
+    // We should be able to get rid of this shitty dependency once picking is correctly split.
     WorldRenderModule*       WorldRendering;
-    IBLUtilitiesModule*      IBLUtilities;
+
+    // Return a pointer to the AtmosphereRenderModule instance. Shouldn't be useful outside the editor context.
+    DUSK_INLINE AtmosphereRenderModule* getAtmosphereRenderingModule() const { return atmosphereRendering; }
+
+    // Return a pointer to this renderer light grid.  Shouldn't be useful outside the editor context.
+    DUSK_INLINE LightGrid*              getLightGrid() const { return lightGrid; }
 
 public:
                      WorldRenderer( BaseAllocator* allocator );
@@ -157,6 +160,7 @@ public:
     void             drawWorld( RenderDevice* renderDevice, const f32 deltaTime );
 
     DrawCmd&         allocateDrawCmd();
+
     DrawCmd&         allocateSpherePrimitiveDrawCmd();
 
     // Prepare the FrameGraph instance for the next frame.
@@ -164,6 +168,12 @@ public:
 
     // Return a pointer to the wireframe material.
     const Material*  getWireframeMaterial() const;
+
+    // Append the render passes to build the default world render pipeline.
+    ResHandle_t      buildDefaultGraph( FrameGraph& frameGraph, const Material::RenderScenario scenario, const dkVec2f& viewportSize );
+
+    // Return the virtual resource handle to the resolved depth buffer (or the regular depth buffer if multisampling is disabled).
+    ResHandle_t      getResolvedDepth();
 
 private:
     // The memory allocator owning this instance.
@@ -186,4 +196,28 @@ private:
 
     // Material to render wireframe geometry (e.g. debug primitives).
     Material*        wireframeMaterial;
+
+    // Default BRDF DFG LUT. Probably at the wrong place but idk where it should now.
+    Image*           brdfDfgLut;
+
+    // Manage light assignation/clustering in the world.
+    LightGrid*       lightGrid;
+
+    // Update dynamic environment probe and stream precomputed ones from the disk.
+    EnvironmentProbeStreaming* environmentProbeStreaming;
+
+    // Current frame resolved depth render target (if the frame had at least one depth render pass).
+    ResHandle_t      resolvedDepth;
+
+    // Frame composition render module (builds final image at the end of the post-fx pipeline).
+    FrameCompositionModule* frameComposition;
+
+    // Glare rendering module (physically-based bloom).
+    GlareRenderModule* glareRendering;
+
+    // Automatic exposure compute module (histogram based).
+    AutomaticExposureModule* automaticExposure;
+
+    // Atmosphere (sky + atmospheric fog) rendering module.
+    AtmosphereRenderModule* atmosphereRendering;
 };

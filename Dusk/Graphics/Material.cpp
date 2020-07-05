@@ -46,6 +46,7 @@ Material::Material( BaseAllocator* allocator )
     , isAlphaTested( false )
     , isWireframe( false )
     , invalidateCachedStates( false )
+    , isShadeless( false )
 {
 
 }
@@ -92,7 +93,9 @@ void Material::deserialize( FileSystemObject* object )
                         isAlphaTested = dk::core::StringToBool( value );
 					} else if ( dk::core::ExpectKeyword( name.StreamPointer, 11, "isWireframe" ) ) {
                         isWireframe = dk::core::StringToBool( value );
-					}
+                    } else if ( dk::core::ExpectKeyword( name.StreamPointer, 11, "isShadeless" ) ) {
+                        isShadeless = dk::core::StringToBool( value );
+                    }
                 } else {
                     const TypeAST& type = *typeAST.Types[nodeIdx];
 
@@ -245,4 +248,9 @@ void Material::setParameterAsTexture2D( const dkStringHash_t parameterHashcode, 
 
     parameter.Type = MutableParameter::ParamType::Texture2D;
     parameter.Value = imagePath;
+}
+
+bool Material::skipLighting() const
+{
+    return isShadeless;
 }

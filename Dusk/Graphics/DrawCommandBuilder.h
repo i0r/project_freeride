@@ -6,22 +6,9 @@
 
 #include <Maths/Matrix.h>
 
-//enum eProbeCaptureStep : uint16_t
-//{
-//    FACE_X_PLUS = 0,
-//    FACE_X_MINUS,
-//
-//    FACE_Y_PLUS,
-//    FACE_Y_MINUS,
-//
-//    FACE_Z_PLUS,
-//    FACE_Z_MINUS,
-//};
-
 class BaseAllocator;
 class LinearAllocator;
 class WorldRenderer;
-class LightGrid;
 class Model;
 class FrameGraph;
 struct CameraData;
@@ -45,7 +32,7 @@ public:
 
 	// Build render queues for each type of render scenario and enqueued cameras.
 	// This call will also update/stream the light grid entities.
-	void				prepareAndDispatchCommands( WorldRenderer* worldRenderer, LightGrid* lightGrid );
+	void				prepareAndDispatchCommands( WorldRenderer* worldRenderer );
 
 private:
 	// The memory allocator owning this instance.

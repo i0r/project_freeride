@@ -1,6 +1,6 @@
 /*
     Dusk Source Code
-    Copyright (C) 2019 Prevost Baptiste
+    Copyright (C) 2020 Prevost Baptiste
 */
 #include <Shared.h>
 #include "IBLUtilitiesModule.h"
@@ -14,72 +14,10 @@
 
 #include "Generated/BRDFLut.generated.h"
 #include "Generated/IBL.generated.h"
+
 #include <Graphics/RenderPasses/Headers/Light.h>
 
-IBLUtilitiesModule::IBLUtilitiesModule()
-    : brdfDfgLUT( nullptr )
-{
-
-}
-
-IBLUtilitiesModule::~IBLUtilitiesModule()
-{
-    brdfDfgLUT = nullptr;
-}
-
-void IBLUtilitiesModule::destroy( RenderDevice& renderDevice )
-{
-    if ( brdfDfgLUT != nullptr ) {
-        renderDevice.destroyImage( brdfDfgLUT );
-        brdfDfgLUT = nullptr;
-    }
-}
-
-void IBLUtilitiesModule::loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache )
-{
-    ImageDesc brdfLUTDesc;
-    brdfLUTDesc.dimension = ImageDesc::DIMENSION_2D;
-    brdfLUTDesc.format = eViewFormat::VIEW_FORMAT_R16G16_FLOAT;
-    brdfLUTDesc.width = BRDF_LUT_SIZE;
-    brdfLUTDesc.height = BRDF_LUT_SIZE;
-    brdfLUTDesc.bindFlags = eResourceBind::RESOURCE_BIND_UNORDERED_ACCESS_VIEW | eResourceBind::RESOURCE_BIND_SHADER_RESOURCE;
-    brdfLUTDesc.usage = eResourceUsage::RESOURCE_USAGE_DEFAULT;
-
-    brdfDfgLUT = renderDevice.createImage( brdfLUTDesc );
-
-#ifdef DUSK_DEVBUILD
-    renderDevice.setDebugMarker( *brdfDfgLUT, DUSK_STRING( "BRDF LUT (Runtime Computed)" ) );
-#endif
-}
-
-void IBLUtilitiesModule::precomputePipelineResources( FrameGraph& frameGraph )
-{
-    struct PassData {};
-
-    frameGraph.addRenderPass<PassData>(
-        BrdfLut::ComputeBRDFLut_Name,
-        [&]( FrameGraphBuilder& builder, PassData& passData ) {
-            builder.useAsyncCompute();
-            builder.setUncullablePass();
-        },
-        [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
-            cmdList->pushEventMarker( BrdfLut::ComputeBRDFLut_EventName );
-
-            PipelineState* pso = psoCache->getOrCreatePipelineState( RenderingHelpers::PS_Compute, BrdfLut::ComputeBRDFLut_ShaderBinding );
-            cmdList->bindPipelineState( pso );
-            cmdList->bindImage( BrdfLut::ComputeBRDFLut_ComputedLUT_Hashcode, brdfDfgLUT );
-            cmdList->prepareAndBindResourceList();
-
-            u32 dispatchX = BRDF_LUT_SIZE / BrdfLut::ComputeBRDFLut_DispatchX;
-            u32 dispatchY = BRDF_LUT_SIZE / BrdfLut::ComputeBRDFLut_DispatchY;
-            cmdList->dispatchCompute( dispatchX, dispatchY, 1 );
-
-            cmdList->popEventMarker();
-        }
-    );
-}
-
-void IBLUtilitiesModule::addCubeFaceIrradianceComputePass( FrameGraph& frameGraph, Image* cubemap, Image* irradianceCube, const u32 faceIndex )
+void AddCubeFaceIrradianceComputePass( FrameGraph& frameGraph, Image* cubemap, Image* irradianceCube, const u32 faceIndex )
 {
 	struct PassData {
 		ResHandle_t         PerPassBuffer;
@@ -137,7 +75,7 @@ void IBLUtilitiesModule::addCubeFaceIrradianceComputePass( FrameGraph& frameGrap
 	);
 }
 
-void IBLUtilitiesModule::addCubeFaceFilteringPass( FrameGraph& frameGraph, Image* cubemap, Image* filteredCube, const u32 faceIndex, const u32 mipIndex )
+void AddCubeFaceFilteringPass( FrameGraph& frameGraph, Image* cubemap, Image* filteredCube, const u32 faceIndex, const u32 mipIndex )
 {
 	struct PassData {
 		ResHandle_t	PerPassBuffer;
@@ -199,4 +137,31 @@ void IBLUtilitiesModule::addCubeFaceFilteringPass( FrameGraph& frameGraph, Image
 			cmdList->popEventMarker();
 		}
 	);
+}
+
+void AddBrdfDfgLutComputePass( FrameGraph& frameGraph, Image* brdfDfgLut )
+{
+    struct PassData {};
+
+    frameGraph.addRenderPass<PassData>(
+        BrdfLut::ComputeBRDFLut_Name,
+        [&]( FrameGraphBuilder& builder, PassData& passData ) {
+            builder.useAsyncCompute();
+            builder.setUncullablePass();
+        },
+        [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+            cmdList->pushEventMarker( BrdfLut::ComputeBRDFLut_EventName );
+
+            PipelineState* pso = psoCache->getOrCreatePipelineState( RenderingHelpers::PS_Compute, BrdfLut::ComputeBRDFLut_ShaderBinding );
+            cmdList->bindPipelineState( pso );
+            cmdList->bindImage( BrdfLut::ComputeBRDFLut_ComputedLUT_Hashcode, brdfDfgLut );
+            cmdList->prepareAndBindResourceList();
+
+            u32 dispatchX = BRDF_LUT_SIZE / BrdfLut::ComputeBRDFLut_DispatchX;
+            u32 dispatchY = BRDF_LUT_SIZE / BrdfLut::ComputeBRDFLut_DispatchY;
+            cmdList->dispatchCompute( dispatchX, dispatchY, 1 );
+
+            cmdList->popEventMarker();
+        }
+    );
 }

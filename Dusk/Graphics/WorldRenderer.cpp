@@ -14,6 +14,9 @@
 
 #include <Rendering/CommandList.h>
 
+#include "LightGrid.h"
+#include "EnvironmentProbeStreaming.h"
+
 #include "RenderModules/AtmosphereRenderModule.h"
 #include "RenderModules/PresentRenderPass.h"
 #include "RenderModules/MSAAResolvePass.h"
@@ -24,6 +27,8 @@
 #include "RenderModules/LineRenderingModule.h"
 #include "RenderModules/WorldRenderModule.h"
 #include "RenderModules/IBLUtilitiesModule.h"
+
+DUSK_ENV_VAR( EnableTAA, false, bool ); // "Enable Temporal AntiAliasing [false/true]
 
 static constexpr size_t MAX_DRAW_CMD_COUNT = 4096;
 
@@ -90,14 +95,11 @@ done:
 }
 
 WorldRenderer::WorldRenderer( BaseAllocator* allocator )
-    : AutomaticExposure( dk::core::allocate<AutomaticExposureModule>( allocator ) )
-    , TextRendering( dk::core::allocate<TextRenderingModule>( allocator ) )
-    , GlareRendering( dk::core::allocate<GlareRenderModule>( allocator ) )
-    , LineRendering( dk::core::allocate<LineRenderingModule>( allocator, allocator ) )
-    , FrameComposition( dk::core::allocate<FrameCompositionModule>( allocator ) )
-    , AtmosphereRendering( dk::core::allocate<AtmosphereRenderModule>( allocator ) )
+    : automaticExposure( dk::core::allocate<AutomaticExposureModule>( allocator ) )
+    , glareRendering( dk::core::allocate<GlareRenderModule>( allocator ) )
+    , frameComposition( dk::core::allocate<FrameCompositionModule>( allocator ) )
+    , atmosphereRendering( dk::core::allocate<AtmosphereRenderModule>( allocator ) )
     , WorldRendering( dk::core::allocate<WorldRenderModule>( allocator ) )
-    , IBLUtilities( dk::core::allocate<IBLUtilitiesModule>( allocator ) )
     , memoryAllocator( allocator )
     , primitiveCache( dk::core::allocate<PrimitiveCache>( allocator ) )
     , drawCmdAllocator( dk::core::allocate<LinearAllocator>( allocator, sizeof( DrawCmd ) * MAX_DRAW_CMD_COUNT, allocator->allocate( sizeof( DrawCmd ) * MAX_DRAW_CMD_COUNT ) ) )
@@ -105,24 +107,27 @@ WorldRenderer::WorldRenderer( BaseAllocator* allocator )
     , frameDrawCmds( dk::core::allocateArray<DrawCmd>( allocator, sizeof( DrawCmd )* MAX_DRAW_CMD_COUNT ) )
     , needResourcePrecompute( true )
     , wireframeMaterial( nullptr )
+    , brdfDfgLut( nullptr )
+    , lightGrid( dk::core::allocate<LightGrid>( allocator, allocator ) )
+    , resolvedDepth( 0u )
+    , environmentProbeStreaming( dk::core::allocate<EnvironmentProbeStreaming>( allocator, allocator ) )
 {
 
 }
 
 WorldRenderer::~WorldRenderer()
 {
-    dk::core::free( memoryAllocator, AutomaticExposure );
-    dk::core::free( memoryAllocator, TextRendering );
-    dk::core::free( memoryAllocator, GlareRendering );
-    dk::core::free( memoryAllocator, LineRendering );
-    dk::core::free( memoryAllocator, FrameComposition );
-	dk::core::free( memoryAllocator, AtmosphereRendering );
+    dk::core::free( memoryAllocator, automaticExposure );
+    dk::core::free( memoryAllocator, glareRendering );
+    dk::core::free( memoryAllocator, frameComposition );
+	dk::core::free( memoryAllocator, atmosphereRendering );
     dk::core::free( memoryAllocator, WorldRendering );
-    dk::core::free( memoryAllocator, IBLUtilities );
     dk::core::free( memoryAllocator, primitiveCache );
     dk::core::free( memoryAllocator, drawCmdAllocator );
     dk::core::free( memoryAllocator, frameGraph );
     dk::core::free( memoryAllocator, frameDrawCmds );
+    dk::core::free( memoryAllocator, lightGrid );
+    dk::core::free( memoryAllocator, environmentProbeStreaming );
     
     memoryAllocator = nullptr;
 }
@@ -135,13 +140,17 @@ void WorldRenderer::destroy( RenderDevice* renderDevice )
     primitiveCache->destroy( renderDevice );
     frameGraph->destroy( renderDevice );
 
-    AutomaticExposure->destroy( *renderDevice );
-    TextRendering->destroy( *renderDevice );
-    GlareRendering->destroy( *renderDevice );
-    LineRendering->destroy( *renderDevice );
-    AtmosphereRendering->destroy( *renderDevice );
+    if ( brdfDfgLut != nullptr ) {
+        renderDevice->destroyImage( brdfDfgLut );
+        brdfDfgLut = nullptr;
+    }
+
+    environmentProbeStreaming->destroyResources( *renderDevice );
+
+    automaticExposure->destroy( *renderDevice );
+    glareRendering->destroy( *renderDevice );
+    atmosphereRendering->destroy( *renderDevice );
     WorldRendering->destroy( *renderDevice );
-    IBLUtilities->destroy( *renderDevice );
 }
 
 void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache* shaderCache, GraphicsAssetCache* graphicsAssetCache, VirtualFileSystem* virtualFileSystem )
@@ -150,30 +159,45 @@ void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache
 
     primitiveCache->createCachedGeometry( renderDevice );
     
-    AutomaticExposure->loadCachedResources( *renderDevice );
-    TextRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
-    GlareRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
-    LineRendering->createPersistentResources( *renderDevice );
-    FrameComposition->loadCachedResources( *graphicsAssetCache );
-    AtmosphereRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
+    automaticExposure->loadCachedResources( *renderDevice );
+    glareRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
+    frameComposition->loadCachedResources( *graphicsAssetCache );
+    atmosphereRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
     WorldRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
-    IBLUtilities->loadCachedResources( *renderDevice, *graphicsAssetCache );
+
+    environmentProbeStreaming->createResources( *renderDevice );
 
     // Debug resources.
     wireframeMaterial = graphicsAssetCache->getMaterial( DUSK_STRING( "GameData/materials/wireframe.mat" ), true );
+
+    // Create BRDF DFG LUT (TODO allow offline compute to avoid recomputing it each launch).
+    ImageDesc brdfLUTDesc;
+    brdfLUTDesc.dimension = ImageDesc::DIMENSION_2D;
+    brdfLUTDesc.format = eViewFormat::VIEW_FORMAT_R16G16_FLOAT;
+    brdfLUTDesc.width = BRDF_LUT_SIZE;
+    brdfLUTDesc.height = BRDF_LUT_SIZE;
+    brdfLUTDesc.bindFlags = eResourceBind::RESOURCE_BIND_UNORDERED_ACCESS_VIEW | eResourceBind::RESOURCE_BIND_SHADER_RESOURCE;
+    brdfLUTDesc.usage = eResourceUsage::RESOURCE_USAGE_DEFAULT;
+
+    brdfDfgLut = renderDevice->createImage( brdfLUTDesc );
+
+#ifdef DUSK_DEVBUILD
+    renderDevice->setDebugMarker( *brdfDfgLut, DUSK_STRING( "BRDF LUT (Runtime Computed)" ) );
+#endif
 
     // Precompute resources (might worth being done offline?).
     FrameGraph& graph = *frameGraph;
     graph.waitPendingFrameCompletion();
     
-    GlareRendering->precomputePipelineResources( graph );
-    AtmosphereRendering->triggerLutRecompute();
-    IBLUtilities->precomputePipelineResources( graph );
+    glareRendering->precomputePipelineResources( graph );
+    atmosphereRendering->triggerLutRecompute();
+    AddBrdfDfgLutComputePass( graph, brdfDfgLut );
 
     // Execute precompute step.
     graph.execute( renderDevice, 0.0f );
 
-    WorldRendering->setDefaultBrdfDfgLut( IBLUtilities->getBrdfDfgLut() );
+    // TODO This is shit and there is probably 
+    WorldRendering->setDefaultBrdfDfgLut( brdfDfgLut );
 }
 
 void WorldRenderer::drawDebugSphere( CommandList& cmdList )
@@ -243,4 +267,57 @@ FrameGraph& WorldRenderer::prepareFrameGraph( const Viewport& viewport, const Sc
 const Material* WorldRenderer::getWireframeMaterial() const
 {
     return wireframeMaterial;
+}
+
+ResHandle_t WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Material::RenderScenario scenario, const dkVec2f& viewportSize )
+{
+    f32 imageQuality = frameGraph.getImageQuality();
+    u32 msaaSamplerCount = frameGraph.getMSAASamplerCount();
+
+    automaticExposure->importResourcesToGraph( frameGraph );
+
+    environmentProbeStreaming->updateProbeCapture( frameGraph, atmosphereRendering );
+
+    LightGrid::Data lightGridData = lightGrid->updateClusters( frameGraph );
+
+    // LightPass.
+    WorldRenderModule::LightPassOutput primRenderPass = WorldRendering->addPrimitiveLightPass( frameGraph, lightGridData.PerSceneBuffer, scenario, environmentProbeStreaming->getReadDistantProbeIrradiance(), environmentProbeStreaming->getReadDistantProbeRadiance() );
+
+    // AntiAliasing resolve. (we merge both TAA and MSAA in a single pass to avoid multiple dispatch).
+    ResolvedPassOutput resolvedOutput = { primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget };
+    if ( msaaSamplerCount > 1 || EnableTAA ) {
+        resolvedOutput = AddMSAAResolveRenderPass( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputVelocityTarget, primRenderPass.OutputDepthTarget, msaaSamplerCount, EnableTAA );
+    }
+
+    if ( EnableTAA ) {
+        frameGraph.saveLastFrameRenderTarget( resolvedOutput.ResolvedColor );
+    }
+
+    // Rescale the main render target for post-fx (if SSAA is used to down/upscale).
+    if ( imageQuality != 1.0f ) {
+        resolvedOutput = AddSSAAResolveRenderPass( frameGraph, resolvedOutput );
+    }
+
+    resolvedDepth = resolvedOutput.ResolvedDepth;
+
+    // Atmosphere Rendering.
+    ResHandle_t presentRt = atmosphereRendering->renderAtmosphere( frameGraph, resolvedOutput.ResolvedColor, resolvedOutput.ResolvedDepth );
+
+    // Glare Rendering.
+    FFTPassOutput frequencyDomainRt = AddFFTComputePass( frameGraph, presentRt, viewportSize.x, viewportSize.y );
+    FFTPassOutput convolutedFFT = glareRendering->addGlareComputePass( frameGraph, frequencyDomainRt );
+    ResHandle_t inverseFFT = AddInverseFFTComputePass( frameGraph, convolutedFFT, viewportSize.x, viewportSize.y );
+
+    // Automatic Exposure.
+    automaticExposure->computeExposure( frameGraph, presentRt, dkVec2u( static_cast< u32 >( viewportSize.x ), static_cast< u32 >( viewportSize.y ) ) );
+
+    // Frame composition.
+    ResHandle_t composedFrame = frameComposition->addFrameCompositionPass( frameGraph, presentRt, inverseFFT );
+
+    return composedFrame;
+}
+
+ResHandle_t WorldRenderer::getResolvedDepth()
+{
+    return resolvedDepth;
 }

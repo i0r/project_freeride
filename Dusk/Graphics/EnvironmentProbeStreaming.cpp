@@ -16,9 +16,12 @@
 #include "RenderPasses/Headers/Light.h"
 
 #include "RenderModules/Generated/BrdfLut.generated.h"
+#include "RenderModules/IBLUtilitiesModule.h"
 
 #include <Graphics/RenderModules/AtmosphereRenderModule.h>
 #include <Graphics/RenderModules/IBLUtilitiesModule.h>
+
+#include "Maths/MatrixTransformations.h"
 
 static constexpr dkVec3f PROBE_FACE_VIEW_DIRECTION[eProbeUpdateFace::FACE_COUNT] = {
 	dkVec3f( +1.0f, 0.0f, 0.0f ),
@@ -56,8 +59,9 @@ static dkMat4x4f GetProbeCaptureViewMatrix( const dkVec3f& probePositionWorldSpa
     return dk::maths::MakeLookAtMat( probePositionWorldSpace, probePositionWorldSpace + PROBE_FACE_VIEW_DIRECTION[captureStep], PROBE_FACE_UP_DIRECTION[captureStep] );
 }
 
-EnvironmentProbeStreaming::EnvironmentProbeStreaming()
-	: distantProbeUpdateStep( eProbeUpdateStep::PROBE_CAPTURE )
+EnvironmentProbeStreaming::EnvironmentProbeStreaming( BaseAllocator* allocator )
+	: memoryAllocator( allocator )
+	, distantProbeUpdateStep( eProbeUpdateStep::PROBE_CAPTURE )
 	, distantProbeFace( eProbeUpdateFace::FACE_X_PLUS )
 	, distantProbeWriteIndex( 0 )
 	, distantProbeMipIndex( 0 )
@@ -86,9 +90,10 @@ EnvironmentProbeStreaming::~EnvironmentProbeStreaming()
 	}
 }
 
-void EnvironmentProbeStreaming::updateProbeCapture( FrameGraph& frameGraph, WorldRenderer* worldRenderer )
+void EnvironmentProbeStreaming::updateProbeCapture( FrameGraph& frameGraph, AtmosphereRenderModule* atmosphereRenderingModule )
 {
-	updateDistantProbe( frameGraph, worldRenderer );
+	// Update the distant probe.
+	updateDistantProbe( frameGraph, atmosphereRenderingModule );
 }
 
 u32 EnvironmentProbeStreaming::addProbeForStreaming( const dkVec3f& worldPosition, const f32 probeRadius, const dkMat4x4f& inverseModelMatrix )
@@ -111,7 +116,7 @@ void EnvironmentProbeStreaming::addProbeRecapture( const u32 probeIndex )
 
 }
 
-void EnvironmentProbeStreaming::createResources( RenderDevice* renderDevice )
+void EnvironmentProbeStreaming::createResources( RenderDevice& renderDevice )
 {
 	ImageDesc cubemapDesc;
     cubemapDesc.width = PROBE_FACE_SIZE;
@@ -127,16 +132,16 @@ void EnvironmentProbeStreaming::createResources( RenderDevice* renderDevice )
 
     for ( i32 i = 0; i < DISTANT_PROBE_BUFFER_COUNT; i++ ) {
         cubemapDesc.mipCount = 1;
-		distantProbe[i][0] = renderDevice->createImage( cubemapDesc );
+		distantProbe[i][0] = renderDevice.createImage( cubemapDesc );
 
 		cubemapDesc.width = 64;
 		cubemapDesc.height = 64;
-		distantProbe[i][1] = renderDevice->createImage( cubemapDesc );
+		distantProbe[i][1] = renderDevice.createImage( cubemapDesc );
 
 		cubemapDesc.width = PROBE_FACE_SIZE;
 		cubemapDesc.height = PROBE_FACE_SIZE;
 		cubemapDesc.mipCount = PROBE_FILTERED_MIP_COUNT;
-		distantProbe[i][2] = renderDevice->createImage( cubemapDesc );
+		distantProbe[i][2] = renderDevice.createImage( cubemapDesc );
 
 		// Create view for each face to capture
         ImageViewDesc viewDesc;
@@ -146,28 +151,28 @@ void EnvironmentProbeStreaming::createResources( RenderDevice* renderDevice )
         for ( i32 faceIdx = 0; faceIdx < FACE_COUNT; faceIdx++ ) {
             viewDesc.StartImageIndex = faceIdx;
             viewDesc.StartMipIndex = 0;
-			renderDevice->createImageView( *distantProbe[i][0], viewDesc, IMAGE_VIEW_CREATE_UAV | IMAGE_VIEW_CREATE_SRV );
-			renderDevice->createImageView( *distantProbe[i][1], viewDesc, IMAGE_VIEW_CREATE_UAV | IMAGE_VIEW_CREATE_SRV );
+			renderDevice.createImageView( *distantProbe[i][0], viewDesc, IMAGE_VIEW_CREATE_UAV | IMAGE_VIEW_CREATE_SRV );
+			renderDevice.createImageView( *distantProbe[i][1], viewDesc, IMAGE_VIEW_CREATE_UAV | IMAGE_VIEW_CREATE_SRV );
 
             for ( i32 mipIdx = 0; mipIdx < PROBE_FILTERED_MIP_COUNT; mipIdx++ ) {
                 viewDesc.StartMipIndex = mipIdx;
 
-                renderDevice->createImageView( *distantProbe[i][2], viewDesc, IMAGE_VIEW_CREATE_UAV | IMAGE_VIEW_CREATE_SRV );
+                renderDevice.createImageView( *distantProbe[i][2], viewDesc, IMAGE_VIEW_CREATE_UAV | IMAGE_VIEW_CREATE_SRV );
 			}
         }
 	}
 }
 
-void EnvironmentProbeStreaming::destroyResources( RenderDevice* renderDevice )
+void EnvironmentProbeStreaming::destroyResources( RenderDevice& renderDevice )
 {
 	for ( i32 i = 0; i < DISTANT_PROBE_BUFFER_COUNT; i++ ) {
 		for ( i32 j = 0; j < PROBE_COMPONENT_COUNT; j++ ) {
-			renderDevice->destroyImage( distantProbe[i][j] );
+			renderDevice.destroyImage( distantProbe[i][j] );
 		}
 	}
 }
 
-void EnvironmentProbeStreaming::updateDistantProbe( FrameGraph& frameGraph, WorldRenderer* worldRenderer )
+void EnvironmentProbeStreaming::updateDistantProbe( FrameGraph& frameGraph, AtmosphereRenderModule* atmosphereRenderingModule )
 {
 	switch ( distantProbeUpdateStep ) {
 	case PROBE_CAPTURE:
@@ -188,7 +193,7 @@ void EnvironmentProbeStreaming::updateDistantProbe( FrameGraph& frameGraph, Worl
         viewDesc.MipCount = 1;
 		viewDesc.ImageCount = 1;
 
-		worldRenderer->AtmosphereRendering->renderSkyForProbeCapture( frameGraph, distantProbe[distantProbeWriteIndex][0], viewDesc, cameraData );
+		atmosphereRenderingModule->renderSkyForProbeCapture( frameGraph, distantProbe[distantProbeWriteIndex][0], viewDesc, cameraData );
 
 		distantProbeFace++;
 	} break;
@@ -197,7 +202,7 @@ void EnvironmentProbeStreaming::updateDistantProbe( FrameGraph& frameGraph, Worl
 		Image* cubemap = distantProbe[distantProbeWriteIndex][0];
 		Image* irradiance = distantProbe[distantProbeWriteIndex][1];
 
-		worldRenderer->IBLUtilities->addCubeFaceIrradianceComputePass( frameGraph, cubemap, irradiance, distantProbeFace );
+		AddCubeFaceIrradianceComputePass( frameGraph, cubemap, irradiance, distantProbeFace );
 
 		distantProbeFace++;
 	} break;
@@ -206,7 +211,7 @@ void EnvironmentProbeStreaming::updateDistantProbe( FrameGraph& frameGraph, Worl
 		Image* cubemap = distantProbe[distantProbeWriteIndex][0];
 		Image* filteredCubemap = distantProbe[distantProbeWriteIndex][2];
 
-		worldRenderer->IBLUtilities->addCubeFaceFilteringPass( frameGraph, cubemap, filteredCubemap, distantProbeFace, distantProbeMipIndex );
+		AddCubeFaceFilteringPass( frameGraph, cubemap, filteredCubemap, distantProbeFace, distantProbeMipIndex );
 
 		distantProbeMipIndex++;
 	} break;

@@ -99,7 +99,7 @@ void DrawCommandBuilder::addStaticModelInstance( const Model* model, const dkMat
     modelInstance->EntityIdentifier = entityIndex;
 }
 
-void DrawCommandBuilder::prepareAndDispatchCommands( WorldRenderer* worldRenderer, LightGrid* lightGrid )
+void DrawCommandBuilder::prepareAndDispatchCommands( WorldRenderer* worldRenderer )
 {
     u32 cameraIdx = 0;
     CameraData* cameraArray = static_cast< CameraData* >( cameraToRenderAllocator->getBaseAddress() );

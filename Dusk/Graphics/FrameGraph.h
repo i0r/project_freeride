@@ -666,6 +666,9 @@ public:
     // (e.g. 1.0f = 100% image quality)
     void    setImageQuality( const f32 imageQuality = 1.0f );
 
+    f32     getImageQuality() const;
+    u32     getMSAASamplerCount() const;
+
     void    importPersistentImage( const dkStringHash_t resourceHashcode, Image* image );
     void    importPersistentBuffer( const dkStringHash_t resourceHashcode, Buffer* buffer );
 
@@ -721,6 +724,7 @@ private:
     i32                                 renderPassCount;
     f32                                 pipelineImageQuality;
     dkVec2u                             graphScreenSize;
+    u32                                 msaaSamplerCount;
 
     const CameraData*                   activeCamera;
     Viewport                            activeViewport;

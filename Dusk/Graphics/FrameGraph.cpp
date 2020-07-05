@@ -620,6 +620,7 @@ FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevi
     , renderPassCount( 0 )
     , pipelineImageQuality( 1.0f )
     , graphScreenSize( dkVec2u::Zero )
+    , msaaSamplerCount( 0 )
     , activeCamera( nullptr )
     , hasViewportChanged( false )
     , lastFrameRenderTarget( nullptr )
@@ -761,6 +762,8 @@ void FrameGraph::setViewport( const Viewport& viewport, const ScissorRegion& sci
 void FrameGraph::setMSAAQuality( const uint32_t samplerCount )
 {
     graphBuilder.setMSAAQuality( samplerCount );
+
+    msaaSamplerCount = samplerCount;
 }
 
 void FrameGraph::setScreenSize( const dkVec2u& screenSize )
@@ -791,6 +794,16 @@ void FrameGraph::setImageQuality( const f32 imageQuality )
     graphResources.setImageQuality( imageQuality );
 
     pipelineImageQuality = imageQuality;
+}
+
+f32 FrameGraph::getImageQuality() const
+{
+    return pipelineImageQuality;
+}
+
+u32 FrameGraph::getMSAASamplerCount() const
+{
+    return msaaSamplerCount;
 }
 
 void FrameGraph::importPersistentImage( const dkStringHash_t resourceHashcode, Image* image )

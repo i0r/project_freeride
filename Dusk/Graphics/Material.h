@@ -70,6 +70,9 @@ public:
 
     void            setParameterAsTexture2D( const dkStringHash_t parameterHashcode, const std::string& imagePath );
 
+    // Return true if this material skip lighting step of the world rendering (e.g. is shadeless).
+    bool            skipLighting() const;
+
 private:
     struct MutableParameter {
         // Cached Parameter value converted to Float3.
@@ -141,7 +144,10 @@ private:
 
     // True if this material should be rendered with wireframe fillmode.
     u8 isWireframe : 1;
-    
+
+    // True if this material is shadeless and don't need a lighting pass.
+    u8 isShadeless : 1;
+
 private:
     const PipelineStateCache::ShaderBinding& Material::getScenarioShaderBinding( const RenderScenario scenario ) const;
 };

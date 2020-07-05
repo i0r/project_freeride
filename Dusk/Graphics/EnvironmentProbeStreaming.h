@@ -4,15 +4,15 @@
 */
 #pragma once
 
-struct Buffer;
-struct Image;
-struct PipelineState;
+#include <Maths/Vector.h>
+#include <Maths/Matrix.h>
 
+struct Image;
+
+class BaseAllocator;
 class RenderDevice;
-class CommandList;
 class FrameGraph;
-class ShaderCache;
-class WorldRenderer;
+class AtmosphereRenderModule;
 
 enum eProbeUpdateStep : u32
 {
@@ -44,10 +44,10 @@ public:
 	DUSK_INLINE Image* getReadDistantProbeRadiance() const { return distantProbe[distantProbeWriteIndex == 0 ? 1 : 0][2]; }
 
 public:
-                EnvironmentProbeStreaming();
+                EnvironmentProbeStreaming( BaseAllocator* allocator );
                 ~EnvironmentProbeStreaming();
 
-    void        updateProbeCapture( FrameGraph& frameGraph, WorldRenderer* worldRenderer );
+    void        updateProbeCapture( FrameGraph& frameGraph, AtmosphereRenderModule* atmosphereRenderingModule );
 
     u32         addProbeForStreaming( const dkVec3f& worldPosition, const f32 probeRadius, const dkMat4x4f& inverseModelMatrix );
 
@@ -57,9 +57,9 @@ public:
 
     void        addProbeRecapture( const u32 probeIndex );
 
-    void        createResources( RenderDevice* renderDevice );
+    void        createResources( RenderDevice& renderDevice );
 
-    void        destroyResources( RenderDevice* renderDevice );
+    void        destroyResources( RenderDevice& renderDevice );
 
 private:
     struct EnvironmentProbe {
@@ -72,6 +72,9 @@ private:
 	static constexpr i32 PROBE_COMPONENT_COUNT = 3;
 
 private:
+    // The allocator owning this instance.
+    BaseAllocator*      memoryAllocator;
+
     // Distant probe (sky capture only).
     Image*              distantProbe[DISTANT_PROBE_BUFFER_COUNT][PROBE_COMPONENT_COUNT];
 
@@ -92,8 +95,6 @@ private:
     Image*              probeAtlas[PROBE_COMPONENT_COUNT];
 
 private:
-    void            updateDistantProbe( FrameGraph& frameGraph, WorldRenderer* worldRenderer );
-
-    //void            addProbeConvlutionPass( FrameGraph& frameGraph, Image* capturedCubemap, const u32 faceIndex, const u32 mipLevel, Image* outDiffuse, Image* outSpecular );
+    void                updateDistantProbe( FrameGraph& frameGraph, AtmosphereRenderModule* atmosphereRenderingModule );
 };
 
