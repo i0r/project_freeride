@@ -303,6 +303,7 @@ Material* GraphicsAssetCache::getMaterial( const dkChar_t* assetName, const bool
 
     auto materialInstance = materialMap[assetHashcode];
     materialInstance->deserialize( file );
+    materialInstance->updateResourceStreaming( this );
 
     file->close();
 
