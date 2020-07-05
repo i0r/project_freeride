@@ -5,6 +5,7 @@ material "wireframe" {
 	isAlphaTested = false;
 	isWireframe = true;
 	isDoubleFace = true;
+	isShadeless = true;
 	scenario "Default" {
 		vertex = "03d1bb7db62e17f27175eaa369cf1875";
 		pixel = "dc48c981da064dad59f880e2b3dad991";
