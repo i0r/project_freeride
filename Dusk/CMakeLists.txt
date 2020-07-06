@@ -112,11 +112,11 @@ include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/bullet3/src" )
 
 target_link_libraries( Dusk 
                         debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/BulletDynamics_Debug.lib" 
-                        optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/Bullet3Dynamics_RelWithDebugInfo.lib" ) 
+                        optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/BulletDynamics_RelWithDebugInfo.lib" ) 
                         
 target_link_libraries( Dusk 
                         debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/BulletCollision_Debug.lib" 
-                        optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/Bullet3Collision_RelWithDebugInfo.lib" ) 
+                        optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/BulletCollision_RelWithDebugInfo.lib" ) 
                         
 target_link_libraries( Dusk 
                         debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/LinearMath_Debug.lib" 
