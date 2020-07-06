@@ -6,7 +6,8 @@ file(GLOB_RECURSE SRC "${DUSK_BASE_FOLDER}Dusk/Core/*.cpp"
     "${DUSK_BASE_FOLDER}Dusk/Maths/*.cpp"
     "${DUSK_BASE_FOLDER}Dusk/Parsing/*.cpp"
     "${DUSK_BASE_FOLDER}Dusk/Graphics/*.cpp"
-    "${DUSK_BASE_FOLDER}Dusk/Rendering/*.cpp")
+    "${DUSK_BASE_FOLDER}Dusk/Rendering/*.cpp"
+    "${DUSK_BASE_FOLDER}Dusk/Physics/*.cpp")
 file(GLOB_RECURSE INC "${DUSK_BASE_FOLDER}Dusk/Core/*.h"
     "${DUSK_BASE_FOLDER}Dusk/Core/*.inl"
     "${DUSK_BASE_FOLDER}Dusk/FileSystem/*.h"
@@ -17,7 +18,8 @@ file(GLOB_RECURSE INC "${DUSK_BASE_FOLDER}Dusk/Core/*.h"
     "${DUSK_BASE_FOLDER}Dusk/Maths/*.inl"
     "${DUSK_BASE_FOLDER}Dusk/Parsing/*.h"
     "${DUSK_BASE_FOLDER}Dusk/Rendering/*.h"
-    "${DUSK_BASE_FOLDER}Dusk/Graphics/*.h")
+    "${DUSK_BASE_FOLDER}Dusk/Graphics/*.h"
+    "${DUSK_BASE_FOLDER}Dusk/Physics/*.h")
     
 if ( DUSK_USE_BULLET )
 file(GLOB_RECURSE BULLET_HEADERS 
@@ -103,6 +105,23 @@ if ( DUSK_DEVBUILD )
     target_link_libraries( Dusk dxguid )
 endif( DUSK_DEVBUILD )
 endif( "${DUSK_GFX_API}" MATCHES "DUSK_D3D12" )
+
+if ( DUSK_USE_BULLET )
+add_definitions( -DDUSK_USE_BULLET )
+include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/bullet3/src" )
+
+target_link_libraries( Dusk 
+                        debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/BulletDynamics_Debug.lib" 
+                        optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/Bullet3Dynamics_RelWithDebugInfo.lib" ) 
+                        
+target_link_libraries( Dusk 
+                        debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/BulletCollision_Debug.lib" 
+                        optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/Bullet3Collision_RelWithDebugInfo.lib" ) 
+                        
+target_link_libraries( Dusk 
+                        debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/LinearMath_Debug.lib" 
+                        optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/LinearMath_RelWithDebugInfo.lib" ) 
+endif ( DUSK_USE_BULLET )
 
 if ( DUSK_USE_UNITY_BUILD )
     if(MSVC)

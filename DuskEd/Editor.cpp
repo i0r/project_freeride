@@ -53,6 +53,8 @@
 #include "Framework/LoggingConsole.h"
 #endif
 
+#include "Physics/BulletDynamicsWorld.h"
+
 #include "Framework/MaterialEditor.h"
 #include "Framework/EntityEditor.h"
 
@@ -96,17 +98,19 @@ static FreeCamera* g_FreeCamera;
 static MaterialEditor* g_MaterialEditor;
 static EditorGridModule* g_EditorGridModule;
 
-#if DUSK_DEVBUILD
 static FileSystemNative* g_EdAssetsFileSystem;
 static FileSystemNative* g_RendererFileSystem;
+
 #if DUSK_USE_RENDERDOC
 static RenderDocHelper* g_RenderDocHelper;
 #endif
+
 #if DUSK_USE_IMGUI
 static ImGuiManager* g_ImGuiManager;
 static ImGuiRenderModule* g_ImGuiRenderModule;
 #endif
-#endif
+
+static DynamicsWorld* g_DynamicsWorld;
 
 static bool                    g_IsGamePaused = false;
 static bool                    g_IsFirstLaunch = false;
@@ -510,6 +514,8 @@ void Initialize( const char* cmdLineArgs )
 
 	g_EditorGridModule = dk::core::allocate<EditorGridModule>( g_GlobalAllocator );
 
+    g_DynamicsWorld = dk::core::allocate<DynamicsWorld>( g_GlobalAllocator, g_GlobalAllocator );
+
     DUSK_LOG_INFO( "Initialization done (took %.5f seconds)\n", profileTimer.getElapsedTimeAsSeconds() );
     DUSK_LOG_RAW( "\n================================\n\n" );
 }
@@ -598,6 +604,8 @@ void MainLoop()
 
             // Game Logic
             g_FreeCamera->update( LOGIC_DELTA );
+
+            g_DynamicsWorld->tick( LOGIC_DELTA );
 
             accumulator -= LOGIC_DELTA;
         }
