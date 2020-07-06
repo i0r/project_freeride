@@ -25,6 +25,10 @@ lib PrimitiveLighting {
             swizzle = float4;
         }
         
+        sampler BilinearSampler {
+            format = BilinearClampEdge;
+        }
+        
         sampler TextureSampler {
             format = BilinearClampEdge;
         }
@@ -228,11 +232,11 @@ lib PrimitiveLighting {
         float3 dirLightIlluminance = GetDirectionalLightIlluminance( g_DirectionalLight, R, N, L );   
 
         const float NoV = saturate( dot( N, V ) );
-        float2 f_ab = BrdfDfgLut.Sample( TextureSampler, float2( NoV, BlendedMaterial.Roughness ) );
+        float2 f_ab = BrdfDfgLut.Sample( BilinearSampler, float2( NoV, BlendedMaterial.Roughness ) );
         float lodLevel = BlendedMaterial.Roughness * PROBE_FILTERED_MIP_COUNT;
 
-        float3 radiance = IBLSpecular.SampleLevel( TextureSampler, getSpecularDominantDir( N, R, BlendedMaterial.Roughness ), lodLevel ).rgb;
-        float3 irradiance = IBLDiffuse.SampleLevel( TextureSampler, getDiffuseDominantDir( N, V, NoV, BlendedMaterial.Roughness ), 0 ).rgb;
+        float3 radiance = IBLSpecular.SampleLevel( BilinearSampler, getSpecularDominantDir( N, R, BlendedMaterial.Roughness ), lodLevel ).rgb;
+        float3 irradiance = IBLDiffuse.SampleLevel( BilinearSampler, getDiffuseDominantDir( N, V, NoV, BlendedMaterial.Roughness ), 0 ).rgb;
                 
         LightContribution.rgb = BRDF_Default( L, V, N, BlendedMaterial, F0, albedo ) * dirLightIlluminance;
         

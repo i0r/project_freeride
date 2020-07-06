@@ -109,6 +109,7 @@ namespace CommandPacket
         union {
             Image*              ImageObject;
             Buffer*             BufferObject;
+            Sampler*            SamplerObject;
         };
 
         dkStringHash_t          ObjectHashcode;
@@ -248,12 +249,7 @@ enum CommandPacketIdentifier
     // Copy one resource to another one.
     CPI_COPY_RESOURCE,
 
-    // TODO IMPLEMENT PACKETS BELOW THIS LINE
-    // ===============================================
-    // 
     // Bind a sampler state.
-    //  Sampler*        Sampler
-    //  dkStringHash_t  ObjectHashcode
     CPI_BIND_SAMPLER,
 
     // CommandPacketIdentifier enum count. Not for use.

@@ -33,6 +33,17 @@ static constexpr dkStringHash_t PickingBufferHashcode = DUSK_STRING_HASH( "Picki
 static constexpr dkStringHash_t BrdfDfgLUTHascode = DUSK_STRING_HASH( "BrdfDfgLut" );
 static constexpr dkStringHash_t IBLDiffuseHascode = DUSK_STRING_HASH( "IBLDiffuse" );
 static constexpr dkStringHash_t IBLSpecularHascode = DUSK_STRING_HASH( "IBLSpecular" );
+static constexpr dkStringHash_t BRDFInputSamplerHashcode = DUSK_STRING_HASH( "TextureSampler" );
+
+#define TEXTURE_FILTERING_OPTION_LIST( option )\
+    option( BILINEAR )\
+    option( TRILINEAR )\
+    option( ANISOTROPIC_8 )\
+    option( ANISOTROPIC_16 )
+
+DUSK_ENV_OPTION_LIST( TextureFiltering, TEXTURE_FILTERING_OPTION_LIST )
+
+DUSK_ENV_VAR( TextureFiltering, BILINEAR, eTextureFiltering ) // "Defines texture filtering quality [Bilinear/Trilinear/Anisotropic (8)/Anisotropic (16)]"
 
 WorldRenderModule::WorldRenderModule()
     : pickingBuffer( nullptr )
@@ -98,6 +109,7 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
         ResHandle_t PerSceneBuffer;
 		ResHandle_t MaterialEdBuffer;
 		ResHandle_t VectorDataBuffer;
+        ResHandle_t MaterialInputSampler;
 	};
 
 	const bool isPickingRequested = ( scenario == Material::RenderScenario::Default_Picking
@@ -176,6 +188,32 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
             passData.MaterialEdBuffer = builder.retrieveMaterialEdBuffer();
 
             passData.PerSceneBuffer = builder.readReadOnlyBuffer( perSceneBuffer );
+
+			SamplerDesc materialSamplerDesc;
+			materialSamplerDesc.addressU = eSamplerAddress::SAMPLER_ADDRESS_WRAP;
+			materialSamplerDesc.addressV = eSamplerAddress::SAMPLER_ADDRESS_WRAP;
+			materialSamplerDesc.addressW = eSamplerAddress::SAMPLER_ADDRESS_WRAP;
+
+			switch ( TextureFiltering ) {
+			case eTextureFiltering::ANISOTROPIC_16:
+				materialSamplerDesc.filter = eSamplerFilter::SAMPLER_FILTER_ANISOTROPIC_16;
+				break;
+
+			case eTextureFiltering::ANISOTROPIC_8:
+				materialSamplerDesc.filter = eSamplerFilter::SAMPLER_FILTER_ANISOTROPIC_8;
+				break;
+
+			case eTextureFiltering::TRILINEAR:
+				materialSamplerDesc.filter = eSamplerFilter::SAMPLER_FILTER_TRILINEAR;
+				break;
+
+			default:
+			case eTextureFiltering::BILINEAR:
+				materialSamplerDesc.filter = eSamplerFilter::SAMPLER_FILTER_BILINEAR;
+				break;
+			}
+
+			passData.MaterialInputSampler = builder.allocateSampler( materialSamplerDesc );
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
             Image* outputTarget = resources->getImage( passData.output );
@@ -186,6 +224,8 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
             Buffer* perWorldBuffer = resources->getBuffer( passData.PerSceneBuffer );
             Buffer* materialEdBuffer = resources->getPersistentBuffer( passData.MaterialEdBuffer );
             Buffer* vectorBuffer = resources->getBuffer( passData.VectorDataBuffer );
+
+            Sampler* materialSampler = resources->getSampler( passData.MaterialInputSampler );
 
             cmdList->pushEventMarker( DUSK_STRING( "Forward+ Light Pass" ) );
 
@@ -253,6 +293,7 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
 
                 if ( !material->skipLighting() ) {
                     cmdList->bindConstantBuffer( PerWorldBufferHashcode, perWorldBuffer );
+                    cmdList->bindSampler( BRDFInputSamplerHashcode, materialSampler );
                 }
 
                 cmdList->bindImage( BrdfDfgLUTHascode, brdfDfgLut );

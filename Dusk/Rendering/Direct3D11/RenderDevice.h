@@ -96,6 +96,13 @@ struct RenderContext
     // Current framebuffer depth buffer.
     Image*                      FramebufferDepthBuffer;
 
+    // Current sampler state binded
+	ID3D11SamplerState*         SamplerRegisters[D3D11_COMMONSHADER_SAMPLER_REGISTER_COUNT];
+
+    u32                         SamplerRegisterUpdateStart;
+
+    i32                         SamplerRegisterUpdateCount;
+
     // Active PipelineState.
     PipelineState*              BindedPipelineState;
 

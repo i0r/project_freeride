@@ -5,17 +5,10 @@
 #pragma once
 
 #if DUSK_D3D11
-struct ID3D11VertexShader;
-struct ID3D11HullShader;
-struct ID3D11DomainShader;
-struct ID3D11PixelShader;
-struct ID3D11ComputeShader;
-struct ID3D11InputLayout;
-enum D3D_PRIMITIVE_TOPOLOGY;
-struct ID3D11BlendState;
-struct ID3D11DepthStencilState;
-struct ID3D11RasterizerState;
-struct ID3D11SamplerState;
+struct Sampler;
+struct Buffer;
+struct Image;
+struct RenderContext;
 
 #include <unordered_map>
 #include <d3d11.h>
@@ -94,6 +87,7 @@ void PrepareAndBindResources_Replay( RenderContext* renderContext, const Pipelin
 void BindBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hashcode, Buffer* buffer );  
 void BindImage_Replay( RenderContext* renderContext, Image* image, const u64 imageViewDesc, const dkStringHash_t hashcode );
 void BindCBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hashcode, Buffer* buffer );
+void BindSampler_Replay( RenderContext* renderContext, const dkStringHash_t hashcode, Sampler* sampler );
 
 void FlushSRVRegisterUpdate( RenderContext* renderContext );
 void FlushCBufferRegisterUpdate( RenderContext* renderContext );
