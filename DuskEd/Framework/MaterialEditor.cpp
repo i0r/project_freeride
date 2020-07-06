@@ -393,6 +393,8 @@ void MaterialEditor::displayMaterialAttribute( const i32 layerIndex, const char*
             } else {
                 ImGui::Text( "No Texture Bound" );
             }
+
+            ImGui::Checkbox( "sRGB Colorspace", &attribute.AsTexture.IsSRGBSpace );
             break;
         }
         case MaterialAttribute::Code_Piece:

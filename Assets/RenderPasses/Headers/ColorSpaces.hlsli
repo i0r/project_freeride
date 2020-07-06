@@ -15,19 +15,19 @@ float3 DecodeRGBD(float4 rgbd)
     return rgbd.rgb * ((MaxRange / 255.0f) / rgbd.a);
 }
 
-float3 accurateSRGBToLinear( in float3 sRGBCol )
+float3 sRGBToLinearSpace( in float3 sRGBCol )
 {
     float3 linearRGBLo = sRGBCol / 12.92;
 
-    // Ignore X3571, incoming vector will always be superior to 0
-    float3 linearRGBHi = pow( abs( ( sRGBCol + 0.055 ) / 1.055 ), 2.4 );
+    // Max( 0, x ) is required to make fxc stfu about X3571
+    float3 linearRGBHi = max( 0, pow( abs( ( sRGBCol + 0.055 ) / 1.055 ), 2.4 ) );
 
     float3 linearRGB = ( sRGBCol <= 0.04045 ) ? linearRGBLo : linearRGBHi;
 
     return linearRGB;
 }
 
-float3 accurateLinearToSRGB( in float3 linearCol )
+float3 AccurateLinearToSRGB( in float3 linearCol )
 {
     float3 sRGBLo = linearCol * 12.92;
     float3 sRGBHi = ( pow( abs( linearCol ), 1.0 / 2.4 ) * 1.055 ) - 0.055;

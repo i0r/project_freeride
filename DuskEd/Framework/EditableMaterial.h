@@ -62,6 +62,7 @@ struct MaterialAttribute
     struct {
         Image*      TextureInstance;
         dkString_t  PathToTextureAsset;
+        bool        IsSRGBSpace;
     } AsTexture;
 
     struct {
@@ -76,7 +77,7 @@ struct MaterialAttribute
         : Type( InputType::Unused )
         , AsFloat( 0.0f )
         , AsFloat3( 0.0f, 0.0f, 0.0f )
-        , AsTexture{ nullptr, dkString_t() }
+        , AsTexture{ nullptr, dkString_t(), true }
         , AsCodePiece{ nullptr, nullptr }
         , CBufferOffset( 0 )
     {

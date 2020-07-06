@@ -498,7 +498,15 @@ void MaterialGenerator::appendAttributeFetch1D( const i32 attributeIndex, const 
         const std::string resourceName = buildTextureLayerName( attributeName, layerName );
         std::string samplingOffsetString = DuskVector2ToHLSLFloat2( samplingOffset );
         std::string samplingScaleString = DuskVector2ToHLSLFloat2( samplingScale );
-        appendTextureSampling( materialLayersGetter, resourceName, samplingOffsetString, samplingScaleString );
+
+        if ( attribute.AsTexture.IsSRGBSpace ) {
+            materialLayersGetter.append( "sRGBToLinearSpace( " );
+            appendTextureSampling( materialLayersGetter, resourceName, samplingOffsetString, samplingScaleString );
+            materialLayersGetter.append( ".rgb )" );
+        } else {
+            appendTextureSampling( materialLayersGetter, resourceName, samplingOffsetString, samplingScaleString );
+        }
+
         materialLayersGetter.append( ".r" );
 
         // Declare texture in the resource list.
@@ -511,7 +519,15 @@ void MaterialGenerator::appendAttributeFetch1D( const i32 attributeIndex, const 
         bakedTextureCode.append( " && attributeIndex == " );
         bakedTextureCode.append( std::to_string( attributeIndex ) );
         bakedTextureCode.append( ") return " );
-        appendTextureSampling( bakedTextureCode, resourceName, "offset", "scale", "uvMapTexCoords" );
+
+        if ( attribute.AsTexture.IsSRGBSpace ) {
+            bakedTextureCode.append( "sRGBToLinearSpace( " );
+            appendTextureSampling( bakedTextureCode, resourceName, "offset", "scale", "uvMapTexCoords" );
+            bakedTextureCode.append( ".rgb )" );
+        } else {
+            appendTextureSampling( bakedTextureCode, resourceName, "offset", "scale", "uvMapTexCoords" );
+        }
+
         bakedTextureCode.append( ".rrrr;" );
     } break;
 
@@ -561,7 +577,13 @@ void MaterialGenerator::appendAttributeFetch2D( const i32 attributeIndex, const 
         const std::string resourceName = buildTextureLayerName( attributeName, layerName );
         std::string samplingOffsetString = DuskVector2ToHLSLFloat2( samplingOffset );
         std::string samplingScaleString = DuskVector2ToHLSLFloat2( samplingScale );
-        appendTextureSampling( materialLayersGetter, resourceName, samplingOffsetString, samplingScaleString );
+        if ( attribute.AsTexture.IsSRGBSpace ) {
+            materialLayersGetter.append( "sRGBToLinearSpace( " );
+            appendTextureSampling( materialLayersGetter, resourceName, samplingOffsetString, samplingScaleString );
+            materialLayersGetter.append( ".rgb )" );
+        } else {
+            appendTextureSampling( materialLayersGetter, resourceName, samplingOffsetString, samplingScaleString );
+        }
         materialLayersGetter.append( ".rg" );
 
         // Declare texture in the resource list.
@@ -574,7 +596,14 @@ void MaterialGenerator::appendAttributeFetch2D( const i32 attributeIndex, const 
         bakedTextureCode.append( " && attributeIndex == " );
         bakedTextureCode.append( std::to_string( attributeIndex ) );
         bakedTextureCode.append( ") return " );
-        appendTextureSampling( bakedTextureCode, resourceName, "offset", "scale", "uvMapTexCoords" );
+        if ( attribute.AsTexture.IsSRGBSpace ) {
+            bakedTextureCode.append( "sRGBToLinearSpace( " );
+            appendTextureSampling( bakedTextureCode, resourceName, "offset", "scale", "uvMapTexCoords" );
+            bakedTextureCode.append( ".rgb )" );
+        } else {
+            appendTextureSampling( bakedTextureCode, resourceName, "offset", "scale", "uvMapTexCoords" );
+        }
+
         bakedTextureCode.append( ".rgrg;\n" );
     } break;
 
@@ -628,7 +657,13 @@ void MaterialGenerator::appendAttributeFetch3D( const i32 attributeIndex, const 
         const std::string resourceName = buildTextureLayerName( attributeName, layerName );
         std::string samplingOffsetString = DuskVector2ToHLSLFloat2( samplingOffset );
         std::string samplingScaleString = DuskVector2ToHLSLFloat2( samplingScale );
-        appendTextureSampling( materialLayersGetter, resourceName, samplingOffsetString, samplingScaleString );
+        if ( attribute.AsTexture.IsSRGBSpace ) {
+            materialLayersGetter.append( "sRGBToLinearSpace( " );
+            appendTextureSampling( materialLayersGetter, resourceName, samplingOffsetString, samplingScaleString );
+            materialLayersGetter.append( ".rgb )" );
+        } else {
+            appendTextureSampling( materialLayersGetter, resourceName, samplingOffsetString, samplingScaleString );
+        }
         materialLayersGetter.append( ".rgb" );
 
         // Declare texture in the resource list.
@@ -641,7 +676,13 @@ void MaterialGenerator::appendAttributeFetch3D( const i32 attributeIndex, const 
         bakedTextureCode.append( " && attributeIndex == " );
         bakedTextureCode.append( std::to_string( attributeIndex ) );
         bakedTextureCode.append( ") return " );
-        appendTextureSampling( bakedTextureCode, resourceName, "offset", "scale", "uvMapTexCoords" );
+        if ( attribute.AsTexture.IsSRGBSpace ) {
+            bakedTextureCode.append( "sRGBToLinearSpace( " );
+            appendTextureSampling( bakedTextureCode, resourceName, "offset", "scale", "uvMapTexCoords" );
+            bakedTextureCode.append( ".rgb )" );
+        } else {
+            appendTextureSampling( bakedTextureCode, resourceName, "offset", "scale", "uvMapTexCoords" );
+        }
         bakedTextureCode.append( ".rgbr;" );
     } break;
 
@@ -697,6 +738,9 @@ void MaterialGenerator::appendAttributeFetch4D( const i32 attributeIndex, const 
         const std::string resourceName = buildTextureLayerName( attributeName, layerName );
         std::string samplingOffsetString = DuskVector2ToHLSLFloat2( samplingOffset );
         std::string samplingScaleString = DuskVector2ToHLSLFloat2( samplingScale );
+
+        // NOTE We don't take in account the sRGB flag if the input attribute is a float4 (wouldn't make sense to sample
+        // the alpha channel if the texture is in sRGB colorspace...).
         appendTextureSampling( materialLayersGetter, resourceName, samplingOffsetString, samplingScaleString );
         materialLayersGetter.append( ".rgba" );
 
