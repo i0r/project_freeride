@@ -38,6 +38,9 @@ struct CameraData
     dkVec3f     rightVector;
     f32         aspectRatio;
 
+    f32         nearPlane;
+    f32         farPlane;
+
     union
     {
         struct {

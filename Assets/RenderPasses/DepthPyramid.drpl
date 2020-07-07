@@ -51,7 +51,7 @@ lib DepthPyramid {
         {
             // Convert to linear Z
             depthSample = Projection._43 / ( depthSample - Projection._33 );
-            depthSample = saturate( ( depthSample - NearClip ) / ( FarClip - NearClip ) );
+            depthSample = saturate( ( depthSample - CameraPlanes.x ) / ( CameraPlanes.y - CameraPlanes.x ) );
             minDepth = min( minDepth, depthSample );
             maxDepth = max( maxDepth, depthSample );
         }
@@ -115,7 +115,7 @@ lib DepthPyramid {
             minDepth = depthSamples[0].x;
             maxDepth = depthSamples[0].y;
             
-            ReducedDepthMip[GroupID.xy] = float2( minDepth, maxDepth );
+            ReducedDepthMip[$SV_GroupID.xy] = float2( minDepth, maxDepth );
         }
     }
     
