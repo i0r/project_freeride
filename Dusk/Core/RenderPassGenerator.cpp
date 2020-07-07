@@ -861,7 +861,16 @@ void RenderLibraryGenerator::processRenderPassNode( const Token::StreamRef& astN
                     break;
                 case TypeAST::PRIMITIVE_TYPE_FLOAT4X4:
                     propertyDecl.append( "dkMat4x4f" );
-					break;
+                    break;
+                case TypeAST::PRIMITIVE_TYPE_UINT2:
+                    propertyDecl.append( "dkVec2u" );
+                    break;
+                case TypeAST::PRIMITIVE_TYPE_UINT3:
+                    propertyDecl.append( "dkVec3u" );
+                    break;
+                case TypeAST::PRIMITIVE_TYPE_UINT4:
+                    propertyDecl.append( "dkVec4u" );
+                    break;
 				default:
 					propertyDecl.append( PRIMITIVE_TYPES[primType] );
 					break;
