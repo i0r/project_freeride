@@ -1,0 +1,66 @@
+lib SceneCulling {
+    properties {
+        float4  FrustumPlanes[6];
+        uint    NumDrawCalls;
+        bool    CullNearZ;
+    }
+    
+    resources {
+        StructuredBuffer DrawCalls {
+            swizzle = DrawCall;
+        }
+        
+        AppendStructuredBuffer CulledDrawsOutput {
+            swizzle = CulledDraw;
+        }
+        
+        RWByteAddressBuffer DrawArgsBuffer {
+            format = uint;
+        }
+    }
+    
+    shared {               
+        static const uint CullTGSize = 128;
+
+        // Checks if the bounding sphere of a draw call intersects with the view frustum
+        static bool IsVisible( in DrawCall drawCall ) {
+            bool inFrustum = true;
+
+            [unroll]
+            for( uint i = 0; i < 5; ++i ) {
+                float d = dot( FrustumPlanes[i], float4( drawCall.SphereCenter, 1.0f ) );
+                inFrustum = inFrustum && ( d >= -drawCall.SphereRadius );
+            }
+
+            if ( CullNearZ ) {
+                float d = dot( FrustumPlanes[5], float4( drawCall.SphereCenter, 1.0f ) );
+                inFrustum = inFrustum && ( d >= -drawCall.SphereRadius );
+            }
+
+            return inFrustum;
+        }
+    }
+    
+    shader FrustumCullCS {
+        const uint drawIdx = CullTGSize * $SV_GroupID.x + $SV_GroupIndex;
+        if( drawIdx >= NumDrawCalls ) {
+            return;
+        }
+        
+        DrawCall drawCall = DrawCalls[drawIdx];
+
+        if( IsVisible( drawCall ) ) {
+            CulledDraw culledDraw;
+            culledDraw.SrcIndexStart = drawCall.StartIndex;
+            culledDraw.NumIndices = drawCall.NumIndices;
+            DrawArgsBuffer.InterlockedAdd(0, drawCall.NumIndices, culledDraw.DstIndexStart);
+
+            CulledDrawsOutput.Append( culledDraw );
+        }
+    }
+    
+    pass FrustumCullDrawCalls {
+        compute       = FrustumCullCS;
+        dispatch      = { CullTGSize, 1, 1 };
+    }
+}

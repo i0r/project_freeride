@@ -117,27 +117,7 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
 
     // We need to clear the UAV buffer first. This is done with a cheap compute shader.
     if ( isPickingRequested ) {
-        struct PassDataDummy {};
-        frameGraph.addRenderPass<PassDataDummy>(
-			BuiltIn::ClearPickingBuffer_Name,
-            [&]( FrameGraphBuilder& builder, PassDataDummy& passData ) {
-                builder.setUncullablePass();
-                builder.useAsyncCompute();
-            },
-            [=]( const PassDataDummy& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
-			    cmdList->pushEventMarker( BuiltIn::ClearPickingBuffer_EventName );
-
-				PipelineState* pso = psoCache->getOrCreatePipelineState( RenderingHelpers::PS_Compute, BuiltIn::ClearPickingBuffer_ShaderBinding );
-
-				cmdList->bindPipelineState( pso );
-				cmdList->bindBuffer( BuiltIn::ClearPickingBuffer_PickingBuffer_Hashcode, pickingBuffer );
-				cmdList->prepareAndBindResourceList();
-
-				cmdList->dispatchCompute( 1, 1, 1 );
-
-                cmdList->popEventMarker();
-            }
-        );
+        clearPickingBuffer( frameGraph );
     }
 
     PassData& data = frameGraph.addRenderPass<PassData>(
@@ -219,6 +199,7 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
             Image* outputTarget = resources->getImage( passData.output );
             Image* velocityTarget = resources->getImage( passData.velocityBuffer );
             Image* zbufferTarget = resources->getImage( passData.depthBuffer );
+
             Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
             Buffer* perViewBuffer = resources->getPersistentBuffer( passData.PerViewBuffer );
             Buffer* perWorldBuffer = resources->getBuffer( passData.PerSceneBuffer );
@@ -359,6 +340,32 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
     output.OutputVelocityTarget = data.velocityBuffer;
 
     return output;
+}
+
+void WorldRenderModule::clearPickingBuffer( FrameGraph& frameGraph )
+{
+	struct PassDataDummy {};
+
+	frameGraph.addRenderPass<PassDataDummy>(
+		BuiltIn::ClearPickingBuffer_Name,
+		[&]( FrameGraphBuilder& builder, PassDataDummy& passData ) {
+		    builder.setUncullablePass();
+		    builder.useAsyncCompute();
+	    },
+	    [=]( const PassDataDummy& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+		    cmdList->pushEventMarker( BuiltIn::ClearPickingBuffer_EventName );
+
+		    PipelineState* pso = psoCache->getOrCreatePipelineState( RenderingHelpers::PS_Compute, BuiltIn::ClearPickingBuffer_ShaderBinding );
+
+		    cmdList->bindPipelineState( pso );
+		    cmdList->bindBuffer( BuiltIn::ClearPickingBuffer_PickingBuffer_Hashcode, pickingBuffer );
+		    cmdList->prepareAndBindResourceList();
+
+		    cmdList->dispatchCompute( 1, 1, 1 );
+
+		    cmdList->popEventMarker();
+	    }
+	);
 }
 
 void WorldRenderModule::setDefaultBrdfDfgLut( Image* brdfDfgLut )

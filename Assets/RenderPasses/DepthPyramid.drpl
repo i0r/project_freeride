@@ -1,0 +1,131 @@
+lib DepthPyramid {
+    properties {
+        float4x4    Projection;
+        uint2       TextureSize;
+        float2      CameraPlanes; // .x : Near Plane; .y : Far Plane
+    }
+    
+    resources {
+        StructuredBuffer DrawCalls {
+            swizzle = DrawCall;
+        }
+        
+        AppendStructuredBuffer CulledDrawsOutput {
+            swizzle = CulledDraw;
+        }
+        
+        RWByteAddressBuffer DrawArgsBuffer {
+            format = uint;
+        }
+        
+        Texture2D DepthBuffer {
+            swizzle = float;
+        }
+        
+        Texture2D CurrentDepthMip {
+            swizzle = unorm float2;
+        }
+        
+        RWTexture2D ReducedDepthMip {
+            swizzle = unorm float2;
+        }
+    }
+    
+    shared {
+        static const uint ReductionTGSize = 16;      
+        static const uint NumThreads = ReductionTGSize * ReductionTGSize;
+        
+        groupshared float2 depthSamples[NumThreads];
+    }
+    
+    shader DepthReductionMip0CS {
+        float minDepth = 0.0f;
+        float maxDepth = 1.0f;
+
+        uint2 samplePos = $SV_GroupID.xy * ReductionTGSize + $SV_GroupThreadID.xy;
+        samplePos = min(samplePos, TextureSize - 1);
+
+        float depthSample = DepthBuffer[samplePos];
+
+        if ( depthSample > 0.0f )
+        {
+            // Convert to linear Z
+            depthSample = Projection._43 / ( depthSample - Projection._33 );
+            depthSample = saturate( ( depthSample - NearClip ) / ( FarClip - NearClip ) );
+            minDepth = min( minDepth, depthSample );
+            maxDepth = max( maxDepth, depthSample );
+        }
+        
+        // Store in shared memory
+        depthSamples[$SV_GroupIndex] = float2( minDepth, maxDepth );
+        GroupMemoryBarrierWithGroupSync();
+
+        // Reduce
+        [unroll]
+        for( uint s = NumThreads / 2; s > 0; s >>= 1 )
+        {
+            if ( $SV_GroupIndex < s )
+            {
+                depthSamples[$SV_GroupIndex].x = min( depthSamples[$SV_GroupIndex].x, depthSamples[$SV_GroupIndex + s].x );
+                depthSamples[$SV_GroupIndex].y = max( depthSamples[$SV_GroupIndex].y, depthSamples[$SV_GroupIndex + s].y );
+            }
+
+            GroupMemoryBarrierWithGroupSync();
+        }
+
+        if ( $SV_GroupIndex == 0 )
+        {
+            minDepth = depthSamples[0].x;
+            maxDepth = depthSamples[0].y;
+           
+            ReducedDepthMip[$SV_GroupID.xy] = float2( minDepth, maxDepth );
+        }
+    }
+    
+    shader DepthReductionCS {
+        uint2 samplePos = $SV_GroupID.xy * ReductionTGSize + $SV_GroupThreadID.xy;
+        samplePos = min( samplePos, TextureSize - 1 );
+        
+        float minDepth = CurrentDepthMip[samplePos].x;
+        float maxDepth = CurrentDepthMip[samplePos].y;
+
+        if ( minDepth == 1.0f ) {
+            minDepth = 0.0f;
+        }
+
+        // Store in shared memory
+        depthSamples[$SV_GroupIndex] = float2( minDepth, maxDepth );
+        GroupMemoryBarrierWithGroupSync();
+
+        // Reduce
+        [unroll]
+        for( uint s = NumThreads / 2; s > 0; s >>= 1 )
+        {
+            if ( $SV_GroupIndex < s )
+            {
+                depthSamples[$SV_GroupIndex].x = min( depthSamples[$SV_GroupIndex].x, depthSamples[$SV_GroupIndex + s].x );
+                depthSamples[$SV_GroupIndex].y = max( depthSamples[$SV_GroupIndex].y, depthSamples[$SV_GroupIndex + s].y );
+            }
+
+            GroupMemoryBarrierWithGroupSync();
+        }
+
+        if ( $SV_GroupIndex == 0 )
+        {
+            minDepth = depthSamples[0].x;
+            maxDepth = depthSamples[0].y;
+            
+            ReducedDepthMip[GroupID.xy] = float2( minDepth, maxDepth );
+        }
+    }
+    
+    pass DepthReductionMip0 {
+        compute       = DepthReductionMip0CS;
+        dispatch      = { 16, 16, 1 };
+    }
+    
+    pass DepthReduction {
+        compute       = DepthReductionCS;
+        dispatch      = { 16, 16, 1 };
+    }
+}

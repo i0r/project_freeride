@@ -73,7 +73,9 @@ struct DirectionalLightGPU
 
     float2 SphericalCoordinates;
 
+#ifdef __cplusplus
     uint    PADDING[2];
+#endif
 };
 DUSK_IS_MEMORY_ALIGNED_STATIC( DirectionalLightGPU, 16 );
 
@@ -148,4 +150,20 @@ struct IBLProbeGPU
     float4x4  InverseModelMatrix;
 };
 DUSK_IS_MEMORY_ALIGNED_STATIC( IBLProbeGPU, 16 );
+
+// Structure holding informations for GPU-driven scene submit.
+struct DrawCall
+{
+    float3 SphereCenter;
+    float SphereRadius;
+    uint StartIndex;
+    uint NumIndices;
+};
+
+struct CulledDraw
+{
+    uint SrcIndexStart;
+    uint DstIndexStart;
+    uint NumIndices;
+};
 #endif

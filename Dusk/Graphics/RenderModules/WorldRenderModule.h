@@ -65,4 +65,7 @@ private:
 	// Default BRDF DFG LUT. Not really a great design (especially if we want to support multiple BRDF later) so it'll
 	// most likely be refactored in the future.
 	Image*				brdfDfgLut;
+
+private:
+	void				clearPickingBuffer( FrameGraph& frameGraph );
 };
