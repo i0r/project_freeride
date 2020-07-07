@@ -100,7 +100,7 @@ lib PostEffects {
         }
         
         float3 color = ACESFilmic( finalColor.rgb * exposure );
-        color = accurateLinearToSRGB( color );
+        color = AccurateLinearToSRGB( color );
         
         if ( $EnableColorCorrection ) {
             color = LUTlookup( color, ColorGradingLUT );
