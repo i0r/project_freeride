@@ -116,6 +116,10 @@ void Material::deserialize( FileSystemObject* object )
                         if ( dk::core::ExpectKeyword( name.StreamPointer, name.Length, "Default" ) ) {
                             ParseScenario( defaultScenario, type );
 						}
+
+						if ( dk::core::ExpectKeyword( name.StreamPointer, name.Length, "Depth_Only" ) ) {
+							ParseScenario( depthOnlyScenario, type );
+						}
                     } break;
                     case TypeAST::MATERIAL_PARAMETER: {
                         const u32 parameterCount = static_cast<u32>( type.Names.size() );
@@ -212,7 +216,8 @@ const PipelineStateCache::ShaderBinding& Material::getScenarioShaderBinding( con
         return defaultPickingScenario.PsoShaderBinding;
     case RenderScenario::Default_Picking_Editor:
         return defaultPickingEditorScenario.PsoShaderBinding;
-    case RenderScenario::DepthOnly:
+	case RenderScenario::Depth_Only:
+		return depthOnlyScenario.PsoShaderBinding;
     default:
         return defaultScenario.PsoShaderBinding;
     }

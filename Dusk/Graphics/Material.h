@@ -29,7 +29,7 @@ public:
         Default_Picking_Editor,
 
         // Depth only render pass. It will output non-linearized depth.
-        DepthOnly,
+        Depth_Only,
 
         // Do not use.
         Count
@@ -125,6 +125,9 @@ private:
 
     // (EDITOR ONLY) defaultEditorScenario when picking is required.
     RenderScenarioBinding defaultPickingEditorScenario;
+
+	// Pipeline binding for depth only render scenario (depth prepass or shadow capture).
+	RenderScenarioBinding depthOnlyScenario;
 
     // If true, this material will invalidate previously cached states (pipeline states, shaders, etc.) and will request
     // the resources from the hard drive.

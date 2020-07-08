@@ -265,6 +265,19 @@ lib PrimitiveLighting {
 #endif
     }
     
+    shader DepthOnlyVS {
+        uint entityIdx = 0;
+        float4x4 ModelMatrix = GetInstanceModelMatrix( InstanceVectorBuffer, $SV_InstanceID, entityIdx );
+        float4 positionWS = mul( float4( $POSITION.xyz, 1.0f ), ModelMatrix );
+        $SV_POSITION =  mul( g_ViewProjectionMatrix, float4( positionWS.xyz, 1.0f ) );
+    }
+    
+    pass DepthOnly {
+        vertex = DepthOnlyVS;
+        DUSK_COMPILE_TIME_FLAGS;
+        depthStencil = OutputDepthTarget;
+    }
+    
     pass LightPass {
         vertex = PrimitiveVS;
         pixel = PrimitivePS;
