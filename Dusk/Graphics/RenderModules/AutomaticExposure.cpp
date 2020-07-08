@@ -66,6 +66,7 @@ void AutomaticExposureModule::loadCachedResources( RenderDevice& renderDevice )
     autoExposureBufferDescription.BindFlags = RESOURCE_BIND_STRUCTURED_BUFFER | RESOURCE_BIND_UNORDERED_ACCESS_VIEW | RESOURCE_BIND_SHADER_RESOURCE;
     autoExposureBufferDescription.Usage = RESOURCE_USAGE_DEFAULT;
     autoExposureBufferDescription.SizeInBytes = sizeof( AutoExposureInfo );
+    autoExposureBufferDescription.StrideInBytes = sizeof( AutoExposureInfo );
     autoExposureBufferDescription.DefaultView.ViewFormat = VIEW_FORMAT_R32_UINT;
 
     for ( i32 i = 0; i < EXPOSURE_INFO_BUFFER_COUNT; i++ ) {

@@ -61,6 +61,6 @@ lib SceneCulling {
     
     pass FrustumCullDrawCalls {
         compute       = FrustumCullCS;
-        dispatch      = { CullTGSize, 1, 1 };
+        dispatch      = { 128, 1, 1 };
     }
 }

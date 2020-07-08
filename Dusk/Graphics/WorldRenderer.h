@@ -30,6 +30,7 @@ class AtmosphereRenderModule;
 class WorldRenderModule;
 class IBLUtilitiesModule;
 class EnvironmentProbeStreaming;
+class CascadedShadowRenderModule;
 
 struct CameraData;
 struct Buffer;
@@ -220,4 +221,7 @@ private:
 
     // Atmosphere (sky + atmospheric fog) rendering module.
     AtmosphereRenderModule* atmosphereRendering;
+
+    // CSM rendering (+ implicit depth pyramid compute for auto depth bound compute).
+    CascadedShadowRenderModule* cascadedShadowMapRendering;
 };

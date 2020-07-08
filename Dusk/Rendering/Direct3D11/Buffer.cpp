@@ -40,9 +40,7 @@ Buffer* RenderDevice::createBuffer( const BufferDesc& description, const void* i
     bufferDesc.BindFlags = GetNativeBindFlags( description.BindFlags );
     bufferDesc.CPUAccessFlags = GetCPUUsageFlags( description.Usage );
     bufferDesc.MiscFlags = GetMiscFlags( description.BindFlags );
-    bufferDesc.StructureByteStride = ( isStructuredBuffer )
-        ? static_cast< UINT >( description.StrideInBytes * description.SizeInBytes ) 
-        : static_cast< UINT >( description.StrideInBytes );
+    bufferDesc.StructureByteStride = static_cast< UINT >( description.StrideInBytes );
 
     HRESULT operationResult = device->CreateBuffer( &bufferDesc, ( initialData != nullptr ) ? &subresourceDataDesc : nullptr, &buffer->BufferObject );
     DUSK_RAISE_FATAL_ERROR( SUCCEEDED( operationResult ), "Buffer creation FAILED! (error code: 0x%x)", operationResult );
@@ -56,7 +54,7 @@ Buffer* RenderDevice::createBuffer( const BufferDesc& description, const void* i
     }
 
     const u16 elementCount = defaultViewDesc.NumElements;
-    defaultViewDesc.NumElements = ( elementCount == 0 ) ? description.StrideInBytes : elementCount;
+    defaultViewDesc.NumElements = ( elementCount == 0 ) ? ( description.SizeInBytes / Max( 1u, description.StrideInBytes ) ) : elementCount;
 
     if ( description.BindFlags & RESOURCE_BIND_SHADER_RESOURCE ) {
         // Create default SRV

@@ -27,6 +27,7 @@
 #include "RenderModules/LineRenderingModule.h"
 #include "RenderModules/WorldRenderModule.h"
 #include "RenderModules/IBLUtilitiesModule.h"
+#include "RenderModules/CascadedShadowRenderModule.h"
 
 DUSK_ENV_VAR( EnableTAA, false, bool ); // "Enable Temporal AntiAliasing [false/true]
 
@@ -111,6 +112,7 @@ WorldRenderer::WorldRenderer( BaseAllocator* allocator )
     , lightGrid( dk::core::allocate<LightGrid>( allocator, allocator ) )
     , resolvedDepth( 0u )
     , environmentProbeStreaming( dk::core::allocate<EnvironmentProbeStreaming>( allocator, allocator ) )
+    , cascadedShadowMapRendering( dk::core::allocate<CascadedShadowRenderModule>( allocator ) )
 {
 
 }
@@ -128,6 +130,7 @@ WorldRenderer::~WorldRenderer()
     dk::core::free( memoryAllocator, frameDrawCmds );
     dk::core::free( memoryAllocator, lightGrid );
     dk::core::free( memoryAllocator, environmentProbeStreaming );
+    dk::core::free( memoryAllocator, cascadedShadowMapRendering );
     
     memoryAllocator = nullptr;
 }
@@ -146,6 +149,7 @@ void WorldRenderer::destroy( RenderDevice* renderDevice )
     }
 
     environmentProbeStreaming->destroyResources( *renderDevice );
+    cascadedShadowMapRendering->destroy( *renderDevice );
 
     automaticExposure->destroy( *renderDevice );
     glareRendering->destroy( *renderDevice );
@@ -166,6 +170,7 @@ void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache
     WorldRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
 
     environmentProbeStreaming->createResources( *renderDevice );
+    cascadedShadowMapRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
 
     // Debug resources.
     wireframeMaterial = graphicsAssetCache->getMaterial( DUSK_STRING( "GameData/materials/wireframe.mat" ), true );
@@ -299,6 +304,9 @@ ResHandle_t WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Mate
     }
 
     resolvedDepth = resolvedOutput.ResolvedDepth;
+
+    // Depth reduction
+    cascadedShadowMapRendering->captureShadowMap( frameGraph, resolvedDepth, viewportSize, *lightGrid->getDirectionalLightData() );
 
     // Atmosphere Rendering.
     ResHandle_t presentRt = atmosphereRendering->renderAtmosphere( frameGraph, resolvedOutput.ResolvedColor, resolvedOutput.ResolvedDepth );

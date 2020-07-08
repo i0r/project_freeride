@@ -1,6 +1,6 @@
 /*
     Dusk Source Code
-    Copyright (C) 2019 Prevost Baptiste
+    Copyright (C) 2020209 Prevost Baptiste
 */
 #pragma once
 
@@ -22,5 +22,11 @@ public:
 
 	void                loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache );
 
-    void                captureShadowMap( FrameGraph& frameGraph, ResHandle_t depthBuffer, const dkVec2f& depthBufferSize );
+    void                captureShadowMap( FrameGraph& frameGraph, ResHandle_t depthBuffer, const dkVec2f& depthBufferSize, const DirectionalLightGPU& directionalLight );
+
+private:
+    ResHandle_t         reduceDepthBuffer( FrameGraph& frameGraph, ResHandle_t depthBuffer, const dkVec2f& depthBufferSize );
+
+private:
+    Buffer*             csmSliceInfosBuffer;
 };

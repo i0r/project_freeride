@@ -14,6 +14,8 @@
 #include <Core/Allocators/LinearAllocator.h>
 #include <Maths/MatrixTransformations.h>
 
+DUSK_DEV_VAR( DisplayBoundingSphere, "Display Geometry Bounding Sphere (as wireframe primitive)", false, bool );
+
 static constexpr size_t MAX_SIMULTANEOUS_VIEWPORT_COUNT = 8;
 static constexpr size_t MAX_STATIC_MODEL_COUNT = 4096;
 static constexpr size_t MAX_INSTANCE_COUNT_PER_MODEL = 256;
@@ -180,13 +182,15 @@ void DrawCommandBuilder::buildGeometryDrawCmds( WorldRenderer* worldRenderer, co
             }
 
             // Draw debug bounding sphere.
-            dkMat4x4f translationMat = dk::maths::MakeTranslationMat( instanceBoundingSphere.center );
-            dkMat4x4f scaleMat = dk::maths::MakeScaleMat( dkVec3f( instanceBoundingSphere.radius ) );
+            if ( DisplayBoundingSphere ) {
+                dkMat4x4f translationMat = dk::maths::MakeTranslationMat( instanceBoundingSphere.center );
+                dkMat4x4f scaleMat = dk::maths::MakeScaleMat( dkVec3f( instanceBoundingSphere.radius ) );
 
-            const u32 bbIndex = boundingSphereCount;
-			boundingSphereInstanceData[bbIndex].ModelMatrix = translationMat * scaleMat;
-            boundingSphereInstanceData[bbIndex].EntityIdentifier = 0;
-            boundingSphereCount++;
+                const u32 bbIndex = boundingSphereCount;
+                boundingSphereInstanceData[bbIndex].ModelMatrix = translationMat * scaleMat;
+                boundingSphereInstanceData[bbIndex].EntityIdentifier = 0;
+                boundingSphereCount++;
+            }
         }
     }
 
@@ -223,7 +227,7 @@ void DrawCommandBuilder::buildGeometryDrawCmds( WorldRenderer* worldRenderer, co
         }
     }
 
-    if ( boundingSphereCount != 0 ) {
+    if ( DisplayBoundingSphere && boundingSphereCount != 0 ) {
         const Material* wireframeMat = worldRenderer->getWireframeMaterial();
 
         DrawCmd& drawCmd = worldRenderer->allocateSpherePrimitiveDrawCmd();
