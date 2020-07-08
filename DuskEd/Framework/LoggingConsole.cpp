@@ -6,6 +6,7 @@
 #include <imgui/imgui.h>
 #include <imgui/imgui_internal.h>
 
+#if DUSK_USE_IMGUI
 #if DUSK_UNICODE
 static thread_local char logHistory[2 * 4096];
 
@@ -33,3 +34,4 @@ void dk::editor::DisplayLoggingConsole()
     }
     ImGui::End();
 }
+#endif

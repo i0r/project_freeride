@@ -463,21 +463,6 @@ void InitializeRenderSubsystems()
     // END TEMP
 }
 
-#if DUSK_USE_IMGUI
-// TODO Move this to an helper header
-static bool IsItemActiveLastFrame()
-{
-    ImGuiContext& g = *GImGui;
-
-    if ( g.ActiveIdPreviousFrame )
-        return g.ActiveIdPreviousFrame == g.CurrentWindow->DC.LastItemId;
-    return false;
-}
-
-static bool IsItemJustReleased() { return IsItemActiveLastFrame() && !ImGui::IsItemActive(); }
-static bool IsItemJustActivated() { return !IsItemActiveLastFrame() && ImGui::IsItemActive(); }
-#endif
-
 void Initialize( const char* cmdLineArgs )
 {
     Timer profileTimer;
@@ -631,6 +616,7 @@ void MainLoop()
 		g_DrawCommandBuilder->prepareAndDispatchCommands( g_WorldRenderer );
 
 #if DUSK_USE_IMGUI
+        // TODO Move all this crap to a dedicated subsystem!
             static bool IsRenderDocVisible = false;
 
             g_ImGuiRenderModule->lockForRendering();
@@ -646,6 +632,14 @@ void MainLoop()
                 }
 
                 if ( ImGui::BeginMenu( "Edit" ) ) {
+                    ImGui::EndMenu();
+                }
+
+                if ( ImGui::BeginMenu( "Debug" ) ) {
+                    bool* DrawDebugSphere = EnvironmentVariables::getVariable<bool>( DUSK_STRING_HASH( "DisplayBoundingSphere" ) );
+                
+                    ImGui::Checkbox( "Display Geometry BoundingSphere", DrawDebugSphere );
+
                     ImGui::EndMenu();
                 }
 

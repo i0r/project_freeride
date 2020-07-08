@@ -31,6 +31,9 @@
 #include <Graphics/Model.h>
 #include <Graphics/RenderWorld.h>
 
+#include <Maths/Vector.h>
+#include "ImGuiUtilities.h"
+
 EntityEditor::EntityEditor( BaseAllocator* allocator, GraphicsAssetCache* gfxCache, VirtualFileSystem* vfs, RenderWorld* rWorld, RenderDevice* activeRenderDevice )
     : isOpened( false )
     , activeEntity( nullptr )
@@ -91,6 +94,7 @@ void EntityEditor::displayTransformSection( const dkVec4f& viewportBounds, Camer
         static ImGuizmo::OPERATION mCurrentGizmoOperation( ImGuizmo::TRANSLATE );
         static int activeManipulationMode = 0;
         static bool useSnap = false;
+        static bool lockScaleChannels = false;
         static float snap[3] = { 1.f, 1.f, 1.f };
 
         dkMat4x4f* modelMatrix = editorInstance.Local;
@@ -113,7 +117,8 @@ void EntityEditor::displayTransformSection( const dkVec4f& viewportBounds, Camer
 
         ImGui::DragFloat3( "Translation", ( float* )editorInstance.Position );
         ImGui::DragFloat3( "Rotation", ( float* )&Rotation, 3 );
-        ImGui::DragFloat3( "Scale", ( float* )editorInstance.Scale );
+        dk::imgui::DragFloat3WithChannelLock( editorInstance, lockScaleChannels );
+
 
         RotationQuat = dkQuatf( Rotation );
         *editorInstance.Rotation = RotationQuat;
