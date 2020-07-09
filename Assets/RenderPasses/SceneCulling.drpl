@@ -41,6 +41,11 @@ lib SceneCulling {
         }
     }
     
+    shader ClearArgsBufferCS {
+        DrawArgsBuffer.Store4(0, uint4(0, 1, 0, 0));
+        DrawArgsBuffer.Store(16, 0);
+    }
+
     shader FrustumCullCS {
         const uint drawIdx = CullTGSize * $SV_GroupID.x + $SV_GroupIndex;
         if( drawIdx >= NumDrawCalls ) {
@@ -57,6 +62,11 @@ lib SceneCulling {
 
             CulledDrawsOutput.Append( culledDraw );
         }
+    }
+    
+    pass ClearArgsBuffer {
+        compute       = ClearArgsBufferCS;
+        dispatch      = { 1, 1, 1 };
     }
     
     pass FrustumCullDrawCalls {

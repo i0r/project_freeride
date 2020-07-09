@@ -283,33 +283,43 @@ ResHandle_t WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Mate
 
     environmentProbeStreaming->updateProbeCapture( frameGraph, atmosphereRendering );
 
+    // Update clusters.
     LightGrid::Data lightGridData = lightGrid->updateClusters( frameGraph );
 
-    // LightPass.
-    WorldRenderModule::LightPassOutput primRenderPass = WorldRendering->addPrimitiveLightPass( frameGraph, lightGridData.PerSceneBuffer, scenario, environmentProbeStreaming->getReadDistantProbeIrradiance(), environmentProbeStreaming->getReadDistantProbeRadiance() );
+    ResHandle_t prepassTarget = WorldRendering->addDepthPrepass( frameGraph );
 
-    // AntiAliasing resolve. (we merge both TAA and MSAA in a single pass to avoid multiple dispatch).
-    ResolvedPassOutput resolvedOutput = { primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget };
-    if ( msaaSamplerCount > 1 || EnableTAA ) {
-        resolvedOutput = AddMSAAResolveRenderPass( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputVelocityTarget, primRenderPass.OutputDepthTarget, msaaSamplerCount, EnableTAA );
-    }
-
-    if ( EnableTAA ) {
-        frameGraph.saveLastFrameRenderTarget( resolvedOutput.ResolvedColor );
-    }
+    resolvedDepth = AddMSAADepthResolveRenderPass( frameGraph, prepassTarget, msaaSamplerCount );
 
     // Rescale the main render target for post-fx (if SSAA is used to down/upscale).
     if ( imageQuality != 1.0f ) {
-        resolvedOutput = AddSSAAResolveRenderPass( frameGraph, resolvedOutput );
+        resolvedDepth = AddSSAAResolveRenderPass( frameGraph, resolvedDepth, true );
     }
-
-    resolvedDepth = resolvedOutput.ResolvedDepth;
 
     // Depth reduction
     cascadedShadowMapRendering->captureShadowMap( frameGraph, resolvedDepth, viewportSize, *lightGrid->getDirectionalLightData() );
 
+    // LightPass.
+    WorldRenderModule::LightPassOutput primRenderPass = WorldRendering->addPrimitiveLightPass( frameGraph, lightGridData.PerSceneBuffer, prepassTarget, scenario, environmentProbeStreaming->getReadDistantProbeIrradiance(), environmentProbeStreaming->getReadDistantProbeRadiance() );
+    
+    primRenderPass.OutputRenderTarget = atmosphereRendering->renderAtmosphere( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
+
+    // AntiAliasing resolve. (we merge both TAA and MSAA in a single pass to avoid multiple dispatch).
+    ResHandle_t resolvedColor = primRenderPass.OutputRenderTarget;
+    if ( msaaSamplerCount > 1 || EnableTAA ) {
+        resolvedColor = AddMSAAResolveRenderPass( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputVelocityTarget, primRenderPass.OutputDepthTarget, msaaSamplerCount, EnableTAA );
+    }
+
+    if ( EnableTAA ) {
+        frameGraph.saveLastFrameRenderTarget( resolvedColor );
+    }
+
+    // Rescale the main render target for post-fx (if SSAA is used to down/upscale).
+    if ( imageQuality != 1.0f ) {
+        resolvedColor = AddSSAAResolveRenderPass( frameGraph, resolvedColor, false );
+    }
+
     // Atmosphere Rendering.
-    ResHandle_t presentRt = atmosphereRendering->renderAtmosphere( frameGraph, resolvedOutput.ResolvedColor, resolvedOutput.ResolvedDepth );
+    ResHandle_t presentRt = resolvedColor;
 
     // Glare Rendering.
     FFTPassOutput frequencyDomainRt = AddFFTComputePass( frameGraph, presentRt, viewportSize.x, viewportSize.y );

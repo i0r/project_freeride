@@ -65,7 +65,7 @@ PipelineState* PipelineStateCache::getOrCreatePipelineState( const PipelineState
     if ( filledDescriptor.PipelineType == PipelineStateDesc::COMPUTE ) {
         filledDescriptor.computeShader = shaderCache->getOrUploadStage<eShaderStage::SHADER_STAGE_COMPUTE>( shaderBinding.ComputeShader, forceRebuild );
     } else {
-        if ( shaderBinding.VertexShader != 0 ) {
+        if ( shaderBinding.VertexShader != nullptr && shaderBinding.VertexShader[0] != DUSK_STRING( '\0' ) ) {
             filledDescriptor.vertexShader = shaderCache->getOrUploadStage<eShaderStage::SHADER_STAGE_VERTEX>( shaderBinding.VertexShader, forceRebuild );
         }
        /* if ( shaderBinding.TesselationControlShader != 0 ) {
@@ -74,7 +74,7 @@ PipelineState* PipelineStateCache::getOrCreatePipelineState( const PipelineState
         if ( shaderBinding.TesselationEvaluationShader != 0 ) {
             filledDescriptor.tesselationEvalShader = shaderCache->getOrUploadStage<eShaderStage::SHADER_STAGE_TESSELATION_EVALUATION>( shaderBinding.TesselationEvaluationShader, forceRebuild );
         }*/
-        if ( shaderBinding.PixelShader != 0 ) {
+        if ( shaderBinding.PixelShader != nullptr && shaderBinding.PixelShader[0] != DUSK_STRING( '\0' ) ) {
             filledDescriptor.pixelShader = shaderCache->getOrUploadStage<eShaderStage::SHADER_STAGE_PIXEL>( shaderBinding.PixelShader, forceRebuild );
         }
     }

@@ -42,10 +42,6 @@ lib AntiAliasing {
             swizzle = float4;
         }
         
-        Texture2D ResolvedDepthTargetInput {
-            swizzle = float;
-        }
-        
         StructuredBuffer AutoExposureBuffer {
             swizzle = AutoExposureInfos;
         }
@@ -262,7 +258,11 @@ lib AntiAliasing {
         #endif
         
         ResolvedTarget[$SV_DispatchThreadID.xy] = float4( output, 1.0f );
-           
+    }
+    
+    shader DepthResolveMSAACS {
+        float2 pixelPos = float2( $SV_DispatchThreadID.xy );
+        
         // Resolve Depth Buffer
         float maxDepth = 0.0f;
 
@@ -283,13 +283,12 @@ lib AntiAliasing {
     
     shader CopyImageSSAA {
         $SV_TARGET0 = ResolvedTargetInput.SampleLevel( BilinearSampler, $TEXCOORD0, 0 );
-        $SV_TARGET1 = ResolvedDepthTargetInput.SampleLevel( BilinearSampler, $TEXCOORD0, 0 );
     }
     
     pass ResolveSSAA {
         vertex        = FullscreenTriangleSSAA;    
         pixel         = CopyImageSSAA;
-        rendertargets = { ResolvedTarget, ResolvedDepthTarget };
+        rendertargets = { ResolvedTarget };
     }
     
     pass ResolveTAA {
@@ -297,6 +296,24 @@ lib AntiAliasing {
         dispatch        = { 16, 16, 1 };
         SamplerCount    = 1;
         UseTemporalAA   = true;
+    }
+    
+    pass ResolveDepthMSAAx2 {
+        compute         = DepthResolveMSAACS;
+        dispatch        = { 16, 16, 1 };
+        SamplerCount    = 2;
+    }
+    
+    pass ResolveDepthMSAAx4 {
+        compute         = DepthResolveMSAACS;
+        dispatch        = { 16, 16, 1 };
+        SamplerCount    = 4;
+    }
+    
+    pass ResolveDepthMSAAx8 {
+        compute         = DepthResolveMSAACS;
+        dispatch        = { 16, 16, 1 };
+        SamplerCount    = 8;
     }
     
     pass ResolveMSAAx2 {

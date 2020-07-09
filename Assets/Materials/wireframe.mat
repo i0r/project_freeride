@@ -22,4 +22,8 @@ material "wireframe" {
 		vertex = "dedc358b0bc3cd97ed89dfdeedbcb106";
 		pixel = "3f1379f3d9aa70eba2822d7e01424a23";
 	}
+	scenario "Depth_Only" {
+		vertex = "800d0239a79798abdbb30ce8d7921324";
+		pixel = "";
+	}
 }

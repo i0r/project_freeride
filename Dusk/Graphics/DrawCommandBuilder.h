@@ -12,6 +12,9 @@ class WorldRenderer;
 class Model;
 class FrameGraph;
 struct CameraData;
+struct LODBatch;
+class Material;
+struct Mesh;
 
 class DrawCommandBuilder
 {
@@ -53,4 +56,6 @@ private:
 	void				resetAllocators();
 
 	void                buildGeometryDrawCmds( WorldRenderer* worldRenderer, const CameraData* camera, const u8 cameraIdx, const u8 layer, const u8 viewportLayer ); 
+
+	void				addCommand( WorldRenderer* worldRenderer, const LODBatch& batch, const u8 cameraIdx, const Material* material, const Mesh& mesh );
 };

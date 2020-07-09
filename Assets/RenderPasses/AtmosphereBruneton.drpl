@@ -231,36 +231,50 @@ lib AtmosphereBruneton {
           sky_irradiance *= SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
           return sun_irradiance * SUN_SPECTRAL_RADIANCE_TO_LUMINANCE;
         }
+        
+        float4 GetSkyColor( const float3 worldPosition, const float3 viewDirection )
+        {
+            float3 transmittance;
+            float3 radiance = GetSkyRadiance( float3( worldPosition.xz * 0.05f, 0.05f ) - EarthCenter, viewDirection, 0, SunDirection, transmittance );
+
+            float4 color = float4( radiance, 1 );
+            
+    #ifdef $RenderSunDisc
+            float cosTheta = saturate( dot( viewDirection, SunDirection ) );
+            float sunGradient = pow( cosTheta, SunExponant );
+            color.rgb = lerp( color.rgb, transmittance * GetSolarRadiance() * 0.001f, sunGradient );
+    #endif
+
+            color.rgb = pow(float3(1, 1, 1) - exp(-color / WhitePoint), (1.0 / 2.2));
+            return color;
+        }
     }
     
+    shader BrunetonSkyVS {
+        float x = ( float )( $SV_VertexId / 2 );
+        float y = ( float )( $SV_VertexId % 2 );
+        
+        float4 ScreenSpacePos = float4( x * 4 - 1, y * 4 - 1, 0, 1 );
+        
+        $POSITION0 = float4( mul( ScreenSpacePos, g_InverseViewProjectionMatrix ).xzy, 1 );
+        $SV_Position = ScreenSpacePos;
+    }
+    
+    shader BrunetonSkyPS {
+        float3 viewDirection = normalize( $POSITION0.xyz );       
+        $SV_TARGET0 = GetSkyColor( g_WorldPosition, viewDirection );  
+    }
+    
+    // The compute permutation should only be used for distant probe recapture (or anything not relying on
+    // depth prepass).
     shader BrunetonSkyCS {
-        uint2 texelPos = $SV_DispatchThreadId.xy;
-        
-#ifdef $UseDepthComparison
-        float zbufferSample = DepthBuffer[texelPos];
-        
-        if ( zbufferSample > 0.0f ) {
-            return;
-        }
-#endif
-
-// TODO This is only temporary and will be removed once multi viewport support is implemented.
-#ifdef $UseCustomViewport
         float2 ParamRenderTargetSize = ScreenSize;
         float3 ParamViewDirection = ViewDirection;
         float3 ParamRightVector = RightVector;
         float3 ParamUpVector = UpVector;
         float3 ParamWorldPosition = WorldPosition;
         float ParamAspectRatio = AspectRatio;
-#else
-        float2 ParamRenderTargetSize = g_ScreenSize;
-        float3 ParamViewDirection = g_ViewDirection;
-        float3 ParamRightVector = g_RightVector;
-        float3 ParamUpVector = g_UpVector;
-        float3 ParamWorldPosition = g_WorldPosition;
-        float ParamAspectRatio = g_AspectRatio;
-#endif
-
+        
         // Generate a view ray (in world space).
         float xPixelCoordShifted = (2 * (($SV_DispatchThreadId.x + 0.5f) / ParamRenderTargetSize.x) - 1) * ParamAspectRatio; 
         float yPixelCoordShifted = (2 * (($SV_DispatchThreadId.y + 0.5f) / ParamRenderTargetSize.y) - 1); 
@@ -269,24 +283,13 @@ lib AtmosphereBruneton {
         float3 upShift = mul(yPixelCoordShifted, -ParamUpVector);
         float3 viewDirection =  normalize(ParamViewDirection + rightShift + upShift).xzy;
 
-        float3 transmittance;
-        float3 radiance = GetSkyRadiance( float3( ParamWorldPosition.xz * 0.05f, 0.05f ) - EarthCenter, viewDirection, 0, SunDirection, transmittance );
-
-        float4 color = float4( radiance, 1 );
-        
-#ifdef $RenderSunDisc
-        float cosTheta = saturate( dot( viewDirection, SunDirection ) );
-        float sunGradient = pow( cosTheta, SunExponant );
-        color.rgb = lerp( color.rgb, transmittance * GetSolarRadiance() * 0.001f, sunGradient );
-#endif
-
-        OutputRenderTarget[$SV_DispatchThreadId.xy] = color;  
+        OutputRenderTarget[$SV_DispatchThreadId.xy] = GetSkyColor( ParamWorldPosition, viewDirection );
     }
     
     pass BrunetonSky {
-        compute  = BrunetonSkyCS;   
-        dispatch = { 16, 16, 1 };
-        UseCustomViewport = false;
+        vertex  = BrunetonSkyVS; 
+        pixel   = BrunetonSkyPS;   
+        rendertargets = { OutputRenderTarget };
         UseDepthComparison = true;
         RenderSunDisc = true;
     }

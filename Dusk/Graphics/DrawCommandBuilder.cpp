@@ -66,6 +66,14 @@ f32 CullSphereInfReversedZ( const Frustum* frustum, const BoundingSphere& sphere
     return CullSphereInfReversedZ( frustum, sphere.center, sphere.radius );
 }
 
+struct LODBatch 
+{
+    const Model::LevelOfDetail*     ModelLOD;
+    DrawCommandInfos::InstanceData* Instances;
+    u32                             InstanceCount;
+    f32                             ClosestDistance;
+};
+
 DrawCommandBuilder::DrawCommandBuilder( BaseAllocator* allocator )
     : memoryAllocator( allocator )
     , cameraToRenderAllocator( dk::core::allocate<LinearAllocator>( allocator, MAX_SIMULTANEOUS_VIEWPORT_COUNT * sizeof( CameraData ), allocator->allocate( MAX_SIMULTANEOUS_VIEWPORT_COUNT * sizeof( CameraData ) ) ) )
@@ -123,18 +131,37 @@ void DrawCommandBuilder::resetAllocators()
     instanceDataAllocator->clear();
 }
 
+template<DrawCommandKey::Layer layer, u8 viewportLayer>
+void AddCommand( WorldRenderer* worldRenderer, const LODBatch& batch, const u8 cameraIdx, const Material* material, const Mesh& mesh )
+{
+    // Allocate a depth render command
+    DrawCmd& drawCmd = worldRenderer->allocateDrawCmd();
+
+    // TODO Add back sort key / depth sort / sort Order infos.
+    auto& key = drawCmd.key.bitfield;
+    key.materialSortKey = 0; // subMesh.material->getSortKey();
+    key.depth = DepthToBits( batch.ClosestDistance );
+    key.sortOrder = DrawCommandKey::SORT_FRONT_TO_BACK; // ( subMesh.material->isOpaque() ) ? DrawCommandKey::SORT_FRONT_TO_BACK : DrawCommandKey::SORT_BACK_TO_FRONT;
+    key.layer = layer;
+    key.viewportLayer = viewportLayer;
+    key.viewportId = cameraIdx;
+
+    DrawCommandInfos& infos = drawCmd.infos;
+    infos.material = material;
+    infos.vertexBuffers = mesh.AttributeBuffers;
+    infos.indiceBuffer = mesh.IndexBuffer;
+    infos.indiceBufferOffset = mesh.IndiceBufferOffset;
+    infos.indiceBufferCount = mesh.IndiceCount;
+    infos.alphaDitheringValue = 1.0f;
+    infos.instanceCount = batch.InstanceCount;
+    infos.modelMatrix = batch.Instances;
+}
+
 void DrawCommandBuilder::buildGeometryDrawCmds( WorldRenderer* worldRenderer, const CameraData* camera, const u8 cameraIdx, const u8 layer, const u8 viewportLayer )
 {
-    struct LODBatch
-    {
-        const Model::LevelOfDetail* ModelLOD;
-        DrawCommandInfos::InstanceData* Instances;
-        u32                         InstanceCount;
-    };
     std::unordered_map<dkStringHash_t, LODBatch> lodBatches;
     
-    // TODO Add EnvVar debug var to conditionally enable this.
-    DrawCommandInfos::InstanceData* boundingSphereInstanceData = dk::core::allocateArray<DrawCommandInfos::InstanceData>( instanceDataAllocator, MAX_INSTANCE_COUNT_PER_MODEL );
+    DrawCommandInfos::InstanceData* boundingSphereInstanceData = ( DisplayBoundingSphere ) ? dk::core::allocateArray<DrawCommandInfos::InstanceData>( instanceDataAllocator, MAX_INSTANCE_COUNT_PER_MODEL ) : nullptr;
     i32 boundingSphereCount = 0;
 
     // Do a first pass to perform a basic frustum culling and batch static geometry.
@@ -167,6 +194,7 @@ void DrawCommandBuilder::buildGeometryDrawCmds( WorldRenderer* worldRenderer, co
                 LODBatch batch;
                 batch.ModelLOD = &activeLOD;
 				batch.Instances = dk::core::allocateArray<DrawCommandInfos::InstanceData>( instanceDataAllocator, MAX_INSTANCE_COUNT_PER_MODEL );
+                batch.ClosestDistance = distanceToCamera;
                 batch.Instances[0].ModelMatrix = modelMatrix;
                 batch.Instances[0].EntityIdentifier = entityIdx;
 				batch.InstanceCount = 1;
@@ -179,6 +207,8 @@ void DrawCommandBuilder::buildGeometryDrawCmds( WorldRenderer* worldRenderer, co
 				batch.Instances[instanceIdx].ModelMatrix = modelMatrix;
 				batch.Instances[instanceIdx].EntityIdentifier = entityIdx;
                 batch.InstanceCount++;
+
+                batch.ClosestDistance = Min( batch.ClosestDistance, distanceToCamera );
             }
 
             // Draw debug bounding sphere.
@@ -199,51 +229,12 @@ void DrawCommandBuilder::buildGeometryDrawCmds( WorldRenderer* worldRenderer, co
         const LODBatch& batch = lodBatch.second;
 
         const Model::LevelOfDetail* lod = batch.ModelLOD;
-
         for ( i32 meshIdx = 0; meshIdx < lod->MeshCount; meshIdx++ ) {
             const Mesh& mesh = lod->MeshArray[meshIdx];
             const Material* material = mesh.RenderMaterial;
 
-			DrawCmd& drawCmd = worldRenderer->allocateDrawCmd();
-
-            // TODO Add back sort key / depth sort / sort Order infos.
-			auto& key = drawCmd.key.bitfield;
-            key.materialSortKey = 0; // subMesh.material->getSortKey();
-            key.depth = 0; // DepthToBits( distanceToCamera );
-            key.sortOrder = DrawCommandKey::SORT_FRONT_TO_BACK; // ( subMesh.material->isOpaque() ) ? DrawCommandKey::SORT_FRONT_TO_BACK : DrawCommandKey::SORT_BACK_TO_FRONT;
-			key.layer = static_cast< DrawCommandKey::Layer >( layer );
-			key.viewportLayer = viewportLayer;
-			key.viewportId = cameraIdx;
-
-			DrawCommandInfos& infos = drawCmd.infos;
-			infos.material = material;
-			infos.vertexBuffers = mesh.AttributeBuffers;
-			infos.indiceBuffer = mesh.IndexBuffer;
-			infos.indiceBufferOffset = mesh.IndiceBufferOffset;
-			infos.indiceBufferCount = mesh.IndiceCount;
-			infos.alphaDitheringValue = 1.0f;
-			infos.instanceCount = batch.InstanceCount;
-			infos.modelMatrix = batch.Instances;
+            AddCommand<DrawCommandKey::LAYER_WORLD, DrawCommandKey::WORLD_VIEWPORT_LAYER_DEFAULT>( worldRenderer, batch, cameraIdx, material, mesh );
+            AddCommand<DrawCommandKey::LAYER_DEPTH, DrawCommandKey::DEPTH_VIEWPORT_LAYER_DEFAULT>( worldRenderer, batch, cameraIdx, material, mesh );
         }
-    }
-
-    if ( DisplayBoundingSphere && boundingSphereCount != 0 ) {
-        const Material* wireframeMat = worldRenderer->getWireframeMaterial();
-
-        DrawCmd& drawCmd = worldRenderer->allocateSpherePrimitiveDrawCmd();
-
-        // TODO Add back sort key / depth sort / sort Order infos.
-        auto& key2 = drawCmd.key.bitfield;
-        key2.materialSortKey = 0; // subMesh.material->getSortKey();
-        key2.depth = 0; // DepthToBits( distanceToCamera );
-        key2.sortOrder = DrawCommandKey::SORT_FRONT_TO_BACK; // ( subMesh.material->isOpaque() ) ? DrawCommandKey::SORT_FRONT_TO_BACK : DrawCommandKey::SORT_BACK_TO_FRONT;
-        key2.layer = static_cast< DrawCommandKey::Layer >( layer );
-        key2.viewportLayer = viewportLayer;
-        key2.viewportId = cameraIdx;
-
-        DrawCommandInfos& infos2 = drawCmd.infos;
-        infos2.material = wireframeMat;
-        infos2.instanceCount = boundingSphereCount;
-		infos2.modelMatrix = boundingSphereInstanceData;
     }
 }

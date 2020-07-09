@@ -172,12 +172,7 @@ struct CSMSliceInfos
     float4  RenderingMatrix[4];
     float4  CascadePlanes[6];
     float4  CascadeOffsets;
-    float4  CascadeScales;
-    
+    float4  CascadeScales; 
     float   CascadeSplits;
-#ifdef __cplusplus
-    uint    PADDING[3];
-#endif
 };
-DUSK_IS_MEMORY_ALIGNED_STATIC( CSMSliceInfos, 16 );
 #endif

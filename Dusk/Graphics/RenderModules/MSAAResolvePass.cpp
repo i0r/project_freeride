@@ -14,6 +14,134 @@
 #include "Generated/AntiAliasing.generated.h"
 #include "Generated/BuiltIn.generated.h"
 
+template<i32 SamplerCount>
+const char* GetDepthPassName()
+{
+    switch ( SamplerCount ) {
+    case 2:
+        return AntiAliasing::ResolveDepthMSAAx2_Name;
+    case 4:
+        return AntiAliasing::ResolveDepthMSAAx4_Name;
+    case 8:
+        return AntiAliasing::ResolveDepthMSAAx8_Name;
+    default:
+        return "";
+    };
+}
+
+template<i32 SamplerCount>
+const dkChar_t* GetDepthEventName()
+{
+    switch ( SamplerCount ) {
+    case 2:
+        return AntiAliasing::ResolveDepthMSAAx2_EventName;
+    case 4:
+        return AntiAliasing::ResolveDepthMSAAx4_EventName;
+    case 8:
+        return AntiAliasing::ResolveDepthMSAAx8_EventName;
+    default:
+        return DUSK_STRING( "" );
+    };
+}
+
+template<i32 SamplerCount>
+PipelineStateCache::ShaderBinding GetDepthPassShaderBinding()
+{
+    switch ( SamplerCount ) {
+    case 2:
+        return AntiAliasing::ResolveDepthMSAAx2_ShaderBinding;
+    case 4:
+        return AntiAliasing::ResolveDepthMSAAx4_ShaderBinding;
+    case 8:
+        return AntiAliasing::ResolveDepthMSAAx8_ShaderBinding;
+    default:
+        return AntiAliasing::ResolveDepthMSAAx2_ShaderBinding;
+    };
+}
+
+template<i32 SamplerCount>
+void GetDepthThreadCount( u32& threadCountX, u32& threadCountY, u32& threadCountZ )
+{
+    switch ( SamplerCount ) {
+    case 2:
+        threadCountX = AntiAliasing::ResolveDepthMSAAx2_DispatchX;
+        threadCountY = AntiAliasing::ResolveDepthMSAAx2_DispatchY;
+        threadCountZ = AntiAliasing::ResolveDepthMSAAx2_DispatchZ;
+        break;
+    case 4:
+        threadCountX = AntiAliasing::ResolveDepthMSAAx4_DispatchX;
+        threadCountY = AntiAliasing::ResolveDepthMSAAx4_DispatchY;
+        threadCountZ = AntiAliasing::ResolveDepthMSAAx4_DispatchZ;
+        break;
+    case 8:
+        threadCountX = AntiAliasing::ResolveDepthMSAAx8_DispatchX;
+        threadCountY = AntiAliasing::ResolveDepthMSAAx8_DispatchY;
+        threadCountZ = AntiAliasing::ResolveDepthMSAAx8_DispatchZ;
+        break;
+    default:
+        threadCountX = threadCountY = threadCountZ = 1U;
+        break;
+    };
+}
+
+template<i32 SamplerCount>
+ResHandle_t AddResolveDepthMSAARenderPass( FrameGraph& frameGraph,
+                                                  ResHandle_t inputDepthImage )
+{
+    struct PassData {
+        ResHandle_t InputDepth;
+        ResHandle_t ResolvedDepth;
+    };
+    
+    PassData passData = frameGraph.addRenderPass<PassData>(
+        GetDepthPassName<SamplerCount>(),
+        [&]( FrameGraphBuilder& builder, PassData& passData ) {
+            builder.useAsyncCompute();
+
+            passData.InputDepth = builder.readReadOnlyImage( inputDepthImage );
+
+            ImageDesc* copiedDepthImageDesc;
+            passData.ResolvedDepth = builder.copyImage( inputDepthImage, &copiedDepthImageDesc, FrameGraphBuilder::eImageFlags::NO_MULTISAMPLE
+                                                        | FrameGraphBuilder::eImageFlags::USE_PIPELINE_DIMENSIONS );
+            copiedDepthImageDesc->bindFlags |= RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
+            copiedDepthImageDesc->bindFlags |= RESOURCE_BIND_SHADER_RESOURCE;
+
+            // Old APIs don't allow both DepthStencil and UAV at the same.
+            copiedDepthImageDesc->bindFlags &= ~RESOURCE_BIND_DEPTH_STENCIL;
+            copiedDepthImageDesc->DefaultView.ViewFormat = VIEW_FORMAT_R32_FLOAT;
+        },
+        [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+            Image* inputDepthTarget = resources->getImage( passData.InputDepth );
+            Image* resolveDepthTarget = resources->getImage( passData.ResolvedDepth );
+
+            const CameraData* cameraData = resources->getMainCamera();
+            const Viewport* vp = resources->getMainViewport();
+
+            PipelineState* pso = psoCache->getOrCreatePipelineState( RenderingHelpers::PS_Compute, GetDepthPassShaderBinding<SamplerCount>() );
+
+            cmdList->bindPipelineState( pso );
+            cmdList->pushEventMarker( GetDepthEventName<SamplerCount>() );
+
+            // The hashcode are shared between permutations; so we can take any permutation name.
+            // In the future, we should remove duplicated hashes to avoid bloating generated metadata headers.
+		    cmdList->bindImage( AntiAliasing::ResolveDepthMSAAx2_DepthBuffer_Hashcode, inputDepthTarget );
+            cmdList->bindImage( AntiAliasing::ResolveDepthMSAAx2_ResolvedDepthTarget_Hashcode, resolveDepthTarget );
+
+            cmdList->prepareAndBindResourceList();
+
+            u32 dispatchX, dispatchY, dispatchZ;
+            GetDepthThreadCount<SamplerCount>( dispatchX, dispatchY, dispatchZ );
+
+            u32 threadCountX = static_cast< u32 >( ( vp->Width * cameraData->imageQuality ) / dispatchX );
+            u32 threadCountY = static_cast< u32 >( ( vp->Height * cameraData->imageQuality ) / dispatchY );
+            cmdList->dispatchCompute( threadCountX, threadCountY, dispatchZ );
+            cmdList->popEventMarker();
+        }
+    );
+
+    return passData.ResolvedDepth;
+}
+
 template<i32 SamplerCount, bool UseTemporalAA>
 const char* GetPassName()
 {
@@ -103,7 +231,7 @@ void GetThreadCount( u32& threadCountX, u32& threadCountY, u32& threadCountZ )
 }
 
 template<i32 SamplerCount, bool UseTemporalAA>
-ResolvedPassOutput AddResolveMSAARenderPass( FrameGraph& frameGraph,
+ResHandle_t AddResolveMSAARenderPass( FrameGraph& frameGraph,
                                              ResHandle_t inputImage,
                                              ResHandle_t inputVelocityImage,
                                              ResHandle_t inputDepthImage )
@@ -115,7 +243,6 @@ ResolvedPassOutput AddResolveMSAARenderPass( FrameGraph& frameGraph,
         ResHandle_t InputVelocity;
         ResHandle_t InputLastFrame;
         ResHandle_t Output;
-        ResHandle_t ResolvedDepth;
         ResHandle_t PerPassBuffer;
         ResHandle_t AutoExposureBuffer;
     };
@@ -123,107 +250,92 @@ ResolvedPassOutput AddResolveMSAARenderPass( FrameGraph& frameGraph,
     PassData passData = frameGraph.addRenderPass<PassData>(
         GetPassName<SamplerCount, UseTemporalAA>(),
         [&]( FrameGraphBuilder& builder, PassData& passData ) {
-        builder.useAsyncCompute();
+            builder.useAsyncCompute();
 
-        passData.Input = builder.readImage( inputImage );
+            passData.Input = builder.readImage( inputImage );
 
-        passData.InputVelocity = builder.readReadOnlyImage( inputVelocityImage );
-        passData.InputDepth = builder.readReadOnlyImage( inputDepthImage );
-        passData.InputLastFrame = builder.retrieveLastFrameImage();
+            passData.InputVelocity = builder.readReadOnlyImage( inputVelocityImage );
+            passData.InputDepth = builder.readReadOnlyImage( inputDepthImage );
+            passData.InputLastFrame = builder.retrieveLastFrameImage();
 
-        ImageDesc* copiedImageDesc;
-        passData.Output = builder.copyImage( inputImage, &copiedImageDesc, FrameGraphBuilder::eImageFlags::NO_MULTISAMPLE
-                                             | FrameGraphBuilder::eImageFlags::USE_PIPELINE_DIMENSIONS );
+            ImageDesc* copiedImageDesc;
+            passData.Output = builder.copyImage( inputImage, &copiedImageDesc, FrameGraphBuilder::eImageFlags::NO_MULTISAMPLE
+                                                 | FrameGraphBuilder::eImageFlags::USE_PIPELINE_DIMENSIONS );
 
-        copiedImageDesc->bindFlags |= RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
+            copiedImageDesc->bindFlags |= RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
 
-        ImageDesc* copiedDepthImageDesc;
-        passData.ResolvedDepth = builder.copyImage( inputDepthImage, &copiedDepthImageDesc, FrameGraphBuilder::eImageFlags::NO_MULTISAMPLE
-                                                    | FrameGraphBuilder::eImageFlags::USE_PIPELINE_DIMENSIONS );
-		copiedDepthImageDesc->bindFlags |= RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
-		copiedDepthImageDesc->bindFlags |= RESOURCE_BIND_SHADER_RESOURCE;
+            BufferDesc bufferDesc;
+            bufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
+            bufferDesc.SizeInBytes = sizeof( AntiAliasing::ResolveMSAAx2WithTAAProperties );
+            bufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
+            passData.PerPassBuffer = builder.allocateBuffer( bufferDesc, eShaderStage::SHADER_STAGE_COMPUTE );
 
-        // Old APIs don't allow both DepthStencil and UAV at the same.
-        copiedDepthImageDesc->bindFlags &= ~RESOURCE_BIND_DEPTH_STENCIL;
-        copiedDepthImageDesc->DefaultView.ViewFormat = VIEW_FORMAT_R32_FLOAT;
-
-        BufferDesc bufferDesc;
-        bufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
-        bufferDesc.SizeInBytes = sizeof( AntiAliasing::ResolveMSAAx2WithTAAProperties );
-        bufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
-        passData.PerPassBuffer = builder.allocateBuffer( bufferDesc, eShaderStage::SHADER_STAGE_COMPUTE );
-
-        passData.AutoExposureBuffer = builder.retrievePersistentBuffer( DUSK_STRING_HASH( "AutoExposure/ReadBuffer" ) );
-    },
+            passData.AutoExposureBuffer = builder.retrievePersistentBuffer( DUSK_STRING_HASH( "AutoExposure/ReadBuffer" ) );
+        },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
-        Buffer* passBuffer = resources->getBuffer( passData.PerPassBuffer );
-        Image* inputTarget = resources->getImage( passData.Input );
-        Image* inputVelocityTarget = resources->getImage( passData.InputVelocity );
-        Image* inputDepthTarget = resources->getImage( passData.InputDepth );
-        Image* inputLastFrame = resources->getPersitentImage( passData.InputLastFrame );
-        Image* outputTarget = resources->getImage( passData.Output );
-        Image* resolveDepthTarget = resources->getImage( passData.ResolvedDepth );
+            Buffer* passBuffer = resources->getBuffer( passData.PerPassBuffer );
+            Image* inputTarget = resources->getImage( passData.Input );
+            Image* inputVelocityTarget = resources->getImage( passData.InputVelocity );
+            Image* inputDepthTarget = resources->getImage( passData.InputDepth );
+            Image* inputLastFrame = resources->getPersitentImage( passData.InputLastFrame );
+            Image* outputTarget = resources->getImage( passData.Output );
 
-        Buffer* autoExposureBuffer = resources->getPersistentBuffer( passData.AutoExposureBuffer );
+            Buffer* autoExposureBuffer = resources->getPersistentBuffer( passData.AutoExposureBuffer );
 
-        const CameraData* cameraData = resources->getMainCamera();
-        const Viewport* vp = resources->getMainViewport();
+            const CameraData* cameraData = resources->getMainCamera();
+            const Viewport* vp = resources->getMainViewport();
 
-        PipelineState* pso = psoCache->getOrCreatePipelineState( RenderingHelpers::PS_Compute, GetPassShaderBinding<SamplerCount, UseTemporalAA>() );
+            PipelineState* pso = psoCache->getOrCreatePipelineState( RenderingHelpers::PS_Compute, GetPassShaderBinding<SamplerCount, UseTemporalAA>() );
 
-        cmdList->bindPipelineState( pso );
-        cmdList->pushEventMarker( GetEventName<SamplerCount, UseTemporalAA>() );
+            cmdList->bindPipelineState( pso );
+            cmdList->pushEventMarker( GetEventName<SamplerCount, UseTemporalAA>() );
 
-        cmdList->transitionImage( *outputTarget, eResourceState::RESOURCE_STATE_UAV );
-        cmdList->transitionImage( *inputTarget, eResourceState::RESOURCE_STATE_ALL_BINDED_RESOURCE, 0, CommandList::TRANSITION_GRAPHICS_TO_COMPUTE );
+            cmdList->transitionImage( *outputTarget, eResourceState::RESOURCE_STATE_UAV );
+            cmdList->transitionImage( *inputTarget, eResourceState::RESOURCE_STATE_ALL_BINDED_RESOURCE, 0, CommandList::TRANSITION_GRAPHICS_TO_COMPUTE );
 
-        cmdList->bindConstantBuffer( PerPassBufferHashcode, passBuffer );
+            cmdList->bindConstantBuffer( PerPassBufferHashcode, passBuffer );
 
-        // The hashcode are shared between permutations; so we can take any permutation name.
-        // In the future, we should remove duplicated hashes to avoid bloating generated metadata headers.
-        cmdList->bindImage( AntiAliasing::ResolveMSAAx2_TextureInput_Hashcode, inputTarget );
-		cmdList->bindImage( AntiAliasing::ResolveMSAAx2_ResolvedTarget_Hashcode, outputTarget );
-		cmdList->bindImage( AntiAliasing::ResolveMSAAx2_DepthBuffer_Hashcode, inputDepthTarget );
-        cmdList->bindImage( AntiAliasing::ResolveMSAAx2_ResolvedDepthTarget_Hashcode, resolveDepthTarget );
+            // The hashcode are shared between permutations; so we can take any permutation name.
+            // In the future, we should remove duplicated hashes to avoid bloating generated metadata headers.
+            cmdList->bindImage( AntiAliasing::ResolveMSAAx2_TextureInput_Hashcode, inputTarget );
+		    cmdList->bindImage( AntiAliasing::ResolveMSAAx2_ResolvedTarget_Hashcode, outputTarget );
+		    cmdList->bindImage( AntiAliasing::ResolveMSAAx2_DepthBuffer_Hashcode, inputDepthTarget );
 
-        if ( UseTemporalAA ) {
-            cmdList->bindImage( AntiAliasing::ResolveMSAAx2WithTAA_VelocityTexture_Hashcode, inputVelocityTarget );
-            cmdList->bindImage( AntiAliasing::ResolveMSAAx2WithTAA_LastFrameInputTexture_Hashcode, inputLastFrame );
+            if ( UseTemporalAA ) {
+                cmdList->bindImage( AntiAliasing::ResolveMSAAx2WithTAA_VelocityTexture_Hashcode, inputVelocityTarget );
+                cmdList->bindImage( AntiAliasing::ResolveMSAAx2WithTAA_LastFrameInputTexture_Hashcode, inputLastFrame );
+            }
+
+            cmdList->bindBuffer( AntiAliasing::ResolveMSAAx2_AutoExposureBuffer_Hashcode, autoExposureBuffer );
+
+            cmdList->prepareAndBindResourceList();
+
+            auto& PassRuntimeProperties = AntiAliasing::ResolveMSAAx2WithTAAProperties;
+            PassRuntimeProperties.InputTargetDimension.x = static_cast< f32 >( vp->Width * cameraData->imageQuality );
+            PassRuntimeProperties.InputTargetDimension.y = static_cast< f32 >( vp->Height * cameraData->imageQuality );
+            PassRuntimeProperties.FilterSize = 2.0f;
+            PassRuntimeProperties.SampleRadius = static_cast< i32 >( ( PassRuntimeProperties.FilterSize / 2.0f ) + 0.499f );
+
+            cmdList->updateBuffer( *passBuffer, &PassRuntimeProperties, sizeof( PassRuntimeProperties ) );
+
+            u32 dispatchX, dispatchY, dispatchZ;
+            GetThreadCount<SamplerCount, UseTemporalAA>( dispatchX, dispatchY, dispatchZ );
+
+            u32 threadCountX = static_cast< u32 >( ( vp->Width * cameraData->imageQuality ) / dispatchX );
+            u32 threadCountY = static_cast< u32 >( ( vp->Height * cameraData->imageQuality ) / dispatchY );
+            cmdList->dispatchCompute( threadCountX, threadCountY, dispatchZ );
+            cmdList->insertComputeBarrier( *outputTarget );
+            cmdList->popEventMarker();
+
+            cmdList->transitionImage( *inputTarget, eResourceState::RESOURCE_STATE_ALL_BINDED_RESOURCE, 0, CommandList::TRANSITION_COMPUTE_TO_GRAPHICS );
+            cmdList->transitionImage( *outputTarget, eResourceState::RESOURCE_STATE_UAV, 0, CommandList::TRANSITION_COMPUTE_TO_GRAPHICS );
         }
-
-        cmdList->bindBuffer( AntiAliasing::ResolveMSAAx2_AutoExposureBuffer_Hashcode, autoExposureBuffer );
-
-        cmdList->prepareAndBindResourceList();
-
-        auto& PassRuntimeProperties = AntiAliasing::ResolveMSAAx2WithTAAProperties;
-        PassRuntimeProperties.InputTargetDimension.x = static_cast< f32 >( vp->Width * cameraData->imageQuality );
-        PassRuntimeProperties.InputTargetDimension.y = static_cast< f32 >( vp->Height * cameraData->imageQuality );
-        PassRuntimeProperties.FilterSize = 2.0f;
-        PassRuntimeProperties.SampleRadius = static_cast< i32 >( ( PassRuntimeProperties.FilterSize / 2.0f ) + 0.499f );
-
-        cmdList->updateBuffer( *passBuffer, &PassRuntimeProperties, sizeof( PassRuntimeProperties ) );
-
-        u32 dispatchX, dispatchY, dispatchZ;
-        GetThreadCount<SamplerCount, UseTemporalAA>( dispatchX, dispatchY, dispatchZ );
-
-        u32 threadCountX = static_cast< u32 >( ( vp->Width * cameraData->imageQuality ) / dispatchX );
-        u32 threadCountY = static_cast< u32 >( ( vp->Height * cameraData->imageQuality ) / dispatchY );
-        cmdList->dispatchCompute( threadCountX, threadCountY, dispatchZ );
-        cmdList->insertComputeBarrier( *outputTarget );
-        cmdList->popEventMarker();
-
-        cmdList->transitionImage( *inputTarget, eResourceState::RESOURCE_STATE_ALL_BINDED_RESOURCE, 0, CommandList::TRANSITION_COMPUTE_TO_GRAPHICS );
-        cmdList->transitionImage( *outputTarget, eResourceState::RESOURCE_STATE_UAV, 0, CommandList::TRANSITION_COMPUTE_TO_GRAPHICS );
-    }
     );
 
-    ResolvedPassOutput resolvedOuput;
-    resolvedOuput.ResolvedColor = passData.Output;
-    resolvedOuput.ResolvedDepth = passData.ResolvedDepth;
-    return resolvedOuput;
+    return passData.Output;
 }
 
-ResolvedPassOutput AddMSAAResolveRenderPass(
+ResHandle_t AddMSAAResolveRenderPass(
     FrameGraph& frameGraph,
     ResHandle_t inputImage,
     ResHandle_t inputVelocityImage,
@@ -252,7 +364,21 @@ ResolvedPassOutput AddMSAAResolveRenderPass(
     }
 }
 
-ResolvedPassOutput AddSSAAResolveRenderPass( FrameGraph& frameGraph, ResolvedPassOutput& resolvedOutput )
+ResHandle_t AddMSAADepthResolveRenderPass( FrameGraph& frameGraph, ResHandle_t inputDepthImage, const u32 sampleCount )
+{
+    switch ( sampleCount ) {
+    case 2:
+        return AddResolveDepthMSAARenderPass<2>( frameGraph, inputDepthImage );
+    case 4:
+        return AddResolveDepthMSAARenderPass<4>( frameGraph, inputDepthImage );
+    case 8:
+        return AddResolveDepthMSAARenderPass<8>( frameGraph, inputDepthImage );
+    default:
+        return AddResolveDepthMSAARenderPass<1>( frameGraph, inputDepthImage );
+    }
+}
+
+ResHandle_t AddSSAAResolveRenderPass( FrameGraph& frameGraph, ResHandle_t resolvedInput, bool isDepth )
 {
 	constexpr PipelineStateDesc DefaultPipelineStateDesc = PipelineStateDesc(
 		PipelineStateDesc::GRAPHICS,
@@ -261,8 +387,7 @@ ResolvedPassOutput AddSSAAResolveRenderPass( FrameGraph& frameGraph, ResolvedPas
 		RasterizerStateDesc( CULL_MODE_BACK ),
 		RenderingHelpers::BS_Disabled,
 		FramebufferLayoutDesc(
-			FramebufferLayoutDesc::AttachmentDesc( FramebufferLayoutDesc::WRITE_COLOR, FramebufferLayoutDesc::DONT_CARE, eViewFormat::VIEW_FORMAT_R16G16B16A16_FLOAT ),
-			FramebufferLayoutDesc::AttachmentDesc( FramebufferLayoutDesc::WRITE_COLOR, FramebufferLayoutDesc::DONT_CARE, eViewFormat::VIEW_FORMAT_R32_FLOAT )
+			FramebufferLayoutDesc::AttachmentDesc( FramebufferLayoutDesc::WRITE_COLOR, FramebufferLayoutDesc::DONT_CARE, eViewFormat::VIEW_FORMAT_R16G16B16A16_FLOAT )
 		),
 		{ { RenderingHelpers::S_BilinearClampEdge }, 1 }
 	);
@@ -270,34 +395,30 @@ ResolvedPassOutput AddSSAAResolveRenderPass( FrameGraph& frameGraph, ResolvedPas
 	struct PassData
 	{
 		ResHandle_t Input;
-		ResHandle_t InputDepth;
 		ResHandle_t Output;
-		ResHandle_t OutputDepth;
     };
 
     PassData& downscaleData = frameGraph.addRenderPass<PassData>(
         AntiAliasing::ResolveSSAA_Name,
         [&]( FrameGraphBuilder& builder, PassData& passData ) {
-            passData.Input = builder.readReadOnlyImage( resolvedOutput.ResolvedColor );
-            passData.InputDepth = builder.readReadOnlyImage( resolvedOutput.ResolvedDepth);
-
-			passData.Output = builder.copyImage( resolvedOutput.ResolvedColor, nullptr, FrameGraphBuilder::eImageFlags::NO_MULTISAMPLE | FrameGraphBuilder::eImageFlags::USE_PIPELINE_DIMENSIONS_ONE );
+            passData.Input = builder.readReadOnlyImage( resolvedInput );
 
 			ImageDesc* copiedDepthImageDesc;
-			passData.OutputDepth = builder.copyImage( resolvedOutput.ResolvedDepth, &copiedDepthImageDesc, FrameGraphBuilder::eImageFlags::NO_MULTISAMPLE
+			passData.Output = builder.copyImage( resolvedInput, &copiedDepthImageDesc, FrameGraphBuilder::eImageFlags::NO_MULTISAMPLE
 														| FrameGraphBuilder::eImageFlags::USE_PIPELINE_DIMENSIONS_ONE );
-			copiedDepthImageDesc->bindFlags |= RESOURCE_BIND_RENDER_TARGET_VIEW;
-			copiedDepthImageDesc->bindFlags |= RESOURCE_BIND_SHADER_RESOURCE;
 
-			// Old APIs don't allow both DepthStencil and UAV at the same.
-			copiedDepthImageDesc->bindFlags &= ~RESOURCE_BIND_DEPTH_STENCIL;
-			copiedDepthImageDesc->DefaultView.ViewFormat = VIEW_FORMAT_R32_FLOAT;
+            if ( isDepth ) {
+                copiedDepthImageDesc->bindFlags |= RESOURCE_BIND_RENDER_TARGET_VIEW;
+                copiedDepthImageDesc->bindFlags |= RESOURCE_BIND_SHADER_RESOURCE;
+
+                // Old APIs don't allow both DepthStencil and UAV at the same.
+                copiedDepthImageDesc->bindFlags &= ~RESOURCE_BIND_DEPTH_STENCIL;
+                copiedDepthImageDesc->DefaultView.ViewFormat = VIEW_FORMAT_R32_FLOAT;
+            }
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
 			Image* output = resources->getImage( passData.Output );
-			Image* outputDepth = resources->getImage( passData.OutputDepth );
             Image* input = resources->getImage( passData.Input );
-			Image* inputDepth = resources->getImage( passData.InputDepth );
 
             PipelineState* pso = psoCache->getOrCreatePipelineState( DefaultPipelineStateDesc, AntiAliasing::ResolveSSAA_ShaderBinding );
 
@@ -308,11 +429,10 @@ ResolvedPassOutput AddSSAAResolveRenderPass( FrameGraph& frameGraph, ResolvedPas
 
             // Bind resources
 			cmdList->bindImage( AntiAliasing::ResolveSSAA_ResolvedTargetInput_Hashcode, input );
-			cmdList->bindImage( AntiAliasing::ResolveSSAA_ResolvedDepthTargetInput_Hashcode, inputDepth );
 
             cmdList->prepareAndBindResourceList();
 
-            FramebufferAttachment fboAttachments[2] = { FramebufferAttachment( output ), FramebufferAttachment( outputDepth ) };
+            FramebufferAttachment fboAttachments[2] = { FramebufferAttachment( output ) };
 			cmdList->setupFramebuffer( fboAttachments );
 
             cmdList->draw( 3, 1 );
@@ -321,9 +441,5 @@ ResolvedPassOutput AddSSAAResolveRenderPass( FrameGraph& frameGraph, ResolvedPas
         }
     );
 
-	ResolvedPassOutput resolvedOuput;
-	resolvedOuput.ResolvedColor = downscaleData.Output;
-	resolvedOuput.ResolvedDepth = downscaleData.OutputDepth;
-
-	return resolvedOuput;
+	return downscaleData.Output;
 }

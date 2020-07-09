@@ -98,7 +98,7 @@ void WorldRenderModule::loadCachedResources( RenderDevice& renderDevice, Graphic
 #endif
 }
 
-WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular )
+WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, ResHandle_t depthPrepassBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular )
 {
     struct PassData {
         ResHandle_t output;
@@ -131,14 +131,7 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
 
             passData.output = builder.allocateImage( rtDesc, FrameGraphBuilder::USE_PIPELINE_DIMENSIONS | FrameGraphBuilder::USE_PIPELINE_SAMPLER_COUNT );
 
-            ImageDesc zBufferRenderTargetDesc;
-            zBufferRenderTargetDesc.dimension = ImageDesc::DIMENSION_2D;
-            zBufferRenderTargetDesc.format = eViewFormat::VIEW_FORMAT_R32_TYPELESS;
-            zBufferRenderTargetDesc.usage = RESOURCE_USAGE_DEFAULT;
-            zBufferRenderTargetDesc.bindFlags = RESOURCE_BIND_DEPTH_STENCIL | RESOURCE_BIND_SHADER_RESOURCE;
-            zBufferRenderTargetDesc.DefaultView.ViewFormat = eViewFormat::VIEW_FORMAT_D32_FLOAT;
-
-            passData.depthBuffer = builder.allocateImage( zBufferRenderTargetDesc, FrameGraphBuilder::USE_PIPELINE_DIMENSIONS | FrameGraphBuilder::USE_PIPELINE_SAMPLER_COUNT );
+            passData.depthBuffer = builder.readReadOnlyImage( depthPrepassBuffer );
 
             ImageDesc velocityRtDesc;
             velocityRtDesc.dimension = ImageDesc::DIMENSION_2D;
@@ -215,7 +208,6 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
             Image* Framebuffer[2] = { outputTarget, velocityTarget };
             FramebufferAttachment FramebufferAttachments[2] = { FramebufferAttachment( outputTarget ), FramebufferAttachment( velocityTarget ) };
             cmdList->clearRenderTargets( Framebuffer, 2u, ClearValue );
-            cmdList->clearDepthStencil( zbufferTarget, 0.0f );
 
             // Update viewport (using image quality scaling)
             const CameraData* camera = resources->getMainCamera();
@@ -340,6 +332,136 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
     output.OutputVelocityTarget = data.velocityBuffer;
 
     return output;
+}
+
+ResHandle_t WorldRenderModule::addDepthPrepass( FrameGraph& frameGraph )
+{
+    struct PassData {
+        ResHandle_t DepthBuffer;
+        ResHandle_t PerPassBuffer;
+        ResHandle_t PerViewBuffer;
+        ResHandle_t VectorDataBuffer;
+    };
+
+    PassData& data = frameGraph.addRenderPass<PassData>(
+        "Depth PrePass",
+        [&]( FrameGraphBuilder& builder, PassData& passData ) {
+            ImageDesc zBufferRenderTargetDesc;
+            zBufferRenderTargetDesc.dimension = ImageDesc::DIMENSION_2D;
+            zBufferRenderTargetDesc.format = eViewFormat::VIEW_FORMAT_R32_TYPELESS;
+            zBufferRenderTargetDesc.usage = RESOURCE_USAGE_DEFAULT;
+            zBufferRenderTargetDesc.bindFlags = RESOURCE_BIND_DEPTH_STENCIL | RESOURCE_BIND_SHADER_RESOURCE;
+            zBufferRenderTargetDesc.DefaultView.ViewFormat = eViewFormat::VIEW_FORMAT_D32_FLOAT;
+
+            passData.DepthBuffer = builder.allocateImage( zBufferRenderTargetDesc, FrameGraphBuilder::USE_PIPELINE_DIMENSIONS | FrameGraphBuilder::USE_PIPELINE_SAMPLER_COUNT );
+
+			BufferDesc vectorDataBufferDesc;
+            vectorDataBufferDesc.BindFlags = RESOURCE_BIND_SHADER_RESOURCE;
+			vectorDataBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
+			vectorDataBufferDesc.SizeInBytes = sizeof( dkVec4f ) * MAX_VECTOR_PER_INSTANCE;
+			vectorDataBufferDesc.StrideInBytes = MAX_VECTOR_PER_INSTANCE;
+            vectorDataBufferDesc.DefaultView.ViewFormat = eViewFormat::VIEW_FORMAT_R32G32B32A32_FLOAT;
+
+			passData.VectorDataBuffer = builder.allocateBuffer( vectorDataBufferDesc, SHADER_STAGE_VERTEX );
+
+			BufferDesc perPassBuffer;
+			perPassBuffer.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
+			perPassBuffer.Usage = RESOURCE_USAGE_DYNAMIC;
+			perPassBuffer.SizeInBytes = sizeof( PerPassData );
+
+            passData.PerPassBuffer = builder.allocateBuffer( perPassBuffer, SHADER_STAGE_VERTEX | SHADER_STAGE_PIXEL );
+
+            passData.PerViewBuffer = builder.retrievePerViewBuffer();
+        },
+        [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+            Image* zbufferTarget = resources->getImage( passData.DepthBuffer );
+
+            Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
+            Buffer* perViewBuffer = resources->getPersistentBuffer( passData.PerViewBuffer );
+            Buffer* vectorBuffer = resources->getBuffer( passData.VectorDataBuffer );
+
+            cmdList->pushEventMarker( DUSK_STRING( "Depth PrePass" ) );
+
+            // Clear render targets at the beginning of the pass.
+            cmdList->clearDepthStencil( zbufferTarget, 0.0f );
+
+            // Update viewport (using image quality scaling)
+            const CameraData* camera = resources->getMainCamera();
+
+            dkVec2f scaledViewportSize = camera->viewportSize * camera->imageQuality;
+
+            Viewport vp;
+            vp.X = 0;
+            vp.Y = 0;
+            vp.Width = static_cast< i32 >( scaledViewportSize.x );
+            vp.Height = static_cast< i32 >( scaledViewportSize.y );
+            vp.MinDepth = 0.0f;
+            vp.MaxDepth = 1.0f;
+
+            ScissorRegion sr;
+            sr.Top = 0;
+            sr.Left = 0;
+            sr.Right = static_cast< i32 >( scaledViewportSize.x );
+            sr.Bottom = static_cast< i32 >( scaledViewportSize.y );
+
+            cmdList->setViewport( vp );
+            cmdList->setScissor( sr );
+
+			// Upload buffer data
+            // TODO THIS IS DONE TWICE (Once at the zprepass and another time at light pass).
+			const void* vectorBufferData = resources->getVectorBufferData();
+			cmdList->updateBuffer( *vectorBuffer, vectorBufferData, sizeof( dkVec4f ) * MAX_VECTOR_PER_INSTANCE );
+
+            const u32 samplerCount = camera->msaaSamplerCount;
+
+            // Retrieve draw commands for the pass.
+            const FrameGraphResources::DrawCmdBucket& bucket = resources->getDrawCmdBucket( DrawCommandKey::LAYER_DEPTH, DrawCommandKey::DEPTH_VIEWPORT_LAYER_DEFAULT );
+
+            PerPassData perPassData;
+            perPassData.StartVector = bucket.instanceDataStartOffset;
+            perPassData.VectorPerInstance = bucket.vectorPerInstance;
+
+            for ( const DrawCmd& cmd : bucket ) {
+                const DrawCommandInfos& cmdInfos = cmd.infos;
+                const Material* material = cmdInfos.material;
+
+                // Upload vector buffer offset
+				cmdList->updateBuffer( *perPassBuffer, &perPassData, sizeof( PerPassData ) );
+
+                // Retrieve the PipelineState for the given RenderScenario.
+                // TODO Cache the current PSO binded (if the PSO is the same; don't rebind anything).
+                // TODO We need to make material mutable (since the scenario bind updates the streaming/caching).
+                //      It simply require some refactoring at higher level (Mesh struct; gfx cache; etc.)
+                const_cast<Material*>( material )->bindForScenario( Material::RenderScenario::Depth_Only, cmdList, psoCache, samplerCount );
+                
+                // NOTE Since buffer registers are cached those calls have a low cost on the CPU side.
+				cmdList->bindBuffer( InstanceVectorBufferHashcode, vectorBuffer );
+                cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );
+                cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
+
+                // Re-setup the framebuffer (some permutations have a different framebuffer layout).
+                cmdList->setupFramebuffer( nullptr, FramebufferAttachment( zbufferTarget ) );
+                cmdList->prepareAndBindResourceList();
+
+                const Buffer* bufferList[1] = { 
+                    cmdInfos.vertexBuffers[eMeshAttribute::Position]
+                };
+
+                // Bind vertex buffers
+                cmdList->bindVertexBuffer( ( const Buffer** )bufferList, 1, 0);
+                cmdList->bindIndiceBuffer( cmdInfos.indiceBuffer, !cmdInfos.useShortIndices );
+
+				cmdList->drawIndexed( cmdInfos.indiceBufferCount, cmdInfos.instanceCount, cmdInfos.indiceBufferOffset );
+
+				// Update vector buffer offset data
+				perPassData.StartVector += ( cmdInfos.instanceCount * bucket.vectorPerInstance );
+            }
+
+            cmdList->popEventMarker();
+        }
+    );
+
+    return data.DepthBuffer;
 }
 
 void WorldRenderModule::clearPickingBuffer( FrameGraph& frameGraph )

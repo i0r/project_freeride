@@ -6,6 +6,9 @@ material "default" {
 	isWireframe = false;
 	isDoubleFace = false;
 	isShadeless = false;
+	parameters {
+		 "Texture_BlendedMaterial_BaseColor" = "GameData/textures/test.dds";
+	}
 	scenario "Default" {
 		vertex = "e5af556c12334aa715c265a409fe3d8f";
 		pixel = "efce1d6cb5543daba890e788f5b629ea";
@@ -21,5 +24,9 @@ material "default" {
 	scenario "Editor_Default_Picking" {
 		vertex = "7ead57e5b8cc77adc94add931b74e8b9";
 		pixel = "ad61623f84e7cd01ae066ab7c61db89e";
+	}
+	scenario "Depth_Only" {
+		vertex = "46ed7d71e589f9c02f78e3232c2f86d7";
+		pixel = "";
 	}
 }

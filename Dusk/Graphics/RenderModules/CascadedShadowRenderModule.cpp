@@ -16,6 +16,7 @@
 
 #include "Generated/DepthPyramid.generated.h"
 #include "Generated/ShadowSetup.generated.h"
+#include "Generated/SceneCulling.generated.h"
 
 DUSK_ENV_VAR( ShadowMapResolution, 2048, u32 ); // Per-slice shadow map resolution.
 
@@ -82,18 +83,22 @@ static dkMat4x4f CreateGlobalShadowMatrix( const dkVec3f& lightDirNormalized, co
 }
 
 CascadedShadowRenderModule::CascadedShadowRenderModule()
+    : csmSliceInfosBuffer( nullptr )
 {
 
 }
 
 CascadedShadowRenderModule::~CascadedShadowRenderModule()
 {
-
+    csmSliceInfosBuffer = nullptr;
 }
 
 void CascadedShadowRenderModule::destroy( RenderDevice& renderDevice )
 {
-
+    if ( csmSliceInfosBuffer != nullptr ) {
+        renderDevice.destroyBuffer( csmSliceInfosBuffer );
+        csmSliceInfosBuffer = nullptr;
+    }
 }
 
 void CascadedShadowRenderModule::loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache )
@@ -105,12 +110,57 @@ void CascadedShadowRenderModule::loadCachedResources( RenderDevice& renderDevice
     cascadeMatrixBuffer.StrideInBytes = sizeof( CSMSliceInfos );
 
     csmSliceInfosBuffer = renderDevice.createBuffer( cascadeMatrixBuffer );
+
+    BufferDesc drawArgsBufferDesc;
+    drawArgsBufferDesc.BindFlags = RESOURCE_BIND_RAW | RESOURCE_BIND_INDIRECT_ARGUMENTS | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
+    drawArgsBufferDesc.SizeInBytes = 5 * sizeof( u32 );
+    drawArgsBufferDesc.StrideInBytes = sizeof( u32 );
+    drawArgsBufferDesc.Usage = RESOURCE_USAGE_DEFAULT;
+    drawArgsBufferDesc.DefaultView.ViewFormat = eViewFormat::VIEW_FORMAT_R32_TYPELESS;
+
+    u32 drawArgsInit[5] = { 0, 1, 0, 0, 0 };
+    drawArgsBuffer = renderDevice.createBuffer( drawArgsBufferDesc, drawArgsInit );
 }
 
 void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, ResHandle_t depthBuffer, const dkVec2f& depthBufferSize, const DirectionalLightGPU& directionalLight )
 {   
+    // Extract depth min/max.
     ResHandle_t depthMinMax = reduceDepthBuffer( frameGraph, depthBuffer, depthBufferSize );
     
+    // Compute shadow matrices for each csm slice.
+    setupParameters( frameGraph, depthMinMax, directionalLight );
+
+    // Clear IndirectDraw arguments buffer.
+    clearIndirectArgsBuffer( frameGraph );
+}
+
+void CascadedShadowRenderModule::clearIndirectArgsBuffer( FrameGraph& frameGraph )
+{
+    struct DummyPassData {};
+    frameGraph.addRenderPass<DummyPassData>(
+        SceneCulling::ClearArgsBuffer_Name,
+        [&]( FrameGraphBuilder& builder, DummyPassData& passData ) {
+            builder.useAsyncCompute();
+            builder.setUncullablePass();
+        },
+        [=]( const DummyPassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+            cmdList->pushEventMarker( SceneCulling::ClearArgsBuffer_EventName );
+
+            PipelineState* pipelineState = psoCache->getOrCreatePipelineState( RenderingHelpers::PS_Compute, SceneCulling::ClearArgsBuffer_ShaderBinding );
+            cmdList->bindPipelineState( pipelineState );
+
+            cmdList->bindBuffer( SceneCulling::ClearArgsBuffer_DrawArgsBuffer_Hashcode, drawArgsBuffer );
+
+            cmdList->prepareAndBindResourceList();
+
+            cmdList->dispatchCompute( 1, 1, 1 );
+            cmdList->popEventMarker();
+        }
+    );
+}
+
+void CascadedShadowRenderModule::setupParameters( FrameGraph& frameGraph, ResHandle_t depthMinMax, const DirectionalLightGPU& directionalLight )
+{
     struct PassData {
         ResHandle_t PerPassBuffer;
         ResHandle_t ReducedDepth;
@@ -156,7 +206,7 @@ void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, ResHa
             ShadowSetup::SetupCSMParametersProperties.LightDirection = lightDirection;
 
             cmdList->updateBuffer( *perPassBuffer, &ShadowSetup::SetupCSMParametersProperties, sizeof( ShadowSetup::SetupCSMParametersRuntimeProperties ) );
-            
+
             cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
             cmdList->bindImage( ShadowSetup::SetupCSMParameters_ReducedDepth_Hashcode, depthMinMax );
             cmdList->bindBuffer( ShadowSetup::SetupCSMParameters_SliceInfos_Hashcode, csmSliceInfosBuffer );

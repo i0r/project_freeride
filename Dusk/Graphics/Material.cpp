@@ -161,9 +161,9 @@ void Material::bindForScenario( const RenderScenario scenario, CommandList* cmdL
         // TODO Cache the descriptors so that we don't have to recreate those each frame?
         PipelineStateDesc DefaultPipelineState( PipelineStateDesc::GRAPHICS );
         DefaultPipelineState.PrimitiveTopology = ePrimitiveTopology::PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-        DefaultPipelineState.DepthStencilState.EnableDepthWrite = true;
+        DefaultPipelineState.DepthStencilState.EnableDepthWrite = false;
         DefaultPipelineState.DepthStencilState.EnableDepthTest = true;
-        DefaultPipelineState.DepthStencilState.DepthComparisonFunc = eComparisonFunction::COMPARISON_FUNCTION_GREATER;
+        DefaultPipelineState.DepthStencilState.DepthComparisonFunc = eComparisonFunction::COMPARISON_FUNCTION_EQUAL;
 
 		DefaultPipelineState.RasterizerState.UseTriangleCCW = true;
         DefaultPipelineState.RasterizerState.CullMode = ( isDoubleFace ) ? eCullMode::CULL_MODE_NONE : eCullMode::CULL_MODE_FRONT;
@@ -186,6 +186,30 @@ void Material::bindForScenario( const RenderScenario scenario, CommandList* cmdL
 
 		scenarioPso = psoCache->getOrCreatePipelineState( DefaultPipelineState, shaderBinding, invalidateCachedStates );
     } break;
+    case RenderScenario::Depth_Only:
+    {
+        // TODO Cache the descriptors so that we don't have to recreate those each frame?
+        PipelineStateDesc DefaultPipelineState( PipelineStateDesc::GRAPHICS );
+        DefaultPipelineState.PrimitiveTopology = ePrimitiveTopology::PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+        DefaultPipelineState.DepthStencilState.EnableDepthWrite = true;
+        DefaultPipelineState.DepthStencilState.EnableDepthTest = true;
+        DefaultPipelineState.DepthStencilState.DepthComparisonFunc = eComparisonFunction::COMPARISON_FUNCTION_GREATER;
+
+        DefaultPipelineState.RasterizerState.UseTriangleCCW = true;
+        DefaultPipelineState.RasterizerState.CullMode = ( isDoubleFace ) ? eCullMode::CULL_MODE_NONE : eCullMode::CULL_MODE_FRONT;
+        DefaultPipelineState.RasterizerState.FillMode = ( isWireframe ) ? eFillMode::FILL_MODE_WIREFRAME : eFillMode::FILL_MODE_SOLID;
+
+        DefaultPipelineState.FramebufferLayout.declareDSV( VIEW_FORMAT_D32_FLOAT );
+
+        DefaultPipelineState.samplerCount = samplerCount;
+        DefaultPipelineState.InputLayout.Entry[0] = { 0, VIEW_FORMAT_R32G32B32_FLOAT, 0, 0, 0, false, "POSITION" };
+        DefaultPipelineState.depthClearValue = 0.0f;
+
+        // Retrieve the appropriate shader binding for the given scenario.
+        const PipelineStateCache::ShaderBinding& shaderBinding = getScenarioShaderBinding( scenario );
+
+        scenarioPso = psoCache->getOrCreatePipelineState( DefaultPipelineState, shaderBinding, invalidateCachedStates );
+    } break; 
     default:
         break;
     }
