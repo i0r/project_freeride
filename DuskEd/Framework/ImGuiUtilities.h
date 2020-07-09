@@ -33,7 +33,6 @@ namespace dk
 			return !IsItemActiveLastFrame() && ImGui::IsItemActive(); 
 		}
 
-
 		static void DragFloat3WithChannelLock( dkVec3f* inputFloat3, bool& lockScaleChannels )
 		{
 			dkVec3f preEditScale = *inputFloat3;
@@ -56,5 +55,4 @@ namespace dk
 		}
 	}
 }
-#endif
 #endif
