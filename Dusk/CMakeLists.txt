@@ -35,7 +35,9 @@ file(GLOB_RECURSE SRC_THIRD_PARTY
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/dxc/*.hpp"
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/dxc/*.h"
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/stb_image.h"
-    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/stb_image_write.h" )
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/stb_image_write.h"
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/miniz/*.c"
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/miniz/*.h" )
     
 set( SOURCES ${SRC} ${INC} "${DUSK_BASE_FOLDER}Dusk/Shared.cpp" "${DUSK_BASE_FOLDER}Dusk/Shared.h" )
 add_precompiled_header( "${SOURCES}" Shared.h )
@@ -51,6 +53,7 @@ add_library( Dusk STATIC ${SOURCES} )
 set_property(TARGET Dusk PROPERTY FOLDER "DuskEngine")
 
 include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty" )
+include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/miniz" )
 include_directories( "${DUSK_BASE_FOLDER}Dusk" )
 
 if(MSVC)

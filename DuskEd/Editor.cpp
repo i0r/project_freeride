@@ -17,18 +17,18 @@
 
 #include "FileSystem/VirtualFileSystem.h"
 #include "FileSystem/FileSystemNative.h"
+#include "FileSystem/FileSystemArchive.h"
 
 #include "Framework/World.h"
 
 #include "Rendering/RenderDevice.h"
 
-// TEMP FOR TEST CRAP; SHOULD BE REMOVED LATER
 #include "Graphics/RenderModules/PresentRenderPass.h"
 #include "Graphics/RenderModules/AtmosphereRenderModule.h"
 #include "Graphics/RenderModules/WorldRenderModule.h"
 #include "Graphics/RenderModules/EditorGridRenderModule.h"
+
 #include "Graphics/Material.h"
-// END TEMP
 
 #include "Graphics/ShaderCache.h"
 #include "Graphics/GraphicsAssetCache.h"
@@ -100,6 +100,7 @@ static EditorGridModule* g_EditorGridModule;
 
 static FileSystemNative* g_EdAssetsFileSystem;
 static FileSystemNative* g_RendererFileSystem;
+static FileSystemArchive* g_GameFileSystem;
 
 #if DUSK_USE_RENDERDOC
 static RenderDocHelper* g_RenderDocHelper;
@@ -301,7 +302,10 @@ void InitializeIOSubsystems()
 
     g_DataFileSystem = dk::core::allocate<FileSystemNative>( g_GlobalAllocator, DUSK_STRING( "./data/" ) );
 
-    g_VirtualFileSystem->mount( g_DataFileSystem, DUSK_STRING( "GameData" ), 0 );
+    g_VirtualFileSystem->mount( g_DataFileSystem, DUSK_STRING( "GameData" ), 1 );
+
+    g_GameFileSystem = dk::core::allocate<FileSystemArchive>( g_GlobalAllocator, g_GlobalAllocator, DUSK_STRING( "./Game.zip" ) );
+    g_VirtualFileSystem->mount( g_GameFileSystem, DUSK_STRING( "GameData/" ), 0 );
 
 #if DUSK_DEVBUILD
     DUSK_LOG_INFO( "Mounting devbuild filesystems...\n" );
@@ -974,6 +978,7 @@ void Shutdown()
     dk::core::free( g_GlobalAllocator, g_WorldRenderer );
     dk::core::free( g_GlobalAllocator, g_GraphicsAssetCache );
     dk::core::free( g_GlobalAllocator, g_ShaderCache );
+    dk::core::free( g_GlobalAllocator, g_GameFileSystem );
     dk::core::free( g_GlobalAllocator, g_DataFileSystem );
     dk::core::free( g_GlobalAllocator, g_SaveFileSystem );
     dk::core::free( g_GlobalAllocator, g_VirtualFileSystem );

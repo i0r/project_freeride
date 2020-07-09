@@ -83,7 +83,7 @@ Image* GraphicsAssetCache::getImage( const dkChar_t* assetName, const bool force
 {
     FileSystemObject* file = virtualFileSystem->openFile( assetName, eFileOpenMode::FILE_OPEN_MODE_READ | eFileOpenMode::FILE_OPEN_MODE_BINARY );
     if ( file == nullptr ) {
-        DUSK_LOG_ERROR( "'%hs' does not exist!\n", assetName );
+        DUSK_LOG_ERROR( "'%s' does not exist!\n", assetName );
         return nullptr;
     }
 
