@@ -90,6 +90,18 @@ void CommandList::drawIndexed( const u32 indiceCount, const u32 instanceCount, c
     nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }
 
+void CommandList::multiDrawIndexedInstancedIndirect( const u32 instanceCount, Buffer* argsBuffer, const u32 bufferAlignmentInBytes, const u32 argumentsSizeInBytes )
+{
+	CommandPacket::MultiDrawIndexedInstancedIndirect* commandPacket = dk::core::allocate<CommandPacket::MultiDrawIndexedInstancedIndirect>( nativeCommandList->CommandPacketAllocator );
+	commandPacket->Identifier = CPI_MULTI_DRAW_INDEXED_INSTANCED_INDIRECT;
+	commandPacket->DrawCount = instanceCount;
+	commandPacket->ArgsBuffer = argsBuffer->BufferObject;
+	commandPacket->BufferAlignmentInBytes = bufferAlignmentInBytes;
+	commandPacket->ArgumentsSizeInBytes = argumentsSizeInBytes;
+
+	nativeCommandList->Commands.push( reinterpret_cast< u32* >( commandPacket ) );
+}
+
 void CommandList::dispatchCompute( const u32 threadCountX, const u32 threadCountY, const u32 threadCountZ )
 {
     CommandPacket::Dispatch* commandPacket = dk::core::allocate<CommandPacket::Dispatch>( nativeCommandList->CommandPacketAllocator );

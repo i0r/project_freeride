@@ -110,5 +110,16 @@ struct RenderContext
     // Latest debug event pushed on the stack.
     const dkChar_t*             ActiveDebugMarker;
 #endif
+
+    // True if NvAPI is loaded and available; false otherwise.
+    bool                        IsNvApiLoaded;
+
+	// True if AMD AGS is loaded and available; false otherwise.
+	bool                        IsAmdAgsLoaded;
+
+#if DUSK_USE_AGS
+    // Pointer to the active AMD AGS context (if loaded).
+    struct AGSContext*          AgsContext;
+#endif
 };
 #endif

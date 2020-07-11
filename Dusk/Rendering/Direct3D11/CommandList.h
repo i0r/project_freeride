@@ -82,6 +82,15 @@ namespace CommandPacket
 		ID3D11Resource* DestResource;
 	};
 
+	struct MultiDrawIndexedInstancedIndirect
+	{
+		u32             Identifier;
+		u32             DrawCount;
+		ID3D11Buffer*   ArgsBuffer;
+		u32             BufferAlignmentInBytes;
+		u32             ArgumentsSizeInBytes;
+	};
+
     struct SetupFramebuffer
     {
         u32                                    Identifier;
@@ -251,6 +260,9 @@ enum CommandPacketIdentifier
 
     // Bind a sampler state.
     CPI_BIND_SAMPLER,
+
+
+    CPI_MULTI_DRAW_INDEXED_INSTANCED_INDIRECT,
 
     // CommandPacketIdentifier enum count. Not for use.
     CPI_COUNT

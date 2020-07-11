@@ -21,6 +21,14 @@
 #include <d3d11.h>
 #include <d3d11_1.h>
 
+#if DUSK_USE_NVAPI
+#include "ThirdParty/nvapi/nvapi.h"
+#endif
+
+#if DUSK_USE_AGS
+#include "ThirdParty/ags/amd_ags.h"
+#endif
+
 RenderContext::RenderContext()
     : ImmediateContext( nullptr )
     , PhysicalDevice( nullptr )
@@ -43,6 +51,11 @@ RenderContext::RenderContext()
     , BindedPipelineState( nullptr )
 #if DUSK_DEVBUILD
     , ActiveDebugMarker( nullptr )
+#endif
+	, IsNvApiLoaded( false )
+    , IsAmdAgsLoaded( false )
+#if DUSK_USE_AGS
+    , AgsContext( nullptr )
 #endif
 {
     memset( CsUavRegistersInfo, 0x00, sizeof( RegisterData )* D3D11_1_UAV_SLOT_COUNT );
@@ -70,6 +83,19 @@ RenderContext::~RenderContext()
 #endif
     D3D11_RELEASE( PhysicalDevice );
 #undef D3D11_RELEASE
+
+#if DUSK_USE_NVAPI
+    if ( IsNvApiLoaded ) {
+        NvAPI_Unload();
+    }
+#endif
+
+#if DUSK_USE_AGS
+    if ( IsAmdAgsLoaded ) {
+        agsDeInit( AgsContext );
+        AgsContext = nullptr;
+    }
+#endif
 
     SynchronisationInterval = 0;
 }
@@ -103,6 +129,8 @@ RenderDevice::~RenderDevice()
 
 void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefreshRate, const bool useDebugContext )
 {
+	renderContext = dk::core::allocate<RenderContext>( memoryAllocator );
+
     IDXGIFactory1* factory = nullptr;
     CreateDXGIFactory1( __uuidof( IDXGIFactory1 ), ( void** )&factory );
 
@@ -111,6 +139,7 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
     UINT bestAdapterIndex = UINT32_MAX;
     UINT bestOutputCount = 0;
     SIZE_T bestVRAM = 0;
+    UINT bestVendorId = 0;
 
     IDXGIAdapter1* adapter = nullptr;
     IDXGIOutput* output = nullptr;
@@ -131,6 +160,7 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
             bestVRAM = adapterVRAM;
             bestAdapterIndex = i;
             bestOutputCount = outputCount;
+            bestVendorId = adapterDescription.VendorId;
         }
 
         DUSK_LOG_RAW( "-Adapter %i '%s' VRAM: %uMB (%u output(s) found)\n",
@@ -142,6 +172,40 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
     factory->EnumAdapters1( bestAdapterIndex, &adapter );
 
     DUSK_LOG_INFO( "Selected Adapter >> Adapter %u\n", bestAdapterIndex );
+
+    constexpr i32 NVIDIA_VENDOR_ID = 0x10DE;
+    constexpr i32 AMD_VENDOR_ID = 0x1002;
+    constexpr i32 INTEL_VENDOR_ID = 0x8086;
+
+#if DUSK_USE_NVAPI
+    if ( bestVendorId == NVIDIA_VENDOR_ID ) {
+        _NvAPI_Status initializationResult = NvAPI_Initialize();
+
+        const bool isInitSuccessful = initializationResult == NVAPI_OK;
+        DUSK_ASSERT( isInitSuccessful, "Failed to initialize NvAPI (error code %i)\n", initializationResult );
+       
+        DUSK_LOG_INFO( "NvAPI succesfully initialized!\n" );
+        renderContext->IsNvApiLoaded = isInitSuccessful;
+    } 
+#endif
+
+#if DUSK_USE_AGS
+    if ( bestVendorId == AMD_VENDOR_ID ) {
+		AGSGPUInfo gpuInfo;
+		AGSConfiguration config = {};
+        AGSReturnCode initializationResult = agsInit( &renderContext->AgsContext, &config, &gpuInfo );
+
+		const bool isInitSuccessful = initializationResult == AGS_SUCCESS;
+		DUSK_ASSERT( isInitSuccessful, "Failed to initialize AMD AGS (error code %i)\n", initializationResult );
+
+        DUSK_LOG_INFO( "AGS Library initialized: v%d.%d.%d\n", gpuInfo.agsVersionMajor, gpuInfo.agsVersionMinor, gpuInfo.agsVersionPatch );
+        DUSK_LOG_INFO( "Radeon Software Version:   %hs\n", gpuInfo.radeonSoftwareVersion );
+        DUSK_LOG_INFO( "Driver Version:            %hs\n", gpuInfo.driverVersion );
+
+		renderContext->IsAmdAgsLoaded = true;
+    }
+#endif
+
     DUSK_LOG_INFO( "Enumerating Outputs...\n" );
 
     for ( UINT outputIdx = 0; outputIdx < bestOutputCount; outputIdx++ ) {
@@ -283,7 +347,6 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
     // It should be safe to release the adapter info after the device creation
     adapter->Release();
 
-    renderContext = dk::core::allocate<RenderContext>( memoryAllocator );
     renderContext->PhysicalDevice = nativeDevice;
     renderContext->ImmediateContext = nativeDeviceContext;
     renderContext->SwapChain = swapChain;
@@ -594,6 +657,23 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
 			CommandPacket::CopyResource cmdPacket = *( CommandPacket::CopyResource* )bufferPointer;
 
 			renderContext->ImmediateContext->CopyResource( cmdPacket.DestResource, cmdPacket.SourceResource );
+			break;
+        }
+        case CPI_MULTI_DRAW_INDEXED_INSTANCED_INDIRECT:
+        {
+			CommandPacket::MultiDrawIndexedInstancedIndirect cmdPacket = *( CommandPacket::MultiDrawIndexedInstancedIndirect* )bufferPointer;
+
+#if DUSK_USE_NVAPI
+            if ( renderContext->IsNvApiLoaded ) {
+                NvAPI_D3D11_MultiDrawInstancedIndirect( renderContext->ImmediateContext, cmdPacket.DrawCount, cmdPacket.ArgsBuffer, cmdPacket.BufferAlignmentInBytes, cmdPacket.ArgumentsSizeInBytes );
+            }
+#endif
+
+#if DUSK_USE_AGS
+			if ( renderContext->IsAmdAgsLoaded ) {
+				agsDriverExtensionsDX11_MultiDrawIndexedInstancedIndirect( renderContext->AgsContext, renderContext->ImmediateContext, cmdPacket.DrawCount, cmdPacket.ArgsBuffer, cmdPacket.BufferAlignmentInBytes, cmdPacket.ArgumentsSizeInBytes );
+            }
+#endif
 			break;
         }
         };

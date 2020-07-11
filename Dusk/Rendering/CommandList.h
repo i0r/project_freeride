@@ -169,7 +169,8 @@ public:
 
     void                            draw( const u32 vertexCount, const u32 instanceCount, const u32 vertexOffset = 0u, const u32 instanceOffset = 0u );
     void                            drawIndexed( const u32 indiceCount, const u32 instanceCount, const u32 indiceOffset = 0u, const u32 vertexOffset = 0u, const u32 instanceOffset = 0u );
- 
+    void                            multiDrawIndexedInstancedIndirect( const u32 instanceCount, Buffer* argsBuffer, const u32 bufferAlignmentInBytes = 0u, const u32 argumentsSizeInBytes = 0u );
+
     void                            dispatchCompute( const u32 threadCountX, const u32 threadCountY, const u32 threadCountZ );
 
     void                            updateBuffer( Buffer& buffer, const void* data, const size_t dataSize );
