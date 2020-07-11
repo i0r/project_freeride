@@ -11,6 +11,10 @@ Mesh::Mesh()
     , IndiceBufferOffset( 0 )
     , VertexAttributeBufferOffset( 0 )
     , IndiceCount( 0 )
+    , VertexCount( 0 )
+    , PositionVertices( nullptr )
+    , MemoryAllocator( nullptr )
+    , Indices( nullptr )
 {
     memset( AttributeBuffers, 0, sizeof( Buffer* ) * ToUnderlyingType( eMeshAttribute::Count ) );
 
@@ -24,4 +28,12 @@ Mesh::~Mesh()
 #if DUSK_DEVBUILD
     Name.clear();
 #endif
+
+    if ( PositionVertices != nullptr ) {
+        dk::core::freeArray( MemoryAllocator, PositionVertices );
+    }
+
+	if ( Indices != nullptr ) {
+		dk::core::freeArray( MemoryAllocator, Indices );
+    }
 }

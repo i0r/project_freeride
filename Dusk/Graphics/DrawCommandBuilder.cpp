@@ -74,18 +74,11 @@ struct LODBatch
     f32                             ClosestDistance;
 };
 
-struct GPUBatchData
-{
-	dkMat4x4f                       ModelMatrix;
-	dkVec4f                         BoundingSphereWithRadius;
-};
-
 DrawCommandBuilder::DrawCommandBuilder( BaseAllocator* allocator )
     : memoryAllocator( allocator )
     , cameraToRenderAllocator( dk::core::allocate<LinearAllocator>( allocator, MAX_SIMULTANEOUS_VIEWPORT_COUNT * sizeof( CameraData ), allocator->allocate( MAX_SIMULTANEOUS_VIEWPORT_COUNT * sizeof( CameraData ) ) ) )
     , staticModelsToRender( dk::core::allocate<LinearAllocator>( allocator, MAX_STATIC_MODEL_COUNT * sizeof( ModelInstance ), allocator->allocate( MAX_STATIC_MODEL_COUNT * sizeof( ModelInstance ) ) ) )
     , instanceDataAllocator( dk::core::allocate<LinearAllocator>( allocator, MAX_STATIC_MODEL_COUNT * MAX_INSTANCE_COUNT_PER_MODEL * sizeof( DrawCommandInfos::InstanceData ), allocator->allocate( MAX_STATIC_MODEL_COUNT * MAX_INSTANCE_COUNT_PER_MODEL * sizeof( DrawCommandInfos::InstanceData ) ) ) )
-    , gpuInstanceDataAllocator( dk::core::allocate<LinearAllocator>( allocator, MAX_STATIC_MODEL_COUNT * MAX_INSTANCE_COUNT_PER_MODEL * sizeof( GPUBatchData ), allocator->allocate( MAX_STATIC_MODEL_COUNT * MAX_INSTANCE_COUNT_PER_MODEL * sizeof( GPUBatchData ) ) ) )
 {
 
 }
@@ -95,7 +88,6 @@ DrawCommandBuilder::~DrawCommandBuilder()
 	dk::core::free( memoryAllocator, cameraToRenderAllocator );
 	dk::core::free( memoryAllocator, staticModelsToRender );
 	dk::core::free( memoryAllocator, instanceDataAllocator );
-	dk::core::free( memoryAllocator, gpuInstanceDataAllocator );
 }
 
 void DrawCommandBuilder::addWorldCameraToRender( CameraData* cameraData )
@@ -127,84 +119,9 @@ void DrawCommandBuilder::prepareAndDispatchCommands( WorldRenderer* worldRendere
 		const CameraData& camera = cameraArray[cameraIdx];
 
 		buildGeometryDrawCmds( worldRenderer, &camera, cameraIdx );
-
-		// TODO Conditionally enable this (find a way to check if we should render 
-		// CSM, or simply check if a camera wants to render CSM with SDSDM).
-		buildShadowGPUDrivenCullCmds( &camera );
     }
 
 	resetAllocators();
-}
-
-void DrawCommandBuilder::buildShadowGPUDrivenCullCmds( const CameraData* camera )
-{
-	struct LODGPUBatch
-	{
-		const Model::LevelOfDetail*     ModelLOD;
-        GPUBatchData*                   Instances;
-		u32                             InstanceCount;
-	};
-
-	std::unordered_map<dkStringHash_t, LODGPUBatch> lodBatches;
-
-	ModelInstance* modelsArray = static_cast< ModelInstance* >( staticModelsToRender->getBaseAddress() );
-	const size_t modelCount = staticModelsToRender->getAllocationCount();
-	for ( u32 modelIdx = 0; modelIdx < modelCount; modelIdx++ ) {
-		const ModelInstance& modelInstance = modelsArray[modelIdx];
-
-		const dkMat4x4f& modelMatrix = modelInstance.ModelMatrix;
-		const Model* model = modelInstance.ModelResource;
-		const u32 entityIdx = modelInstance.EntityIdentifier;
-
-		// Retrieve instance location and scale.
-		const dkVec3f instancePosition = dk::maths::ExtractTranslation( modelMatrix );
-		const f32 distanceToCamera = dkVec3f::distanceSquared( camera->worldPosition, instancePosition );
-
-		// TODO Store CSM Max depth somewhere!! (the 250)
-		// Ignore far away geometry (should fallback to distant shadows).
-		if ( distanceToCamera > ( 250.0f * 250.0f ) ) {
-			continue;
-		}
-
-		const f32 instanceScale = dk::maths::GetBiggestScalar( dk::maths::ExtractScale( modelMatrix ) );
-
-		BoundingSphere instanceBoundingSphere = model->getBoundingSphere();
-		instanceBoundingSphere.center += instancePosition;
-		instanceBoundingSphere.radius *= instanceScale;
-
-		// Retrieve LOD based on instance to camera distance
-		const Model::LevelOfDetail& activeLOD = model->getLevelOfDetail( distanceToCamera );
-
-		// Check if a batch already exists for the given LOD.
-		auto batchIt = lodBatches.find( activeLOD.Hashcode );
-		if ( batchIt == lodBatches.end() ) {
-            LODGPUBatch batch;
-			batch.ModelLOD = &activeLOD;
-			batch.Instances = dk::core::allocateArray<GPUBatchData>( gpuInstanceDataAllocator, MAX_INSTANCE_COUNT_PER_MODEL );
-			batch.Instances[0].ModelMatrix = modelMatrix;
-			batch.Instances[0].BoundingSphereWithRadius = dkVec4f( instanceBoundingSphere.center, instanceBoundingSphere.radius );
-			batch.InstanceCount = 1;
-
-			lodBatches.insert( std::make_pair( activeLOD.Hashcode, batch ) );
-		} else {
-            LODGPUBatch& batch = batchIt->second;
-
-			u32 instanceIdx = batch.InstanceCount;
-			batch.Instances[instanceIdx].ModelMatrix = modelMatrix;
-			batch.Instances[instanceIdx].BoundingSphereWithRadius = dkVec4f( instanceBoundingSphere.center, instanceBoundingSphere.radius );
-			batch.InstanceCount++;
-		}
-	}
-
-    // Merge all the shadow casters into a single vertex buffer.
-    for ( auto& lodBatch : lodBatches ) {
-        const LODGPUBatch& batch = lodBatch.second;
-
-        const Model::LevelOfDetail* lod = batch.ModelLOD;
-        for ( i32 meshIdx = 0; meshIdx < lod->MeshCount; meshIdx++ ) {
-            const Mesh& mesh = lod->MeshArray[meshIdx];
-        }
-    }
 }
 
 void DrawCommandBuilder::resetAllocators()
@@ -212,7 +129,6 @@ void DrawCommandBuilder::resetAllocators()
     cameraToRenderAllocator->clear();
     staticModelsToRender->clear();
     instanceDataAllocator->clear();
-    gpuInstanceDataAllocator->clear();
 }
 
 template<DrawCommandKey::Layer layer, u8 viewportLayer>

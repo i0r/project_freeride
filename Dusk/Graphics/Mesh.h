@@ -6,6 +6,7 @@
 
 struct Buffer;
 class Material;
+class BaseAllocator;
 
 // An enum containing possible attribute for the vertex of a given mesh.
 enum eMeshAttribute : i32 
@@ -49,10 +50,22 @@ struct Mesh
     // Number of indexes to draw (0 if the mesh is not indexed).
     u32                     IndiceCount;
 
+    // Number of vertices to draw.
+    u32                     VertexCount;
+
 #if DUSK_DEVBUILD
     // Name of this mesh (for debug purpose; devbuild only).
-    std::string              Name;
+    std::string             Name;
 #endif
+
+    // Vertex position ONLY. Used for shadow buffer update/rebuild (to avoid reparsing).
+    f32*                    PositionVertices;
+
+    // The memory allocator owning PositionVertices.
+    BaseAllocator*          MemoryAllocator;
+
+    // CPU Mesh Indices. Used for shadow buffer update/rebuild (to avoid reparsing).
+    u32*                    Indices;
 
                             Mesh();
                             ~Mesh();

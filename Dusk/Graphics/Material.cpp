@@ -283,3 +283,8 @@ bool Material::skipLighting() const
 {
     return isShadeless;
 }
+
+bool Material::castShadow() const
+{
+    return true;
+}

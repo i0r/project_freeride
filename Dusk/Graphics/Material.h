@@ -73,6 +73,10 @@ public:
     // Return true if this material skip lighting step of the world rendering (e.g. is shadeless).
     bool            skipLighting() const;
 
+    // Return true if this material is a shadow emitter and should be included in the shadow map rendering
+    // false otherwise.
+    bool            castShadow() const;
+
 private:
     struct MutableParameter {
         // Cached Parameter value converted to Float3.

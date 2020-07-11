@@ -50,9 +50,6 @@ private:
 	// Allocator used to allocate instance data to render batched models/geometry.
 	LinearAllocator*	instanceDataAllocator;
 
-	// Allocator used to allocate instance data for gpu driven draw call submit.
-	LinearAllocator*	gpuInstanceDataAllocator;
-
 private:
 	// Reset entities allocators (camera, models, etc.). Should be called once the cmds are built and we don't longer need
 	// the transistent data.
@@ -60,7 +57,4 @@ private:
 
 	// Build Draw Commands for the different layers and viewports layers of a given camera.
 	void                buildGeometryDrawCmds( WorldRenderer* worldRenderer, const CameraData* camera, const u8 cameraIdx ); 
-
-	// Build instances informations to generate shadow draw commands on the GPU.
-	void				buildShadowGPUDrivenCullCmds( const CameraData* camera );
 };

@@ -82,6 +82,8 @@ void dk::graphics::BuildParsedModel( Model* builtModel, BaseAllocator* memoryAll
             Mesh& builtMesh = lod.MeshArray[i];
             builtMesh.Name = mesh.Name;
             builtMesh.RenderMaterial = nullptr;
+			builtMesh.MemoryAllocator = memoryAllocator;
+			builtMesh.VertexCount = mesh.VertexCount;
 
             if ( mesh.Flags.HasPositionAttribute ) {
                 builtMesh.VertexAttributeBufferOffset = static_cast< i32 >( position.size() );
@@ -91,6 +93,9 @@ void dk::graphics::BuildParsedModel( Model* builtModel, BaseAllocator* memoryAll
                     position.push_back( mesh.PositionVertices[j][1] );
                     position.push_back( mesh.PositionVertices[j][2] );
                 }
+
+                builtMesh.PositionVertices = dk::core::allocateArray<f32>( memoryAllocator, mesh.VertexCount * 3 );
+                memcpy( builtMesh.PositionVertices, mesh.PositionVertices, sizeof( f32 ) * mesh.VertexCount * 3 );
             }
 
             if ( mesh.Flags.HasNormals ) {
@@ -123,6 +128,9 @@ void dk::graphics::BuildParsedModel( Model* builtModel, BaseAllocator* memoryAll
                 for ( i32 j = 0; j < mesh.IndexCount; j++ ) {
                     indices.push_back( mesh.IndexList[j] );
                 }
+
+				builtMesh.Indices = dk::core::allocateArray<u32>( memoryAllocator, mesh.IndexCount );
+				memcpy( builtMesh.Indices, mesh.IndexList, sizeof( u32 ) * mesh.IndexCount );
             }
         }
     }

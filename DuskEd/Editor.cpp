@@ -445,6 +445,7 @@ void InitializeRenderSubsystems()
     g_HUDRenderer->loadCachedResources( *g_RenderDevice, *g_ShaderCache, *g_GraphicsAssetCache );
 
     g_RenderWorld = dk::core::allocate<RenderWorld>( g_GlobalAllocator, g_GlobalAllocator );
+    g_RenderWorld->create( *g_RenderDevice );
 
 #if DUSK_USE_IMGUI
     g_ImGuiManager = dk::core::allocate<ImGuiManager>( g_GlobalAllocator );
@@ -615,6 +616,8 @@ void MainLoop()
         
         // TODO We should use a snapshot of the world instead of having to wait the previous frame completion...
 		g_World->collectRenderables( g_DrawCommandBuilder );
+
+        g_RenderWorld->update( g_RenderDevice );
 
 		g_DrawCommandBuilder->addWorldCameraToRender( &g_FreeCamera->getData() );
 		g_DrawCommandBuilder->prepareAndDispatchCommands( g_WorldRenderer );
@@ -916,15 +919,23 @@ void MainLoop()
 
         g_HUDRenderer->drawText( str.c_str(), 0.4f, 8.0f, 8.0f, dkVec4f( 1, 1, 1, 1 ), 0.5f );
 
-        dkVec3f UpVector = g_FreeCamera->getUpVector();
-        dkVec3f RightVector = g_FreeCamera->getRightVector();
-        dkVec3f FwdVector = g_FreeCamera->getForwardVector();
+        dkMat4x4f rotationMat = g_FreeCamera->getData().viewMatrix;
+
+        // Remove translation.
+		rotationMat[3].x = 0.0f;
+		rotationMat[3].y = 0.0f;
+		rotationMat[3].z = 0.0f;
+		rotationMat[3].w = 1.0f;
+
+		dkVec3f FwdVector = dkVec4f( 1, 0, 0, 0 ) * rotationMat;
+		dkVec3f UpVector = dkVec4f( 0, 1, 0, 0 ) * rotationMat;
+		dkVec3f RightVector = dkVec4f( 0, 0, 1, 0 ) * rotationMat;
         
         dkVec3f GuizmoLinesOrigin = dkVec3f( 40.0f, viewportSize.y - 32.0f, 0 );
 
-        g_HUDRenderer->drawLine( GuizmoLinesOrigin, dkVec4f( 1, 0, 0, 1 ), GuizmoLinesOrigin - RightVector * 32.0f, dkVec4f( 1, 0, 0, 1 ), 2.0f );
-        g_HUDRenderer->drawLine( GuizmoLinesOrigin, dkVec4f( 0, 1, 0, 1 ), GuizmoLinesOrigin - UpVector * 32.0f, dkVec4f( 0, 1, 0, 1 ), 2.0f );
-        g_HUDRenderer->drawLine( GuizmoLinesOrigin, dkVec4f( 0, 0, 1, 1 ), GuizmoLinesOrigin - FwdVector * 32.0f, dkVec4f( 0, 0, 1, 1 ), 2.0f );
+        g_HUDRenderer->drawLine( GuizmoLinesOrigin - RightVector * 32.0f, dkVec4f( 1, 0, 0, 1 ), GuizmoLinesOrigin, dkVec4f( 1, 0, 0, 1 ), 2.0f );
+        g_HUDRenderer->drawLine( GuizmoLinesOrigin - UpVector * 32.0f, dkVec4f( 0, 1, 0, 1 ), GuizmoLinesOrigin, dkVec4f( 0, 1, 0, 1 ), 2.0f );
+        g_HUDRenderer->drawLine( GuizmoLinesOrigin - FwdVector * 32.0f, dkVec4f( 0, 0, 1, 1 ), GuizmoLinesOrigin, dkVec4f( 0, 0, 1, 1 ), 2.0f );
 
         Material::RenderScenario scenario = ( g_MaterialEditor->isUsingInteractiveMode() ) ? Material::RenderScenario::Default_Editor : Material::RenderScenario::Default;
 
@@ -940,6 +951,7 @@ void MainLoop()
         // Build this frame FrameGraph
         BuildThisFrameGraph( frameGraph, scenario, viewportSize );
         
+        // TODO Should be renamed (this is simply a dispatch call for frame graph passes...).
         g_WorldRenderer->drawWorld( g_RenderDevice, frameTime );
     }
 }
@@ -954,6 +966,7 @@ void Shutdown()
 	DUSK_LOG_INFO( "Releasing GPU resources...\n" );
 
     g_WorldRenderer->destroy( g_RenderDevice );
+    g_RenderWorld->destroy( *g_RenderDevice );
 
     DUSK_LOG_INFO( "Calling subsystems destructors...\n" );
 

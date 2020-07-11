@@ -154,10 +154,10 @@ DUSK_IS_MEMORY_ALIGNED_STATIC( IBLProbeGPU, 16 );
 // Structure holding informations for GPU-driven scene submit.
 struct DrawCall
 {
-    float3 SphereCenter;
-    float SphereRadius;
-    uint StartIndex;
-    uint NumIndices;
+    float3      SphereCenter;
+    float       SphereRadius;
+    float4x4    ModelMatrix;
+    uint        MeshEntryIndex;
 };
 
 struct CulledDraw
