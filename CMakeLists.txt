@@ -48,6 +48,8 @@ set( DUSK_USE_IMGUI TRUE CACHE BOOL "Use imgui as debug GUI middleware" )
 set( DUSK_USE_FBXSDK TRUE CACHE BOOL "Use FBX SDK for geometry baking" )
 set( DUSK_USE_RENDERDOC TRUE CACHE BOOL "Use RenderDoc API for graphics debugging" )
 set( DUSK_USE_BULLET TRUE CACHE BOOL "Use Bullet Physics as physics library" )
+set( DUSK_USE_NVAPI TRUE CACHE BOOL "Build with Nvidia API (NVAPI)" )
+set( DUSK_USE_AGS TRUE CACHE BOOL "Build with AMD GPU Services (AGS)" )
 set( DUSK_USE_UNITY_BUILD TRUE CACHE BOOL "Use UnityBuild for project compilation" )
 set( DUSK_ENABLE_GPU_DEBUG_MARKER TRUE CACHE BOOL "Enable GPU Debug Markers (resource/region markers, etc.)" )
 
@@ -86,6 +88,18 @@ endif ( DUSK_USE_FBXSDK )
 if ( DUSK_ENABLE_GPU_DEBUG_MARKER )
     add_definitions( -DDUSK_ENABLE_GPU_DEBUG_MARKER )
 endif ( DUSK_ENABLE_GPU_DEBUG_MARKER )
+
+if ( DUSK_USE_BULLET )
+    add_definitions( -DDUSK_USE_BULLET )
+endif ( DUSK_USE_BULLET )
+
+if ( DUSK_USE_NVAPI )
+    add_definitions( -DDUSK_USE_NVAPI )
+endif ( DUSK_USE_NVAPI )
+
+if ( DUSK_USE_AGS )
+    add_definitions( -DDUSK_USE_AGS )
+endif ( DUSK_USE_AGS )
 
 # Add shared include directories (add paths here only if needed)
 include_directories( "${DUSK_BASE_FOLDER}/" )

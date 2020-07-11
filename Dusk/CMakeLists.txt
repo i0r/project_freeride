@@ -27,6 +27,15 @@ file(GLOB_RECURSE BULLET_HEADERS
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/bullet3/*.h" )
 endif ( DUSK_USE_BULLET )
 
+if ( DUSK_USE_NVAPI )
+    file(GLOB_RECURSE NVAPI_HEADERS 
+        "${DUSK_BASE_FOLDER}Dusk/ThirdParty/nvapi/*.h" )
+endif ( DUSK_USE_NVAPI )
+
+if ( DUSK_USE_AGS )
+    file(GLOB AGS_HEADERS "${DUSK_BASE_FOLDER}Dusk/ThirdParty/ags/amd_ags.h" )
+endif ( DUSK_USE_AGS )
+
 file(GLOB_RECURSE SRC_THIRD_PARTY 
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/SPIRV-Cross/*.cpp"
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/SPIRV-Cross/*.c"
@@ -46,7 +55,7 @@ if ( ${DUSK_USE_UNITY_BUILD} )
 	enable_unity_build( Dusk SRC 16 cpp)
 endif ( ${DUSK_USE_UNITY_BUILD} )
 
-set( SOURCES ${SRC} ${INC}  ${BULLET_HEADERS} ${SRC_THIRD_PARTY} "${DUSK_BASE_FOLDER}Dusk/Shared.cpp" "${DUSK_BASE_FOLDER}Dusk/Shared.h" )
+set( SOURCES ${SRC} ${INC} ${AGS_HEADERS} ${BULLET_HEADERS} ${SRC_THIRD_PARTY} ${NVAPI_HEADERS} "${DUSK_BASE_FOLDER}Dusk/Shared.cpp" "${DUSK_BASE_FOLDER}Dusk/Shared.h" )
 
 add_library( Dusk STATIC ${SOURCES} )
 
@@ -110,7 +119,6 @@ endif( DUSK_DEVBUILD )
 endif( "${DUSK_GFX_API}" MATCHES "DUSK_D3D12" )
 
 if ( DUSK_USE_BULLET )
-add_definitions( -DDUSK_USE_BULLET )
 include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/bullet3/src" )
 
 target_link_libraries( Dusk 
@@ -125,6 +133,17 @@ target_link_libraries( Dusk
                         debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/LinearMath_Debug.lib" 
                         optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/LinearMath_RelWithDebugInfo.lib" ) 
 endif ( DUSK_USE_BULLET )
+
+if ( DUSK_USE_NVAPI )
+    include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/nvapi" )
+    target_link_libraries( Dusk "${DUSK_BASE_FOLDER}Dusk/ThirdParty/nvapi/amd64/nvapi64.lib" ) 
+endif ( DUSK_USE_NVAPI )
+
+if ( DUSK_USE_AGS )
+target_link_libraries( Dusk 
+                        debug "${DUSK_BASE_FOLDER}Dusk/ThirdParty/ags/lib/amd_ags_x64_2019_MDd.lib" 
+                        optimized "${DUSK_BASE_FOLDER}Dusk/ThirdParty/ags/lib/amd_ags_x64_2019_MD.lib" ) 
+endif ( DUSK_USE_AGS )
 
 if ( DUSK_USE_UNITY_BUILD )
     if(MSVC)
