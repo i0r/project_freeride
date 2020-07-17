@@ -38,6 +38,7 @@ static constexpr dkStringHash_t PerViewBufferHashcode = DUSK_STRING_HASH( "PerVi
 static constexpr dkStringHash_t PerPassBufferHashcode = DUSK_STRING_HASH( "PerPassBuffer" );
 static constexpr dkStringHash_t PerWorldBufferHashcode = DUSK_STRING_HASH( "PerWorldBuffer" );
 static constexpr dkStringHash_t MaterialEditorBufferHashcode = DUSK_STRING_HASH( "MaterialEditorBuffer" );
+static constexpr dkStringHash_t InstanceVectorBufferHashcode = DUSK_STRING_HASH( "InstanceVectorBuffer" );
 
 // PerView buffer content. You must force RenderPass baking whenever the content (or the order
 // of this structure) is updated!
@@ -54,6 +55,9 @@ struct PerViewBufferData
 
     // Orthographic Projection Matrix (for HUD/screenspace passes).
     dkMat4x4f   OrthoProjectionMatrix;
+
+	// View Matrix.
+	dkMat4x4f   ViewMatrix;
 
     // Viewport Size. This is the size of the viewport showing the world view.
     // THIS VALUE MIGHT BE DIFFERENT FROM THE ACTUAL SCREEN SIZE (e.g. in editor).

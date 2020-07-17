@@ -19,8 +19,11 @@
 
 #include <Graphics/RenderModules/Generated/BuiltIn.generated.h>
 
-struct PerPassData 
+#include "CascadedShadowRenderModule.h"
+
+struct PerPassData
 {
+    dkMat4x4f   SunShadowMatrix;
 	f32         StartVector;
 	f32         VectorPerInstance;
 	u32         __PADDING__[2];
@@ -28,7 +31,6 @@ struct PerPassData
 
 static constexpr size_t MAX_VECTOR_PER_INSTANCE = 1024;
 
-static constexpr dkStringHash_t InstanceVectorBufferHashcode = DUSK_STRING_HASH( "InstanceVectorBuffer" );
 static constexpr dkStringHash_t PickingBufferHashcode = DUSK_STRING_HASH( "PickingBuffer" );
 static constexpr dkStringHash_t BrdfDfgLUTHascode = DUSK_STRING_HASH( "BrdfDfgLut" );
 static constexpr dkStringHash_t IBLDiffuseHascode = DUSK_STRING_HASH( "IBLDiffuse" );
@@ -98,7 +100,7 @@ void WorldRenderModule::loadCachedResources( RenderDevice& renderDevice, Graphic
 #endif
 }
 
-WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, ResHandle_t depthPrepassBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular )
+WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, ResHandle_t depthPrepassBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular, const dkMat4x4f& globalShadowMatrix )
 {
     struct PassData {
         ResHandle_t output;
@@ -110,6 +112,8 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
 		ResHandle_t MaterialEdBuffer;
 		ResHandle_t VectorDataBuffer;
         ResHandle_t MaterialInputSampler;
+		ResHandle_t CSMSliceBuffer;
+		ResHandle_t CSMSlices;
 	};
 
 	const bool isPickingRequested = ( scenario == Material::RenderScenario::Default_Picking
@@ -187,17 +191,21 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
 			}
 
 			passData.MaterialInputSampler = builder.allocateSampler( materialSamplerDesc );
+            passData.CSMSliceBuffer = builder.retrievePersistentBuffer( CascadedShadowRenderModule::SliceBufferHashcode );
+            passData.CSMSlices = builder.retrievePersistentImage( CascadedShadowRenderModule::SliceImageHashcode );
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
             Image* outputTarget = resources->getImage( passData.output );
             Image* velocityTarget = resources->getImage( passData.velocityBuffer );
             Image* zbufferTarget = resources->getImage( passData.depthBuffer );
+            Image* sliceShadow = resources->getPersitentImage( passData.CSMSlices );
 
             Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
             Buffer* perViewBuffer = resources->getPersistentBuffer( passData.PerViewBuffer );
             Buffer* perWorldBuffer = resources->getBuffer( passData.PerSceneBuffer );
             Buffer* materialEdBuffer = resources->getPersistentBuffer( passData.MaterialEdBuffer );
             Buffer* vectorBuffer = resources->getBuffer( passData.VectorDataBuffer );
+            Buffer* sliceBuffer = resources->getPersistentBuffer( passData.CSMSliceBuffer );
 
             Sampler* materialSampler = resources->getSampler( passData.MaterialInputSampler );
 
@@ -244,7 +252,8 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
 
             PerPassData perPassData;
             perPassData.StartVector = bucket.instanceDataStartOffset;
-            perPassData.VectorPerInstance = bucket.vectorPerInstance;
+			perPassData.VectorPerInstance = bucket.vectorPerInstance;
+			perPassData.SunShadowMatrix = globalShadowMatrix;
 
             for ( const DrawCmd& cmd : bucket ) {
                 const DrawCommandInfos& cmdInfos = cmd.infos;
@@ -272,6 +281,7 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
                 cmdList->bindImage( BrdfDfgLUTHascode, brdfDfgLut );
                 cmdList->bindImage( IBLDiffuseHascode, iblDiffuse );
                 cmdList->bindImage( IBLSpecularHascode, iblSpecular );
+                cmdList->bindImage( CascadedShadowRenderModule::SliceImageHashcode, sliceShadow );
 
                 if ( isInMaterialEdition ) {
                     cmdList->bindConstantBuffer( MaterialEditorBufferHashcode, materialEdBuffer );
@@ -280,6 +290,8 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
                 if ( isPickingRequested ) {
                     cmdList->bindBuffer( PickingBufferHashcode, pickingBuffer );
                 }
+
+				cmdList->bindBuffer( CascadedShadowRenderModule::SliceBufferHashcode, sliceBuffer );
 
                 // Re-setup the framebuffer (some permutations have a different framebuffer layout).
                 cmdList->setupFramebuffer( FramebufferAttachments, FramebufferAttachment( zbufferTarget ) );

@@ -107,7 +107,8 @@ Model* RenderWorld::addAndCommitParsedDynamicModel( RenderDevice* renderDevice, 
             const bool meshCanCastShadows = ( mesh.PositionVertices != nullptr && mesh.Indices != nullptr );
 			if ( mesh.RenderMaterial->castShadow() && meshCanCastShadows ) {
 				// Allocate data for GPU-driven shadow rendering.
-				GPUShadowBatchInfos& meshBatchInfos = allocateGpuMeshInfos( mesh.VertexCount, mesh.IndiceCount );
+                GPUShadowBatchInfos meshBatchInfos;
+                mesh.ShadowGPUBatchEntryIndex = allocateGpuMeshInfos( meshBatchInfos, mesh.VertexCount, mesh.IndiceCount );
 
 			    memcpy( &vertexBufferData[meshBatchInfos.VertexBufferOffset], mesh.PositionVertices, sizeof( dkVec3f ) * mesh.VertexCount );
 				memcpy( &indiceBufferData[meshBatchInfos.IndiceBufferOffset], mesh.Indices, sizeof( u32 ) * mesh.IndiceCount );
@@ -162,7 +163,7 @@ void RenderWorld::update( RenderDevice* renderDevice )
     renderDevice->submitCommandList( cmdList );
 }
 
-RenderWorld::GPUShadowBatchInfos& RenderWorld::allocateGpuMeshInfos( const u32 vertexCount, const u32 indiceCount )
+i32 RenderWorld::allocateGpuMeshInfos( GPUShadowBatchInfos& allocatedBatch, const u32 vertexCount, const u32 indiceCount )
 {
     // Check if one of the freelist entry is suitable for our allocation.
     // Free batch infos are stored at the end of the array.
@@ -187,7 +188,9 @@ RenderWorld::GPUShadowBatchInfos& RenderWorld::allocateGpuMeshInfos( const u32 v
             gpuShadowFreeListLength--;
             gpuShadowMeshCount++;
             
-            return batch;
+            allocatedBatch = batch;
+
+            return i;
         }   
     }
     
@@ -199,14 +202,17 @@ RenderWorld::GPUShadowBatchInfos& RenderWorld::allocateGpuMeshInfos( const u32 v
     }
     
     // Allocate a new batch info.
+    const i32 allocatedBatchIndex = gpuShadowMeshCount;
     GPUShadowBatchInfos& meshBatchInfos = gpuShadowBatches[gpuShadowMeshCount++];
     meshBatchInfos.VertexBufferOffset = vertexBufferUsageOfffset;
     meshBatchInfos.VertexBufferCount = vertexCount * 3;
     meshBatchInfos.IndiceBufferOffset = indiceBufferUsageOfffset;
     meshBatchInfos.IndiceBufferCount = indiceCount;
-    
+
+	allocatedBatch = meshBatchInfos;
+
     vertexBufferUsageOfffset += meshBatchInfos.VertexBufferCount;
     indiceBufferUsageOfffset += meshBatchInfos.IndiceBufferCount;
     
-    return meshBatchInfos;
+    return allocatedBatchIndex;
 }

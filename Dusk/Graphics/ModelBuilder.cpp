@@ -32,10 +32,6 @@ static Buffer* CreateIfNonEmpty( RenderDevice* renderDevice, const std::vector<T
 
 void dk::graphics::BuildParsedModel( Model* builtModel, BaseAllocator* memoryAllocator, RenderDevice* renderDevice, ParsedModel& parsedModel )
 {
-    builtModel->setName( parsedModel.ModelName.c_str() );
-    
-    builtModel->setResourcePath( parsedModel.ModelPath );
-
     u32 lodCount = 0;
 
     std::string lodGroupName[Model::MAX_LOD_COUNT];
@@ -152,5 +148,7 @@ void dk::graphics::BuildParsedModel( Model* builtModel, BaseAllocator* memoryAll
     }
 
     // Recompute AABB/Bounding Sphere.
-    builtModel->computeBounds();
+	builtModel->computeBounds();
+	builtModel->setName( parsedModel.ModelName.c_str() );
+	builtModel->setResourcePath( parsedModel.ModelPath );
 }

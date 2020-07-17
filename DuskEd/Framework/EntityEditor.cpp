@@ -119,7 +119,6 @@ void EntityEditor::displayTransformSection( const dkVec4f& viewportBounds, Camer
         ImGui::DragFloat3( "Rotation", ( float* )&Rotation, 3 );
         dk::imgui::DragFloat3WithChannelLock( editorInstance.Scale, lockScaleChannels );
 
-
         RotationQuat = dkQuatf( Rotation );
         *editorInstance.Rotation = RotationQuat;
 
@@ -128,6 +127,8 @@ void EntityEditor::displayTransformSection( const dkVec4f& viewportBounds, Camer
             *editorInstance.Scale = dk::maths::ExtractScale( *modelMatrix );
             *editorInstance.Rotation = dk::maths::ExtractRotation( *modelMatrix, *editorInstance.Scale );
         }
+
+        *editorInstance.Scale = dkVec3f::max( dkVec3f( 0.0001f ), *editorInstance.Scale );
 
         // TODO Move those to a settings menu/panel and add shortcut for transformation mode (translate/rotate/etc.).
 		/*  ImGui::Text( "Guizmo Settings" );

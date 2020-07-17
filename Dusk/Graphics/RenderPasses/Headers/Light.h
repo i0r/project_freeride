@@ -37,6 +37,9 @@
 #define PROBE_FACE_SIZE 256
 #define PROBE_FILTERED_MIP_COUNT 5
 
+#define CSM_SLICE_DIMENSION 2048
+#define CSM_SLICE_COUNT 4
+
 struct LineInfos 
 {
     // Line start (in screen space units).
@@ -158,13 +161,19 @@ struct DrawCall
     float       SphereRadius;
     float4x4    ModelMatrix;
     uint        MeshEntryIndex;
+
+#ifdef __cplusplus
+    uint        __PADDING__[3];
+#endif
 };
 
-struct CulledDraw
+// Entry of a single mesh in the large shared vertex/index buffer.
+struct GPUShadowBatchInfos
 {
-    uint SrcIndexStart;
-    uint DstIndexStart;
-    uint NumIndices;
+	uint VertexBufferOffset;
+    uint VertexBufferCount;
+    uint IndiceBufferOffset;
+    uint IndiceBufferCount;
 };
 
 struct CSMSliceInfos

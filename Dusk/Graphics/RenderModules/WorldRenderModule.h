@@ -40,7 +40,7 @@ public:
     void                destroy( RenderDevice& renderDevice );
 	void                loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache );
 
-	LightPassOutput     addPrimitiveLightPass( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, ResHandle_t depthPrepassBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular );
+	LightPassOutput     addPrimitiveLightPass( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, ResHandle_t depthPrepassBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular, const dkMat4x4f& globalShadowMatrix );
 
 	ResHandle_t			addDepthPrepass( FrameGraph& frameGraph );
 

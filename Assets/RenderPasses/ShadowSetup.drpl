@@ -76,7 +76,7 @@ lib ShadowSetup {
         const float2 ReducedDepthSample = ReducedDepth[uint2(0, 0)];
         
         const float MinDistance = ReducedDepthSample.x;
-        const float MaxDistance = 1.0f - ReducedDepthSample.y;
+        const float MaxDistance = ReducedDepthSample.y;
     
         float4 cascadeSplits = float4( 0, 0, 0, 0 );
         float lambda = PSSMLambda;

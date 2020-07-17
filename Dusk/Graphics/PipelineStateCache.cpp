@@ -167,8 +167,13 @@ Hash128 PipelineStateCache::computePipelineStateKey( const PipelineStateDesc& de
     Key.gsStage = 0;
     Key.teStage = shaderBinding.TesselationEvaluationShader != nullptr ? dk::core::CRC32( shaderBinding.TesselationEvaluationShader ) : 0;
     Key.tcStage = shaderBinding.TesselationControlShader != nullptr ? dk::core::CRC32( shaderBinding.TesselationControlShader ) : 0;
-    Key.psOrCsStage = shaderBinding.PixelShader != nullptr ? dk::core::CRC32( shaderBinding.PixelShader ) : dk::core::CRC32( shaderBinding.ComputeShader );
 
+	if ( descriptor.PipelineType == PipelineStateDesc::GRAPHICS ) {
+		Key.psOrCsStage = shaderBinding.PixelShader != nullptr ? dk::core::CRC32( shaderBinding.PixelShader ) : 0;
+	} else if ( descriptor.PipelineType == PipelineStateDesc::COMPUTE ) {
+		Key.psOrCsStage = shaderBinding.ComputeShader != nullptr ? dk::core::CRC32( shaderBinding.ComputeShader ) : 0;
+	}
+	
     memcpy( Key.RStateSortKey, descriptor.RasterizerState.SortKey, sizeof( RasterizerStateDesc::SortKey ) );
     memcpy( Key.DSSStateSortKey, descriptor.DepthStencilState.SortKey, sizeof( DepthStencilStateDesc::SortKey ) );
 

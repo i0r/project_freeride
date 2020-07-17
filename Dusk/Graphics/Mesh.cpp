@@ -15,6 +15,7 @@ Mesh::Mesh()
     , PositionVertices( nullptr )
     , MemoryAllocator( nullptr )
     , Indices( nullptr )
+    , ShadowGPUBatchEntryIndex( 0u )
 {
     memset( AttributeBuffers, 0, sizeof( Buffer* ) * ToUnderlyingType( eMeshAttribute::Count ) );
 

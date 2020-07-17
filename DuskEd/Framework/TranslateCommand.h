@@ -9,7 +9,7 @@
 class TranslateCommand : public TransactionCommand
 {
 public:
-    TranslateCommand( Transform* transformToEdit, const dkVec3f& backupTranslationValue, const dkVec3f& translationValue )
+    TranslateCommand( TransformDatabase::EdInstanceData* transformToEdit, const dkVec3f& backupTranslationValue, const dkVec3f& translationValue )
         : transform( transformToEdit )
         , translation( translationValue )
         , translationBackup( backupTranslationValue )

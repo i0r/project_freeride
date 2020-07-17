@@ -67,6 +67,10 @@ struct Mesh
     // CPU Mesh Indices. Used for shadow buffer update/rebuild (to avoid reparsing).
     u32*                    Indices;
 
+    // GPU Batch Entry index allocated by the RenderWorld (required during GPU-driven
+    // culling).
+    u32                     ShadowGPUBatchEntryIndex;
+
                             Mesh();
                             ~Mesh();
 };

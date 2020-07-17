@@ -31,6 +31,7 @@ class WorldRenderModule;
 class IBLUtilitiesModule;
 class EnvironmentProbeStreaming;
 class CascadedShadowRenderModule;
+class RenderWorld;
 
 struct CameraData;
 struct Buffer;
@@ -135,6 +136,20 @@ struct DrawCmd
     }
 };
 
+struct GPUBatchData
+{
+	dkMat4x4f                       ModelMatrix;
+	dkVec3f                         BoundingSphereCenter;
+	f32                             BoundingSphereRadius;
+};
+
+struct GPUShadowDrawCmd
+{
+    GPUBatchData*       InstancesData;
+    u32                 ShadowMeshBatchIndex;
+    u32                 InstanceCount;
+};
+
 class WorldRenderer
 {
 public:
@@ -160,9 +175,11 @@ public:
 
     void             drawWorld( RenderDevice* renderDevice, const f32 deltaTime );
 
-    DrawCmd&         allocateDrawCmd();
+    DrawCmd&            allocateDrawCmd();
 
-    DrawCmd&         allocateSpherePrimitiveDrawCmd();
+    DrawCmd&            allocateSpherePrimitiveDrawCmd();
+
+    GPUShadowDrawCmd&   allocateGPUShadowCullDrawCmd();
 
     // Prepare the FrameGraph instance for the next frame.
     FrameGraph&      prepareFrameGraph( const Viewport& viewport, const ScissorRegion& scissor, const CameraData* camera = nullptr );
@@ -171,7 +188,7 @@ public:
     const Material*  getWireframeMaterial() const;
 
     // Append the render passes to build the default world render pipeline.
-    ResHandle_t      buildDefaultGraph( FrameGraph& frameGraph, const Material::RenderScenario scenario, const dkVec2f& viewportSize );
+    ResHandle_t      buildDefaultGraph( FrameGraph& frameGraph, const Material::RenderScenario scenario, const dkVec2f& viewportSize, RenderWorld* renderWorld );
 
     // Return the virtual resource handle to the resolved depth buffer (or the regular depth buffer if multisampling is disabled).
     ResHandle_t      getResolvedDepth();
@@ -185,6 +202,9 @@ private:
 
     // Draw Command allocator.
     LinearAllocator* drawCmdAllocator;
+
+	// GPU Shadow Cull Command allocator.
+	LinearAllocator* gpuShadowCullAllocator;
 
     // The FrameGraph used to render the world.
     FrameGraph*      frameGraph;

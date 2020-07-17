@@ -27,21 +27,21 @@ lib DepthPyramid {
     }
     
     shader DepthReductionInitialCS {
-        float minDepth = 0.0f;
-        float maxDepth = 1.0f;
+        float minDepth = 1.0f;
+        float maxDepth = 0.0f;
 
         uint2 samplePos = $SV_GroupID.xy * ReductionTGSize + $SV_GroupThreadID.xy;
         samplePos = min(samplePos, TextureSize - 1);
 
         float depthSample = DepthBuffer[samplePos];
 
-        if(depthSample < 1.0f)
+        if(depthSample > 0.0f)
         {
             // Convert to linear Z
-            //depthSample = Projection._43 / ( depthSample - Projection._33 );
-           // depthSample = saturate( ( depthSample - CameraPlanes.x ) / ( CameraPlanes.y - CameraPlanes.x ) );
-            minDepth = max( minDepth, depthSample );
-            maxDepth = min( maxDepth, depthSample );
+            depthSample = Projection._43 / ( depthSample - Projection._33 );
+            depthSample = saturate( ( depthSample - CameraPlanes.x ) / ( CameraPlanes.y - CameraPlanes.x ) );
+            minDepth = min( minDepth, depthSample );
+            maxDepth = max( maxDepth, depthSample );
         }
         
         // Store in shared memory
@@ -76,10 +76,6 @@ lib DepthPyramid {
         
         float minDepth = CurrentDepthMip[samplePos].x;
         float maxDepth = CurrentDepthMip[samplePos].y;
-
-        if ( minDepth == 1.0f ) {
-            minDepth = 0.0f;
-        }
 
         // Store in shared memory
         depthSamples[$SV_GroupIndex] = float2( minDepth, maxDepth );

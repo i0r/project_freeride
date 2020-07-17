@@ -9,6 +9,10 @@ lib AtmosphereLUTCompute {
     }
     
     resources {
+        RWTexture2D DeltaIrradiance {
+            swizzle = float4;
+        }
+        
         RWTexture2D OutputRenderTarget {
             swizzle = float4;
         }
@@ -30,10 +34,6 @@ lib AtmosphereLUTCompute {
         }
         
         RWTexture3D ScatteringDensity {
-            swizzle = float4;
-        }
-        
-        RWTexture2D DeltaIrradiance {
             swizzle = float4;
         }
         
@@ -323,7 +323,7 @@ lib AtmosphereLUTCompute {
     shader ComputeDirectIrradianceCS {
         float2 PixelCoordinates = float2( $SV_DispatchThreadId.xy ) + float2( 0.5f, 0.5f );
         
-        OutputRenderTarget[$SV_DispatchThreadId.xy] = float4( ComputeDirectIrradianceTexture( AtmosphereParams, PixelCoordinates ), 1.0f );
+        DeltaIrradiance[$SV_DispatchThreadId.xy] = float4( ComputeDirectIrradianceTexture( AtmosphereParams, PixelCoordinates ), 1.0f );
         OutputRenderTarget2[$SV_DispatchThreadId.xy] = float4( 0, 0, 0, 1.0f );
     }
     

@@ -665,15 +665,20 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
 
 #if DUSK_USE_NVAPI
             if ( renderContext->IsNvApiLoaded ) {
-                NvAPI_D3D11_MultiDrawInstancedIndirect( renderContext->ImmediateContext, cmdPacket.DrawCount, cmdPacket.ArgsBuffer, cmdPacket.BufferAlignmentInBytes, cmdPacket.ArgumentsSizeInBytes );
-            }
+                NvAPI_D3D11_MultiDrawIndexedInstancedIndirect( renderContext->ImmediateContext, cmdPacket.DrawCount, cmdPacket.ArgsBuffer, cmdPacket.BufferAlignmentInBytes, cmdPacket.ArgumentsSizeInBytes );
+            } else
 #endif
 
 #if DUSK_USE_AGS
 			if ( renderContext->IsAmdAgsLoaded ) {
 				agsDriverExtensionsDX11_MultiDrawIndexedInstancedIndirect( renderContext->AgsContext, renderContext->ImmediateContext, cmdPacket.DrawCount, cmdPacket.ArgsBuffer, cmdPacket.BufferAlignmentInBytes, cmdPacket.ArgumentsSizeInBytes );
-            }
+            } else
 #endif
+            {
+				for ( u32 i = 0; i < cmdPacket.DrawCount; i++ ) {
+                    renderContext->ImmediateContext->DrawIndexedInstancedIndirect( cmdPacket.ArgsBuffer, cmdPacket.BufferAlignmentInBytes + cmdPacket.ArgumentsSizeInBytes * i );
+				}
+            }
 			break;
         }
         };

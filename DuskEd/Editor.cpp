@@ -513,7 +513,7 @@ void Initialize( const char* cmdLineArgs )
 void BuildThisFrameGraph( FrameGraph& frameGraph, const Material::RenderScenario scenario, const dkVec2f& viewportSize )
 {
     // Append the regular render pipeline.
-    ResHandle_t presentRt = g_WorldRenderer->buildDefaultGraph( frameGraph, scenario, viewportSize );
+    ResHandle_t presentRt = g_WorldRenderer->buildDefaultGraph( frameGraph, scenario, viewportSize, g_RenderWorld );
 
     // Render editor grid.
     presentRt = g_EditorGridModule->addEditorGridPass( frameGraph, presentRt, g_WorldRenderer->getResolvedDepth() );

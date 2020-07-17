@@ -133,6 +133,8 @@ void FbxParser::load( const char* filePath )
     
     parsedModel->ModelPath = WideStringToString(workingDir) + filePath;
     parsedModel->ModelPath = dk::core::SimplifyPath( parsedModel->ModelPath );
+    
+    parsedModel->ModelName = dk::core::GetFilenameOnlyFromPath( StringToWideString( parsedModel->ModelPath ) );
 
     parsedModel->LodCount = 1;
     

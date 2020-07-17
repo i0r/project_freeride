@@ -54,6 +54,8 @@ lib AtmosphereBruneton {
     
     shared {
         #include <AtmosphereFunctions.hlsli>
+        #include <ColorSpaces.hlsli>
+        
         RadianceSpectrum GetSkyRadiance(
             IN_BRUNETON(AtmosphereParameters) atmosphere,
             IN_BRUNETON(TransmittanceTexture) transmittance_texture,
@@ -245,7 +247,6 @@ lib AtmosphereBruneton {
             color.rgb = lerp( color.rgb, transmittance * GetSolarRadiance() * 0.001f, sunGradient );
     #endif
 
-            color.rgb = pow(float3(1, 1, 1) - exp(-color / WhitePoint), (1.0 / 2.2));
             return color;
         }
     }
@@ -283,7 +284,7 @@ lib AtmosphereBruneton {
         float3 upShift = mul(yPixelCoordShifted, -ParamUpVector);
         float3 viewDirection =  normalize(ParamViewDirection + rightShift + upShift).xzy;
 
-        OutputRenderTarget[$SV_DispatchThreadId.xy] = GetSkyColor( ParamWorldPosition, viewDirection );
+        OutputRenderTarget[$SV_DispatchThreadId.xy] = EncodeRGBD( GetSkyColor( ParamWorldPosition, viewDirection ).rgb );
     }
     
     pass BrunetonSky {

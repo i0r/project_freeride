@@ -26,6 +26,8 @@ lib IBL {
     }
     
     shared {
+        #include <ColorSpaces.hlsli>
+        
         float3 ThreadIDToDir(uint2 cubeCoord, uint cubeFace, float2 cubemapSize)
         {
             float2 texCoord = float2( cubeCoord ) / cubemapSize;
@@ -108,7 +110,7 @@ lib IBL {
                 // Spherical to World Space in two steps...
                 float3 tempVec = cos(phi) * right + sin(phi) * up;
                 float3 sampleVector = cos(theta) * N + sin(theta) * tempVec;
-                color += EnvironmentCube.SampleLevel(TrilinearSampler, sampleVector, 0).rgb * cos(theta) * sin(theta);
+                color += DecodeRGBD( EnvironmentCube.SampleLevel(TrilinearSampler, sampleVector, 0) ) * cos(theta) * sin(theta);
                 sampleCount++;
             }
         }
@@ -119,7 +121,7 @@ lib IBL {
     shader FilterCubeFaceR0CS {
         uint2 texelPos = $SV_DispatchThreadID.xy;
         float3 R = ThreadIDToDir( texelPos, CubeFace, float2( WidthActiveMip, WidthActiveMip ) );
-        FilteredCubeFace[texelPos] = float4( EnvironmentCube.SampleLevel(TrilinearSampler, R, 0).rgb, 1.0f );
+        FilteredCubeFace[texelPos] = float4( DecodeRGBD( EnvironmentCube.SampleLevel(TrilinearSampler, R, 0) ), 1.0f );
     }
     
     shader FilterCubeFaceCS {
@@ -157,7 +159,7 @@ lib IBL {
                 float omegaP = 4.0 * PI / (6.0 * PROBE_FACE_SIZE * PROBE_FACE_SIZE);
                 // Mip level is determined by the ratio of our sample's solid angle to a texel's solid angle
                 float mipLevel = max(0.5 * log2(omegaS / omegaP), 0.0);
-                prefilteredColor += EnvironmentCube.SampleLevel(TrilinearSampler, L, mipLevel).rgb * NoL;
+                prefilteredColor += DecodeRGBD( EnvironmentCube.SampleLevel(TrilinearSampler, L, mipLevel) ) * NoL;
                 totalWeight += NoL;
             }
         }

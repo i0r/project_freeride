@@ -29,6 +29,7 @@ DUSK_INLINE static bool IsReadOnlyResourceType( const TypeAST::ePrimitiveType ty
         || type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_ROIMAGE1D_ARRAY
         || type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_ROIMAGE2D_ARRAY
 		|| type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_SAMPLER
+		|| type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_SAMPLER_COMPARISON
 		|| type == TypeAST::ePrimitiveType::PRIMITIVE_TYPE_RAWBUFFER;
 }
 
@@ -282,7 +283,7 @@ static DUSK_INLINE void WriteResourceList( const TypeAST* resourceList, const Ty
             // and then inc. the current index within the register space
             // TODO Support SM6.0 shader/register spaces (maybe try to create two hlsl sources with different
             // feature level?)
-            if ( primType == TypeAST::PRIMITIVE_TYPE_SAMPLER ) {
+            if ( primType == TypeAST::PRIMITIVE_TYPE_SAMPLER || primType == TypeAST::PRIMITIVE_TYPE_SAMPLER_COMPARISON ) {
                 registerAddr.append( "s" );
                 registerAddr.append( std::to_string( samplerRegisterIdx++ ) );
             } else {
@@ -961,7 +962,7 @@ void RenderLibraryGenerator::generateResourceMetadata( RenderPassInfos& passInfo
         generatedMetadata.append( "_Output {\n" );
 
         for ( u32 resIdx : outputResIndexes ) {
-            if ( resourceListNode->Types[resIdx]->PrimitiveType == TypeAST::PRIMITIVE_TYPE_SAMPLER ) {
+            if ( resourceListNode->Types[resIdx]->PrimitiveType == TypeAST::PRIMITIVE_TYPE_SAMPLER  || resourceListNode->Types[resIdx]->PrimitiveType == TypeAST::PRIMITIVE_TYPE_SAMPLER_COMPARISON ) {
                 continue;
             }
 
@@ -1145,7 +1146,8 @@ void RenderLibraryGenerator::appendSharedShaderHeader( std::string& hlslSource )
     hlslSource.append( "\tfloat4x4         g_ViewProjectionMatrix;\n" );
     hlslSource.append( "\tfloat4x4         g_InverseViewProjectionMatrix;\n" );
     hlslSource.append( "\tfloat4x4         g_PreviousViewProjectionMatrix;\n" );
-    hlslSource.append( "\tfloat4x4         g_OrthoProjectionMatrix;\n" );
+	hlslSource.append( "\tfloat4x4         g_OrthoProjectionMatrix;\n" );
+	hlslSource.append( "\tfloat4x4         g_ViewMatrix;\n" );
     hlslSource.append( "\tfloat2           g_ScreenSize;\n" );
     hlslSource.append( "\tfloat2           g_InverseScreenSize;\n" );
     hlslSource.append( "\tfloat3           g_WorldPosition;\n" );

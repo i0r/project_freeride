@@ -38,6 +38,9 @@ struct CameraData
     dkVec3f     rightVector;
     f32         aspectRatio;
 
+    f32         depthNearPlane;
+	f32         depthFarPlane;
+
     f32         nearPlane;
     f32         farPlane;
 
@@ -55,11 +58,6 @@ struct CameraData
     // Shadow mapping rendering specifics
     dkMat4x4f  depthProjectionMatrix;
     dkMat4x4f  depthViewProjectionMatrix;
-    dkVec4f    cascadeOffsets[4];
-    dkVec4f    cascadeScales[4];
-    float      cascadeSplitDistances[4];
-    dkMat4x4f  shadowViewMatrix[4];
-    dkMat4x4f  globalShadowMatrix;
 
     // Temporal infos
     dkMat4x4f  previousViewProjectionMatrix;

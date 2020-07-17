@@ -179,7 +179,8 @@ void Material::bindForScenario( const RenderScenario scenario, CommandList* cmdL
         DefaultPipelineState.InputLayout.Entry[2] = { 0, VIEW_FORMAT_R32G32_FLOAT, 0, 2, 0, true, "TEXCOORD" };
         DefaultPipelineState.depthClearValue = 0.0f;
 
-        DefaultPipelineState.addStaticSampler( RenderingHelpers::S_BilinearWrap );
+		DefaultPipelineState.addStaticSampler( RenderingHelpers::S_BilinearWrap );
+		DefaultPipelineState.addStaticSampler( RenderingHelpers::S_TrilinearComparisonClampEdge );
 
         // Retrieve the appropriate shader binding for the given scenario.
         const PipelineStateCache::ShaderBinding& shaderBinding = getScenarioShaderBinding( scenario );

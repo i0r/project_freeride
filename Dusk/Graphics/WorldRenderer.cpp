@@ -104,6 +104,7 @@ WorldRenderer::WorldRenderer( BaseAllocator* allocator )
     , memoryAllocator( allocator )
     , primitiveCache( dk::core::allocate<PrimitiveCache>( allocator ) )
     , drawCmdAllocator( dk::core::allocate<LinearAllocator>( allocator, sizeof( DrawCmd ) * MAX_DRAW_CMD_COUNT, allocator->allocate( sizeof( DrawCmd ) * MAX_DRAW_CMD_COUNT ) ) )
+	, gpuShadowCullAllocator( dk::core::allocate<LinearAllocator>( allocator, sizeof( GPUShadowDrawCmd )* MAX_DRAW_CMD_COUNT, allocator->allocate( sizeof( GPUShadowDrawCmd )* MAX_DRAW_CMD_COUNT ) ) )
     , frameGraph( nullptr )
     , frameDrawCmds( dk::core::allocateArray<DrawCmd>( allocator, sizeof( DrawCmd )* MAX_DRAW_CMD_COUNT ) )
     , needResourcePrecompute( true )
@@ -112,7 +113,7 @@ WorldRenderer::WorldRenderer( BaseAllocator* allocator )
     , lightGrid( dk::core::allocate<LightGrid>( allocator, allocator ) )
     , resolvedDepth( 0u )
     , environmentProbeStreaming( dk::core::allocate<EnvironmentProbeStreaming>( allocator, allocator ) )
-    , cascadedShadowMapRendering( dk::core::allocate<CascadedShadowRenderModule>( allocator ) )
+    , cascadedShadowMapRendering( dk::core::allocate<CascadedShadowRenderModule>( allocator, allocator ) )
 {
 
 }
@@ -125,7 +126,8 @@ WorldRenderer::~WorldRenderer()
 	dk::core::free( memoryAllocator, atmosphereRendering );
     dk::core::free( memoryAllocator, WorldRendering );
     dk::core::free( memoryAllocator, primitiveCache );
-    dk::core::free( memoryAllocator, drawCmdAllocator );
+	dk::core::free( memoryAllocator, drawCmdAllocator );
+	dk::core::free( memoryAllocator, gpuShadowCullAllocator );
     dk::core::free( memoryAllocator, frameGraph );
     dk::core::free( memoryAllocator, frameDrawCmds );
     dk::core::free( memoryAllocator, lightGrid );
@@ -230,6 +232,7 @@ void WorldRenderer::drawWorld( RenderDevice* renderDevice, const f32 deltaTime )
 
     // Reset DrawCmd Pool.
     drawCmdAllocator->clear();
+    gpuShadowCullAllocator->clear();
 }
 
 DrawCmd& WorldRenderer::allocateDrawCmd()
@@ -255,6 +258,11 @@ DrawCmd& WorldRenderer::allocateSpherePrimitiveDrawCmd()
     return cmd;
 }
 
+GPUShadowDrawCmd& WorldRenderer::allocateGPUShadowCullDrawCmd()
+{
+	return *dk::core::allocate<GPUShadowDrawCmd>( gpuShadowCullAllocator );
+}
+
 FrameGraph& WorldRenderer::prepareFrameGraph( const Viewport& viewport, const ScissorRegion& scissor, const CameraData* camera /*= nullptr */ )
 {
     FrameGraph& graph = *frameGraph;
@@ -274,7 +282,7 @@ const Material* WorldRenderer::getWireframeMaterial() const
     return wireframeMaterial;
 }
 
-ResHandle_t WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Material::RenderScenario scenario, const dkVec2f& viewportSize )
+ResHandle_t WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Material::RenderScenario scenario, const dkVec2f& viewportSize, RenderWorld* renderWorld )
 {
     f32 imageQuality = frameGraph.getImageQuality();
     u32 msaaSamplerCount = frameGraph.getMSAASamplerCount();
@@ -295,11 +303,12 @@ ResHandle_t WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Mate
         resolvedDepth = AddSSAAResolveRenderPass( frameGraph, resolvedDepth, true );
     }
 
-    // Depth reduction
-    cascadedShadowMapRendering->captureShadowMap( frameGraph, resolvedDepth, viewportSize, *lightGrid->getDirectionalLightData() );
+    cascadedShadowMapRendering->submitGPUShadowCullCmds( static_cast<GPUShadowDrawCmd*>( gpuShadowCullAllocator->getBaseAddress() ), gpuShadowCullAllocator->getAllocationCount() );
+
+    cascadedShadowMapRendering->captureShadowMap( frameGraph, resolvedDepth, viewportSize, *lightGrid->getDirectionalLightData(), renderWorld );
 
     // LightPass.
-    WorldRenderModule::LightPassOutput primRenderPass = WorldRendering->addPrimitiveLightPass( frameGraph, lightGridData.PerSceneBuffer, prepassTarget, scenario, environmentProbeStreaming->getReadDistantProbeIrradiance(), environmentProbeStreaming->getReadDistantProbeRadiance() );
+    WorldRenderModule::LightPassOutput primRenderPass = WorldRendering->addPrimitiveLightPass( frameGraph, lightGridData.PerSceneBuffer, prepassTarget, scenario, environmentProbeStreaming->getReadDistantProbeIrradiance(), environmentProbeStreaming->getReadDistantProbeRadiance(), cascadedShadowMapRendering->getGlobalShadowMatrix() );
     
     primRenderPass.OutputRenderTarget = atmosphereRendering->renderAtmosphere( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
 

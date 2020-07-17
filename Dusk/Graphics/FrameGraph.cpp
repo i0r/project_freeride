@@ -662,7 +662,8 @@ FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevi
     perViewData.ViewProjectionMatrix = dkMat4x4f::Identity;
     perViewData.InverseViewProjectionMatrix = dkMat4x4f::Identity;
     perViewData.PreviousViewProjectionMatrix = dkMat4x4f::Identity;
-    perViewData.OrthoProjectionMatrix = dkMat4x4f::Identity;
+	perViewData.OrthoProjectionMatrix = dkMat4x4f::Identity;
+	perViewData.ViewMatrix = dkMat4x4f::Identity;
     perViewData.ViewportSize = dkVec2f( 0.0f, 0.0f );
     perViewData.InverseViewportSize = dkVec2f( 0.0f, 0.0f );
     perViewData.WorldPosition = dkVec3f( 0.0f, 0.0f, 0.0f );
@@ -744,6 +745,7 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
         perViewData.InverseViewProjectionMatrix = activeCamera->inverseViewProjectionMatrix;
         perViewData.PreviousViewProjectionMatrix = activeCamera->previousViewProjectionMatrix;
         perViewData.OrthoProjectionMatrix = dk::maths::MakeOrtho( 0.0f, activeCamera->viewportSize.x, activeCamera->viewportSize.y, 0.0f, -1.0f, 1.0f );
+        perViewData.ViewMatrix = activeCamera->viewMatrix;
         perViewData.ViewportSize = activeCamera->viewportSize;
         perViewData.InverseViewportSize = activeCamera->inverseViewportSize;
         perViewData.WorldPosition = activeCamera->worldPosition;

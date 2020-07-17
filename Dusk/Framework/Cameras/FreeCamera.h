@@ -45,7 +45,7 @@ public:
     void            save( FileSystemObject* stream );
     void            restore( FileSystemObject* stream );
 
-    void            setProjectionMatrix( const f32 fieldOfView, const f32 screenWidth, f32 screenHeight, const f32 zNear = 0.01f );
+    void            setProjectionMatrix( const f32 fieldOfView, const f32 screenWidth, f32 screenHeight, const f32 zNear = 1.0f );
 
     void            moveForward( const f32 dt );
     void            moveBackward( const f32 dt );

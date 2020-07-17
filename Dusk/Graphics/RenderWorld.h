@@ -22,6 +22,12 @@ public:
     static constexpr i32 MAX_MODEL_COUNT = 1024;
 
 public:
+    DUSK_INLINE GPUShadowBatchInfos* getGpuShadowBatchesData() const { return gpuShadowBatches; }
+    DUSK_INLINE u32                  getGpuShadowBatchCount() const { return gpuShadowMeshCount; }
+    DUSK_INLINE Buffer*              getShadowVertexBuffer() const { return shadowCasterVertexBuffer; }
+    DUSK_INLINE Buffer*              getShadowIndiceBuffer() const { return shadowCasterIndexBuffer; }
+
+public:
                     RenderWorld( BaseAllocator* allocator );
                     RenderWorld( RenderWorld& ) = default;
                     ~RenderWorld();
@@ -35,15 +41,6 @@ public:
     Model*          addAndCommitParsedDynamicModel( RenderDevice* renderDevice, ParsedModel& parsedModel, GraphicsAssetCache* graphicsAssetCache );
 
     void            update( RenderDevice* renderDevice );
-    
-private:
-    // Entry of a single mesh in the large shared vertex/index buffer.
-    struct GPUShadowBatchInfos {
-        u32 VertexBufferOffset;
-        u32 VertexBufferCount;
-        u32 IndiceBufferOffset;
-        u32 IndiceBufferCount;
-    };
     
 private:
     // The memory allocator owning this instance.
@@ -99,6 +96,6 @@ private:
     GPUShadowBatchInfos* gpuShadowBatches;
     
 private:
-    // Allocate or reuse a GPUShadowBatchInfos from gpuShadowBatches (allocation is done if there is no freenode/suitable node).
-    GPUShadowBatchInfos& allocateGpuMeshInfos( const u32 vertexCount, const u32 indiceCount );
+	// Allocate or reuse a GPUShadowBatchInfos from gpuShadowBatches (allocation is done if there is no freenode/suitable node).
+    i32                 allocateGpuMeshInfos( GPUShadowBatchInfos& allocatedBatch, const u32 vertexCount, const u32 indiceCount );
 };

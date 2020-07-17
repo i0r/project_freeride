@@ -849,6 +849,22 @@ namespace RenderingHelpers
         eComparisonFunction::COMPARISON_FUNCTION_ALWAYS
     );
 
+	static constexpr SamplerDesc S_TrilinearComparisonClampBorder = SamplerDesc(
+		eSamplerFilter::SAMPLER_FILTER_COMPARISON_TRILINEAR,
+		eSamplerAddress::SAMPLER_ADDRESS_CLAMP_BORDER,
+		eSamplerAddress::SAMPLER_ADDRESS_CLAMP_BORDER,
+		eSamplerAddress::SAMPLER_ADDRESS_CLAMP_BORDER,
+		eComparisonFunction::COMPARISON_FUNCTION_LEQUAL
+	);
+
+	static constexpr SamplerDesc S_TrilinearComparisonClampEdge = SamplerDesc(
+		eSamplerFilter::SAMPLER_FILTER_COMPARISON_TRILINEAR,
+		eSamplerAddress::SAMPLER_ADDRESS_CLAMP_EDGE,
+		eSamplerAddress::SAMPLER_ADDRESS_CLAMP_EDGE,
+		eSamplerAddress::SAMPLER_ADDRESS_CLAMP_EDGE,
+		eComparisonFunction::COMPARISON_FUNCTION_LEQUAL
+	);
+
     // Buffer View
     static constexpr BufferViewDesc BV_WholeBuffer = BufferViewDesc();
 
