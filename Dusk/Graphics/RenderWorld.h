@@ -22,7 +22,7 @@ public:
     static constexpr i32 MAX_MODEL_COUNT = 1024;
 
 public:
-    DUSK_INLINE GPUShadowBatchInfos* getGpuShadowBatchesData() const { return gpuShadowBatches; }
+    DUSK_INLINE MeshConstants*       getGpuShadowBatchesData() const { return gpuShadowBatches; }
     DUSK_INLINE u32                  getGpuShadowBatchCount() const { return gpuShadowMeshCount; }
     DUSK_INLINE Buffer*              getShadowVertexBuffer() const { return shadowCasterVertexBuffer; }
     DUSK_INLINE Buffer*              getShadowIndiceBuffer() const { return shadowCasterIndexBuffer; }
@@ -93,9 +93,16 @@ private:
     u32             gpuShadowFreeListLength;
     
     // CPU copy of entries describing the data stored in the gpu shadow vertex buffer.
-    GPUShadowBatchInfos* gpuShadowBatches;
+    MeshConstants* gpuShadowBatches;
+    
+    // GPU instance of gpuShadowBatches.
+    Buffer*         gpuMeshInfos;
+    
+    bool            isGpuMeshInfosDirty;
     
 private:
 	// Allocate or reuse a GPUShadowBatchInfos from gpuShadowBatches (allocation is done if there is no freenode/suitable node).
-    i32                 allocateGpuMeshInfos( GPUShadowBatchInfos& allocatedBatch, const u32 vertexCount, const u32 indiceCount );
+    i32                 allocateGpuMeshInfos( MeshConstants& allocatedBatch, const u32 vertexCount, const u32 indiceCount );
+
+    void                createMeshClusters( const MeshConstants& allocatedBatch, const u32 indexCount, const f32* vertices, const u32* indices );
 };

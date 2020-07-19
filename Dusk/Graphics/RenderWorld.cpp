@@ -14,6 +14,9 @@
 #include <Graphics/Material.h>
 #include <Graphics/GraphicsAssetCache.h>
 
+#include <array>
+#include <vector>
+
 static constexpr i32 MAX_VERTEX_COUNT = 10000 * RenderWorld::MAX_MODEL_COUNT;
 
 RenderWorld::RenderWorld( BaseAllocator* allocator )
@@ -38,10 +41,12 @@ RenderWorld::RenderWorld( BaseAllocator* allocator )
     , indiceBufferUsageOfffset( 0u )
     , gpuShadowMeshCount( 0u )
     , gpuShadowFreeListLength( 0u )
-    , gpuShadowBatches( dk::core::allocateArray<GPUShadowBatchInfos>( allocator, MAX_MODEL_COUNT ) )
+    , gpuShadowBatches( dk::core::allocateArray<MeshConstants>( allocator, MAX_MODEL_COUNT ) )
+    , gpuMeshInfos( nullptr )
+    , isGpuMeshInfosDirty( false )
 {
     memset( modelList, 0, sizeof( Model* ) * MAX_MODEL_COUNT );
-    memset( gpuShadowBatches, 0, sizeof( GPUShadowBatchInfos ) * MAX_MODEL_COUNT );
+    memset( gpuShadowBatches, 0, sizeof( MeshConstants ) * MAX_MODEL_COUNT );
 }
 
 RenderWorld::~RenderWorld()
@@ -70,6 +75,14 @@ void RenderWorld::create( RenderDevice& renderDevice )
 
     shadowCasterIndexBuffer = renderDevice.createBuffer( shadowIbDesc );
 
+    BufferDesc meshInfosBufferDesc;
+    meshInfosBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
+    meshInfosBufferDesc.BindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_STRUCTURED_BUFFER;
+    meshInfosBufferDesc.SizeInBytes = sizeof( MeshConstants ) * MAX_MODEL_COUNT;
+    meshInfosBufferDesc.StrideInBytes = sizeof( MeshConstants );
+    
+    gpuMeshInfos = renderDevice.createBuffer( meshInfosBufferDesc );
+    
 #if DUSK_DEVBUILD
 	renderDevice.setDebugMarker( *shadowCasterVertexBuffer, DUSK_STRING( "Shadow Casters VertexBuffer" ) );
 	renderDevice.setDebugMarker( *shadowCasterIndexBuffer, DUSK_STRING( "Shadow Casters IndexBuffer" ) );
@@ -86,6 +99,11 @@ void RenderWorld::destroy( RenderDevice& renderDevice )
     if ( shadowCasterIndexBuffer != nullptr ) {
         renderDevice.destroyBuffer( shadowCasterIndexBuffer );
         shadowCasterIndexBuffer = nullptr;
+    }
+    
+    if ( gpuMeshInfos != nullptr ) {
+        renderDevice.destroyBuffer( gpuMeshInfos );
+        gpuMeshInfos = nullptr;
     }
 }
 
@@ -107,17 +125,21 @@ Model* RenderWorld::addAndCommitParsedDynamicModel( RenderDevice* renderDevice, 
             const bool meshCanCastShadows = ( mesh.PositionVertices != nullptr && mesh.Indices != nullptr );
 			if ( mesh.RenderMaterial->castShadow() && meshCanCastShadows ) {
 				// Allocate data for GPU-driven shadow rendering.
-                GPUShadowBatchInfos meshBatchInfos;
-                mesh.ShadowGPUBatchEntryIndex = allocateGpuMeshInfos( meshBatchInfos, mesh.VertexCount, mesh.IndiceCount );
+                MeshConstants meshInfos;
+                mesh.ShadowGPUBatchEntryIndex = allocateGpuMeshInfos( meshInfos, mesh.VertexCount, mesh.IndiceCount );
 
-			    memcpy( &vertexBufferData[meshBatchInfos.VertexBufferOffset], mesh.PositionVertices, sizeof( dkVec3f ) * mesh.VertexCount );
-				memcpy( &indiceBufferData[meshBatchInfos.IndiceBufferOffset], mesh.Indices, sizeof( u32 ) * mesh.IndiceCount );
+                // Update CPU Buffers and mark dirty ranges for the next GPU buffers update.
+			    memcpy( &vertexBufferData[meshInfos.VertexOffset], mesh.PositionVertices, sizeof( dkVec3f ) * meshInfos.VertexCount );
+				memcpy( &indiceBufferData[meshInfos.IndexOffset], mesh.Indices, sizeof( u32 ) * 3 * meshInfos.FaceCount );
 
-				vertexBufferDirtyOffset = Min( vertexBufferDirtyOffset, meshBatchInfos.VertexBufferOffset );
-				vertexBufferDirtyLength = Max( vertexBufferDirtyLength, ( meshBatchInfos.VertexBufferOffset + meshBatchInfos.VertexBufferCount ) );
+				vertexBufferDirtyOffset = Min( vertexBufferDirtyOffset, meshInfos.VertexOffset );
+				vertexBufferDirtyLength = Max( vertexBufferDirtyLength, ( meshInfos.VertexOffset + meshInfos.VertexCount ) );
 
-				indiceBufferDirtyOffset = Min( indiceBufferDirtyOffset, meshBatchInfos.IndiceBufferOffset );
-				indiceBufferDirtyLength = Max( indiceBufferDirtyLength, ( meshBatchInfos.IndiceBufferOffset + meshBatchInfos.IndiceBufferCount ) );
+				indiceBufferDirtyOffset = Min( indiceBufferDirtyOffset, meshInfos.IndexOffset );
+				indiceBufferDirtyLength = Max( indiceBufferDirtyLength, ( meshInfos.IndexOffset + 3 * meshInfos.FaceCount ) );
+            
+                // Create clusters for this mesh.
+                createMeshClusters( meshInfos, mesh.IndiceCount, mesh.PositionVertices, mesh.Indices );
             }
         }
     }
@@ -159,26 +181,33 @@ void RenderWorld::update( RenderDevice* renderDevice )
         }
     }
 
+    if ( isGpuMeshInfosDirty ) {
+        // TODO Use range update instead?
+        cmdList.updateBuffer( *gpuMeshInfos, gpuShadowBatches, sizeof( MeshConstants ) * MAX_MODEL_COUNT );
+    }
+
     cmdList.end();
     renderDevice->submitCommandList( cmdList );
 }
 
-i32 RenderWorld::allocateGpuMeshInfos( GPUShadowBatchInfos& allocatedBatch, const u32 vertexCount, const u32 indiceCount )
+i32 RenderWorld::allocateGpuMeshInfos( MeshConstants& allocatedBatch, const u32 vertexCount, const u32 indiceCount )
 {
+    const u32 faceCount = ( indiceCount / 3 );
+    
     // Check if one of the freelist entry is suitable for our allocation.
     // Free batch infos are stored at the end of the array.
     i32 freeListEnd = ( gpuShadowMeshCount + gpuShadowFreeListLength );
     for ( i32 i = gpuShadowMeshCount; i < freeListEnd; i++ ) {
-        if ( gpuShadowBatches[i].VertexBufferCount >= ( vertexCount * 3 )
-          && gpuShadowBatches[i].IndiceBufferCount >= indiceCount ) {
-            GPUShadowBatchInfos& batch = gpuShadowBatches[i];
+        if ( gpuShadowBatches[i].VertexCount >= ( vertexCount * 3 )
+          && gpuShadowBatches[i].FaceCount >= faceCount ) {
+            MeshConstants& batch = gpuShadowBatches[i];
             
             // We don't need to swap anything if the free node is the first node of the list
             const bool skipSwap = ( gpuShadowFreeListLength == i || gpuShadowFreeListLength == 1 );
             
             if ( !skipSwap ) {
                 // Move the free node at the end of the data array (to keep things continous).
-                GPUShadowBatchInfos batchDst = gpuShadowBatches[gpuShadowMeshCount];         
+                MeshConstants batchDst = gpuShadowBatches[gpuShadowMeshCount];         
                 gpuShadowBatches[gpuShadowMeshCount] = gpuShadowBatches[i];
                 gpuShadowBatches[i] = batchDst;      
 
@@ -196,23 +225,132 @@ i32 RenderWorld::allocateGpuMeshInfos( GPUShadowBatchInfos& allocatedBatch, cons
     
     // Swap nodes to keep the first node of the freelist.
     if ( gpuShadowFreeListLength > 0 ) {
-        GPUShadowBatchInfos batchDst = gpuShadowBatches[gpuShadowMeshCount];         
+        MeshConstants batchDst = gpuShadowBatches[gpuShadowMeshCount];         
         gpuShadowBatches[gpuShadowMeshCount] = gpuShadowBatches[freeListEnd];
         gpuShadowBatches[freeListEnd] = batchDst;      
     }
     
     // Allocate a new batch info.
     const i32 allocatedBatchIndex = gpuShadowMeshCount;
-    GPUShadowBatchInfos& meshBatchInfos = gpuShadowBatches[gpuShadowMeshCount++];
-    meshBatchInfos.VertexBufferOffset = vertexBufferUsageOfffset;
-    meshBatchInfos.VertexBufferCount = vertexCount * 3;
-    meshBatchInfos.IndiceBufferOffset = indiceBufferUsageOfffset;
-    meshBatchInfos.IndiceBufferCount = indiceCount;
+    MeshConstants& meshBatchInfos = gpuShadowBatches[gpuShadowMeshCount++];
+    meshBatchInfos.VertexOffset = vertexBufferUsageOfffset;
+    meshBatchInfos.VertexCount = vertexCount * 3;
+    meshBatchInfos.IndexOffset = indiceBufferUsageOfffset;
+    meshBatchInfos.FaceCount = faceCount;
 
 	allocatedBatch = meshBatchInfos;
 
-    vertexBufferUsageOfffset += meshBatchInfos.VertexBufferCount;
-    indiceBufferUsageOfffset += meshBatchInfos.IndiceBufferCount;
+    vertexBufferUsageOfffset += meshBatchInfos.VertexCount;
+    indiceBufferUsageOfffset += meshBatchInfos.FaceCount * 3;
+    
+    isGpuMeshInfosDirty = true;
     
     return allocatedBatchIndex;
+}
+
+void RenderWorld::createMeshClusters( const MeshConstants& allocatedBatch, const u32 indexCount, const f32* vertices, const u32* indices )
+{
+    constexpr i32 BATCH_SIZE = 4 * 64; // Should be a multiple of the wavefront size
+    constexpr i32 BATCH_COUNT = 1 * 384;
+
+    struct BasicTriangle {
+        dkVec3f Vertex[3];
+    };
+    
+    std::array<BasicTriangle, BATCH_SIZE * 3> triangleCache;
+
+    const i32 triangleCount = indexCount / 3;
+    const i32 clusterCount = (triangleCount + BATCH_SIZE - 1) / BATCH_SIZE;
+    
+    allocatedBatch.Clusters.resize(clusterCount);
+    for (i32 i = 0; i < clusterCount; ++i) {
+        const i32 clusterStart = i * BATCH_SIZE;
+        const i32 clusterEnd = Min( clusterStart + BATCH_SIZE, triangleCount);
+
+        const i32 clusterTriangleCount = clusterEnd - clusterStart;
+
+        // Load all triangles into our local cache
+        for (i32 triangleIndex = clusterStart; triangleIndex < clusterEnd; ++triangleIndex) {
+            triangleCache[triangleIndex - clusterStart].Vertex[0] = dkVec3f(
+                vertices[indices[triangleIndex * 3 + 0] * 3 + 0],
+                vertices[indices[triangleIndex * 3 + 0] * 3 + 1],
+                vertices[indices[triangleIndex * 3 + 0] * 3 + 2]
+            );
+
+            triangleCache[triangleIndex - clusterStart].Vertex[1] = dkVec3f(
+                vertices[indices[triangleIndex * 3 + 1] * 3 + 0],
+                vertices[indices[triangleIndex * 3 + 1] * 3 + 1],
+                vertices[indices[triangleIndex * 3 + 1] * 3 + 2]
+            );
+
+            triangleCache[triangleIndex - clusterStart].Vertex[2] = dkVec3f(
+                vertices[indices[triangleIndex * 3 + 2] * 3 + 0],
+                vertices[indices[triangleIndex * 3 + 2] * 3 + 1],
+                vertices[indices[triangleIndex * 3 + 2] * 3 + 2]
+            );
+        }
+
+        dkVec3f aabbMin = +dkVec3f::Max;
+        dkVec3f aabbMax = -dkVec3f::Max;
+        
+        dkVec3f coneAxis = dkVec3f::Zero;
+        
+        for (i32 triangleIndex = 0; triangleIndex < clusterTriangleCount; ++triangleIndex) {
+            const BasicTriangle& triangle = triangleCache[triangleIndex];
+            for (i32 j = 0; j < 3; ++j) {
+                aabbMin = dkVec3f::min(aabbMin, triangle.Vertex[j]);
+                aabbMax = dkVec3f::max(aabbMax, triangle.Vertex[j]);
+            }
+            
+            const dkVec3f triangleNormal = dkVec3f::cross( ( triangle.Vertex[1] - triangle.Vertex[0] ), ( triangle.Vertex[2] - triangle.Vertex[0] ) ).normalize();
+
+            coneAxis += -triangleNormal;
+        }
+
+        // This is the cosine of the cone opening angle - 1 means it's 0°,
+        // we're minimizing this value (at 0, it would mean the cone is 90°
+        // open)
+        f32 coneOpening = 1.0f;
+
+        dkVec3f center = ( aabbMin + aabbMax ) * 0.5f;
+        coneAxis = coneAxis.normalize();
+        
+        f32 t = -std::numeric_limits<f32>::infinity ();
+
+        // We nee a second pass to find the intersection of the line
+        // center + t * coneAxis with the plane defined by each
+        // triangle
+        for (i32 triangleIndex = 0; triangleIndex < clusterTriangleCount; ++triangleIndex) {
+            const BasicTriangle& triangle = triangleCache[triangleIndex];
+            
+            // Compute the triangle plane from the three vertices
+            const dkVec3f triangleNormal = dkVec3f::cross( ( triangle.Vertex[1] - triangle.Vertex[0] ), ( triangle.Vertex[2] - triangle.Vertex[0] ) ).normalize();
+            const f32 directionalPart = dkVec3f::dot( coneAxis, -triangleNormal );
+            
+            if ( directionalPart < 0.0f ) {
+                // No solution for this cluster - at least two triangles
+                // are facing each other
+                break;
+            }
+
+            // We need to intersect the plane with our cone ray which is
+            // center + t * coneAxis, and find the max
+            // t along the cone ray (which points into the empty
+            // space)
+            // See: https://en.wikipedia.org/wiki/Line%E2%80%93plane_intersection
+            
+            const f32 td = dkVec3f::dot( ( center - triangle.Vertex[0] ), triangleNormal ) / -directionalPart;
+            t = Max(t, td);
+
+            coneOpening = Min(coneOpening, directionalPart);
+        }
+
+        allocatedBatch.Clusters[i].AABBMax = aabbMax;
+        allocatedBatch.Clusters[i].AABBMin = aabbMin;
+
+        // cos (PI/2 - acos (coneOpening))
+        allocatedBatch.Clusters[i].ConeAngleCosine = sqrtf(1.0f - coneOpening * coneOpening);
+        allocatedBatch.Clusters[i].ConeCenter = center + coneAxis * t;
+        allocatedBatch.Clusters[i].ConeAxis = coneAxis;
+    }
 }

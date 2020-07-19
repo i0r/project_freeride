@@ -12,6 +12,8 @@
 
 // TODO Rename this header (which became somehow a garbage field)...
 #include "Atmosphere.h"
+
+#include <vector>
 #endif
 
 // Header shared between CPU and GPU. 
@@ -153,6 +155,46 @@ struct IBLProbeGPU
     float4x4  InverseModelMatrix;
 };
 DUSK_IS_MEMORY_ALIGNED_STATIC( IBLProbeGPU, 16 );
+
+struct SmallBatchDrawConstants
+{
+    float4x4  ModelMatrix;
+    uint      MeshEntryIndex;
+#ifdef __cplusplus
+    uint       __PADDING__[3];
+#endif
+};
+
+struct SmallBatchData
+{
+    uint    MeshIndex;
+    uint    IndexOffset;
+    uint    FaceCount;
+    uint    OutputIndexOffset;
+    uint    DrawIndex;
+    uint    DrawBatchStart;
+};
+
+struct MeshCluster 
+{
+    float3     AABBMin;
+    float3     AABBMax;
+    float3     ConeCenter;
+    float3     ConeAxis;
+    float      ConeAngleCosine;
+};
+
+struct MeshConstants
+{
+    uint    VertexCount;
+    uint    FaceCount;
+    uint    IndexOffset;
+    uint    VertexOffset;
+    
+#ifdef __cplusplus
+    std::vector<MeshCluster> Clusters;
+#endif
+};
 
 // Structure holding informations for GPU-driven scene submit.
 struct DrawCall

@@ -182,7 +182,7 @@ void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, ResHa
     CullPassOutput cullPassOutput = cullShadowCasters( frameGraph );
 
     // Batch Culled casters and build draw arguments buffer.
-    ResHandle_t batchesMatricesBuffer = batchDrawCalls( frameGraph, cullPassOutput, renderWorld->getGpuShadowBatchCount(), renderWorld->getGpuShadowBatchesData() );
+    ResHandle_t batchesMatricesBuffer = batchDrawCalls( frameGraph, cullPassOutput, renderWorld->getGpuShadowBatchCount(), nullptr /*renderWorld->getGpuShadowBatchesData() */);
 
 	// Render each CSM slice.
     struct PassData
