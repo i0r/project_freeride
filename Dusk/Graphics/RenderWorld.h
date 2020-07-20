@@ -104,5 +104,5 @@ private:
 	// Allocate or reuse a GPUShadowBatchInfos from gpuShadowBatches (allocation is done if there is no freenode/suitable node).
     i32                 allocateGpuMeshInfos( MeshConstants& allocatedBatch, const u32 vertexCount, const u32 indiceCount );
 
-    void                createMeshClusters( const MeshConstants& allocatedBatch, const u32 indexCount, const f32* vertices, const u32* indices );
+    void                createMeshClusters( MeshConstants& allocatedBatch, const u32 indexCount, const f32* vertices, const u32* indices );
 };

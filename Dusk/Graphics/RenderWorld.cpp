@@ -248,7 +248,7 @@ i32 RenderWorld::allocateGpuMeshInfos( MeshConstants& allocatedBatch, const u32 
     return allocatedBatchIndex;
 }
 
-void RenderWorld::createMeshClusters( const MeshConstants& allocatedBatch, const u32 indexCount, const f32* vertices, const u32* indices )
+void RenderWorld::createMeshClusters( MeshConstants& allocatedBatch, const u32 indexCount, const f32* vertices, const u32* indices )
 {
     constexpr i32 BATCH_SIZE = 4 * 64; // Should be a multiple of the wavefront size
     constexpr i32 BATCH_COUNT = 1 * 384;
@@ -290,7 +290,7 @@ void RenderWorld::createMeshClusters( const MeshConstants& allocatedBatch, const
             );
         }
 
-        dkVec3f aabbMin = +dkVec3f::Max;
+        dkVec3f aabbMin = dkVec3f::Max;
         dkVec3f aabbMax = -dkVec3f::Max;
         
         dkVec3f coneAxis = dkVec3f::Zero;
