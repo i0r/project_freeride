@@ -62,6 +62,18 @@ private:
     ResHandle_t         batchDrawCalls( FrameGraph& frameGraph, CullPassOutput& cullPassOutput, const u32 gpuShadowCastersCount, GPUShadowBatchInfos* gpuShadowCasters );
 
 private:
+    struct BatchChunk {
+        // Output indice buffer filled with visible triangles.
+        Buffer* FilteredIndiceBuffer;
+
+        // Buffer holding batch data.
+        Buffer* BatchDataBuffer;
+
+        // Buffer holding draw arguments to render this chunk.
+        Buffer* DrawArgsBuffer;
+    };
+
+private:
 	BaseAllocator*      memoryAllocator;
 
     Buffer*             csmSliceInfosBuffer;
@@ -73,4 +85,6 @@ private:
     Image*              shadowSlices;
 
     dkMat4x4f           globalShadowMatrix;
+
+    BatchChunk*         batchChunks;
 };

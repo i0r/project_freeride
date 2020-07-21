@@ -7,13 +7,12 @@
 
 #ifdef __cplusplus
 #include "HLSLCppInterop.h"
+#include <vector>
 #else
 #define DUSK_IS_MEMORY_ALIGNED_STATIC( x, y )
 
 // TODO Rename this header (which became somehow a garbage field)...
 #include "Atmosphere.h"
-
-#include <vector>
 #endif
 
 // Header shared between CPU and GPU. 
