@@ -27,6 +27,8 @@
 
 #include "Maths/Frustum.h"
 
+#include <numeric>
+
 DUSK_ENV_VAR( ShadowMapResolution, 2048, u32 ); // Per-slice shadow map resolution.
 
 constexpr i32 BATCH_CHUNK_COUNT = 16; // Number of chunk for batch dispatch. Each chunk can be filled with multiple clusters.
@@ -111,7 +113,7 @@ CascadedShadowRenderModule::CascadedShadowRenderModule( BaseAllocator* allocator
 	, drawCallsAllocator( dk::core::allocate<LinearAllocator>( allocator, 4096 * sizeof( DrawCall ), allocator->allocate( 4096 * sizeof( DrawCall ) ) ) )
     , shadowSlices( nullptr )
     , globalShadowMatrix( dkMat4x4f::Identity )
-    , batchChunks( dk::core::allocateArray<BatchChunk>( allocator, BATCH_CHUNK_COUNT )
+    , batchChunks( dk::core::allocateArray<BatchChunk>( allocator, BATCH_CHUNK_COUNT ) )
 {
 
 }
@@ -171,11 +173,16 @@ void CascadedShadowRenderModule::loadCachedResources( RenderDevice& renderDevice
 
     shadowSlices = renderDevice.createImage( shadowSliceAtlas );
 
+    std::vector<i32> ids( BATCH_COUNT );
+    std::iota( ids.begin(), ids.end(), 0 );
+
     for ( i32 i = 0; i < BATCH_CHUNK_COUNT; ++i ) {
         BufferDesc filteredIndiceBufferDesc;
         filteredIndiceBufferDesc.BindFlags = RESOURCE_BIND_INDICE_BUFFER | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
         filteredIndiceBufferDesc.SizeInBytes = BATCH_COUNT * BATCH_SIZE * ( sizeof( i32 ) * 3 );
+        filteredIndiceBufferDesc.StrideInBytes = sizeof( i32 );
         filteredIndiceBufferDesc.Usage = RESOURCE_USAGE_DEFAULT;
+        filteredIndiceBufferDesc.DefaultView.ViewFormat = VIEW_FORMAT_R32_UINT;
 
         batchChunks[i].FilteredIndiceBuffer = renderDevice.createBuffer( filteredIndiceBufferDesc );
 
@@ -192,8 +199,25 @@ void CascadedShadowRenderModule::loadCachedResources( RenderDevice& renderDevice
         drawArgsBufferDesc.SizeInBytes = 5 * sizeof( u32 ) * BATCH_COUNT;
         drawArgsBufferDesc.StrideInBytes = 5 * sizeof( u32 );
         drawArgsBufferDesc.Usage = RESOURCE_USAGE_DEFAULT;
+        drawArgsBufferDesc.DefaultView.ViewFormat = VIEW_FORMAT_R32_UINT;
 
         batchChunks[i].DrawArgsBuffer = renderDevice.createBuffer( drawArgsBufferDesc );
+
+        BufferDesc drawCallArgsBufferDesc;
+        drawCallArgsBufferDesc.BindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_STRUCTURED_BUFFER;
+        drawCallArgsBufferDesc.SizeInBytes = BATCH_COUNT * sizeof( SmallBatchDrawConstants );
+        drawCallArgsBufferDesc.StrideInBytes = sizeof( SmallBatchDrawConstants );
+        drawCallArgsBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
+
+        batchChunks[i].DrawCallArgsBuffer = renderDevice.createBuffer( drawCallArgsBufferDesc );
+
+        BufferDesc instanceIdBufferDesc;
+        instanceIdBufferDesc.BindFlags = RESOURCE_BIND_VERTEX_BUFFER;
+        instanceIdBufferDesc.SizeInBytes = BATCH_COUNT * sizeof( i32 );
+        instanceIdBufferDesc.StrideInBytes = sizeof( i32 );
+        instanceIdBufferDesc.Usage = RESOURCE_USAGE_STATIC;
+
+        batchChunks[i].InstanceIdBuffer = renderDevice.createBuffer( instanceIdBufferDesc, ids.data() );
     }
 }
 
@@ -212,7 +236,7 @@ void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, ResHa
     CullPassOutput cullPassOutput = cullShadowCasters( frameGraph );
 
     // Batch Culled casters and build draw arguments buffer.
-    ResHandle_t batchesMatricesBuffer = batchDrawCalls( frameGraph, cullPassOutput, renderWorld->getGpuShadowBatchCount(), nullptr /*renderWorld->getGpuShadowBatchesData() */);
+    ResHandle_t batchesMatricesBuffer = batchDrawCalls( frameGraph, cullPassOutput, renderWorld->getGpuShadowBatchCount(), renderWorld->getGpuShadowBatchesData() );
 
 	// Render each CSM slice.
     struct PassData

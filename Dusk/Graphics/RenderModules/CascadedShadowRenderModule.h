@@ -71,6 +71,10 @@ private:
 
         // Buffer holding draw arguments to render this chunk.
         Buffer* DrawArgsBuffer;
+
+        Buffer* DrawCallArgsBuffer;
+
+        Buffer* InstanceIdBuffer;
     };
 
 private:
