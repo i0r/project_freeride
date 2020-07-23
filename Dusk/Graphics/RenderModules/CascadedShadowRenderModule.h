@@ -59,7 +59,7 @@ private:
 
     CullPassOutput      cullShadowCasters( FrameGraph& frameGraph );
 
-    ResHandle_t         batchDrawCalls( FrameGraph& frameGraph, CullPassOutput& cullPassOutput, const u32 gpuShadowCastersCount, GPUShadowBatchInfos* gpuShadowCasters );
+    ResHandle_t         batchDrawCalls( FrameGraph& frameGraph, CullPassOutput& cullPassOutput, const u32 gpuShadowCastersCount, MeshConstants* gpuShadowCasters );
 
 private:
     struct BatchChunk {
@@ -75,6 +75,9 @@ private:
         Buffer* DrawCallArgsBuffer;
 
         Buffer* InstanceIdBuffer;
+
+        // The number of draw call enqueued in this chunk (flushed during the frame rendering).
+        u32     EnqueuedDrawCallCount;
     };
 
 private:

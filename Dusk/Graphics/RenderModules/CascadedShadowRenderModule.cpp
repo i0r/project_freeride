@@ -218,6 +218,8 @@ void CascadedShadowRenderModule::loadCachedResources( RenderDevice& renderDevice
         instanceIdBufferDesc.Usage = RESOURCE_USAGE_STATIC;
 
         batchChunks[i].InstanceIdBuffer = renderDevice.createBuffer( instanceIdBufferDesc, ids.data() );
+
+        batchChunks[i].EnqueuedDrawCallCount = 0;
     }
 }
 
@@ -336,7 +338,7 @@ void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, ResHa
     frameGraph.importPersistentImage( SliceImageHashcode, shadowSlices );
 }
 
-ResHandle_t CascadedShadowRenderModule::batchDrawCalls( FrameGraph& frameGraph, CullPassOutput& cullPassOutput, const u32 gpuShadowCastersCount, GPUShadowBatchInfos* gpuShadowCasters )
+ResHandle_t CascadedShadowRenderModule::batchDrawCalls( FrameGraph& frameGraph, CullPassOutput& cullPassOutput, const u32 gpuShadowCastersCount, MeshConstants* gpuShadowCasters )
 {
 	struct PassData
 	{
