@@ -19,6 +19,7 @@
 #include "Generated/DepthPyramid.generated.h"
 #include "Generated/ShadowSetup.generated.h"
 #include "Generated/SceneCulling.generated.h"
+#include "Generated/Culling.generated.h"
 #include "Generated/ShadowRendering.generated.h"
 
 #include "WorldRenderModule.h"
@@ -121,12 +122,25 @@ CascadedShadowRenderModule::CascadedShadowRenderModule( BaseAllocator* allocator
 CascadedShadowRenderModule::~CascadedShadowRenderModule()
 {
     dk::core::free( memoryAllocator, drawCallsAllocator );
+    dk::core::freeArray( memoryAllocator, batchChunks );
 
     csmSliceInfosBuffer = nullptr;
 }
 
 void CascadedShadowRenderModule::destroy( RenderDevice& renderDevice )
 {
+    for ( i32 i = 0; i < BATCH_CHUNK_COUNT; ++i ) {
+        BatchChunk& chunk = batchChunks[i];
+        renderDevice.destroyBuffer( chunk.FilteredIndiceBuffer );
+        renderDevice.destroyBuffer( chunk.BatchDataBuffer );
+        renderDevice.destroyBuffer( chunk.DrawArgsBuffer );
+        renderDevice.destroyBuffer( chunk.DrawCallArgsBuffer );
+        renderDevice.destroyBuffer( chunk.InstanceIdBuffer );
+
+        dk::core::freeArray( memoryAllocator, chunk.BatchData );
+        dk::core::freeArray( memoryAllocator, chunk.DrawCallArgs );
+    }
+
     if ( csmSliceInfosBuffer != nullptr ) {
         renderDevice.destroyBuffer( csmSliceInfosBuffer );
         csmSliceInfosBuffer = nullptr;
@@ -220,6 +234,10 @@ void CascadedShadowRenderModule::loadCachedResources( RenderDevice& renderDevice
         batchChunks[i].InstanceIdBuffer = renderDevice.createBuffer( instanceIdBufferDesc, ids.data() );
 
         batchChunks[i].EnqueuedDrawCallCount = 0;
+        batchChunks[i].BatchCount = 0;
+
+        batchChunks[i].BatchData = dk::core::allocateArray<SmallBatchData>( memoryAllocator, BATCH_COUNT );
+        batchChunks[i].DrawCallArgs = dk::core::allocateArray<SmallBatchDrawConstants>( memoryAllocator, BATCH_COUNT );
     }
 }
 
@@ -230,6 +248,10 @@ void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, ResHa
     
     // Compute shadow matrices for each csm slice.
     setupParameters( frameGraph, depthMinMax, directionalLight );
+
+    const CameraData* cameraData = frameGraph.getActiveCameraData();
+
+    fillBatchChunks( cameraData );
 
     // Clear IndirectDraw arguments buffer.
     clearIndirectArgsBuffer( frameGraph );
@@ -338,6 +360,77 @@ void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, ResHa
     frameGraph.importPersistentImage( SliceImageHashcode, shadowSlices );
 }
 
+void CascadedShadowRenderModule::fillBatchChunks( const CameraData* cameraData )
+{
+    u32 drawCallsCount = static_cast< u32 >( drawCallsAllocator->getAllocationCount() );
+    DrawCall* drawCalls = static_cast< DrawCall* >( drawCallsAllocator->getBaseAddress() );
+
+    for ( u32 i = 0; i < drawCallsCount; i++ ) {
+        const DrawCall& drawCall = drawCalls[i];
+        const MeshConstants& meshInfos = gpuShadowCasters[drawCall.MeshEntryIndex];
+
+        i32 triangleCount = meshInfos.FaceCount;
+        i32 firstTriangleIndex = 0;
+
+        // Submit draw call triangles to the chunked batches.
+        for ( i32 i = 0; i < BATCH_CHUNK_COUNT; i++ ) {
+            BatchChunk& chunk = batchChunks[i];
+            if ( chunk.EnqueuedDrawCallCount == BATCH_COUNT ) {
+                continue;
+            }
+
+            i32 firstTriangle = firstTriangleIndex;
+            const i32 firstCluster = firstTriangle / BATCH_SIZE;
+            i32 currentCluster = firstCluster;
+            i32 lastTriangle = firstTriangle;
+
+            const i32 filteredIndexBufferStartOffset = chunk.BatchCount * BATCH_SIZE * 3 * sizeof( i32 );
+            const i32 firstBatch = chunk.BatchCount;
+
+            const dkVec3f positionObjectSpace = cameraData->worldPosition * drawCall.ModelMatrix.inverse();
+
+            for ( i32 j = chunk.BatchCount; j < BATCH_COUNT; j++ ) {
+                lastTriangle = Min( firstTriangle + BATCH_SIZE, meshInfos.FaceCount );
+
+                const MeshCluster& clusterInfo = meshInfos.Clusters[currentCluster];
+                ++currentCluster;
+
+                SmallBatchData& smallBatchData = chunk.BatchData[chunk.BatchCount];
+                smallBatchData.DrawIndex = chunk.EnqueuedDrawCallCount;
+                smallBatchData.FaceCount = lastTriangle - firstTriangle;
+
+                // Offset relative to the start of the mesh
+                smallBatchData.IndexOffset = firstTriangle * 3 * sizeof( int );
+                smallBatchData.OutputIndexOffset = filteredIndexBufferStartOffset;
+                smallBatchData.MeshIndex = drawCall.MeshEntryIndex;
+                smallBatchData.DrawBatchStart = firstBatch;
+
+                chunk.FaceCount += smallBatchData.FaceCount;
+                ++chunk.BatchCount;
+
+                firstTriangle += BATCH_SIZE;
+
+                if ( lastTriangle == meshInfos.FaceCount ) {
+                    break;
+                }
+            }
+
+            if ( chunk.BatchCount > firstBatch ) {
+                chunk.DrawCallArgs[chunk.EnqueuedDrawCallCount].MeshEntryIndex = drawCall.MeshEntryIndex;
+                chunk.DrawCallArgs[chunk.EnqueuedDrawCallCount].ModelMatrix = drawCall.ModelMatrix;
+                ++chunk.EnqueuedDrawCallCount;
+            }
+
+            // Check if the draw command fit into this call, if not, create a remainder
+            if ( lastTriangle < triangleCount ) {
+                firstTriangleIndex = lastTriangle;
+            } else {
+                break;
+            }
+        }
+    }
+}
+
 ResHandle_t CascadedShadowRenderModule::batchDrawCalls( FrameGraph& frameGraph, CullPassOutput& cullPassOutput, const u32 gpuShadowCastersCount, MeshConstants* gpuShadowCasters )
 {
 	struct PassData
@@ -348,8 +441,6 @@ ResHandle_t CascadedShadowRenderModule::batchDrawCalls( FrameGraph& frameGraph, 
 		ResHandle_t BatchedMatricesBuffer;
 		ResHandle_t ShadowCastersBuffer;
 	};
-
-	u32 drawCallsCount = static_cast< u32 >( drawCallsAllocator->getAllocationCount() );
 
 	PassData& passData = frameGraph.addRenderPass<PassData>(
 		SceneCulling::BatchCulledCommands_Name,
@@ -446,22 +537,28 @@ void CascadedShadowRenderModule::clearIndirectArgsBuffer( FrameGraph& frameGraph
 {
     struct DummyPassData {};
     frameGraph.addRenderPass<DummyPassData>(
-        SceneCulling::ClearArgsBuffer_Name,
+        Culling::ClearArgsBuffer_Name,
         [&]( FrameGraphBuilder& builder, DummyPassData& passData ) {
             builder.useAsyncCompute();
             builder.setUncullablePass();
         },
         [=]( const DummyPassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
-            cmdList->pushEventMarker( SceneCulling::ClearArgsBuffer_EventName );
+            cmdList->pushEventMarker( Culling::ClearArgsBuffer_EventName );
 
-            PipelineState* pipelineState = psoCache->getOrCreatePipelineState( RenderingHelpers::PS_Compute, SceneCulling::ClearArgsBuffer_ShaderBinding );
+            PipelineState* pipelineState = psoCache->getOrCreatePipelineState( RenderingHelpers::PS_Compute, Culling::ClearArgsBuffer_ShaderBinding );
             cmdList->bindPipelineState( pipelineState );
 
-            cmdList->bindBuffer( SceneCulling::ClearArgsBuffer_DrawArgsBuffer_Hashcode, drawArgsBuffer );
+            for ( i32 i = 0; i < BATCH_CHUNK_COUNT; i++ ) {
+                if ( batchChunks[i].BatchCount == 0 ) {
+                    continue;
+                }
 
-            cmdList->prepareAndBindResourceList();
+                cmdList->bindBuffer( SceneCulling::ClearArgsBuffer_DrawArgsBuffer_Hashcode, batchChunks[i].DrawArgsBuffer );
+                cmdList->prepareAndBindResourceList();
 
-            cmdList->dispatchCompute( 1, 1, 1 );
+                cmdList->dispatchCompute( batchChunks[i].BatchCount, 1, 1 );
+            }
+
             cmdList->popEventMarker();
         }
     );

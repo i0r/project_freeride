@@ -38,6 +38,8 @@ public:
 
     void                captureShadowMap( FrameGraph& frameGraph, ResHandle_t depthBuffer, const dkVec2f& depthBufferSize, const DirectionalLightGPU& directionalLight, const RenderWorld* renderWorld );
 
+    void fillBatchChunks( const CameraData* cameraData );
+
     void                submitGPUShadowCullCmds( GPUShadowDrawCmd* drawCmds, const size_t drawCmdCount );
 
 private:
@@ -78,6 +80,15 @@ private:
 
         // The number of draw call enqueued in this chunk (flushed during the frame rendering).
         u32     EnqueuedDrawCallCount;
+
+        // Batch count included in this chunk.
+        u32     BatchCount;
+
+        u32     FaceCount;
+
+        SmallBatchData* BatchData;
+
+        SmallBatchDrawConstants* DrawCallArgs;
     };
 
 private:

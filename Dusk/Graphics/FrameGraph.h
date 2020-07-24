@@ -669,14 +669,23 @@ public:
     // Update this application mouse coordinates (upload is deferred to next frame).
     void    updateMouseCoordinates( const dkVec2u& mouseCoordinates );
 
+    // (Editor Only) Submit Material Editor data for the current frame (will create a snapshot for the rendering thread).
     void    acquireCurrentMaterialEdData( const MaterialEdData* matEdData );
 
     // imageQuality = ( image Quality In Percent / 100.0f )
     // (e.g. 1.0f = 100% image quality)
     void    setImageQuality( const f32 imageQuality = 1.0f );
 
+    // Return the current image quality of this pipeline.
     f32     getImageQuality() const;
+
+    // Return the number of sample used for MSAA or 1 if MSAA is disabled/unused.
     u32     getMSAASamplerCount() const;
+
+    // Return a pointer to the active camera data. Might be null if the graph is compute-only.
+    // NOTE The pointer returned is ONLY guaranteed to be valid on the logic thread! (e.g. during renderpass setup)
+    // Use FrameGraph resources getter otherwise.
+    const CameraData* getActiveCameraData() const;
 
     void    importPersistentImage( const dkStringHash_t resourceHashcode, Image* image );
     void    importPersistentBuffer( const dkStringHash_t resourceHashcode, Buffer* buffer );
@@ -687,6 +696,8 @@ public:
     // Copy the input rendertarget and store it in a given persistent resource.
     void    saveLastFrameRenderTarget( ResHandle_t inputRenderTarget );
 
+    // Add a renderpass to this framegraph. T should be the datatype used to forward resource handles (or misc data) from
+    // the setup step to the execution step.
     template<typename T>
     T& addRenderPass( const char* name, dkPassSetup_t<T> setup, dkPassCallback_t<T> execute ) {
         static_assert( sizeof( T ) <= sizeof( ResHandle_t ) * 128, "Pass data 128 resource limit hit!" );

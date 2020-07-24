@@ -833,6 +833,11 @@ u32 FrameGraph::getMSAASamplerCount() const
     return msaaSamplerCount;
 }
 
+const CameraData* FrameGraph::getActiveCameraData() const
+{
+    return activeCamera;
+}
+
 void FrameGraph::importPersistentImage( const dkStringHash_t resourceHashcode, Image* image )
 {
     graphResources.importPersistentImage( resourceHashcode, image );
