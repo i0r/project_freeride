@@ -53,6 +53,9 @@ struct Mesh
     // Number of vertices to draw.
     u32                     VertexCount;
 
+    // Number of face for this mesh. Required for geometry processing (e.g. mesh cluster calculation).
+    u32                     FaceCount;
+
 #if DUSK_DEVBUILD
     // Name of this mesh (for debug purpose; devbuild only).
     std::string             Name;

@@ -159,9 +159,7 @@ struct SmallBatchDrawConstants
 {
     float4x4  ModelMatrix;
     uint      MeshEntryIndex;
-#ifdef __cplusplus
-    uint       __PADDING__[3];
-#endif
+    uint      PADDING[3];
 };
 
 struct SmallBatchData
@@ -189,10 +187,6 @@ struct MeshConstants
     uint    FaceCount;
     uint    IndexOffset;
     uint    VertexOffset;
-    
-#ifdef __cplusplus
-    std::vector<MeshCluster> Clusters;
-#endif
 };
 
 // Structure holding informations for GPU-driven scene submit.

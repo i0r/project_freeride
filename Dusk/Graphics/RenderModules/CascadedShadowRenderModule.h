@@ -38,8 +38,6 @@ public:
 
     void                captureShadowMap( FrameGraph& frameGraph, ResHandle_t depthBuffer, const dkVec2f& depthBufferSize, const DirectionalLightGPU& directionalLight, const RenderWorld* renderWorld );
 
-    void fillBatchChunks( const CameraData* cameraData );
-
     void                submitGPUShadowCullCmds( GPUShadowDrawCmd* drawCmds, const size_t drawCmdCount );
 
 private:
@@ -50,6 +48,8 @@ private:
     };
 
 private:
+    void                fillBatchChunks( const CameraData* cameraData, MeshConstants* gpuShadowCasters );
+
     // Clear indirect draw argument buffers (via a single compute call).
     void                clearIndirectArgsBuffer( FrameGraph& frameGraph );
 

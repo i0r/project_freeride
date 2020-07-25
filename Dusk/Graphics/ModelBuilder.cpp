@@ -80,6 +80,7 @@ void dk::graphics::BuildParsedModel( Model* builtModel, BaseAllocator* memoryAll
             builtMesh.RenderMaterial = nullptr;
 			builtMesh.MemoryAllocator = memoryAllocator;
 			builtMesh.VertexCount = mesh.VertexCount;
+            builtMesh.FaceCount = static_cast<u32>( mesh.TriangleCount );
 
             if ( mesh.Flags.HasPositionAttribute ) {
                 builtMesh.VertexAttributeBufferOffset = static_cast< i32 >( position.size() );
