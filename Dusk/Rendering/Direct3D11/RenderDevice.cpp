@@ -492,7 +492,15 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
         case CPI_BIND_INDICE_BUFFER:
         {
             CommandPacket::BindIndiceBuffer cmdPacket = *( CommandPacket::BindIndiceBuffer* )bufferPointer;
-            renderContext->ImmediateContext->IASetIndexBuffer( cmdPacket.BufferObject, cmdPacket.ViewFormat, cmdPacket.Offset );
+
+            // Check if we need to unbind the indice buffer prior to binding.
+            ClearBufferUAVRegister( renderContext, cmdPacket.Buffer );
+            FlushUAVRegisterUpdate( renderContext );
+
+            ClearBufferSRVRegister( renderContext, cmdPacket.Buffer );
+            FlushSRVRegisterUpdate( renderContext );
+
+            renderContext->ImmediateContext->IASetIndexBuffer( cmdPacket.Buffer->BufferObject, cmdPacket.ViewFormat, cmdPacket.Offset );
             break;
         }
         case CPI_UPDATE_BUFFER:
@@ -662,18 +670,18 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
         case CPI_MULTI_DRAW_INDEXED_INSTANCED_INDIRECT:
         {
 			CommandPacket::MultiDrawIndexedInstancedIndirect cmdPacket = *( CommandPacket::MultiDrawIndexedInstancedIndirect* )bufferPointer;
-
-#if DUSK_USE_NVAPI
-            if ( renderContext->IsNvApiLoaded ) {
-                NvAPI_D3D11_MultiDrawIndexedInstancedIndirect( renderContext->ImmediateContext, cmdPacket.DrawCount, cmdPacket.ArgsBuffer, cmdPacket.BufferAlignmentInBytes, cmdPacket.ArgumentsSizeInBytes );
-            } else
-#endif
-
-#if DUSK_USE_AGS
-			if ( renderContext->IsAmdAgsLoaded ) {
-				agsDriverExtensionsDX11_MultiDrawIndexedInstancedIndirect( renderContext->AgsContext, renderContext->ImmediateContext, cmdPacket.DrawCount, cmdPacket.ArgsBuffer, cmdPacket.BufferAlignmentInBytes, cmdPacket.ArgumentsSizeInBytes );
-            } else
-#endif
+//
+//#if DUSK_USE_NVAPI
+//            if ( renderContext->IsNvApiLoaded ) {
+//                NvAPI_D3D11_MultiDrawIndexedInstancedIndirect( renderContext->ImmediateContext, cmdPacket.DrawCount, cmdPacket.ArgsBuffer, cmdPacket.BufferAlignmentInBytes, cmdPacket.ArgumentsSizeInBytes );
+//            } else
+//#endif
+//
+//#if DUSK_USE_AGS
+//			if ( renderContext->IsAmdAgsLoaded ) {
+//				agsDriverExtensionsDX11_MultiDrawIndexedInstancedIndirect( renderContext->AgsContext, renderContext->ImmediateContext, cmdPacket.DrawCount, cmdPacket.ArgsBuffer, cmdPacket.BufferAlignmentInBytes, cmdPacket.ArgumentsSizeInBytes );
+//            } else
+//#endif
             {
 				for ( u32 i = 0; i < cmdPacket.DrawCount; i++ ) {
                     renderContext->ImmediateContext->DrawIndexedInstancedIndirect( cmdPacket.ArgsBuffer, cmdPacket.BufferAlignmentInBytes + cmdPacket.ArgumentsSizeInBytes * i );

@@ -472,12 +472,21 @@ static ID3D11UnorderedAccessView* CreateBufferUnorderedAccessView( ID3D11Device*
 static ID3D11ShaderResourceView* CreateBufferShaderResourceView( ID3D11Device* device, const Buffer& buffer, const BufferViewDesc& viewDesc )
 {
     bool isFormatless = ( buffer.BindFlags & RESOURCE_BIND_STRUCTURED_BUFFER );
+    bool isRawView = ( buffer.BindFlags & RESOURCE_BIND_RAW );
 
     D3D11_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc;
     shaderResourceViewDesc.Format = isFormatless ? DXGI_FORMAT_UNKNOWN : static_cast< DXGI_FORMAT >( viewDesc.ViewFormat );
-    shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
-    shaderResourceViewDesc.Buffer.FirstElement = viewDesc.FirstElement;
-    shaderResourceViewDesc.Buffer.NumElements = viewDesc.NumElements;
+
+    if ( !isRawView ) {
+        shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+        shaderResourceViewDesc.Buffer.FirstElement = viewDesc.FirstElement;
+        shaderResourceViewDesc.Buffer.NumElements = viewDesc.NumElements;
+    } else {
+        shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFEREX;
+        shaderResourceViewDesc.BufferEx.FirstElement = viewDesc.FirstElement;
+        shaderResourceViewDesc.BufferEx.NumElements = viewDesc.NumElements;
+        shaderResourceViewDesc.BufferEx.Flags = D3D11_BUFFEREX_SRV_FLAG_RAW;
+    }
 
     ID3D11ShaderResourceView* shaderResourceView = nullptr;
     HRESULT operationResult = device->CreateShaderResourceView( buffer.BufferObject, &shaderResourceViewDesc, &shaderResourceView );

@@ -910,6 +910,7 @@ namespace RenderingHelpers
         { BLEND_SOURCE_ZERO, BLEND_SOURCE_ONE, BLEND_OPERATION_ADD }
     );
 
+    // Generic descriptor for a compute PipelineState.
     static constexpr PipelineStateDesc PS_Compute = PipelineStateDesc( PipelineStateDesc::COMPUTE );
 }
 
@@ -931,7 +932,8 @@ public:
     static constexpr i32        PENDING_FRAME_COUNT = 3;
 #endif
 
-    static constexpr i32        CMD_LIST_POOL_CAPACITY = 32; // Capacity for each Cmdlist type
+    // Capacity for each command list type.
+    static constexpr i32        CMD_LIST_POOL_CAPACITY = 32; 
 
 public:
     // Returns a pointer to the active RenderContext used by the RenderDevice

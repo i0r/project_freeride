@@ -48,13 +48,13 @@ Buffer* RenderDevice::createBuffer( const BufferDesc& description, const void* i
     // We need to copy the default view descriptor since the input descriptor is immutable (we could use const_cast crap tho)
     BufferViewDesc defaultViewDesc = description.DefaultView;
 
+    const u16 elementCount = defaultViewDesc.NumElements;
+    defaultViewDesc.NumElements = ( elementCount == 0 ) ? ( description.SizeInBytes / Max( 1u, description.StrideInBytes ) ) : elementCount;
+
     // Standard says that the view format must be DXGI_FORMAT_R32_TYPELESS.
     if ( description.BindFlags & RESOURCE_BIND_RAW ) {
         defaultViewDesc.ViewFormat = VIEW_FORMAT_R32_TYPELESS;
     }
-
-    const u16 elementCount = defaultViewDesc.NumElements;
-    defaultViewDesc.NumElements = ( elementCount == 0 ) ? ( description.SizeInBytes / Max( 1u, description.StrideInBytes ) ) : elementCount;
 
     if ( description.BindFlags & RESOURCE_BIND_SHADER_RESOURCE ) {
         // Create default SRV
@@ -121,7 +121,10 @@ void CommandList::bindIndiceBuffer( const Buffer* buffer, const bool use32bitsIn
     commandPacket->Identifier = CPI_BIND_INDICE_BUFFER;
     commandPacket->ViewFormat = ( use32bitsIndices ) ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R16_UINT;
     commandPacket->Offset = 0u;
-    commandPacket->BufferObject = buffer->BufferObject;
+    
+    // Yep it sucks but this is required since we might have to update this buffer registers during the deferred execution
+    // of the command (this is quite rare but it happens during the gpu driven shadow rendering).
+    commandPacket->Buffer = const_cast<Buffer*>( buffer );
 
     nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );
 }

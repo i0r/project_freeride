@@ -62,7 +62,7 @@ namespace CommandPacket
     struct BindIndiceBuffer 
     {
         u32             Identifier;
-        ID3D11Buffer*   BufferObject;
+        Buffer*         Buffer;
         DXGI_FORMAT     ViewFormat;
         UINT            Offset;
     };
