@@ -1,7 +1,5 @@
 lib ShadowRendering {
     properties {
-        float       StartVector;
-        float       VectorPerInstance;
         uint        SliceIndex;
     }
     
@@ -10,28 +8,16 @@ lib ShadowRendering {
             swizzle = float4;
         }
         
-        Buffer InstanceVectorBuffer {
-            swizzle = float4;
-        }
-        
         StructuredBuffer SliceInfos {
             swizzle = CSMSliceInfos;
+        }
+        
+        StructuredBuffer DrawConstants {
+            swizzle = SmallBatchDrawConstants;
         }
     }
     
     shared {
-        float4x4 GetInstanceModelMatrix( Buffer instanceVectorBuffer, const uint instanceIdx )
-        {
-            uint modelMatrixVectorOffset = StartVector + instanceIdx * VectorPerInstance;
-            
-            float4 r0 = instanceVectorBuffer.Load( modelMatrixVectorOffset + 0 );
-            float4 r1 = instanceVectorBuffer.Load( modelMatrixVectorOffset + 1 );
-            float4 r2 = instanceVectorBuffer.Load( modelMatrixVectorOffset + 2 );
-            float4 r3 = instanceVectorBuffer.Load( modelMatrixVectorOffset + 3 );
-            
-            return float4x4( r0, r1, r2, r3 );
-        }
-        
         float4x4 GetSliceViewProjection( const uint sliceIdx )
         {
             float4 r0 = SliceInfos[sliceIdx].RenderingMatrix[0];
@@ -44,11 +30,10 @@ lib ShadowRendering {
     }
     
     shader DepthOnlyVS {
-        float4x4 ModelMatrix = GetInstanceModelMatrix( InstanceVectorBuffer, $SV_InstanceID );
         float4x4 ViewProjectionMatrix = GetSliceViewProjection( SliceIndex );
         
-        float4 positionWS = mul( float4( $POSITION.xyz, 1.0f ), ModelMatrix );
-        $SV_POSITION =  mul( ViewProjectionMatrix, float4( positionWS.xyz, 1.0f ) );
+        float4 positionWS = mul( float4( $POSITION.xyz, 1.0f ), DrawConstants[$BLENDINDICES].ModelMatrix );
+        $SV_POSITION = mul( ViewProjectionMatrix, float4( positionWS.xyz, 1.0f ) );
     }
     
     pass DirectionalShadowRendering {

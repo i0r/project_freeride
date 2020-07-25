@@ -173,7 +173,7 @@ lib Culling {
                 mul( g_ViewProjectionMatrix, mul( float4( LoadVertex( indices[2], batchInputVertexOffset ), 1 ), modelMatrix ) )
             };
 
-            cull = CullTriangle( indices, vertices );
+            cull = false; //CullTriangle( indices, vertices );
 
             if ( !cull ) {
                 InterlockedAdd( g_WorkGroupIndexCount, 3, threadOutputSlot );
