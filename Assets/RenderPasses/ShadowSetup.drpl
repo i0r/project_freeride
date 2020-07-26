@@ -20,8 +20,6 @@ lib ShadowSetup {
     }
     
     shared {
-        static const int NumCascades = 4;
-        
         float4x4 OrthographicProjection(float l, float b, float r,
                                         float t, float zn, float zf)
         {
@@ -91,8 +89,8 @@ lib ShadowSetup {
         float ratio = maxZ / minZ;
 
         [unroll]
-        for(uint i = 0; i < NumCascades; ++i) {
-            float p = (i + 1) / float(NumCascades);
+        for(uint i = 0; i < CSM_SLICE_COUNT; ++i) {
+            float p = (i + 1) / float(CSM_SLICE_COUNT);
             float logScale = minZ * pow(abs(ratio), p);
             float uniformScale = minZ + range * p;
             float d = lambda * (logScale - uniformScale) + uniformScale;
