@@ -1,6 +1,7 @@
 lib Culling {
     properties {
         cflag CullBackface = false;
+        cflag CullCSMShadows = false;
     }
     
     resources {
@@ -31,6 +32,10 @@ lib Culling {
         StructuredBuffer SmallBatchDataBuffer {
             swizzle = SmallBatchData;
         }
+        
+        StructuredBuffer SliceInfos {
+            swizzle = CSMSliceInfos;
+        }      
     }
     
     shared { 
@@ -61,9 +66,7 @@ lib Culling {
             };
 
 #ifdef $CullBackface
-            cull = cull || ( determinant( m ) > 0 );
-#else
-            cull = cull || ( determinant( m ) <= 0 );      
+            cull = cull || ( determinant( m ) > 0 );  
 #endif
 
             int verticesInFrontOfNearPlane = 0;
@@ -85,9 +88,16 @@ lib Culling {
             int2 minBB = int2( 1 << 30, 1 << 30 );
             int2 maxBB = int2( -( 1 << 30 ), -( 1 << 30 ) );
 
+            
+#ifdef $CullCSMShadows
+            float2 sceenSize = float2( CSM_SLICE_DIMENSION, CSM_SLICE_DIMENSION );
+#else
+            float2 sceenSize = g_ScreenSize;
+#endif
+
             bool insideGuardBand = true;
             for ( uint i = 0; i < 3; ++i ) {
-                float2 screenSpacePositionFP = vertices[i].xy * g_ScreenSize;
+                float2 screenSpacePositionFP = vertices[i].xy * sceenSize;
                 
                 // Check if we would overflow after conversion
                 if (   screenSpacePositionFP.x < -(1 << 23)
@@ -167,13 +177,31 @@ lib Culling {
                 IndexBuffer[$SV_GroupThreadID.x * 3 + 2 + batchInputIndexOffset]
             };
 
-            float4 vertices[3] = {
-                mul( g_ViewProjectionMatrix, mul( float4( LoadVertex( indices[0], batchInputVertexOffset ), 1 ), modelMatrix ) ),
-                mul( g_ViewProjectionMatrix, mul( float4( LoadVertex( indices[1], batchInputVertexOffset ), 1 ), modelMatrix ) ),
-                mul( g_ViewProjectionMatrix, mul( float4( LoadVertex( indices[2], batchInputVertexOffset ), 1 ), modelMatrix ) )
-            };
+#ifdef $CullCSMShadows
+            uint sliceIdx = ( 0 );
 
-            cull = false; //CullTriangle( indices, vertices );
+            // Take the last slice matrices to do the culling.
+            float4 r0 = SliceInfos[sliceIdx].RenderingMatrix[0];
+            float4 r1 = SliceInfos[sliceIdx].RenderingMatrix[1];
+            float4 r2 = SliceInfos[sliceIdx].RenderingMatrix[2];
+            float4 r3 = SliceInfos[sliceIdx].RenderingMatrix[3];
+            
+            float4x4 ViewProjection = float4x4( r0, r1, r2, r3 );
+#else
+            float4x4 ViewProjection = g_ViewProjectionMatrix;
+#endif
+          
+            float4 vertices[3] = {
+                mul( mul( float4( LoadVertex( indices[0], batchInputVertexOffset ), 1 ), modelMatrix ), ViewProjection ),
+                mul( mul( float4( LoadVertex( indices[1], batchInputVertexOffset ), 1 ), modelMatrix ), ViewProjection ),
+                mul( mul( float4( LoadVertex( indices[2], batchInputVertexOffset ), 1 ), modelMatrix ), ViewProjection )
+            };
+            
+#ifdef $CullCSMShadows
+            cull = false;
+#else
+            cull = CullTriangle( indices, vertices );
+#endif
 
             if ( !cull ) {
                 InterlockedAdd( g_WorkGroupIndexCount, 3, threadOutputSlot );
@@ -217,5 +245,7 @@ lib Culling {
     pass FilterShadowGeometry {
         compute       = FilterGeometryCS;
         dispatch      = { 256, 1, 1 };
+        CullCSMShadows = true;
+        CullBackface  = false;
     }
 }

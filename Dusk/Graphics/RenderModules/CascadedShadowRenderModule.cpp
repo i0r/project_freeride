@@ -108,7 +108,6 @@ static dkMat4x4f CreateGlobalShadowMatrix( const dkVec3f& lightDirNormalized, co
 CascadedShadowRenderModule::CascadedShadowRenderModule( BaseAllocator* allocator )
     : memoryAllocator( allocator )
     , csmSliceInfosBuffer( nullptr )
-    , drawArgsBuffer( nullptr)
 	, drawCallsAllocator( dk::core::allocate<LinearAllocator>( allocator, 4096 * sizeof( DrawCall ), allocator->allocate( 4096 * sizeof( DrawCall ) ) ) )
     , shadowSlices( nullptr )
     , globalShadowMatrix( dkMat4x4f::Identity )
@@ -144,11 +143,6 @@ void CascadedShadowRenderModule::destroy( RenderDevice& renderDevice )
         csmSliceInfosBuffer = nullptr;
     }
 
-	if ( drawArgsBuffer != nullptr ) {
-		renderDevice.destroyBuffer( drawArgsBuffer );
-        drawArgsBuffer = nullptr;
-	}
-
     if ( shadowSlices != nullptr ) {
         renderDevice.destroyImage( shadowSlices );
         shadowSlices = nullptr;
@@ -164,15 +158,6 @@ void CascadedShadowRenderModule::loadCachedResources( RenderDevice& renderDevice
     cascadeMatrixBuffer.StrideInBytes = sizeof( CSMSliceInfos );
 
     csmSliceInfosBuffer = renderDevice.createBuffer( cascadeMatrixBuffer );
-
-	BufferDesc drawArgsBufferDesc;
-	drawArgsBufferDesc.BindFlags = RESOURCE_BIND_RAW | RESOURCE_BIND_INDIRECT_ARGUMENTS | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
-	drawArgsBufferDesc.SizeInBytes = 5 * sizeof( u32 ) * ( RenderWorld::MAX_MODEL_COUNT * 4 );
-	drawArgsBufferDesc.StrideInBytes = 5 * sizeof( u32 );
-	drawArgsBufferDesc.Usage = RESOURCE_USAGE_DEFAULT;
-	drawArgsBufferDesc.DefaultView.ViewFormat = eViewFormat::VIEW_FORMAT_R32_TYPELESS;
-
-	drawArgsBuffer = renderDevice.createBuffer( drawArgsBufferDesc );
 
     ImageDesc shadowSliceAtlas;
     shadowSliceAtlas.width = CSM_SLICE_DIMENSION * CSM_SLICE_COUNT;
@@ -259,7 +244,7 @@ void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, ResHa
 
     const CameraData* cameraData = frameGraph.getActiveCameraData();
 
-    fillBatchChunks( cameraData, renderWorld->getGpuShadowBatchesData() );
+    fillBatchChunks( cameraData, renderWorld->getGpuShadowBatchesData(), renderWorld->getMeshClusters() );
 
     // Clear IndirectDraw arguments buffer.
     clearIndirectArgsBuffer( frameGraph );
@@ -294,6 +279,7 @@ void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, ResHa
                 cmdList->bindBuffer( Culling::FilterShadowGeometry_MeshConstantsBuffer_Hashcode, renderWorld->getMeshConstantsBuffer() );
                 cmdList->bindBuffer( Culling::FilterShadowGeometry_DrawConstants_Hashcode, batchChunk.DrawCallArgsBuffer );
                 cmdList->bindBuffer( Culling::FilterShadowGeometry_SmallBatchDataBuffer_Hashcode, batchChunk.BatchDataBuffer );
+                cmdList->bindBuffer( Culling::FilterShadowGeometry_SliceInfos_Hashcode, csmSliceInfosBuffer );
 
                 cmdList->prepareAndBindResourceList();
 
@@ -303,12 +289,6 @@ void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, ResHa
             cmdList->popEventMarker();
         }
     );
- //   
- //   // Do Frustum culling on each shadow caster.
- //   CullPassOutput cullPassOutput = cullShadowCasters( frameGraph );
-
- //   // Batch Culled casters and build draw arguments buffer.
- //   ResHandle_t batchesMatricesBuffer = batchDrawCalls( frameGraph, cullPassOutput, renderWorld->getGpuShadowBatchCount(), renderWorld->getGpuShadowBatchesData() );
 
 	// Render each CSM slice.
     struct PassData
@@ -341,7 +321,7 @@ void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, ResHa
 			DefaultPipelineState.DepthStencilState.DepthComparisonFunc = eComparisonFunction::COMPARISON_FUNCTION_LESS;
 
 			DefaultPipelineState.RasterizerState.UseTriangleCCW = true;
-			DefaultPipelineState.RasterizerState.CullMode = eCullMode::CULL_MODE_FRONT;
+			DefaultPipelineState.RasterizerState.CullMode = eCullMode::CULL_MODE_NONE;
 			DefaultPipelineState.RasterizerState.FillMode = eFillMode::FILL_MODE_SOLID;
 
 			DefaultPipelineState.FramebufferLayout.declareDSV( VIEW_FORMAT_D16_UNORM );
@@ -418,7 +398,7 @@ void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, ResHa
     frameGraph.importPersistentImage( SliceImageHashcode, shadowSlices );
 }
 
-void CascadedShadowRenderModule::fillBatchChunks( const CameraData* cameraData, MeshConstants* gpuShadowCasters )
+void CascadedShadowRenderModule::fillBatchChunks( const CameraData* cameraData, MeshConstants* gpuShadowCasters, const std::vector<MeshCluster>* meshClusters )
 {
     u32 drawCallsCount = static_cast< u32 >( drawCallsAllocator->getAllocationCount() );
     DrawCall* drawCalls = static_cast< DrawCall* >( drawCallsAllocator->getBaseAddress() );
@@ -435,6 +415,7 @@ void CascadedShadowRenderModule::fillBatchChunks( const CameraData* cameraData, 
     for ( u32 i = 0; i < drawCallsCount; i++ ) {
         const DrawCall& drawCall = drawCalls[i];
         const MeshConstants& meshInfos = gpuShadowCasters[drawCall.MeshEntryIndex];
+        const std::vector<MeshCluster>& clusters = meshClusters[i];
 
         i32 triangleCount = meshInfos.FaceCount;
         i32 firstTriangleIndex = 0;
@@ -459,7 +440,7 @@ void CascadedShadowRenderModule::fillBatchChunks( const CameraData* cameraData, 
             for ( i32 j = chunk.BatchCount; j < BATCH_COUNT; j++ ) {
                 lastTriangle = Min( firstTriangle + BATCH_SIZE, static_cast<i32>( meshInfos.FaceCount ) );
 
-                const MeshCluster& clusterInfo = meshInfos.Clusters[currentCluster];
+                const MeshCluster& clusterInfo = clusters[currentCluster];
                 ++currentCluster;
 
                 SmallBatchData& smallBatchData = chunk.BatchData[chunk.BatchCount];
@@ -497,87 +478,6 @@ void CascadedShadowRenderModule::fillBatchChunks( const CameraData* cameraData, 
         }
     }
 }
-//
-//ResHandle_t CascadedShadowRenderModule::batchDrawCalls( FrameGraph& frameGraph, CullPassOutput& cullPassOutput, const u32 gpuShadowCastersCount, MeshConstants* gpuShadowCasters )
-//{
-//	struct PassData
-//	{
-//		ResHandle_t DrawCallsBuffer;
-//		ResHandle_t CulledIndexesBuffer;
-//		ResHandle_t PerPassData;
-//		ResHandle_t BatchedMatricesBuffer;
-//		ResHandle_t ShadowCastersBuffer;
-//	};
-//
-//	PassData& passData = frameGraph.addRenderPass<PassData>(
-//		SceneCulling::BatchCulledCommands_Name,
-//		[&]( FrameGraphBuilder& builder, PassData& passData ) {
-//		    builder.useAsyncCompute();
-//		    builder.setUncullablePass();
-//
-//		    passData.DrawCallsBuffer = builder.readBuffer( cullPassOutput.DrawCallsBuffer );
-//		    passData.CulledIndexesBuffer = builder.readBuffer( cullPassOutput.CulledIndexesBuffer );
-//
-//		    BufferDesc perPassDesc;
-//		    perPassDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
-//		    perPassDesc.Usage = RESOURCE_USAGE_DYNAMIC;
-//		    perPassDesc.SizeInBytes = sizeof( SceneCulling::BatchCulledCommandsRuntimeProperties );
-//
-//		    passData.PerPassData = builder.allocateBuffer( perPassDesc, SHADER_STAGE_COMPUTE );
-//
-//		    BufferDesc batchMatrixBufferDesc;
-//		    batchMatrixBufferDesc.BindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
-//		    batchMatrixBufferDesc.Usage = RESOURCE_USAGE_DEFAULT;
-//		    batchMatrixBufferDesc.SizeInBytes = sizeof( dkMat4x4f ) * 4096 * CSM_SLICE_COUNT;
-//		    batchMatrixBufferDesc.StrideInBytes = sizeof( dkMat4x4f );
-//		    batchMatrixBufferDesc.DefaultView.ViewFormat = VIEW_FORMAT_R32G32B32A32_FLOAT;
-//
-//		    passData.BatchedMatricesBuffer = builder.allocateBuffer( batchMatrixBufferDesc, SHADER_STAGE_COMPUTE );
-//
-//		    BufferDesc shadowCasterBufferDesc;
-//		    shadowCasterBufferDesc.BindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_STRUCTURED_BUFFER;
-//		    shadowCasterBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
-//		    shadowCasterBufferDesc.SizeInBytes = sizeof( GPUShadowBatchInfos ) * RenderWorld::MAX_MODEL_COUNT;
-//		    shadowCasterBufferDesc.StrideInBytes = sizeof( GPUShadowBatchInfos );
-//
-//		    passData.ShadowCastersBuffer = builder.allocateBuffer( shadowCasterBufferDesc, SHADER_STAGE_COMPUTE );
-//	    },
-//		[=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
-//		    cmdList->pushEventMarker( SceneCulling::BatchCulledCommands_EventName );
-//
-//		    PipelineState* pipelineState = psoCache->getOrCreatePipelineState( RenderingHelpers::PS_Compute, SceneCulling::BatchCulledCommands_ShaderBinding );
-//		    cmdList->bindPipelineState( pipelineState );
-//
-//		    Buffer* drawCallsBuffer = resources->getBuffer( passData.DrawCallsBuffer );
-//		    Buffer* culledIndexesBuffer = resources->getBuffer( passData.CulledIndexesBuffer );
-//		    Buffer* perPassBuffer = resources->getBuffer( passData.PerPassData );
-//		    Buffer* matrixBuffer = resources->getBuffer( passData.BatchedMatricesBuffer );
-//		    Buffer* shadowCastersBuffer = resources->getBuffer( passData.ShadowCastersBuffer );
-//
-//		    SceneCulling::BatchCulledCommandsProperties.CullNearZ = false;
-//		    SceneCulling::BatchCulledCommandsProperties.NumDrawCalls = drawCallsCount;
-//		    SceneCulling::BatchCulledCommandsProperties.MaxMeshEntryIndex = gpuShadowCastersCount;
-//
-//		    cmdList->updateBuffer( *perPassBuffer, &SceneCulling::BatchCulledCommandsProperties, sizeof( SceneCulling::BatchCulledCommandsRuntimeProperties ) );
-//		    cmdList->updateBuffer( *shadowCastersBuffer, gpuShadowCasters, sizeof( GPUShadowBatchInfos ) * gpuShadowCastersCount );
-//
-//		    cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
-//		    cmdList->bindBuffer( SceneCulling::BatchCulledCommands_DrawCalls_Hashcode, drawCallsBuffer );
-//		    cmdList->bindBuffer( SceneCulling::BatchCulledCommands_CulledIndexes_Hashcode, culledIndexesBuffer );
-//		    cmdList->bindBuffer( SceneCulling::BatchCulledCommands_BatchedModelMatrices_Hashcode, matrixBuffer );
-//		    cmdList->bindBuffer( SceneCulling::BatchCulledCommands_ShadowCasters_Hashcode, shadowCastersBuffer );
-//		    cmdList->bindBuffer( SceneCulling::BatchCulledCommands_DrawArgsBuffer_Hashcode, drawArgsBuffer );
-//
-//		    cmdList->prepareAndBindResourceList();
-//
-//		    u32 threadGroupX = DispatchSize( SceneCulling::BatchCulledCommands_DispatchX, drawCallsCount );
-//		    cmdList->dispatchCompute( threadGroupX, 1, 1 );
-//		    cmdList->popEventMarker();
-//	    }
-//	);
-//
-//    return passData.BatchedMatricesBuffer;
-//}
 
 void CascadedShadowRenderModule::submitGPUShadowCullCmds( GPUShadowDrawCmd* drawCmds, const size_t drawCmdCount )
 {
@@ -680,11 +580,6 @@ void CascadedShadowRenderModule::setupParameters( FrameGraph& frameGraph, ResHan
             // Bind resources
             ShadowSetup::SetupCSMParametersProperties.GlobalShadowMatrix = globalShadowMatrix;
             ShadowSetup::SetupCSMParametersProperties.ViewProjInv = cameraData->depthViewProjectionMatrix.inverse();
-                /*
-                dkMat4x4f( 3.21438E-8f, 0.00f, 0.53928f, 0.00f, 0.00f, 0.30335f, 0.00f, 0.00f, -159.83661f, -19.97958f, -19.97958f, -3.99592f,
-																			   158.99663f, 19.99958f, 19.99958f, 3.99992f ).transpose(); 
-            */
-            //cameraData->depthViewProjectionMatrix.inverse();
             ShadowSetup::SetupCSMParametersProperties.CameraNearClip = cameraData->depthNearPlane;
             ShadowSetup::SetupCSMParametersProperties.CameraFarClip = cameraData->depthFarPlane;
             ShadowSetup::SetupCSMParametersProperties.ShadowMapSize = static_cast< f32 >( ShadowMapResolution );
@@ -811,81 +706,3 @@ ResHandle_t CascadedShadowRenderModule::reduceDepthBuffer( FrameGraph& frameGrap
 
     return passData.DepthChain[passData.DepthLevelCount - 1];
 }
-//
-//CascadedShadowRenderModule::CullPassOutput CascadedShadowRenderModule::cullShadowCasters( FrameGraph& frameGraph )
-//{
-//	// Cull this frame shadow casters.   
-//	struct PassData
-//	{
-//		ResHandle_t DrawCallsBuffer;
-//		ResHandle_t CulledIndexesBuffer;
-//		ResHandle_t PerPassData;
-//	};
-//
-//	PassData& passData = frameGraph.addRenderPass<PassData>(
-//		SceneCulling::FrustumCullDrawCalls_Name,
-//		[&]( FrameGraphBuilder& builder, PassData& passData ) {
-//		    builder.useAsyncCompute();
-//		    builder.setUncullablePass();
-//
-//		    BufferDesc drawCallsBufferDesc;
-//		    drawCallsBufferDesc.BindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_STRUCTURED_BUFFER;
-//		    drawCallsBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
-//		    drawCallsBufferDesc.SizeInBytes = sizeof( DrawCall ) * 4096;
-//		    drawCallsBufferDesc.StrideInBytes = sizeof( DrawCall );
-//
-//		    passData.DrawCallsBuffer = builder.allocateBuffer( drawCallsBufferDesc, SHADER_STAGE_COMPUTE );
-//
-//		    BufferDesc visibleIndexesDesc;
-//		    visibleIndexesDesc.BindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
-//		    visibleIndexesDesc.Usage = RESOURCE_USAGE_DEFAULT;
-//		    visibleIndexesDesc.SizeInBytes = sizeof( u16 ) * 4096 * CSM_SLICE_COUNT;
-//		    visibleIndexesDesc.StrideInBytes = sizeof( u16 );
-//		    visibleIndexesDesc.DefaultView.ViewFormat = eViewFormat::VIEW_FORMAT_R16_UINT;
-//
-//		    passData.CulledIndexesBuffer = builder.allocateBuffer( visibleIndexesDesc, SHADER_STAGE_COMPUTE );
-//
-//		    BufferDesc perPassDesc;
-//		    perPassDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
-//		    perPassDesc.Usage = RESOURCE_USAGE_DYNAMIC;
-//		    perPassDesc.SizeInBytes = sizeof( SceneCulling::FrustumCullDrawCallsRuntimeProperties );
-//
-//		    passData.PerPassData = builder.allocateBuffer( perPassDesc, SHADER_STAGE_COMPUTE );
-//	    },
-//		[=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
-//		    cmdList->pushEventMarker( SceneCulling::FrustumCullDrawCalls_EventName );
-//
-//		    PipelineState* pipelineState = psoCache->getOrCreatePipelineState( RenderingHelpers::PS_Compute, SceneCulling::FrustumCullDrawCalls_ShaderBinding );
-//		    cmdList->bindPipelineState( pipelineState );
-//
-//		    Buffer* drawCallsBuffer = resources->getBuffer( passData.DrawCallsBuffer );
-//		    Buffer* culledIndexesBuffer = resources->getBuffer( passData.CulledIndexesBuffer );
-//		    Buffer* perPassBuffer = resources->getBuffer( passData.PerPassData );
-//
-//		    void* drawCallsAddress = drawCallsAllocator->getBaseAddress();
-//		    u32 drawCallsCount = static_cast< u32 >( drawCallsAllocator->getAllocationCount() );
-//		    cmdList->updateBuffer( *drawCallsBuffer, drawCallsAddress, sizeof( DrawCall ) * drawCallsCount );
-//
-//		    SceneCulling::FrustumCullDrawCallsProperties.CullNearZ = false;
-//		    SceneCulling::FrustumCullDrawCallsProperties.NumDrawCalls = drawCallsCount;
-//		    cmdList->updateBuffer( *perPassBuffer, &SceneCulling::FrustumCullDrawCallsProperties, sizeof( SceneCulling::FrustumCullDrawCallsRuntimeProperties ) );
-//
-//		    cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
-//		    cmdList->bindBuffer( SceneCulling::FrustumCullDrawCalls_DrawCalls_Hashcode, drawCallsBuffer );
-//		    cmdList->bindBuffer( SceneCulling::FrustumCullDrawCalls_VisibleIndexes_Hashcode, culledIndexesBuffer );
-//		    cmdList->bindBuffer( SceneCulling::FrustumCullDrawCalls_SliceInfos_Hashcode, csmSliceInfosBuffer );
-//
-//		    cmdList->prepareAndBindResourceList();
-//
-//		    u32 threadGroupX = DispatchSize( SceneCulling::FrustumCullDrawCalls_DispatchX, drawCallsCount );
-//		    cmdList->dispatchCompute( threadGroupX, 1, 1 );
-//		    cmdList->popEventMarker();
-//	    }
-//	);
-//
-//    CullPassOutput output;
-//    output.CulledIndexesBuffer = passData.CulledIndexesBuffer;
-//    output.DrawCallsBuffer = passData.DrawCallsBuffer;
-//
-//	return output;
-//}

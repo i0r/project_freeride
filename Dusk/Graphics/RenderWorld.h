@@ -26,7 +26,9 @@ public:
     DUSK_INLINE u32                  getGpuShadowBatchCount() const { return gpuShadowMeshCount; }
     DUSK_INLINE Buffer*              getShadowVertexBuffer() const { return shadowCasterVertexBuffer; }
     DUSK_INLINE Buffer*              getShadowIndiceBuffer() const { return shadowCasterIndexBuffer; }
-    DUSK_INLINE Buffer*              getMeshConstantsBuffer() const { return gpuMeshInfos; }
+    DUSK_INLINE Buffer*             getMeshConstantsBuffer() const { return gpuMeshInfos; }
+    // TEMPORARY CRAP; SHOULD BE REWORKED TO AVOID THE AWFUL MEMORY ALLOCATION
+    DUSK_INLINE const std::vector<MeshCluster>*        getMeshClusters() const { return Clusters.data(); }
 
 public:
                     RenderWorld( BaseAllocator* allocator );
@@ -95,19 +97,17 @@ private:
     
     // CPU copy of entries describing the data stored in the gpu shadow vertex buffer.
     MeshConstants* gpuShadowBatches;
-    
+
+    std::vector<std::vector<MeshCluster>> Clusters;
+
     // GPU instance of gpuShadowBatches.
     Buffer*         gpuMeshInfos;
     
     bool            isGpuMeshInfosDirty;
 
-    // AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-    // TODO Unfuck this
-    std::vector<std::vector<MeshCluster>> Clusters;
-
 private:
 	// Allocate or reuse a GPUShadowBatchInfos from gpuShadowBatches (allocation is done if there is no freenode/suitable node).
     i32                 allocateGpuMeshInfos( MeshConstants& allocatedBatch, const u32 vertexCount, const u32 faceCount, const u32 indiceCount );
 
-    void                createMeshClusters( MeshConstants& allocatedBatch, const u32 indexCount, const f32* vertices, const u32* indices );
+    void                createMeshClusters( const i32 meshConstantsIdx, const u32 indexCount, const f32* vertices, const u32* indices );
 };

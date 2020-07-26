@@ -48,7 +48,7 @@ private:
     };
 
 private:
-    void                fillBatchChunks( const CameraData* cameraData, MeshConstants* gpuShadowCasters );
+    void                fillBatchChunks( const CameraData* cameraData, MeshConstants* gpuShadowCasters, const std::vector<MeshCluster>* meshClusters );
 
     // Clear indirect draw argument buffers (via a single compute call).
     void                clearIndirectArgsBuffer( FrameGraph& frameGraph );
@@ -95,8 +95,6 @@ private:
 	BaseAllocator*      memoryAllocator;
 
     Buffer*             csmSliceInfosBuffer;
-
-	Buffer*             drawArgsBuffer;
 
     LinearAllocator*    drawCallsAllocator;
 

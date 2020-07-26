@@ -141,7 +141,7 @@ Model* RenderWorld::addAndCommitParsedDynamicModel( RenderDevice* renderDevice, 
 				indiceBufferDirtyLength = Max( indiceBufferDirtyLength, ( meshInfos.IndexOffset + mesh.IndiceCount ) );
             
                 // Create clusters for this mesh.
-                createMeshClusters( meshInfos, mesh.IndiceCount, mesh.PositionVertices, mesh.Indices );
+                createMeshClusters( mesh.ShadowGPUBatchEntryIndex, mesh.IndiceCount, mesh.PositionVertices, mesh.Indices );
             }
         }
     }
@@ -248,7 +248,7 @@ i32 RenderWorld::allocateGpuMeshInfos( MeshConstants& allocatedBatch, const u32 
     return allocatedBatchIndex;
 }
 
-void RenderWorld::createMeshClusters( MeshConstants& allocatedBatch, const u32 indexCount, const f32* vertices, const u32* indices )
+void RenderWorld::createMeshClusters( const i32 meshConstantsIdx, const u32 indexCount, const f32* vertices, const u32* indices )
 {
     constexpr i32 BATCH_SIZE = 4 * 64; // Should be a multiple of the wavefront size
     constexpr i32 BATCH_COUNT = 1 * 384;
@@ -262,7 +262,12 @@ void RenderWorld::createMeshClusters( MeshConstants& allocatedBatch, const u32 i
     const i32 triangleCount = indexCount / 3;
     const i32 clusterCount = (triangleCount + BATCH_SIZE - 1) / BATCH_SIZE;
     
-    allocatedBatch.Clusters.resize(clusterCount);
+    if ( Clusters.size() <= meshConstantsIdx ) {
+        Clusters.resize( meshConstantsIdx + 1 );
+    }
+
+    std::vector<MeshCluster>& cluster = Clusters.at( meshConstantsIdx );
+    cluster.resize( clusterCount );
     for (i32 i = 0; i < clusterCount; ++i) {
         const i32 clusterStart = i * BATCH_SIZE;
         const i32 clusterEnd = Min( clusterStart + BATCH_SIZE, triangleCount);
@@ -345,12 +350,12 @@ void RenderWorld::createMeshClusters( MeshConstants& allocatedBatch, const u32 i
             coneOpening = Min(coneOpening, directionalPart);
         }
 
-        allocatedBatch.Clusters[i].AABBMax = aabbMax;
-        allocatedBatch.Clusters[i].AABBMin = aabbMin;
+        cluster[i].AABBMax = aabbMax;
+        cluster[i].AABBMin = aabbMin;
 
         // cos (PI/2 - acos (coneOpening))
-        allocatedBatch.Clusters[i].ConeAngleCosine = sqrtf(1.0f - coneOpening * coneOpening);
-        allocatedBatch.Clusters[i].ConeCenter = center + coneAxis * t;
-        allocatedBatch.Clusters[i].ConeAxis = coneAxis;
+        cluster[i].ConeAngleCosine = sqrtf(1.0f - coneOpening * coneOpening);
+        cluster[i].ConeCenter = center + coneAxis * t;
+        cluster[i].ConeAxis = coneAxis;
     }
 }

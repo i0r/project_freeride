@@ -32,7 +32,7 @@ lib ShadowRendering {
     shader DepthOnlyVS {
         float4x4 ViewProjectionMatrix = GetSliceViewProjection( SliceIndex );
         
-        float4 positionWS = mul( float4( $POSITION.xyz, 1.0f ), DrawConstants[$BLENDINDICES].ModelMatrix );
+        float4 positionWS = mul( DrawConstants[$BLENDINDICES].ModelMatrix, float4( $POSITION.xyz, 1.0f ) );
         $SV_POSITION = mul( ViewProjectionMatrix, float4( positionWS.xyz, 1.0f ) );
     }
     

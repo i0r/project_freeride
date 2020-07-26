@@ -109,11 +109,6 @@ Shader* RenderDevice::createShader( const eShaderStage stage, const void* byteco
         D3D11_SHADER_INPUT_BIND_DESC shaderInputDesc;
         reflector->GetResourceBindingDesc( i, &shaderInputDesc );
 
-        // TODO Support dynamic/static sampler (right now we assume that any sampler bound to a shader stage is static
-        if ( shaderInputDesc.Type == D3D_SIT_SAMPLER ) {
-            continue;
-        }
-
         auto& reflectedRes = shader->resourcesReflectionInfos[shader->reflectedResourceCount++];
         reflectedRes.name = shaderInputDesc.Name;
         reflectedRes.bindingIndex = shaderInputDesc.BindPoint;
@@ -137,6 +132,10 @@ Shader* RenderDevice::createShader( const eShaderStage stage, const void* byteco
         case D3D_SIT_UAV_RWBYTEADDRESS:
         case D3D_SIT_UAV_RWSTRUCTURED_WITH_COUNTER:
             reflectedRes.type = PipelineState::InternalResourceType::RESOURCE_TYPE_UNORDERED_ACCESS_VIEW;
+            break;
+
+        case D3D_SIT_SAMPLER:
+            reflectedRes.type = PipelineState::InternalResourceType::RESOURCE_TYPE_SAMPLER;
             break;
         }
     }
@@ -369,6 +368,8 @@ if ( shaderStage == SHADER_STAGE_##stage ) {\
         }
 
         switch ( reflectedRes.type ) {
+        case PipelineState::InternalResourceType::RESOURCE_TYPE_SAMPLER:
+        case PipelineState::InternalResourceType::RESOURCE_TYPE_SHADER_RESOURCE_VIEW:
         case PipelineState::InternalResourceType::RESOURCE_TYPE_CBUFFER_VIEW: {
             DUSK_RESOURCE_STAGE_BIND( VERTEX, 0 )
             DUSK_RESOURCE_STAGE_BIND( PIXEL, 1 )
@@ -377,14 +378,6 @@ if ( shaderStage == SHADER_STAGE_##stage ) {\
             DUSK_RESOURCE_STAGE_BIND( COMPUTE, 4 )
         } break;
 
-        case PipelineState::InternalResourceType::RESOURCE_TYPE_SHADER_RESOURCE_VIEW: {
-            DUSK_RESOURCE_STAGE_BIND( VERTEX, 0 )
-            DUSK_RESOURCE_STAGE_BIND( PIXEL, 1 )
-            DUSK_RESOURCE_STAGE_BIND( TESSELATION_CONTROL, 2 )
-            DUSK_RESOURCE_STAGE_BIND( TESSELATION_EVALUATION, 3 )
-            DUSK_RESOURCE_STAGE_BIND( COMPUTE, 4 )
-        } break;
-        
         case PipelineState::InternalResourceType::RESOURCE_TYPE_UNORDERED_ACCESS_VIEW: {
 			if ( shaderStage == SHADER_STAGE_COMPUTE ) {
 				PipelineState::ResourceEntry::StageBinding& stageBinding = resourceEntry->activeBindings[resourceEntry->activeStageCount++];
@@ -844,7 +837,7 @@ void BindSampler_Replay( RenderContext* renderContext, const dkStringHash_t hash
 	}
 
 	PipelineState::ResourceEntry* resource = it->second;
-	if ( resource == nullptr ) {
+	if ( resource == nullptr || resource->type != PipelineState::InternalResourceType::RESOURCE_TYPE_SAMPLER ) {
 		return;
 	}
     
