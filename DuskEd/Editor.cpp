@@ -401,6 +401,11 @@ void InitializeRenderSubsystems()
     // Create as early as possible to let RenderDoc hook API libraries
     if ( UseRenderDocCapture ) {
         g_RenderDocHelper->create();
+
+        // We need to explicitly disable vendor extensions since those aren't
+        // supported by RenderDoc.
+        bool* disableVendorExtension = EnvironmentVariables::getVariable<bool>( DUSK_STRING_HASH( "DisableVendorExtensions" ) );
+        *disableVendorExtension = true;
     }
 #endif
 #endif

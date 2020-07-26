@@ -29,6 +29,8 @@
 #include "ThirdParty/ags/amd_ags.h"
 #endif
 
+DUSK_ENV_VAR( DisableVendorExtensions, false, bool );
+
 RenderContext::RenderContext()
     : ImmediateContext( nullptr )
     , PhysicalDevice( nullptr )
@@ -178,7 +180,7 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
     constexpr i32 INTEL_VENDOR_ID = 0x8086;
 
 #if DUSK_USE_NVAPI
-    if ( bestVendorId == NVIDIA_VENDOR_ID ) {
+    if ( !DisableVendorExtensions && bestVendorId == NVIDIA_VENDOR_ID ) {
         _NvAPI_Status initializationResult = NvAPI_Initialize();
 
         const bool isInitSuccessful = initializationResult == NVAPI_OK;
@@ -190,7 +192,7 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
 #endif
 
 #if DUSK_USE_AGS
-    if ( bestVendorId == AMD_VENDOR_ID ) {
+    if ( !DisableVendorExtensions && bestVendorId == AMD_VENDOR_ID ) {
 		AGSGPUInfo gpuInfo;
 		AGSConfiguration config = {};
         AGSReturnCode initializationResult = agsInit( &renderContext->AgsContext, &config, &gpuInfo );
@@ -670,18 +672,18 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
         case CPI_MULTI_DRAW_INDEXED_INSTANCED_INDIRECT:
         {
 			CommandPacket::MultiDrawIndexedInstancedIndirect cmdPacket = *( CommandPacket::MultiDrawIndexedInstancedIndirect* )bufferPointer;
-//
-//#if DUSK_USE_NVAPI
-//            if ( renderContext->IsNvApiLoaded ) {
-//                NvAPI_D3D11_MultiDrawIndexedInstancedIndirect( renderContext->ImmediateContext, cmdPacket.DrawCount, cmdPacket.ArgsBuffer, cmdPacket.BufferAlignmentInBytes, cmdPacket.ArgumentsSizeInBytes );
-//            } else
-//#endif
-//
-//#if DUSK_USE_AGS
-//			if ( renderContext->IsAmdAgsLoaded ) {
-//				agsDriverExtensionsDX11_MultiDrawIndexedInstancedIndirect( renderContext->AgsContext, renderContext->ImmediateContext, cmdPacket.DrawCount, cmdPacket.ArgsBuffer, cmdPacket.BufferAlignmentInBytes, cmdPacket.ArgumentsSizeInBytes );
-//            } else
-//#endif
+
+#if DUSK_USE_NVAPI
+            if ( renderContext->IsNvApiLoaded ) {
+                NvAPI_D3D11_MultiDrawIndexedInstancedIndirect( renderContext->ImmediateContext, cmdPacket.DrawCount, cmdPacket.ArgsBuffer, cmdPacket.BufferAlignmentInBytes, cmdPacket.ArgumentsSizeInBytes );
+            } else
+#endif
+
+#if DUSK_USE_AGS
+			if ( renderContext->IsAmdAgsLoaded ) {
+				agsDriverExtensionsDX11_MultiDrawIndexedInstancedIndirect( renderContext->AgsContext, renderContext->ImmediateContext, cmdPacket.DrawCount, cmdPacket.ArgsBuffer, cmdPacket.BufferAlignmentInBytes, cmdPacket.ArgumentsSizeInBytes );
+            } else
+#endif
             {
 				for ( u32 i = 0; i < cmdPacket.DrawCount; i++ ) {
                     renderContext->ImmediateContext->DrawIndexedInstancedIndirect( cmdPacket.ArgsBuffer, cmdPacket.BufferAlignmentInBytes + cmdPacket.ArgumentsSizeInBytes * i );
