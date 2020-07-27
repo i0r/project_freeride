@@ -42,7 +42,9 @@ private:
     // True if the editor window is opened in the editor workspace.
     bool                isOpened;
 
-    // Pointer to the entity being edited.
+    // Proxy to the entity being edited. Please note that this is a PROXY 
+    // holding the handle to the active entity being edited (which means
+    // the handle shouldn't be deleted/released unless the app is closing).
     Entity*             activeEntity;
 
     // Instance of the world being edited.
@@ -70,6 +72,8 @@ private:
 
 private:
 #if DUSK_USE_IMGUI
+    void displayEntityInHiearchy( const dkStringHash_t entityHashcode, const Entity& entity );
+
     // Display Transform edition section (if the activeEntity has a Transform component and the context is valid).
     void displayTransformSection( const dkVec4f& viewportBounds, CameraData& viewportCamera );
 

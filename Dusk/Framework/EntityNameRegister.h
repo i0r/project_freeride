@@ -31,6 +31,9 @@ public:
 
     void            releaseEntityName( const Entity& entity );
 
+    // Return the hashcode/entity hashmap to iterate over the entities registered.
+    const std::unordered_map<dkStringHash_t, Entity>& getRegisterHashmap() const;
+
 private:
     // The memory allocator owning this instance.
     BaseAllocator*  memoryAllocator;

@@ -56,6 +56,38 @@ EntityEditor::~EntityEditor()
 }
 
 #if DUSK_USE_IMGUI
+void EntityEditor::displayEntityInHiearchy( const dkStringHash_t entityHashcode, const Entity& entity )
+{
+	ImGuiTreeNodeFlags flags = 0;
+
+    const bool isLeaf = true; // node->children.empty();
+	const bool isSelected = activeEntity != nullptr && ( *activeEntity == entity );
+
+	if ( isSelected )
+		flags |= ImGuiTreeNodeFlags_Selected;
+
+	if ( isLeaf )
+		flags |= ImGuiTreeNodeFlags_Leaf;
+
+    const char* entityName = activeWorld->getEntityNameRegister()->getName( entity );
+	bool isOpened = ImGui::TreeNodeEx( entityName, flags );
+
+	if ( ImGui::IsItemClicked() ) {
+        activeEntity->setIdentifier( entity.getIdentifier() );
+	}
+
+	if ( isOpened ) {
+		/*if ( !isLeaf ) {
+			ImGui::Indent();
+			for ( auto child : node->children ) {
+				displayEntityInHiearchy( child );
+			}
+		}*/
+
+		ImGui::TreePop();
+	}
+}
+
 void EntityEditor::displayEditorWindow( CameraData& viewportCamera, const dkVec4f& viewportBounds )
 {
     if ( !isOpened || activeWorld == nullptr || activeEntity == nullptr ) {
@@ -73,9 +105,17 @@ void EntityEditor::displayEditorWindow( CameraData& viewportCamera, const dkVec4
 			displayTransformSection( viewportBounds, viewportCamera );
 			displayStaticGeometrySection();
         }
-    }
+	}
+	ImGui::End();
 
-    ImGui::End();
+    if ( ImGui::Begin( "Streamed Hiearchy", &isOpened ) ) {
+        const auto& nameHashmap = activeWorld->getEntityNameRegister()->getRegisterHashmap();
+
+        for ( auto& name : nameHashmap ) {
+            displayEntityInHiearchy( name.first, name.second );
+        }
+	}
+	ImGui::End();
 }
 
 void EntityEditor::displayTransformSection( const dkVec4f& viewportBounds, CameraData& viewportCamera )

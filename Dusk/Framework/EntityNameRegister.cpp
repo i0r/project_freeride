@@ -66,3 +66,8 @@ void EntityNameRegister::releaseEntityName( const Entity& entity )
 
     memset( &names[entity.extractIndex() * Entity::MAX_NAME_LENGTH], '\0', sizeof( char ) * Entity::MAX_NAME_LENGTH );
 }
+
+const std::unordered_map<dkStringHash_t, Entity>& EntityNameRegister::getRegisterHashmap() const
+{
+    return nameHashmap;
+}
