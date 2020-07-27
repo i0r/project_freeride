@@ -33,9 +33,9 @@ RenderWorld::RenderWorld( BaseAllocator* allocator )
     , shadowCasterIndexBuffer( nullptr )
     , vertexBufferData( dk::core::allocateArray<f32>( allocator, 3 * MAX_VERTEX_COUNT ) )
     , indiceBufferData( dk::core::allocateArray<u32>( allocator, 3 * MAX_VERTEX_COUNT ) )
-    , vertexBufferDirtyOffset( 0u )
+    , vertexBufferDirtyOffset( ~0u )
     , vertexBufferDirtyLength( 0u )
-    , indiceBufferDirtyOffset( 0u )
+    , indiceBufferDirtyOffset( ~0u )
     , indiceBufferDirtyLength( 0u )
     , vertexBufferUsageOfffset( 0u )
     , indiceBufferUsageOfffset( 0u )
@@ -128,17 +128,17 @@ Model* RenderWorld::addAndCommitParsedDynamicModel( RenderDevice* renderDevice, 
 			if ( mesh.RenderMaterial->castShadow() && meshCanCastShadows ) {
 				// Allocate data for GPU-driven shadow rendering.
                 MeshConstants meshInfos;
-                mesh.ShadowGPUBatchEntryIndex = allocateGpuMeshInfos( meshInfos, mesh.VertexCount, mesh.FaceCount, mesh.IndiceCount );
+                mesh.ShadowGPUBatchEntryIndex = allocateGpuMeshInfos( meshInfos, mesh.VertexCount * 3, mesh.FaceCount, mesh.IndiceCount );
 
                 // Update CPU Buffers and mark dirty ranges for the next GPU buffers update.
-			    memcpy( &vertexBufferData[meshInfos.VertexOffset], mesh.PositionVertices, sizeof( dkVec3f ) * meshInfos.VertexCount );
+			    memcpy( &vertexBufferData[meshInfos.VertexOffset], mesh.PositionVertices, sizeof( dkVec3f ) * mesh.VertexCount );
 				memcpy( &indiceBufferData[meshInfos.IndexOffset], mesh.Indices, sizeof( u32 ) * mesh.IndiceCount );
 
 				vertexBufferDirtyOffset = Min( vertexBufferDirtyOffset, meshInfos.VertexOffset );
-				vertexBufferDirtyLength = Max( vertexBufferDirtyLength, ( meshInfos.VertexOffset + meshInfos.VertexCount ) );
+				vertexBufferDirtyLength = Max( vertexBufferDirtyLength, vertexBufferDirtyOffset + meshInfos.VertexCount );
 
 				indiceBufferDirtyOffset = Min( indiceBufferDirtyOffset, meshInfos.IndexOffset );
-				indiceBufferDirtyLength = Max( indiceBufferDirtyLength, ( meshInfos.IndexOffset + mesh.IndiceCount ) );
+				indiceBufferDirtyLength = Max( indiceBufferDirtyLength, indiceBufferDirtyOffset + mesh.IndiceCount );
             
                 // Create clusters for this mesh.
                 createMeshClusters( mesh.ShadowGPUBatchEntryIndex, mesh.IndiceCount, mesh.PositionVertices, mesh.Indices );
@@ -153,9 +153,10 @@ Model* RenderWorld::addAndCommitParsedDynamicModel( RenderDevice* renderDevice, 
 
 void RenderWorld::update( RenderDevice* renderDevice )
 {
-    const bool isVertexBufferDirty = ( vertexBufferDirtyLength > 0 );
-    const bool isIndiceBufferDirty = ( indiceBufferDirtyLength > 0 );
-    
+    const bool isVertexBufferDirty = ( vertexBufferDirtyOffset != ~0 );
+    const bool isIndiceBufferDirty = ( indiceBufferDirtyOffset != ~0 );
+
+    // TODO Do explicit range update to avoid remapping the whole buffer...
     CommandList& cmdList = renderDevice->allocateCopyCommandList();
     cmdList.begin();
 
@@ -163,11 +164,11 @@ void RenderWorld::update( RenderDevice* renderDevice )
         void* vertexBufferDataPtr = cmdList.mapBuffer( *shadowCasterVertexBuffer, vertexBufferDirtyOffset, vertexBufferDirtyLength );
         
         if ( vertexBufferDataPtr != nullptr ) {
-            memcpy( vertexBufferDataPtr, &vertexBufferData[vertexBufferDirtyOffset], sizeof( f32 ) * vertexBufferDirtyLength );
+            memcpy( vertexBufferDataPtr, vertexBufferData, sizeof( f32 ) * 3 * MAX_VERTEX_COUNT );
             cmdList.unmapBuffer( *shadowCasterVertexBuffer );
             
             vertexBufferDirtyLength = 0;
-            vertexBufferDirtyOffset = 0;
+            vertexBufferDirtyOffset = ~0;
         }
     }
     
@@ -175,17 +176,18 @@ void RenderWorld::update( RenderDevice* renderDevice )
         void* indiceBufferDataPtr = cmdList.mapBuffer( *shadowCasterIndexBuffer, indiceBufferDirtyOffset, indiceBufferDirtyLength );
         
         if ( indiceBufferDataPtr != nullptr ) {
-            memcpy( indiceBufferDataPtr, &indiceBufferData[indiceBufferDirtyOffset], sizeof( u32 ) * indiceBufferDirtyLength );
+            memcpy( indiceBufferDataPtr, indiceBufferData, sizeof( u32 ) * MAX_VERTEX_COUNT );
             cmdList.unmapBuffer( *shadowCasterIndexBuffer );
             
             indiceBufferDirtyLength = 0;
-            indiceBufferDirtyOffset = 0;
+            indiceBufferDirtyOffset = ~0;
         }
     }
 
     if ( isGpuMeshInfosDirty ) {
         // TODO Use range update instead?
         cmdList.updateBuffer( *gpuMeshInfos, gpuShadowBatches, sizeof( MeshConstants ) * MAX_MODEL_COUNT );
+        isGpuMeshInfosDirty = false;
     }
 
     cmdList.end();
@@ -194,11 +196,13 @@ void RenderWorld::update( RenderDevice* renderDevice )
 
 i32 RenderWorld::allocateGpuMeshInfos( MeshConstants& allocatedBatch, const u32 vertexCount, const u32 faceCount, const u32 indiceCount )
 {
+    isGpuMeshInfosDirty = true;
+
     // Check if one of the freelist entry is suitable for our allocation.
     // Free batch infos are stored at the end of the array.
     i32 freeListEnd = ( gpuShadowMeshCount + gpuShadowFreeListLength );
     for ( i32 i = gpuShadowMeshCount; i < freeListEnd; i++ ) {
-        if ( gpuShadowBatches[i].VertexCount >= ( vertexCount * 3 )
+        if ( gpuShadowBatches[i].VertexCount >= vertexCount
           && gpuShadowBatches[i].FaceCount >= faceCount ) {
             MeshConstants& batch = gpuShadowBatches[i];
             
@@ -232,18 +236,17 @@ i32 RenderWorld::allocateGpuMeshInfos( MeshConstants& allocatedBatch, const u32 
     
     // Allocate a new batch info.
     const i32 allocatedBatchIndex = gpuShadowMeshCount;
+
     MeshConstants& meshBatchInfos = gpuShadowBatches[gpuShadowMeshCount++];
     meshBatchInfos.VertexOffset = vertexBufferUsageOfffset;
-    meshBatchInfos.VertexCount = vertexCount * 3;
+    meshBatchInfos.VertexCount = vertexCount;
     meshBatchInfos.IndexOffset = indiceBufferUsageOfffset;
     meshBatchInfos.FaceCount = faceCount;
 
 	allocatedBatch = meshBatchInfos;
 
-    vertexBufferUsageOfffset += meshBatchInfos.VertexCount;
+    vertexBufferUsageOfffset += vertexCount;
     indiceBufferUsageOfffset += indiceCount;
-    
-    isGpuMeshInfosDirty = true;
     
     return allocatedBatchIndex;
 }

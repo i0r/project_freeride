@@ -583,7 +583,7 @@ void CascadedShadowRenderModule::setupParameters( FrameGraph& frameGraph, ResHan
             ShadowSetup::SetupCSMParametersProperties.CameraNearClip = cameraData->depthNearPlane;
             ShadowSetup::SetupCSMParametersProperties.CameraFarClip = cameraData->depthFarPlane;
             ShadowSetup::SetupCSMParametersProperties.ShadowMapSize = static_cast< f32 >( ShadowMapResolution );
-            ShadowSetup::SetupCSMParametersProperties.PSSMLambda = 1.0f;
+            ShadowSetup::SetupCSMParametersProperties.PSSMLambda = 1.50f;
             ShadowSetup::SetupCSMParametersProperties.LightDirection = lightDirection;
            
             cmdList->updateBuffer( *perPassBuffer, &ShadowSetup::SetupCSMParametersProperties, sizeof( ShadowSetup::SetupCSMParametersRuntimeProperties ) );
