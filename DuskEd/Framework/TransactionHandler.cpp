@@ -5,10 +5,13 @@
 #include <Shared.h>
 #include "TransactionHandler.h"
 
+#include "Core/Allocators/PoolAllocator.h"
+
 static std::string EMPTY_COMMAND = "";
 
 TransactionHandler::TransactionHandler( BaseAllocator* allocator )
-    : cmdAllocator( allocator )
+    : memoryAllocator( allocator )
+    , cmdAllocator( dk::core::allocate<PoolAllocator>( allocator, sizeof( TransactionCommand ), static_cast<u8>( alignof( TransactionCommand ) ), sizeof( TransactionCommand ) * MAX_HISTORY_SIZE, allocator->allocate( sizeof( TransactionCommand )* MAX_HISTORY_SIZE ) ) )
     , commandIdx( -1 )
     , commandCount( 0 )
     , commands{ nullptr }
@@ -18,9 +21,7 @@ TransactionHandler::TransactionHandler( BaseAllocator* allocator )
 
 TransactionHandler::~TransactionHandler()
 {
-    for ( int i = 0; i < commandCount; i++ ) {
-        dk::core::free( cmdAllocator, commands[i] );
-    }
+    dk::core::free( memoryAllocator, cmdAllocator );
 }
 
 void TransactionHandler::undo()
@@ -35,13 +36,15 @@ void TransactionHandler::undo()
 
 void TransactionHandler::redo()
 {
-    if ( ( commandIdx + 1 ) >= commandCount ) {
+    i32 nextCmdIdx = ( commandIdx + 1 );
+    if ( nextCmdIdx >= commandCount ) {
         return;
     }
 
-    commands[commandIdx + 1]->execute();
+    commands[nextCmdIdx]->execute();
     commandIdx++;
 }
+
 
 const std::string& TransactionHandler::getPreviousActionName() const
 {

@@ -29,6 +29,10 @@ public:
 
         // If we are in the past, clear the future commits
         if ( commandCount - commandIdx > 1 ) {
+            for ( i32 i = commandIdx; i < commandCount; i++ ) {
+                dk::core::free( cmdAllocator, commands[i] );
+            }
+
             commandCount -= ( commandCount - commandIdx );
         }
 
@@ -45,12 +49,20 @@ public:
     const std::string&              getNextActionName() const;
 
 private:
-    static constexpr i32            MAX_HISTORY_SIZE = 4096;
+    static constexpr i32 MAX_HISTORY_SIZE = 4096;
 
 private:
-    BaseAllocator*                  cmdAllocator;
+    BaseAllocator*                  memoryAllocator;
+
+    // Allocator responsible for the commands array allocation.
+    PoolAllocator*                  cmdAllocator;
+
+    // Array for commands buffering.
     TransactionCommand*             commands[MAX_HISTORY_SIZE];
 
+    // Index in the commands array pointing to the latest command executed.
     i32                             commandIdx;
+
+    // Number of command buffered in the commands array.
     i32                             commandCount;
 };
