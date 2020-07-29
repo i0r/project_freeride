@@ -72,7 +72,7 @@ void RenderWorld::create( RenderDevice& renderDevice )
     shadowIbDesc.Usage = RESOURCE_USAGE_DYNAMIC;
     shadowIbDesc.BindFlags = RESOURCE_BIND_INDICE_BUFFER | RESOURCE_BIND_SHADER_RESOURCE;
     shadowIbDesc.SizeInBytes = sizeof( u32 ) * 10000 * MAX_MODEL_COUNT;
-    shadowIbDesc.StrideInBytes = sizeof( u32 );
+    shadowIbDesc.StrideInBytes = sizeof( u32 ) * 3;
     shadowIbDesc.DefaultView.ViewFormat = VIEW_FORMAT_R32_UINT;
 
     shadowCasterIndexBuffer = renderDevice.createBuffer( shadowIbDesc );
@@ -131,8 +131,14 @@ Model* RenderWorld::addAndCommitParsedDynamicModel( RenderDevice* renderDevice, 
                 mesh.ShadowGPUBatchEntryIndex = allocateGpuMeshInfos( meshInfos, mesh.VertexCount * 3, mesh.FaceCount, mesh.IndiceCount );
 
                 // Update CPU Buffers and mark dirty ranges for the next GPU buffers update.
-			    memcpy( &vertexBufferData[meshInfos.VertexOffset], mesh.PositionVertices, sizeof( dkVec3f ) * mesh.VertexCount );
+                memcpy( &vertexBufferData[meshInfos.VertexOffset], mesh.PositionVertices, sizeof( f32 ) * 3 * mesh.VertexCount );
 				memcpy( &indiceBufferData[meshInfos.IndexOffset], mesh.Indices, sizeof( u32 ) * mesh.IndiceCount );
+
+                // Append this mesh buffer offset to the indice to be properly indexed.
+                const u32 meshIndiceOffset = meshInfos.IndexOffset;
+                for ( u32 i = meshInfos.IndexOffset; i < ( meshInfos.IndexOffset + mesh.IndiceCount ); i++ ) {
+                    indiceBufferData[i] += meshIndiceOffset;
+                }
 
 				vertexBufferDirtyOffset = Min( vertexBufferDirtyOffset, meshInfos.VertexOffset );
 				vertexBufferDirtyLength = Max( vertexBufferDirtyLength, vertexBufferDirtyOffset + meshInfos.VertexCount );

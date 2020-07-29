@@ -73,6 +73,7 @@
 #include "Framework/Transform.h"
 #include "DefaultInputConfig.h"
 
+#include "Framework/TransactionHandler.h"
 
 static char  g_BaseBuffer[128];
 static void* g_AllocatedTable;
@@ -112,6 +113,7 @@ static ImGuiRenderModule* g_ImGuiRenderModule;
 #endif
 
 static DynamicsWorld* g_DynamicsWorld;
+static TransactionHandler* g_TransactionHandler;
 
 static bool                    g_IsGamePaused = false;
 static bool                    g_IsFirstLaunch = false;
@@ -189,13 +191,13 @@ void UpdateEditor( MappedInput& input, f32 deltaTime )
 
     // Default: Ctrl
     if ( input.States.find( DUSK_STRING_HASH( "Modifier1" ) ) != input.States.end() ) {
-        /* if ( input.Actions.find( DUSK_STRING_HASH( "Undo" ) ) != input.Actions.end() ) {
-             g_TransactionHandler->undo();
-         }
+        if ( input.Actions.find( DUSK_STRING_HASH( "Undo" ) ) != input.Actions.end() ) {
+            g_TransactionHandler->undo();
+        }
 
-         if ( input.Actions.find( DUSK_STRING_HASH( "Redo" ) ) != input.Actions.end() ) {
-             g_TransactionHandler->redo();
-         }*/
+        if ( input.Actions.find( DUSK_STRING_HASH( "Redo" ) ) != input.Actions.end() ) {
+            g_TransactionHandler->redo();
+        }
     }
 
     if ( g_IsMouseOverViewportWindow ) {
@@ -510,6 +512,7 @@ void Initialize( const char* cmdLineArgs )
 	g_EditorGridModule = dk::core::allocate<EditorGridModule>( g_GlobalAllocator );
 
     g_DynamicsWorld = dk::core::allocate<DynamicsWorld>( g_GlobalAllocator, g_GlobalAllocator );
+    g_TransactionHandler = dk::core::allocate<TransactionHandler>( g_GlobalAllocator, g_GlobalAllocator );
 
     DUSK_LOG_INFO( "Initialization done (took %.5f seconds)\n", profileTimer.getElapsedTimeAsSeconds() );
     DUSK_LOG_RAW( "\n================================\n\n" );
