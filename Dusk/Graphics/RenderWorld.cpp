@@ -41,6 +41,7 @@ RenderWorld::RenderWorld( BaseAllocator* allocator )
     , indiceBufferUsageOfffset( 0u )
     , gpuShadowMeshCount( 0u )
     , gpuShadowFreeListLength( 0u )
+    , indexOffset( 0u )
     , gpuShadowBatches( dk::core::allocateArray<MeshConstants>( allocator, MAX_MODEL_COUNT ) )
     , gpuMeshInfos( nullptr )
     , isGpuMeshInfosDirty( false )
@@ -72,7 +73,7 @@ void RenderWorld::create( RenderDevice& renderDevice )
     shadowIbDesc.Usage = RESOURCE_USAGE_DYNAMIC;
     shadowIbDesc.BindFlags = RESOURCE_BIND_INDICE_BUFFER | RESOURCE_BIND_SHADER_RESOURCE;
     shadowIbDesc.SizeInBytes = sizeof( u32 ) * 10000 * MAX_MODEL_COUNT;
-    shadowIbDesc.StrideInBytes = sizeof( u32 ) * 3;
+    shadowIbDesc.StrideInBytes = sizeof( u32 );
     shadowIbDesc.DefaultView.ViewFormat = VIEW_FORMAT_R32_UINT;
 
     shadowCasterIndexBuffer = renderDevice.createBuffer( shadowIbDesc );
@@ -131,19 +132,16 @@ Model* RenderWorld::addAndCommitParsedDynamicModel( RenderDevice* renderDevice, 
                 mesh.ShadowGPUBatchEntryIndex = allocateGpuMeshInfos( meshInfos, mesh.VertexCount * 3, mesh.FaceCount, mesh.IndiceCount );
 
                 // Update CPU Buffers and mark dirty ranges for the next GPU buffers update.
-                memcpy( &vertexBufferData[meshInfos.VertexOffset], mesh.PositionVertices, sizeof( f32 ) * 3 * mesh.VertexCount );
-				memcpy( &indiceBufferData[meshInfos.IndexOffset], mesh.Indices, sizeof( u32 ) * mesh.IndiceCount );
+                u32 vertexOffsetInElements = meshInfos.VertexOffset / sizeof( f32 );
+                u32 indexOffsetInElements = meshInfos.IndexOffset / sizeof( i32 );
 
-                // Append this mesh buffer offset to the indice to be properly indexed.
-                const u32 meshIndiceOffset = meshInfos.IndexOffset;
-                for ( u32 i = meshInfos.IndexOffset; i < ( meshInfos.IndexOffset + mesh.IndiceCount ); i++ ) {
-                    indiceBufferData[i] += meshIndiceOffset;
-                }
+                memcpy( &vertexBufferData[vertexOffsetInElements], mesh.PositionVertices, sizeof( f32 ) * 3 * mesh.VertexCount );
+				memcpy( &indiceBufferData[indexOffsetInElements], mesh.Indices, sizeof( u32 ) * mesh.IndiceCount );
 
-				vertexBufferDirtyOffset = Min( vertexBufferDirtyOffset, meshInfos.VertexOffset );
+				vertexBufferDirtyOffset = Min( vertexBufferDirtyOffset, vertexOffsetInElements );
 				vertexBufferDirtyLength = Max( vertexBufferDirtyLength, vertexBufferDirtyOffset + meshInfos.VertexCount );
 
-				indiceBufferDirtyOffset = Min( indiceBufferDirtyOffset, meshInfos.IndexOffset );
+				indiceBufferDirtyOffset = Min( indiceBufferDirtyOffset, indexOffsetInElements );
 				indiceBufferDirtyLength = Max( indiceBufferDirtyLength, indiceBufferDirtyOffset + mesh.IndiceCount );
             
                 // Create clusters for this mesh.
@@ -244,9 +242,9 @@ i32 RenderWorld::allocateGpuMeshInfos( MeshConstants& allocatedBatch, const u32 
     const i32 allocatedBatchIndex = gpuShadowMeshCount;
 
     MeshConstants& meshBatchInfos = gpuShadowBatches[gpuShadowMeshCount++];
-    meshBatchInfos.VertexOffset = vertexBufferUsageOfffset;
+    meshBatchInfos.VertexOffset = vertexBufferUsageOfffset * sizeof( f32 );
     meshBatchInfos.VertexCount = vertexCount;
-    meshBatchInfos.IndexOffset = indiceBufferUsageOfffset;
+    meshBatchInfos.IndexOffset = indiceBufferUsageOfffset * sizeof( i32 );
     meshBatchInfos.FaceCount = faceCount;
 
 	allocatedBatch = meshBatchInfos;

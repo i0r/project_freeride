@@ -25,6 +25,7 @@ public:
 
 public:
     DUSK_INLINE const dkMat4x4f& getGlobalShadowMatrix() const { return globalShadowMatrix; }
+    DUSK_INLINE Image* getShadowAtlas() const { return shadowSlices; }
 
 public:
                         CascadedShadowRenderModule( BaseAllocator* allocator );

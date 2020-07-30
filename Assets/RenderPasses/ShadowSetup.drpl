@@ -1,12 +1,11 @@
 lib ShadowSetup {
     properties {
         float4x4 GlobalShadowMatrix;
-        float4x4 ViewProjInv;       
+        float4x4 ViewProjInv;
+        float3 LightDirection;
+        float PSSMLambda;       
         float CameraNearClip; 
         float CameraFarClip;
-        float ShadowMapSize;
-        float PSSMLambda;
-        float3 LightDirection;
     }
     
     resources {
@@ -177,11 +176,11 @@ lib ShadowSetup {
         float4x4 shadowMatrix = mul(shadowView, shadowProj);
         float3 shadowOrigin = 0.0f;
         shadowOrigin = mul(float4(shadowOrigin, 1.0f), shadowMatrix).xyz;
-        shadowOrigin *= (ShadowMapSize / 2.0f);
+        shadowOrigin *= (CSM_SLICE_DIMENSION / 2.0f);
 
         float3 roundedOrigin = round(shadowOrigin);
         float3 roundOffset = roundedOrigin - shadowOrigin;
-        roundOffset = roundOffset * (2.0f / ShadowMapSize);
+        roundOffset = roundOffset * (2.0f / CSM_SLICE_DIMENSION);
         roundOffset.z = 0.0f;
 
         shadowProj[3][0] += roundOffset.x;

@@ -49,16 +49,6 @@ static u32 DispatchSize( const u32 tgSize, const u32 numElements )
     return dispatchSize;
 }
 
-static dkVec3f TransformVec3( const dkVec3f& vector, const dkMat4x4f& matrix )
-{
-    float x = ( vector.x * matrix[0].x ) + ( vector.y * matrix[1].x ) + ( vector.z * matrix[2].x ) + matrix[3].x;
-    float y = ( vector.x * matrix[0].y ) + ( vector.y * matrix[1].y ) + ( vector.z * matrix[2].y ) + matrix[3].y;
-    float z = ( vector.x * matrix[0].z ) + ( vector.y * matrix[1].z ) + ( vector.z * matrix[2].z ) + matrix[3].z;
-    float w = ( vector.x * matrix[0].w ) + ( vector.y * matrix[1].w ) + ( vector.z * matrix[2].w ) + matrix[3].w;
-
-    return dkVec3f( x, y, z ) / w;
-}
-
 static dkMat4x4f CreateGlobalShadowMatrix( const dkVec3f& lightDirNormalized, const dkMat4x4f& viewProjection )
 {
     // Get the 8 points of the view frustum in world space
@@ -73,12 +63,10 @@ static dkMat4x4f CreateGlobalShadowMatrix( const dkVec3f& lightDirNormalized, co
         dkVec3f( -1.0f, -1.0f, +1.0f ),
     };
 
-    dkMat4x4f invViewProjection = viewProjection.inverse(); // .transpose();
-	/*dkMat4x4f( 3.21438E-8f, 0.00f, 0.53928f, 0.00f, 0.00f, 0.30335f, 0.00f, 0.00f, -159.83661f, -19.97958f, -19.97958f, -3.99592f,
-			   158.99663f, 19.99958f, 19.99958f, 3.99992f );*/
+    dkMat4x4f invViewProjection = viewProjection.inverse();
     dkVec3f frustumCenter( 0.0f );
     for ( uint64_t i = 0; i < 8; ++i ) {
-        frustumCorners[i] = TransformVec3( frustumCorners[i], invViewProjection );
+        frustumCorners[i] = dkVec4f( frustumCorners[i], 1.0f ) * invViewProjection;
         frustumCenter += frustumCorners[i];
     }
 
@@ -412,10 +400,10 @@ void CascadedShadowRenderModule::fillBatchChunks( const CameraData* cameraData, 
         chunk.FaceCount = 0u;
     }
 
-    for ( u32 i = 0; i < drawCallsCount; i++ ) {
-        const DrawCall& drawCall = drawCalls[i];
+    for ( u32 k = 0; k < drawCallsCount; k++ ) {
+        const DrawCall& drawCall = drawCalls[k];
         const MeshConstants& meshInfos = gpuShadowCasters[drawCall.MeshEntryIndex];
-        const std::vector<MeshCluster>& clusters = meshClusters[i];
+        const std::vector<MeshCluster>& clusters = meshClusters[k];
 
         i32 triangleCount = meshInfos.FaceCount;
         i32 firstTriangleIndex = 0;
@@ -582,8 +570,7 @@ void CascadedShadowRenderModule::setupParameters( FrameGraph& frameGraph, ResHan
             ShadowSetup::SetupCSMParametersProperties.ViewProjInv = cameraData->depthViewProjectionMatrix.inverse();
             ShadowSetup::SetupCSMParametersProperties.CameraNearClip = cameraData->depthNearPlane;
             ShadowSetup::SetupCSMParametersProperties.CameraFarClip = cameraData->depthFarPlane;
-            ShadowSetup::SetupCSMParametersProperties.ShadowMapSize = static_cast< f32 >( ShadowMapResolution );
-            ShadowSetup::SetupCSMParametersProperties.PSSMLambda = 1.50f;
+            ShadowSetup::SetupCSMParametersProperties.PSSMLambda = 0.0f; // 1.50f;
             ShadowSetup::SetupCSMParametersProperties.LightDirection = lightDirection;
            
             cmdList->updateBuffer( *perPassBuffer, &ShadowSetup::SetupCSMParametersProperties, sizeof( ShadowSetup::SetupCSMParametersRuntimeProperties ) );

@@ -95,6 +95,8 @@ private:
     // Number of free entry available in gpuShadowBatches. Free entries start at the end of the used entry list.
     u32             gpuShadowFreeListLength;
     
+    u32             indexOffset;
+
     // CPU copy of entries describing the data stored in the gpu shadow vertex buffer.
     MeshConstants* gpuShadowBatches;
 

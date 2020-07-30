@@ -163,6 +163,9 @@ public:
     // Return a pointer to this renderer light grid.  Shouldn't be useful outside the editor context.
     DUSK_INLINE LightGrid*              getLightGrid() const { return lightGrid; }
 
+    // Return a pointer to the CascadedShadowMap render module instance. Shouldn't be useful outside the editor context.
+    DUSK_INLINE CascadedShadowRenderModule* getCascadedShadowRenderModule() const { return cascadedShadowMapRendering; }
+
 public:
                      WorldRenderer( BaseAllocator* allocator );
                      WorldRenderer( WorldRenderer& ) = default;

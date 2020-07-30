@@ -165,7 +165,7 @@ void FreeCamera::setProjectionMatrix( const f32 fieldOfView, const f32 screenWid
     nearPlane = zNear;
 
     data.depthNearPlane = 0.25f;
-    data.depthFarPlane = 100.0f; // 250.0f;
+    data.depthFarPlane = 250.0f;
 
     data.viewportSize = dkVec2f( screenWidth, screenHeight );
     data.inverseViewportSize = 1.0f / data.viewportSize;

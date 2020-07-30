@@ -38,6 +38,7 @@
 #include "Graphics/RenderWorld.h" // TODO Should be refactored/deprecated soon
 #include "Graphics/DrawCommandBuilder.h"
 #include "Graphics/RenderModules/EditorGridRenderModule.h"
+#include "Graphics/RenderModules/CascadedShadowRenderModule.h"
 
 #if DUSK_USE_RENDERDOC
 #include "Graphics/RenderDocHelper.h"
@@ -50,6 +51,7 @@
 #include "ThirdParty/imgui/imgui_internal.h"
 #include "ThirdParty/ImGuizmo/ImGuizmo.h"
 
+#include "Framework/ImGuiUtilities.h"
 #include "Framework/LoggingConsole.h"
 #endif
 
@@ -793,6 +795,17 @@ void MainLoop()
                 }
             }
             ImGui::End();
+
+            if ( ImGui::Begin( "Cascaded Shadow Map" ) ) {
+                ImVec2 winSize = ImGui::GetWindowSize();
+                ImGui::Image( static_cast< ImTextureID >( g_WorldRenderer->getCascadedShadowRenderModule()->getShadowAtlas() ), ImVec2( winSize.x - 32.0f, winSize.x / 2 - 32.0f ) );
+
+                ImGui::Text( "Global Shadow Matrix" );
+                dkMat4x4f globalShadowMat = g_WorldRenderer->getCascadedShadowRenderModule()->getGlobalShadowMatrix();
+                dk::imgui::InputMatrix4x4( globalShadowMat );
+
+                ImGui::End();
+            }
 
             // TODO Crappy stuff to prototype/test quickly.
             static ImVec2 viewportWinSize;

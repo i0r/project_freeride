@@ -157,7 +157,7 @@ void EntityEditor::displayTransformSection( const dkVec4f& viewportBounds, Camer
 
         ImGui::DragFloat3( "Translation", ( float* )editorInstance.Position );
         ImGui::DragFloat3( "Rotation", ( float* )&Rotation, 3 );
-        dk::imgui::DragFloat3WithChannelLock( editorInstance.Scale, lockScaleChannels );
+        dk::imgui::DragFloat3WithChannelLock( "Scale", editorInstance.Scale, lockScaleChannels );
 
         RotationQuat = dkQuatf( Rotation );
         *editorInstance.Rotation = RotationQuat;

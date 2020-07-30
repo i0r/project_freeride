@@ -33,10 +33,18 @@ namespace dk
 			return !IsItemActiveLastFrame() && ImGui::IsItemActive(); 
 		}
 
-		static void DragFloat3WithChannelLock( dkVec3f* inputFloat3, bool& lockScaleChannels )
+		static DUSK_INLINE void InputMatrix4x4( dkMat4x4f& inputMat44 )
+        {
+            ImGui::InputFloat4( "r0", ( f32* )inputMat44[0].scalars );
+            ImGui::InputFloat4( "r1", ( f32* )inputMat44[1].scalars );
+            ImGui::InputFloat4( "r2", ( f32* )inputMat44[2].scalars );
+            ImGui::InputFloat4( "r3", ( f32* )inputMat44[3].scalars );
+		}
+
+		static void DragFloat3WithChannelLock( const char* name, dkVec3f* inputFloat3, bool& lockScaleChannels )
 		{
 			dkVec3f preEditScale = *inputFloat3;
-			ImGui::DragFloat3( "Scale", ( f32* )inputFloat3 );
+			ImGui::DragFloat3( name, ( f32* )inputFloat3 );
 			ImGui::SameLine();
 			if ( ImGui::Button( lockScaleChannels ? "U" : "L" ) ) {
 				lockScaleChannels = !lockScaleChannels;
