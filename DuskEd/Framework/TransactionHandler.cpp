@@ -7,11 +7,17 @@
 
 #include "Core/Allocators/PoolAllocator.h"
 
-static std::string EMPTY_COMMAND = "";
+static constexpr i32 MAX_TRANSACTION_CMD_SIZE = 256;
 
 TransactionHandler::TransactionHandler( BaseAllocator* allocator )
     : memoryAllocator( allocator )
-    , cmdAllocator( dk::core::allocate<PoolAllocator>( allocator, sizeof( TransactionCommand ), static_cast<u8>( alignof( TransactionCommand ) ), sizeof( TransactionCommand ) * MAX_HISTORY_SIZE, allocator->allocate( sizeof( TransactionCommand )* MAX_HISTORY_SIZE ) ) )
+    , cmdAllocator( dk::core::allocate<PoolAllocator>( 
+            allocator, 
+            MAX_TRANSACTION_CMD_SIZE, 
+            static_cast<u8>( alignof( TransactionCommand ) ), 
+            MAX_TRANSACTION_CMD_SIZE * MAX_HISTORY_SIZE, 
+            allocator->allocate( MAX_TRANSACTION_CMD_SIZE * MAX_HISTORY_SIZE ) 
+        ) )
     , commandIdx( -1 )
     , commandCount( 0 )
     , commands{ nullptr }
@@ -26,7 +32,7 @@ TransactionHandler::~TransactionHandler()
 
 void TransactionHandler::undo()
 {
-    if ( commandIdx < 0 ) {
+    if ( !canUndo() ) {
         return;
     }
 
@@ -36,22 +42,31 @@ void TransactionHandler::undo()
 
 void TransactionHandler::redo()
 {
-    i32 nextCmdIdx = ( commandIdx + 1 );
-    if ( nextCmdIdx >= commandCount ) {
+    if ( !canRedo() ) {
         return;
     }
 
-    commands[nextCmdIdx]->execute();
-    commandIdx++;
+	commandIdx++;
+    commands[commandIdx]->execute();
 }
 
-
-const std::string& TransactionHandler::getPreviousActionName() const
+bool TransactionHandler::canUndo() const
 {
-    return ( commandIdx < 0 ) ? EMPTY_COMMAND : commands[commandIdx]->getActionInfos();
+    return ( commandIdx >= 0 );
 }
 
-const std::string& TransactionHandler::getNextActionName() const
+bool TransactionHandler::canRedo() const
 {
-    return ( commandIdx + 1 ) >= commandCount ? EMPTY_COMMAND : commands[commandIdx + 1]->getActionInfos();
+	i32 nextCmdIdx = ( commandIdx + 1 );
+    return ( nextCmdIdx < commandCount );
+}
+
+const char* TransactionHandler::getPreviousActionName() const
+{
+    return ( !canUndo() ) ? nullptr : commands[commandIdx]->getActionInfos().c_str();
+}
+
+const char* TransactionHandler::getNextActionName() const
+{
+    return ( !canRedo() ) ? nullptr : commands[commandIdx + 1]->getActionInfos().c_str();
 }

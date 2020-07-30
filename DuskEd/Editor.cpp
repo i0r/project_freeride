@@ -115,7 +115,8 @@ static ImGuiRenderModule* g_ImGuiRenderModule;
 #endif
 
 static DynamicsWorld* g_DynamicsWorld;
-static TransactionHandler* g_TransactionHandler;
+
+TransactionHandler*            g_TransactionHandler;
 
 static bool                    g_IsGamePaused = false;
 static bool                    g_IsFirstLaunch = false;
@@ -648,7 +649,15 @@ void MainLoop()
                     ImGui::EndMenu();
                 }
 
-                if ( ImGui::BeginMenu( "Edit" ) ) {
+				if ( ImGui::BeginMenu( "Edit" ) ) {
+					if ( ImGui::MenuItem( "Undo", g_TransactionHandler->getPreviousActionName(), false, g_TransactionHandler->canUndo() ) ) {
+                        g_TransactionHandler->undo();
+					}
+
+                    if ( ImGui::MenuItem( "Redo", g_TransactionHandler->getNextActionName(), false, g_TransactionHandler->canRedo() ) ) {
+						g_TransactionHandler->redo();
+					}
+
                     ImGui::EndMenu();
                 }
 

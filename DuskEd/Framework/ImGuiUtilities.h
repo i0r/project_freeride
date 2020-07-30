@@ -41,10 +41,10 @@ namespace dk
             ImGui::InputFloat4( "r3", ( f32* )inputMat44[3].scalars );
 		}
 
-		static void DragFloat3WithChannelLock( const char* name, dkVec3f* inputFloat3, bool& lockScaleChannels )
+		static bool DragFloat3WithChannelLock( const char* name, dkVec3f* inputFloat3, bool& lockScaleChannels )
 		{
 			dkVec3f preEditScale = *inputFloat3;
-			ImGui::DragFloat3( name, ( f32* )inputFloat3 );
+			bool hasBeenManipulated = ImGui::DragFloat3( name, ( f32* )inputFloat3 );
 			ImGui::SameLine();
 			if ( ImGui::Button( lockScaleChannels ? "U" : "L" ) ) {
 				lockScaleChannels = !lockScaleChannels;
@@ -60,6 +60,8 @@ namespace dk
 					}
 				}
 			}
+
+			return hasBeenManipulated;
 		}
 	}
 }

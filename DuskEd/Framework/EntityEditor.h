@@ -15,6 +15,7 @@ class RenderWorld;
 class RenderDevice;
 
 #include <Maths/Vector.h>
+#include <Maths/Quaternion.h>
 
 class EntityEditor
 {
@@ -69,6 +70,15 @@ private:
     // Parser to parse fbx geometry file. 
     FbxParser*          fbxParser;
 #endif
+
+    // True if the transform guizmo was manipulated last frame; false otherwise.
+    bool                wasManipulatingLastFrame;
+
+    dkVec3f             startTransactionTranslation;
+
+	dkVec3f             startTransactionScale;
+
+    dkQuatf             startTransactionRotation;
 
 private:
 #if DUSK_USE_IMGUI

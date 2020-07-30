@@ -32,7 +32,9 @@
 #include <Graphics/RenderWorld.h>
 
 #include <Maths/Vector.h>
+
 #include "ImGuiUtilities.h"
+#include "TransformCommands.h"
 
 EntityEditor::EntityEditor( BaseAllocator* allocator, GraphicsAssetCache* gfxCache, VirtualFileSystem* vfs, RenderWorld* rWorld, RenderDevice* activeRenderDevice )
     : isOpened( false )
@@ -43,6 +45,10 @@ EntityEditor::EntityEditor( BaseAllocator* allocator, GraphicsAssetCache* gfxCac
     , virtualFileSystem( vfs )
     , renderWorld( rWorld )
     , renderDevice( activeRenderDevice )
+    , wasManipulatingLastFrame( false )
+	, startTransactionTranslation( dkVec3f::Zero )
+	, startTransactionScale( dkVec3f( 1.0f ) )
+	, startTransactionRotation( dkQuatf::Identity )
 {
 #if DUSK_USE_FBXSDK
     fbxParser = dk::core::allocate<FbxParser>( allocator );
@@ -120,6 +126,8 @@ void EntityEditor::displayEditorWindow( CameraData& viewportCamera, const dkVec4
 
 void EntityEditor::displayTransformSection( const dkVec4f& viewportBounds, CameraData& viewportCamera )
 {
+    extern TransactionHandler* g_TransactionHandler;
+
     bool hasTransformAttachment = activeWorld->getTransformDatabase()->hasComponent( *activeEntity );
     if ( !hasTransformAttachment ) {
         return;
@@ -131,6 +139,7 @@ void EntityEditor::displayTransformSection( const dkVec4f& viewportBounds, Camer
         TransformDatabase* transformDb = activeWorld->getTransformDatabase();
         TransformDatabase::EdInstanceData& editorInstance = transformDb->getEditorInstanceData( transformDb->lookup( *activeEntity ) );
 
+        // TODO Move manipulation parameters to a toolbar
         static ImGuizmo::OPERATION mCurrentGizmoOperation( ImGuizmo::TRANSLATE );
         static int activeManipulationMode = 0;
         static bool useSnap = false;
@@ -139,6 +148,14 @@ void EntityEditor::displayTransformSection( const dkVec4f& viewportBounds, Camer
 
         dkMat4x4f* modelMatrix = editorInstance.Local;
 
+		dkVec3f newTranslation = *editorInstance.Position;
+		dkVec3f newScale = *editorInstance.Scale;
+
+		dkVec3f oldTranslation = *editorInstance.Position;
+		dkVec3f oldScale = *editorInstance.Scale;
+        dkQuatf oldRotation = *editorInstance.Rotation;
+
+        // Draw Manipulation Guizmo.
         ImGuizmo::SetRect( viewportBounds.x, viewportBounds.y, viewportBounds.z, viewportBounds.w );
         ImGuizmo::SetDrawlist();
         ImGuizmo::Manipulate(
@@ -151,23 +168,65 @@ void EntityEditor::displayTransformSection( const dkVec4f& viewportBounds, Camer
             ( useSnap ) ? &snap[activeManipulationMode] : nullptr
         );
 
-        // Convert Quaternion to Euler Angles (for user friendlyness).
+        // Convert Quaternion to Euler Angles (for user friendliness).
         dkQuatf RotationQuat = dk::maths::ExtractRotation( *modelMatrix, *editorInstance.Scale );
         dkVec3f Rotation = RotationQuat.toEulerAngles();
 
-        ImGui::DragFloat3( "Translation", ( float* )editorInstance.Position );
-        ImGui::DragFloat3( "Rotation", ( float* )&Rotation, 3 );
-        dk::imgui::DragFloat3WithChannelLock( "Scale", editorInstance.Scale, lockScaleChannels );
-
-        RotationQuat = dkQuatf( Rotation );
-        *editorInstance.Rotation = RotationQuat;
-
-        if ( ImGuizmo::IsUsing() ) {
-            *editorInstance.Position = dk::maths::ExtractTranslation( *modelMatrix );
-            *editorInstance.Scale = dk::maths::ExtractScale( *modelMatrix );
-            *editorInstance.Rotation = dk::maths::ExtractRotation( *modelMatrix, *editorInstance.Scale );
+        // Translation
+        if ( ImGui::DragFloat3( "Translation", ( f32* )&newTranslation ) ) {
+            g_TransactionHandler->commit<TranslateCommand>( &editorInstance, newTranslation, oldTranslation );
         }
 
+        // Rotation
+		if ( ImGui::DragFloat3( "Rotation", ( f32* )&Rotation, 3 ) ) {
+			RotationQuat = dkQuatf( Rotation );
+
+			g_TransactionHandler->commit<RotateCommand>( &editorInstance, RotationQuat, oldRotation );
+        }
+
+        // Scale
+        if ( dk::imgui::DragFloat3WithChannelLock( "Scale", &newScale, lockScaleChannels ) ) {
+            g_TransactionHandler->commit<ScaleCommand>( &editorInstance, newScale, oldScale );
+        }
+        
+        bool isGuizmoManipulatedThisFrame = ImGuizmo::IsUsing();
+
+        // Update transform components if the guizmo has been manipulated.
+		if ( wasManipulatingLastFrame && !isGuizmoManipulatedThisFrame ) {
+			// Translation
+            newTranslation = dk::maths::ExtractTranslation( *modelMatrix );
+            if ( newTranslation != startTransactionTranslation ) {
+				g_TransactionHandler->commit<TranslateCommand>( &editorInstance, newTranslation, startTransactionTranslation );
+            }
+
+            // Scale
+			newScale = dk::maths::ExtractScale( *modelMatrix );
+			if ( newScale != startTransactionScale ) {
+				g_TransactionHandler->commit<ScaleCommand>( &editorInstance, newScale, startTransactionScale );
+			}
+
+            // Rotation
+            RotationQuat = dk::maths::ExtractRotation( *modelMatrix, *editorInstance.Scale );
+            if ( RotationQuat != startTransactionRotation ) {
+				g_TransactionHandler->commit<RotateCommand>( &editorInstance, RotationQuat, startTransactionRotation );
+            }
+        } else if ( isGuizmoManipulatedThisFrame ) {
+            // Backup transform components at the begining of the transaction.
+			if ( !wasManipulatingLastFrame ) {
+				startTransactionTranslation = *editorInstance.Position;
+				startTransactionScale = *editorInstance.Scale;
+                startTransactionRotation = *editorInstance.Rotation;
+            }
+        
+            // Update transform.
+			*editorInstance.Position = dk::maths::ExtractTranslation( *modelMatrix );
+			*editorInstance.Scale = dk::maths::ExtractScale( *modelMatrix );
+			*editorInstance.Rotation = dk::maths::ExtractRotation( *modelMatrix, *editorInstance.Scale );
+        }
+
+        wasManipulatingLastFrame = isGuizmoManipulatedThisFrame;
+
+        // Sanitize scale to avoid NaN and Inf.
         *editorInstance.Scale = dkVec3f::max( dkVec3f( 0.0001f ), *editorInstance.Scale );
 
         // TODO Move those to a settings menu/panel and add shortcut for transformation mode (translate/rotate/etc.).

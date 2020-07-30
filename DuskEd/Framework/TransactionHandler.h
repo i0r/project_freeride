@@ -29,11 +29,13 @@ public:
 
         // If we are in the past, clear the future commits
         if ( commandCount - commandIdx > 1 ) {
-            for ( i32 i = commandIdx; i < commandCount; i++ ) {
+            const i32 commandToRemoveCount = ( commandCount - 1 );
+
+            for ( i32 i = commandIdx; i < commandToRemoveCount; i++ ) {
                 dk::core::free( cmdAllocator, commands[i] );
             }
 
-            commandCount -= ( commandCount - commandIdx );
+            commandCount -= ( commandToRemoveCount - commandIdx );
         }
 
         T* cmd = dk::core::allocate<T>( cmdAllocator, std::forward<TArgs>( args )... );
@@ -45,11 +47,14 @@ public:
     void                            undo();
     void                            redo();
 
-    const std::string&              getPreviousActionName() const;
-    const std::string&              getNextActionName() const;
+    bool                            canUndo() const;
+	bool                            canRedo() const;
+
+    const char*                     getPreviousActionName() const;
+    const char*                     getNextActionName() const;
 
 private:
-    static constexpr i32 MAX_HISTORY_SIZE = 4096;
+    static constexpr i32            MAX_HISTORY_SIZE = 4096;
 
 private:
     BaseAllocator*                  memoryAllocator;
