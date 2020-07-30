@@ -658,6 +658,13 @@ void MainLoop()
 						g_TransactionHandler->redo();
 					}
 
+                    ImGui::Separator();
+
+					if ( ImGui::MenuItem( "Delete", nullptr, false, ( g_PickedEntity.getIdentifier() != Entity::INVALID_ID ) ) ) {
+						g_World->releaseEntity( g_PickedEntity );
+						g_PickedEntity.setIdentifier( Entity::INVALID_ID );
+					}
+
                     ImGui::EndMenu();
                 }
 
@@ -909,14 +916,6 @@ void MainLoop()
                                 -( ( ( 2.0f * shiftedMouseY ) / viewportWinSize.y ) - 1 ) / inverseViewProj[1][1],
                                 1.0f
                             };
-
-                            //dkVec3f rayOrigin =
-                            //{
-                            //    inverseViewProj[0][3],
-                            //    inverseViewProj[1][3],
-                            //    inverseViewProj[2][3]
-                            //};
-
 
                             dkVec3f rayDirection =
                             {
