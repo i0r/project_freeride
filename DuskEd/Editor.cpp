@@ -670,6 +670,37 @@ void MainLoop()
                 }
 
                 if ( ImGui::BeginMenu( "Graphics" ) ) {
+					if ( ImGui::BeginMenu( "MSAA" ) ) {
+						if ( ImGui::MenuItem( "x1", nullptr, MSAASamplerCount == 1 ) ) {
+							MSAASamplerCount = 1;
+							g_FreeCamera->setMSAASamplerCount( MSAASamplerCount );
+						}
+						if ( ImGui::MenuItem( "x2", nullptr, MSAASamplerCount == 2 ) ) {
+							MSAASamplerCount = 2;
+							g_FreeCamera->setMSAASamplerCount( MSAASamplerCount );
+						}
+						if ( ImGui::MenuItem( "x4", nullptr, MSAASamplerCount == 4 ) ) {
+							MSAASamplerCount = 4;
+							g_FreeCamera->setMSAASamplerCount( MSAASamplerCount );
+						}
+						if ( ImGui::MenuItem( "x8", nullptr, MSAASamplerCount == 8 ) ) {
+							MSAASamplerCount = 8;
+							g_FreeCamera->setMSAASamplerCount( MSAASamplerCount );
+						}
+						ImGui::EndMenu();
+					}
+
+					if ( ImGui::SliderFloat( "Image Quality", &ImageQuality, 0.01f, 4.0f ) ) {
+						g_FreeCamera->setImageQuality( ImageQuality );
+					}
+
+					if ( ImGui::Checkbox( "VSync", &EnableVSync ) ) {
+						g_RenderDevice->enableVerticalSynchronisation( EnableVSync );
+					}
+
+                    bool* EnableTAA = EnvironmentVariables::getVariable<bool>( DUSK_STRING_HASH( "EnableTAA" ) );
+					ImGui::Checkbox( "Enable Temporal AntiAliasing", EnableTAA );
+
                     ImGui::EndMenu();
                 }
 
