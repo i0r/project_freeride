@@ -60,6 +60,7 @@ RenderDocHelper::RenderDocHelper()
     : renderDocLibrary( nullptr )
     , renderDocAPI( nullptr )
     , pendingFrameCountToCapture( 0u )
+    , captureStorageFolder( "" )
 {
 
 }
@@ -127,7 +128,10 @@ void RenderDocHelper::attachTo( const DisplaySurface & displaySurface, const Ren
 
     dkString_t basePath = workingDirectory + DUSK_STRING( "captures/DuskEngine_" );
     basePath += renderDevice.getBackendName();
-    renderDocAPI->SetCaptureFilePathTemplate( WideStringToString( basePath ).c_str() );
+
+    captureStorageFolder = WideStringToString( workingDirectory + DUSK_STRING( "captures/" ) );
+
+    renderDocAPI->SetCaptureFilePathTemplate( captureStorageFolder.c_str() );
 }
 
 void RenderDocHelper::triggerCapture( const u32 frameCountToCapture )
@@ -150,9 +154,9 @@ bool RenderDocHelper::openLatestCapture()
     u32 captureIdx = Max( 0u, ( renderDocAPI->GetNumCaptures() - 1u ) );
     bool hasCapturedSomething = ( renderDocAPI->GetCapture( captureIdx, captureFilename, nullptr, nullptr ) == 1 );
 
-    if ( hasCapturedSomething ) {
+    if ( hasCapturedSomething && !renderDocAPI->IsRemoteAccessConnected() ) {
         DUSK_LOG_INFO( "Launching RenderDoc to replay capture '%hs'...\n", captureFilename );
-        renderDocAPI->LaunchReplayUI( 0u, captureFilename );
+        renderDocAPI->LaunchReplayUI( true, captureFilename );
     }
 
     return hasCapturedSomething;

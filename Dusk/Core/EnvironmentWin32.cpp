@@ -14,6 +14,11 @@
 #include <intrin.h>
 #include <VersionHelpers.h>
 
+void dk::core::DeleteFile( const dkString_t& filePath )
+{
+    ::DeleteFile( filePath.c_str() );
+}
+
 void dk::core::GetFilesByExtension( const dkString_t& filePath, const dkString_t& extension, std::vector<dkString_t>& filesFound )
 {
     WIN32_FIND_DATA fileInfo;

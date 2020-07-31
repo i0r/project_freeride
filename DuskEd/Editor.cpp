@@ -796,6 +796,17 @@ void MainLoop()
                     g_AwaitingFrameCapture = true;
                 }
 
+				if ( ImGui::Button( "Delete captures (*.rdc)" ) ) {
+                    const char* storageFolder = g_RenderDocHelper->getCaptureStorageFolder();
+
+					std::vector<dkString_t> captureFiles;
+					dk::core::GetFilesByExtension( StringToWideString( storageFolder ), DUSK_STRING( "*.rdc*" ), captureFiles );
+
+                    for ( const dkString_t& captureFile : captureFiles ) {
+                        dk::core::DeleteFile( captureFile );
+                    }
+				}
+
                 ImGui::End();
             }
 

@@ -24,6 +24,8 @@ public:
     DUSK_INLINE void        beginCapture() const { renderDocAPI->StartFrameCapture( nullptr, nullptr ); }
     DUSK_INLINE void        endCapture() const { renderDocAPI->EndFrameCapture( nullptr, nullptr ); }
 
+    DUSK_INLINE const char* getCaptureStorageFolder() const { return captureStorageFolder.c_str(); }
+
 public:
                             RenderDocHelper();
                             RenderDocHelper( RenderDocHelper& ) = delete;
@@ -40,6 +42,7 @@ private:
     void*                   renderDocLibrary;
     RENDERDOC_API_1_2_0*    renderDocAPI;
     u32                     pendingFrameCountToCapture;
+    std::string             captureStorageFolder;
 };
 #endif
 #endif

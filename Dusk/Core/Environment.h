@@ -10,6 +10,7 @@ namespace dk
 {
     namespace core
     {
+        void        DeleteFile( const dkString_t& filePath );
         void        GetFilesByExtension( const dkString_t& filePath, const dkString_t& extension, std::vector<dkString_t>& filesFound );
 
         void        RetrieveWorkingDirectory( dkString_t& workingDirectory );
