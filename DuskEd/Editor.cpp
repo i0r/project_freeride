@@ -107,6 +107,7 @@ static FileSystemArchive* g_GameFileSystem;
 
 #if DUSK_USE_RENDERDOC
 static RenderDocHelper* g_RenderDocHelper;
+static Image*           g_RenderDocIcon;
 #endif
 
 #if DUSK_USE_IMGUI
@@ -114,7 +115,7 @@ static ImGuiManager* g_ImGuiManager;
 static ImGuiRenderModule* g_ImGuiRenderModule;
 #endif
 
-static DynamicsWorld* g_DynamicsWorld;
+static DynamicsWorld*          g_DynamicsWorld;
 
 TransactionHandler*            g_TransactionHandler;
 
@@ -437,25 +438,27 @@ void InitializeRenderSubsystems()
         newEnvConfigurationFile->close();
     }
 
+	g_ShaderCache = dk::core::allocate<ShaderCache>( g_GlobalAllocator, g_GlobalAllocator, g_RenderDevice, g_VirtualFileSystem );
+	g_GraphicsAssetCache = dk::core::allocate<GraphicsAssetCache>( g_GlobalAllocator, g_GlobalAllocator, g_RenderDevice, g_ShaderCache, g_VirtualFileSystem );
+
+	g_WorldRenderer = dk::core::allocate<WorldRenderer>( g_GlobalAllocator, g_GlobalAllocator );
+	g_WorldRenderer->loadCachedResources( g_RenderDevice, g_ShaderCache, g_GraphicsAssetCache, g_VirtualFileSystem );
+
+	g_HUDRenderer = dk::core::allocate<HUDRenderer>( g_GlobalAllocator, g_GlobalAllocator );
+	g_HUDRenderer->loadCachedResources( *g_RenderDevice, *g_ShaderCache, *g_GraphicsAssetCache );
+
+	g_RenderWorld = dk::core::allocate<RenderWorld>( g_GlobalAllocator, g_GlobalAllocator );
+	g_RenderWorld->create( *g_RenderDevice );
+
 #if DUSK_DEVBUILD
 #if DUSK_USE_RENDERDOC
     // Wait until the RenderDevice has been created before doing the attachment
     if ( UseRenderDocCapture ) {
         g_RenderDocHelper->attachTo( *g_DisplaySurface, *g_RenderDevice );
     }
+
+    g_RenderDocIcon = g_GraphicsAssetCache->getImage( DUSK_STRING( "GameData/textures/renderdoc_icon_40.png" ), true );
 #endif
-
-    g_ShaderCache = dk::core::allocate<ShaderCache>( g_GlobalAllocator, g_GlobalAllocator, g_RenderDevice, g_VirtualFileSystem );
-    g_GraphicsAssetCache = dk::core::allocate<GraphicsAssetCache>( g_GlobalAllocator, g_GlobalAllocator, g_RenderDevice, g_ShaderCache, g_VirtualFileSystem );
-
-    g_WorldRenderer = dk::core::allocate<WorldRenderer>( g_GlobalAllocator, g_GlobalAllocator );
-    g_WorldRenderer->loadCachedResources( g_RenderDevice, g_ShaderCache, g_GraphicsAssetCache, g_VirtualFileSystem );
-
-    g_HUDRenderer = dk::core::allocate<HUDRenderer>( g_GlobalAllocator, g_GlobalAllocator );
-    g_HUDRenderer->loadCachedResources( *g_RenderDevice, *g_ShaderCache, *g_GraphicsAssetCache );
-
-    g_RenderWorld = dk::core::allocate<RenderWorld>( g_GlobalAllocator, g_GlobalAllocator );
-    g_RenderWorld->create( *g_RenderDevice );
 
 #if DUSK_USE_IMGUI
     g_ImGuiManager = dk::core::allocate<ImGuiManager>( g_GlobalAllocator );
@@ -728,6 +731,9 @@ void MainLoop()
                     ImGui::EndMenu();
                 }
 
+				if ( g_RenderDocHelper->isAvailable() && ImGui::ImageButton( g_RenderDocIcon, ImVec2( menuBarHeight, menuBarHeight ), ImVec2( 0, 0 ), ImVec2( 1, 1 ), 0 ) ) {
+					IsRenderDocVisible = true;
+				}
             }
             ImGui::EndMainMenuBar();
 
@@ -770,6 +776,8 @@ void MainLoop()
                 if ( g_AwaitingFrameCapture ) {
                     g_AwaitingFrameCapture = !g_RenderDocHelper->openLatestCapture();
                 }
+
+                ImGui::Image( g_RenderDocIcon, ImVec2( 40, 40 ) );
 
                 ImGui::SetNextItemWidth( 60.0f );
                 ImGui::DragInt( "Frame Count", &g_FrameToCaptureCount, 1.0f, 1, 60 );
