@@ -1032,10 +1032,11 @@ void RenderLibraryGenerator::processShaderStage( const i32 stageIndex, const std
 
     // Append shader stage name to the shader name (this way we can have shaders with the same name but different
     // stage type).
-    const std::string baseShaderName = passInfos.StageShaderNames[stageIndex];
+	const std::string baseShaderName = passInfos.StageShaderNames[stageIndex];
+	passInfos.StageShaderNames[stageIndex].append( SHADER_STAGE_NAME_LUT[stageIndex] );
     passInfos.StageShaderNames[stageIndex].append( passInfos.RenderPassName );
-    passInfos.StageShaderNames[stageIndex].append( SHADER_STAGE_NAME_LUT[stageIndex] );
-
+    passInfos.StageShaderNames[stageIndex].append( scopedPassName );
+    
     // Hash the final name.
     Hash128 permutationHashcode;
     // TODO Keep the hashing key somewhere shared (atm it's hardcoded in multiple files...).
