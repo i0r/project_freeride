@@ -334,10 +334,12 @@ void MaterialEditor::displayMaterialAttribute( const i32 layerIndex, const char*
             dkStringHash_t parameterHashcode = dk::core::CRC32( MaterialGenerator::buildTextureLayerName( displayName, MaterialLayerNames[layerIndex] ) );
 
             bool hasTextureBound = ( textureInstance != nullptr );
+
+            ImGui::PushID( parameterHashcode );
             bool buttonHasBeenPressed = ( hasTextureBound )
                 ? ImGui::ImageButton( static_cast< ImTextureID >( textureInstance ), ImVec2( 64, 64 ) )
                 : ImGui::Button( "+", ImVec2( 64, 64 ) );
-
+            
             if ( buttonHasBeenPressed ) {
                 // TODO Legacy shit. Should be removed once the asset browser is implemented.
                 dkString_t fullPathToAsset;
@@ -394,7 +396,8 @@ void MaterialEditor::displayMaterialAttribute( const i32 layerIndex, const char*
                 ImGui::Text( "No Texture Bound" );
             }
 
-            ImGui::Checkbox( "sRGB Colorspace", &attribute.AsTexture.IsSRGBSpace );
+            ImGui::Checkbox( "sRGB Colorspace", &attribute.AsTexture.IsSRGBSpace ); 
+            ImGui::PopID();
             break;
         }
         case MaterialAttribute::Code_Piece:

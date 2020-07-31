@@ -589,18 +589,20 @@ void MainLoop()
 
         framerateCounter.onFrame( frameTime );
 
-        // Update Input
-        g_InputReader->onFrame( g_InputMapper );
-
         accumulator += static_cast< f64 >( frameTime );
 
         while ( accumulator >= LOGIC_DELTA ) {
+            // Update Input
+            g_InputReader->onFrame( g_InputMapper );
+
             // Update Local Game Instance
             g_InputMapper->update( LOGIC_DELTA );
+            g_InputMapper->clear();
 
 #if DUSK_USE_IMGUI
             g_ImGuiManager->update( LOGIC_DELTA );
 #endif
+
             g_World->update( LOGIC_DELTA );
 
             // Game Logic
@@ -611,7 +613,6 @@ void MainLoop()
             accumulator -= LOGIC_DELTA;
         }
 
-        g_InputMapper->clear();
 
         // Convert screenspace cursor position to viewport space.
 		i32 shiftedMouseX = dk::maths::clamp( static_cast< i32 >( g_CursorPosition.x - g_ViewportWindowPosition.x ), 0, vp.Width );

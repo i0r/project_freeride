@@ -199,16 +199,17 @@ ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_
                     ImTextureID cmdTexId = static_cast< ImTextureID >( pcmd->TextureId );
                     if ( cmdTexId != activeTexId ) {
                         Image* cmdImage = static_cast< Image* >( pcmd->TextureId );
+                        
                         cmdList->bindImage( dkImGui::ImGui_FontAtlasTexture_Hashcode, cmdImage );
                         cmdList->prepareAndBindResourceList();
 
                         activeTexId = static_cast< ImTextureID >( cmdImage );
                     }
 
-                    cmdList->drawIndexed( pcmd->ElemCount, 1, idx_offset, vtx_offset );
-                    idx_offset += pcmd->ElemCount;
+                    cmdList->drawIndexed( pcmd->ElemCount, 1, pcmd->IdxOffset + idx_offset, pcmd->VtxOffset + vtx_offset );
                 }
 
+                idx_offset += cmd_list->IdxBuffer.Size;
                 vtx_offset += cmd_list->VtxBuffer.Size;
             }
 

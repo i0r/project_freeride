@@ -966,13 +966,10 @@ void BindImage_Replay( RenderContext* renderContext, Image* image, const u64 ima
 
     ClearImageFBOAttachment( renderContext, image );
 
-    ClearImageUAVRegister( renderContext, image );
-    FlushUAVRegisterUpdate( renderContext );
-
-    ClearImageSRVRegister( renderContext, image );
-    FlushSRVRegisterUpdate( renderContext );
-
     if ( resource->type == PipelineState::InternalResourceType::RESOURCE_TYPE_SHADER_RESOURCE_VIEW ) {
+        ClearImageUAVRegister( renderContext, image );
+        FlushUAVRegisterUpdate( renderContext );
+
         ID3D11ShaderResourceView* srv = ( imageViewDesc == 0ull ) ? image->DefaultShaderResourceView : image->SRVs[imageViewDesc];
 
         for ( i32 i = 0; i < resource->activeStageCount; i++ ) {
@@ -980,6 +977,11 @@ void BindImage_Replay( RenderContext* renderContext, Image* image, const u64 ima
 
             const u32 shaderStageIndex = stageBinding.ShaderStageIndex;
             const u32 srvRegisterIndex = stageBinding.RegisterIndex;
+
+            // Already binded at the same register index; skip it.
+            if ( image->SRVRegisterIndex[shaderStageIndex] == srvRegisterIndex ) {
+                continue;
+            }
 
             // Update RenderContext register data
             RenderContext::RegisterData& registerData = renderContext->SrvRegistersInfo[shaderStageIndex][srvRegisterIndex];
@@ -997,7 +999,10 @@ void BindImage_Replay( RenderContext* renderContext, Image* image, const u64 ima
 
             image->SRVRegisterIndex[stageBinding.ShaderStageIndex] = stageBinding.RegisterIndex;
         }
-	} else if ( resource->type == PipelineState::InternalResourceType::RESOURCE_TYPE_UNORDERED_ACCESS_VIEW ) {
+    } else if ( resource->type == PipelineState::InternalResourceType::RESOURCE_TYPE_UNORDERED_ACCESS_VIEW ) {
+        ClearImageSRVRegister( renderContext, image );
+        FlushSRVRegisterUpdate( renderContext );
+
         ID3D11UnorderedAccessView* uav = ( imageViewDesc == 0ull ) ? image->DefaultUnorderedAccessView : image->UAVs[imageViewDesc];
 
         for ( i32 i = 0; i < resource->activeStageCount; i++ ) {

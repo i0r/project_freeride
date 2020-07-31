@@ -33,6 +33,9 @@ public:
 
             for ( i32 i = commandIdx; i < commandToRemoveCount; i++ ) {
                 dk::core::free( cmdAllocator, commands[i] );
+#ifdef DUSK_DEVBUILD
+                commands[i] = nullptr;
+#endif
             }
 
             commandCount -= ( commandToRemoveCount - commandIdx );

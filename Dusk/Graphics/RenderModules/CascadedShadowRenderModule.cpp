@@ -408,6 +408,8 @@ void CascadedShadowRenderModule::fillBatchChunks( const CameraData* cameraData, 
         i32 triangleCount = meshInfos.FaceCount;
         i32 firstTriangleIndex = 0;
 
+        const dkVec3f eyePositionOS = dkVec4f( cameraData->worldPosition, 0.0f ) * drawCall.ModelMatrix.inverse();
+       
         // Submit draw call triangles to the chunked batches.
         for ( i32 i = 0; i < BATCH_CHUNK_COUNT; i++ ) {
             BatchChunk& chunk = batchChunks[i];
@@ -423,26 +425,36 @@ void CascadedShadowRenderModule::fillBatchChunks( const CameraData* cameraData, 
             const i32 filteredIndexBufferStartOffset = chunk.BatchCount * BATCH_SIZE * 3 * sizeof( i32 );
             const u32 firstBatch = chunk.BatchCount;
 
-            const dkVec3f positionObjectSpace = dkVec4f( cameraData->worldPosition, 0.0f ) * drawCall.ModelMatrix.inverse();
-
             for ( i32 j = chunk.BatchCount; j < BATCH_COUNT; j++ ) {
                 lastTriangle = Min( firstTriangle + BATCH_SIZE, static_cast<i32>( meshInfos.FaceCount ) );
 
                 const MeshCluster& clusterInfo = clusters[currentCluster];
                 ++currentCluster;
 
-                SmallBatchData& smallBatchData = chunk.BatchData[chunk.BatchCount];
-                smallBatchData.DrawIndex = chunk.EnqueuedDrawCallCount;
-                smallBatchData.FaceCount = lastTriangle - firstTriangle;
+                bool cullCluster = false;
 
-                // Offset relative to the start of the mesh
-                smallBatchData.IndexOffset = firstTriangle * 3 * sizeof( i32 );
-                smallBatchData.OutputIndexOffset = filteredIndexBufferStartOffset;
-                smallBatchData.MeshIndex = drawCall.MeshEntryIndex;
-                smallBatchData.DrawBatchStart = firstBatch;
+                const dkVec3f testVec = ( eyePositionOS - clusterInfo.ConeCenter ).normalize();
+                const f32 testAngle = dkVec3f::dot( testVec, clusterInfo.ConeAxis );
 
-                chunk.FaceCount += smallBatchData.FaceCount;
-                ++chunk.BatchCount;
+                // Check if we're inside the cone
+                if ( testAngle > clusterInfo.ConeAngleCosine ) {
+                    cullCluster = true;
+                }
+
+                if ( !cullCluster ) {
+                    SmallBatchData& smallBatchData = chunk.BatchData[chunk.BatchCount];
+                    smallBatchData.DrawIndex = chunk.EnqueuedDrawCallCount;
+                    smallBatchData.FaceCount = lastTriangle - firstTriangle;
+
+                    // Offset relative to the start of the mesh
+                    smallBatchData.IndexOffset = firstTriangle * 3 * sizeof( i32 );
+                    smallBatchData.OutputIndexOffset = filteredIndexBufferStartOffset;
+                    smallBatchData.MeshIndex = drawCall.MeshEntryIndex;
+                    smallBatchData.DrawBatchStart = firstBatch;
+
+                    chunk.FaceCount += smallBatchData.FaceCount;
+                    ++chunk.BatchCount;
+                }
 
                 firstTriangle += BATCH_SIZE;
 
@@ -570,7 +582,7 @@ void CascadedShadowRenderModule::setupParameters( FrameGraph& frameGraph, ResHan
             ShadowSetup::SetupCSMParametersProperties.ViewProjInv = cameraData->depthViewProjectionMatrix.inverse();
             ShadowSetup::SetupCSMParametersProperties.CameraNearClip = cameraData->depthNearPlane;
             ShadowSetup::SetupCSMParametersProperties.CameraFarClip = cameraData->depthFarPlane;
-            ShadowSetup::SetupCSMParametersProperties.PSSMLambda = 0.0f; // 1.50f;
+            ShadowSetup::SetupCSMParametersProperties.PSSMLambda = 0.50f;
             ShadowSetup::SetupCSMParametersProperties.LightDirection = lightDirection;
            
             cmdList->updateBuffer( *perPassBuffer, &ShadowSetup::SetupCSMParametersProperties, sizeof( ShadowSetup::SetupCSMParametersRuntimeProperties ) );
