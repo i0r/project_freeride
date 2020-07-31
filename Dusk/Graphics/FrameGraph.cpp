@@ -19,6 +19,8 @@ static constexpr dkStringHash_t PRESENT_IMAGE_RESOURCE_HASHCODE = DUSK_STRING_HA
 static constexpr dkStringHash_t LAST_FRAME_IMAGE_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__LastFrameRenderTarget__" );
 static constexpr dkStringHash_t MATERIALED_BUFFER_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__MaterialEditorBuffer__" );
 
+static constexpr size_t MAX_VECTOR_PER_INSTANCE = 1024;
+static constexpr size_t VECTOR_BUFFER_SIZE = MAX_VECTOR_PER_INSTANCE * sizeof( dkVec4f );
 
 FrameGraphBuilder::FrameGraphBuilder()
     : frameSamplerCount( 1 )
@@ -359,8 +361,8 @@ FrameGraphResources::FrameGraphResources( BaseAllocator* allocator )
     memset( persistentBuffers, 0, sizeof( Buffer* ) * MAX_ALLOCABLE_RESOURCE_TYPE );
     memset( persistentImages, 0, sizeof( Image* ) * MAX_ALLOCABLE_RESOURCE_TYPE );
 
-    instanceBufferData = dk::core::allocateArray<uint8_t>( allocator, sizeof( dkVec4f ) * 1024 );
-    memset( instanceBufferData, 0, sizeof( dkVec4f ) * 1024 );
+    instanceBufferData = dk::core::allocateArray<uint8_t>( allocator, VECTOR_BUFFER_SIZE );
+    memset( instanceBufferData, 0, VECTOR_BUFFER_SIZE );
 }
 
 FrameGraphResources::~FrameGraphResources()
@@ -1022,6 +1024,17 @@ FrameGraphScheduler::FrameGraphScheduler( BaseAllocator* allocator, RenderDevice
 
     materialEditorBuffer = renderDevice->createBuffer( matEdBufferDesc );
 
+	BufferDesc vectorDataBufferDesc;
+	vectorDataBufferDesc.BindFlags = RESOURCE_BIND_SHADER_RESOURCE;
+	vectorDataBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
+	vectorDataBufferDesc.SizeInBytes = VECTOR_BUFFER_SIZE;
+	vectorDataBufferDesc.StrideInBytes = MAX_VECTOR_PER_INSTANCE;
+	vectorDataBufferDesc.DefaultView.ViewFormat = eViewFormat::VIEW_FORMAT_R32G32B32A32_FLOAT;
+
+    vectorDataBuffer = renderDevice->createBuffer( vectorDataBufferDesc );
+
+    instanceBufferData = dk::core::allocateArray<u8>( allocator, MAX_VECTOR_PER_INSTANCE );
+
     workers = dk::core::allocateArray<FrameGraphRenderThread>( memoryAllocator, RENDER_THREAD_COUNT, memoryAllocator, renderDevice, virtualFileSys );
     dispatcherThread = std::thread( &FrameGraphScheduler::jobDispatcherThread, this );
 
@@ -1040,6 +1053,8 @@ FrameGraphScheduler::~FrameGraphScheduler()
     if ( dispatcherThread.joinable() ) {
         dispatcherThread.join();
     }
+
+    dk::core::freeArray( memoryAllocator, instanceBufferData );
 }
 
 void FrameGraphScheduler::addRenderPass( const FrameGraphRenderPass& renderPass, const FrameGraphRenderPass::Handle_t* dependencies, const u32 dependencyCount )
@@ -1150,6 +1165,7 @@ void FrameGraphScheduler::jobDispatcherThread()
         bufferUploadCmdList.begin();
         bufferUploadCmdList.updateBuffer( *perViewBuffer, &perViewBufferData, sizeof( PerViewBufferData ) );
         bufferUploadCmdList.updateBuffer( *materialEditorBuffer, &materialEdData, sizeof( MaterialEdData ) );
+        bufferUploadCmdList.updateBuffer( *vectorDataBuffer, instanceBufferData, VECTOR_BUFFER_SIZE );
         bufferUploadCmdList.end();
         renderDevice->submitCommandList( bufferUploadCmdList );
 

@@ -308,6 +308,9 @@ private:
     // Persistent buffer (matches MaterialEditorBuffer).
     Buffer*                     materialEditorBuffer;
 
+	// Persistent buffer holding raw vector data.
+	Buffer*                     vectorDataBuffer;
+
     // Thread responsible for CommandList submission to RenderDevice.
     std::thread                 dispatcherThread;
 
@@ -331,6 +334,8 @@ private:
 
     // PerViewBufferData for the current frame (this is a copy of FrameGraph data).
     MaterialEdData              materialEdData;
+
+	u8*                         instanceBufferData;
 
 private:
     // Internal function for CommandList allocation/submit and RenderDevice present.

@@ -29,8 +29,6 @@ struct PerPassData
 	u32         __PADDING__[2];
 };
 
-static constexpr size_t MAX_VECTOR_PER_INSTANCE = 1024;
-
 static constexpr dkStringHash_t PickingBufferHashcode = DUSK_STRING_HASH( "PickingBuffer" );
 static constexpr dkStringHash_t BrdfDfgLUTHascode = DUSK_STRING_HASH( "BrdfDfgLut" );
 static constexpr dkStringHash_t IBLDiffuseHascode = DUSK_STRING_HASH( "IBLDiffuse" );
