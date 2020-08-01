@@ -143,15 +143,6 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
 
             passData.velocityBuffer = builder.allocateImage( velocityRtDesc, FrameGraphBuilder::USE_PIPELINE_DIMENSIONS | FrameGraphBuilder::USE_PIPELINE_SAMPLER_COUNT );
 
-			BufferDesc vectorDataBufferDesc;
-            vectorDataBufferDesc.BindFlags = RESOURCE_BIND_SHADER_RESOURCE;
-			vectorDataBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
-			vectorDataBufferDesc.SizeInBytes = sizeof( dkVec4f ) * MAX_VECTOR_PER_INSTANCE;
-			vectorDataBufferDesc.StrideInBytes = MAX_VECTOR_PER_INSTANCE;
-            vectorDataBufferDesc.DefaultView.ViewFormat = eViewFormat::VIEW_FORMAT_R32G32B32A32_FLOAT;
-
-			passData.VectorDataBuffer = builder.allocateBuffer( vectorDataBufferDesc, SHADER_STAGE_VERTEX );
-
 			BufferDesc perPassBuffer;
 			perPassBuffer.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
 			perPassBuffer.Usage = RESOURCE_USAGE_DYNAMIC;
@@ -159,6 +150,7 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
 
             passData.PerPassBuffer = builder.allocateBuffer( perPassBuffer, SHADER_STAGE_VERTEX | SHADER_STAGE_PIXEL );
 
+			passData.VectorDataBuffer = builder.retrieveVectorDataBuffer();
             passData.PerViewBuffer = builder.retrievePerViewBuffer();
             passData.MaterialEdBuffer = builder.retrieveMaterialEdBuffer();
 
@@ -202,7 +194,7 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
             Buffer* perViewBuffer = resources->getPersistentBuffer( passData.PerViewBuffer );
             Buffer* perWorldBuffer = resources->getBuffer( passData.PerSceneBuffer );
             Buffer* materialEdBuffer = resources->getPersistentBuffer( passData.MaterialEdBuffer );
-            Buffer* vectorBuffer = resources->getBuffer( passData.VectorDataBuffer );
+            Buffer* vectorBuffer = resources->getPersistentBuffer( passData.VectorDataBuffer );
             Buffer* sliceBuffer = resources->getPersistentBuffer( passData.CSMSliceBuffer );
 
             Sampler* materialSampler = resources->getSampler( passData.MaterialInputSampler );
@@ -236,10 +228,6 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
 
             cmdList->setViewport( vp );
             cmdList->setScissor( sr );
-
-			// Upload buffer data
-			const void* vectorBufferData = resources->getVectorBufferData();
-			cmdList->updateBuffer( *vectorBuffer, vectorBufferData, sizeof( dkVec4f ) * MAX_VECTOR_PER_INSTANCE );
 
             const u32 samplerCount = camera->msaaSamplerCount;
             const bool isInMaterialEdition = ( scenario == Material::RenderScenario::Default_Editor
@@ -365,14 +353,7 @@ ResHandle_t WorldRenderModule::addDepthPrepass( FrameGraph& frameGraph )
 
             passData.DepthBuffer = builder.allocateImage( zBufferRenderTargetDesc, FrameGraphBuilder::USE_PIPELINE_DIMENSIONS | FrameGraphBuilder::USE_PIPELINE_SAMPLER_COUNT );
 
-			BufferDesc vectorDataBufferDesc;
-            vectorDataBufferDesc.BindFlags = RESOURCE_BIND_SHADER_RESOURCE;
-			vectorDataBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
-			vectorDataBufferDesc.SizeInBytes = sizeof( dkVec4f ) * MAX_VECTOR_PER_INSTANCE;
-			vectorDataBufferDesc.StrideInBytes = MAX_VECTOR_PER_INSTANCE;
-            vectorDataBufferDesc.DefaultView.ViewFormat = eViewFormat::VIEW_FORMAT_R32G32B32A32_FLOAT;
-
-			passData.VectorDataBuffer = builder.allocateBuffer( vectorDataBufferDesc, SHADER_STAGE_VERTEX );
+            passData.VectorDataBuffer = builder.retrieveVectorDataBuffer();
 
 			BufferDesc perPassBuffer;
 			perPassBuffer.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
@@ -388,7 +369,7 @@ ResHandle_t WorldRenderModule::addDepthPrepass( FrameGraph& frameGraph )
 
             Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
             Buffer* perViewBuffer = resources->getPersistentBuffer( passData.PerViewBuffer );
-            Buffer* vectorBuffer = resources->getBuffer( passData.VectorDataBuffer );
+            Buffer* vectorBuffer = resources->getPersistentBuffer( passData.VectorDataBuffer );
 
             cmdList->pushEventMarker( DUSK_STRING( "Depth PrePass" ) );
 
@@ -416,11 +397,6 @@ ResHandle_t WorldRenderModule::addDepthPrepass( FrameGraph& frameGraph )
 
             cmdList->setViewport( vp );
             cmdList->setScissor( sr );
-
-			// Upload buffer data
-            // TODO THIS IS DONE TWICE (Once at the zprepass and another time at light pass).
-			const void* vectorBufferData = resources->getVectorBufferData();
-			cmdList->updateBuffer( *vectorBuffer, vectorBufferData, sizeof( dkVec4f ) * MAX_VECTOR_PER_INSTANCE );
 
             const u32 samplerCount = camera->msaaSamplerCount;
 

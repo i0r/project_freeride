@@ -18,6 +18,7 @@ static constexpr dkStringHash_t PERVIEW_BUFFER_RESOURCE_HASHCODE = DUSK_STRING_H
 static constexpr dkStringHash_t PRESENT_IMAGE_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__PresentRenderTarget__" );
 static constexpr dkStringHash_t LAST_FRAME_IMAGE_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__LastFrameRenderTarget__" );
 static constexpr dkStringHash_t MATERIALED_BUFFER_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__MaterialEditorBuffer__" );
+static constexpr dkStringHash_t VECTORDATA_BUFFER_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__VectorDataBuffer__" );
 
 static constexpr size_t MAX_VECTOR_PER_INSTANCE = 1024;
 static constexpr size_t VECTOR_BUFFER_SIZE = MAX_VECTOR_PER_INSTANCE * sizeof( dkVec4f );
@@ -304,6 +305,12 @@ ResHandle_t FrameGraphBuilder::retrieveMaterialEdBuffer()
 {
     persitentBuffers[persitentBufferCount] = MATERIALED_BUFFER_RESOURCE_HASHCODE;
     return persitentBufferCount++;
+}
+
+ResHandle_t FrameGraphBuilder::retrieveVectorDataBuffer()
+{
+	persitentBuffers[persitentBufferCount] = VECTORDATA_BUFFER_RESOURCE_HASHCODE;
+	return persitentBufferCount++;
 }
 
 ResHandle_t FrameGraphBuilder::retrievePersistentImage( const dkStringHash_t resourceHashcode )
@@ -732,8 +739,9 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
     graphResources.importPersistentBuffer( PERVIEW_BUFFER_RESOURCE_HASHCODE, graphScheduler.getPerViewPersistentBuffer() );
     graphResources.importPersistentImage( LAST_FRAME_IMAGE_RESOURCE_HASHCODE, lastFrameRenderTarget );
     graphResources.importPersistentImage( PRESENT_IMAGE_RESOURCE_HASHCODE, presentRenderTarget );
-    graphResources.importPersistentBuffer( MATERIALED_BUFFER_RESOURCE_HASHCODE, graphScheduler.getMaterialEdPersistentBuffer() );
-
+	graphResources.importPersistentBuffer( MATERIALED_BUFFER_RESOURCE_HASHCODE, graphScheduler.getMaterialEdPersistentBuffer() );
+	graphResources.importPersistentBuffer( VECTORDATA_BUFFER_RESOURCE_HASHCODE, graphScheduler.getVectorDataBuffer() );
+    
     // Cull & compile
     //graphBuilder.cullRenderPasses( renderPasses, renderPassCount );
     graphBuilder.compile( renderDevice, graphResources );
@@ -764,7 +772,7 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
     graphScheduler.updateMaterialEdBuffer( &localMaterialEdData );
 
     // Dispatch render passes to rendering threads
-    graphScheduler.dispatch( &perViewData );
+    graphScheduler.dispatch( &perViewData, graphResources.getVectorBufferData() );
 
     renderPassCount = 0;
 }
@@ -1033,7 +1041,7 @@ FrameGraphScheduler::FrameGraphScheduler( BaseAllocator* allocator, RenderDevice
 
     vectorDataBuffer = renderDevice->createBuffer( vectorDataBufferDesc );
 
-    instanceBufferData = dk::core::allocateArray<u8>( allocator, MAX_VECTOR_PER_INSTANCE );
+    instanceBufferData = dk::core::allocateArray<u8>( allocator, VECTOR_BUFFER_SIZE );
 
     workers = dk::core::allocateArray<FrameGraphRenderThread>( memoryAllocator, RENDER_THREAD_COUNT, memoryAllocator, renderDevice, virtualFileSys );
     dispatcherThread = std::thread( &FrameGraphScheduler::jobDispatcherThread, this );
@@ -1095,7 +1103,7 @@ void FrameGraphScheduler::updateMaterialEdBuffer( const MaterialEdData* matEdDat
     }
 }
 
-void FrameGraphScheduler::dispatch( const PerViewBufferData* perViewData )
+void FrameGraphScheduler::dispatch( const PerViewBufferData* perViewData, const void* vectorBufferData )
 {
     if ( enqueuedRenderPassCount == 0u && enqueuedAsyncRenderPassCount == 0u ) {
         return;
@@ -1104,6 +1112,10 @@ void FrameGraphScheduler::dispatch( const PerViewBufferData* perViewData )
     // Make a local copy of the data (if available).
     if ( perViewData != nullptr ) {
         memcpy( &perViewBufferData, perViewData, sizeof( PerViewBufferData ) );
+    }
+
+    if ( vectorBufferData != nullptr ) {
+        memcpy( instanceBufferData, vectorBufferData, VECTOR_BUFFER_SIZE );
     }
 
     State schedulerState = SCHEDULER_STATE_READY;

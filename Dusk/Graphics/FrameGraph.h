@@ -253,6 +253,9 @@ public:
     // Return a pointer to the MaterialEd persistent buffer.
     DUSK_INLINE Buffer*         getMaterialEdPersistentBuffer() const { return materialEditorBuffer; }
 
+    // Return a pointer to the vector data persistent buffer.
+    DUSK_INLINE Buffer*         getVectorDataBuffer() const { return vectorDataBuffer; }
+
 public:
                                 FrameGraphScheduler( BaseAllocator* allocator, RenderDevice* renderDevice, VirtualFileSystem* virtualFileSys );
                                 FrameGraphScheduler( FrameGraphScheduler& ) = default;
@@ -270,7 +273,7 @@ public:
 
     // Dispatch enqueued RenderPassExecutionInfos to FrameGraphRenderThreads. PerViewBufferData is a pointer to a persistent
     // resource containing the data for the current view (can be nil if the scheduled render passes don't need those infos)
-    void                        dispatch( const PerViewBufferData* perViewData = nullptr );
+    void                        dispatch( const PerViewBufferData* perViewData = nullptr, const void* vectorBufferData = nullptr );
 
     // (Thread Safe) Return true if the scheduler is ready to receive RenderPass; false otherwise.
     bool                        isReady();
@@ -454,6 +457,10 @@ public:
     // The data should be immutable (the buffer is updated at the beginning of the frame once).
     ResHandle_t retrieveMaterialEdBuffer();
     
+	// Retrieve the VectorData buffer for the current frame being recorded.
+	// The data should be immutable (the buffer is updated at the beginning of the frame once).
+    ResHandle_t retrieveVectorDataBuffer();
+
     // Retrieve a persistent image.
     ResHandle_t retrievePersistentImage( const dkStringHash_t resourceHashcode );
 
