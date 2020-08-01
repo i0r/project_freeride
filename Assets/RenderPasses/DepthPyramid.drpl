@@ -17,6 +17,14 @@ lib DepthPyramid {
         RWTexture2D ReducedDepthMip {
             swizzle = unorm float2;
         }
+        
+        RWTexture2D DownsampledepthMip {
+            swizzle = float;
+        }
+        
+        sampler SamplerPoint {
+            format = Point;
+        }
     }
     
     shared {
@@ -103,6 +111,14 @@ lib DepthPyramid {
         }
     }
     
+    shader DownscaleDepthCS {
+        if ( all( $SV_DispatchThreadID.xy < TextureSize.xy ) ) {
+          float4 depths = DepthBuffer.Gather( SamplerPoint, ( $SV_DispatchThreadID.xy + 0.5f ) / TextureSize.xy );
+          
+          DownsampledepthMip[$SV_DispatchThreadID.xy] = max( max( depths.x, depths.y ), max( depths.z, depths.w ) );
+        }
+    }
+    
     pass DepthReductionMip0 {
         compute       = DepthReductionInitialCS;
         dispatch      = { 16, 16, 1 };
@@ -110,6 +126,11 @@ lib DepthPyramid {
     
     pass DepthReduction {
         compute       = DepthReductionCS;
+        dispatch      = { 16, 16, 1 };
+    }
+    
+    pass DepthDownsample {
+        compute       = DownscaleDepthCS;
         dispatch      = { 16, 16, 1 };
     }
 }
