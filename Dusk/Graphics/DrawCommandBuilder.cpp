@@ -14,6 +14,8 @@
 #include <Core/Allocators/LinearAllocator.h>
 #include <Maths/MatrixTransformations.h>
 
+#include "Graphics/RenderPasses/Headers/Light.h"
+
 DUSK_DEV_VAR( DisplayBoundingSphere, "Display Geometry Bounding Sphere (as wireframe primitive)", false, bool );
 
 static constexpr size_t MAX_SIMULTANEOUS_VIEWPORT_COUNT = 8;
@@ -154,9 +156,8 @@ void DrawCommandBuilder::buildShadowGPUDrivenCullCmds( WorldRenderer* worldRende
 		const dkVec3f instancePosition = dk::maths::ExtractTranslation( modelMatrix );
 		const f32 distanceToCamera = dkVec3f::distanceSquared( camera->worldPosition, instancePosition );
 
-		// TODO Store CSM Max depth somewhere!! (the 250)
 		// Ignore far away geometry (should fallback to distant shadows).
-		if ( distanceToCamera > ( 250.0f * 250.0f ) ) {
+		if ( distanceToCamera > ( CSM_MAX_DEPTH * CSM_MAX_DEPTH ) ) {
 			continue;
 		}
 
