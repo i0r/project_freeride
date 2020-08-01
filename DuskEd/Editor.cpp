@@ -123,6 +123,9 @@ static bool                    g_IsGamePaused = false;
 static bool                    g_IsFirstLaunch = false;
 static bool                    g_IsMouseOverViewportWindow = false;
 static bool                    g_CanMoveCamera = false;
+static bool                    g_WasRightButtonDown = false;
+static bool                    g_IsContextMenuOpened = false;
+static Timer                   g_RightButtonTimer;
 static bool                    g_IsResizing = true;
 static bool                    g_RequestPickingUpdate = false;
 static bool                    g_RightClickMenuOpened = false;
@@ -183,6 +186,16 @@ void UpdateEditor( MappedInput& input, f32 deltaTime )
     const bool isRightButtonDown = input.States.find( DUSK_STRING_HASH( "RightMouseButton" ) ) != input.States.end();
     const bool newCanMoveCamera = ( g_IsMouseOverViewportWindow && isRightButtonDown );
 
+    if ( isRightButtonDown && !g_WasRightButtonDown ) {
+        g_RightButtonTimer.reset();
+    } else if ( !isRightButtonDown && g_WasRightButtonDown ) {
+        const f64 elapsedTime = g_RightButtonTimer.getDeltaAsMiliseconds();
+        if ( elapsedTime < 250.0 ) {
+            g_IsContextMenuOpened = true;
+        }
+    }
+
+    g_WasRightButtonDown = isRightButtonDown;
     g_CanMoveCamera = newCanMoveCamera;
 
     if ( previousCamState != g_CanMoveCamera ) {
@@ -457,7 +470,7 @@ void InitializeRenderSubsystems()
         g_RenderDocHelper->attachTo( *g_DisplaySurface, *g_RenderDevice );
     }
 
-    g_RenderDocIcon = g_GraphicsAssetCache->getImage( DUSK_STRING( "GameData/textures/renderdoc_icon_40.png" ), true );
+    g_RenderDocIcon = g_GraphicsAssetCache->getImage( DUSK_STRING( "GameData/textures/renderdoc_icon_40.dds" ), true );
 #endif
 
 #if DUSK_USE_IMGUI
@@ -731,7 +744,7 @@ void MainLoop()
                     ImGui::EndMenu();
                 }
 
-				if ( g_RenderDocHelper->isAvailable() && ImGui::ImageButton( g_RenderDocIcon, ImVec2( menuBarHeight, menuBarHeight ), ImVec2( 0, 0 ), ImVec2( 1, 1 ), 0 ) ) {
+				if ( g_RenderDocHelper->isAvailable() && ImGui::ImageButton( g_RenderDocIcon, ImVec2( menuBarHeight - 2, menuBarHeight - 2), ImVec2( 0, 0 ), ImVec2( 1, 1 ), 1 ) ) {
 					IsRenderDocVisible = true;
 				}
             }
@@ -779,6 +792,9 @@ void MainLoop()
 
                 ImGui::Image( g_RenderDocIcon, ImVec2( 40, 40 ) );
 
+                ImGui::SameLine();
+
+                ImGui::Text( "RenderDoc v%s\nF11: Capture a Single Frame", g_RenderDocHelper->getAPIVersion() );
                 ImGui::SetNextItemWidth( 60.0f );
                 ImGui::DragInt( "Frame Count", &g_FrameToCaptureCount, 1.0f, 1, 60 );
 
@@ -919,7 +935,9 @@ void MainLoop()
                 winSize.y -= 4;
 
                 ImGui::Image( static_cast< ImTextureID >( frameGraph.getPresentRenderTarget() ), winSize );
-				if ( g_RightClickMenuOpened = ImGui::BeginPopupContextWindow( "Viewport Popup", 1 ) ) {
+				if ( g_RightClickMenuOpened = dk::imgui::BeginPopupContextWindowWithCondition( "Viewport Popup", g_IsContextMenuOpened ) ) {
+                    g_IsContextMenuOpened = false;
+
 					if ( ImGui::BeginMenu( "New Entity..." ) ) {
 						if ( ImGui::MenuItem( "Static Mesh" ) ) {
                             g_PickedEntity = g_World->createStaticMesh();

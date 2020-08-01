@@ -63,6 +63,17 @@ namespace dk
 
 			return hasBeenManipulated;
 		}
+
+        bool BeginPopupContextWindowWithCondition( const char* str_id, bool isOpened, bool also_over_items = true )
+        {
+            if ( !str_id )
+                str_id = "window_context";
+            ImGuiID id = GImGui->CurrentWindow->GetID( str_id );
+            if ( isOpened && ImGui::IsWindowHovered( ImGuiHoveredFlags_AllowWhenBlockedByPopup ) )
+                if ( also_over_items || !ImGui::IsAnyItemHovered() )
+                    ImGui::OpenPopupEx( id );
+            return ImGui::BeginPopupEx( id, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings );
+        }
 	}
 }
 #endif

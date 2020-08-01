@@ -61,6 +61,7 @@ RenderDocHelper::RenderDocHelper()
     , renderDocAPI( nullptr )
     , pendingFrameCountToCapture( 0u )
     , captureStorageFolder( "" )
+    , apiVersionString( "???" )
 {
 
 }
@@ -101,7 +102,8 @@ void RenderDocHelper::create()
     i32 major; i32 minor; i32 patch;
     renderDocAPI->GetAPIVersion( &major, &minor, &patch );
 
-    DUSK_LOG_INFO( "RenderDoc library successfully loaded! API version %i.%i.%i\n", major, minor, patch );
+    apiVersionString = std::to_string( major ) + "." + std::to_string( minor ) + "." + std::to_string( patch );
+    DUSK_LOG_INFO( "RenderDoc library successfully loaded! API version %s\n", apiVersionString.c_str() );
 
     renderDocAPI->UnloadCrashHandler();
 
@@ -131,7 +133,7 @@ void RenderDocHelper::attachTo( const DisplaySurface & displaySurface, const Ren
 
     captureStorageFolder = WideStringToString( workingDirectory + DUSK_STRING( "captures/" ) );
 
-    renderDocAPI->SetCaptureFilePathTemplate( captureStorageFolder.c_str() );
+    renderDocAPI->SetCaptureFilePathTemplate( WideStringToString( basePath ).c_str() );
 }
 
 void RenderDocHelper::triggerCapture( const u32 frameCountToCapture )
