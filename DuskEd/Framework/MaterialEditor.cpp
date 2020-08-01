@@ -362,7 +362,7 @@ void MaterialEditor::displayMaterialAttribute( const i32 layerIndex, const char*
                         attribute.AsTexture.PathToTextureAsset = dkString_t( DUSK_STRING( "GameData/" ) ) + fullPathToAsset;
                     }
 
-                    attribute.AsTexture.TextureInstance = graphicsAssetCache->getImage( attribute.AsTexture.PathToTextureAsset.c_str(), true );
+                    attribute.AsTexture.TextureInstance = graphicsAssetCache->getImage( attribute.AsTexture.PathToTextureAsset.c_str(), false );
 
                     if ( useInteractiveMode && activeMaterial != nullptr ) {
                         activeMaterial->setParameterAsTexture2D( parameterHashcode, WideStringToString( attribute.AsTexture.PathToTextureAsset ) );
