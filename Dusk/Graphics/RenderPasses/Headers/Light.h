@@ -42,6 +42,9 @@
 #define CSM_SLICE_DIMENSION 2048
 #define CSM_SLICE_COUNT 4
 
+#define SSR_MAX_MIP_LEVEL 9
+#define SSR_MAX_PREFILTER_LEVEL 7
+
 struct LineInfos 
 {
     // Line start (in screen space units).

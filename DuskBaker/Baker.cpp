@@ -13,6 +13,8 @@
 #include "Core/Allocators/AllocationHelpers.h"
 #include "Core/Allocators/LinearAllocator.h"
 
+#include "Core/Hashing/MurmurHash3.h"
+
 #include <Core/Lexer.h>
 #include <Core/Parser.h>
 #include <Core/RenderPassGenerator.h>
@@ -137,8 +139,31 @@ void dk::baker::Start( const char* cmdLineArgs )
     dk::core::CreateFolderImpl( compileShaderPathWide + DUSK_STRING( "/sm6/" ) );
     dk::core::CreateFolderImpl( compileShaderPathWide + DUSK_STRING( "/spirv/" ) );
 
-    // Search for every drpl (DuskRenderPassLibrary)
-    //  for each drpl, parse its content and generate the library
+    dkString_t workingDir;
+    dk::core::RetrieveWorkingDirectory( workingDir );
+	FileSystemNative* workingDirFS = dk::core::allocate<FileSystemNative>( g_GlobalAllocator, workingDir );
+    
+    // Key is the library hashcode, value is the hash of its content.
+    std::unordered_map<dkStringHash_t, u32> cache;
+
+    FileSystemObject* passCache = workingDirFS->openFile( workingDir + DUSK_STRING( "/baker_cache.bin" ), FILE_OPEN_MODE_READ | FILE_OPEN_MODE_BINARY );
+    if ( passCache != nullptr ) {
+        constexpr size_t CACHE_ENTRY_SIZE = sizeof( dkStringHash_t ) + sizeof( u32 );
+
+        u64 entryCount = passCache->getSize() / CACHE_ENTRY_SIZE;
+        for ( u64 i = 0ull; i < entryCount; i++ ) {
+            dkStringHash_t hashcode;
+            u32 contentHashcode;
+
+			passCache->read<dkStringHash_t>( hashcode );
+			passCache->read<u32>( contentHashcode );
+
+            cache.insert( std::make_pair( hashcode, contentHashcode ) );
+        }
+
+        passCache->close();
+    }
+
     // Search for every fbx/obj (geometry)
     //  for each file, build its dgp (DuskGeometryPrimitive); see paper for specs
     // Search for every bitmap
@@ -147,12 +172,26 @@ void dk::baker::Start( const char* cmdLineArgs )
     // Search every dmat (DuskMATerial)
     //  for each material, compute its baked version (and precompute default PSO?)
     for ( dkString_t& renderLib : renderLibs ) {
-        DUSK_LOG_INFO( "%s\n", renderLib.c_str() );
-
         FileSystemObject* file = g_DataFS->openFile( renderLib.c_str() );
 
         std::string assetStr;
         dk::io::LoadTextFile( file, assetStr );
+
+        // Check library dirtiness.
+		u32 contentHashcode;
+        MurmurHash3_x86_32( assetStr.c_str(), static_cast< i32 >( assetStr.size() ), 19081996, &contentHashcode );
+
+        dkStringHash_t fileHashcode = file->getHashcode();
+        auto cacheIt = cache.find( fileHashcode );
+        if ( cacheIt != cache.end() ) {
+            if ( cacheIt->second == contentHashcode ) {
+                continue;
+            }
+        }
+
+        cache[fileHashcode] = contentHashcode;
+
+		DUSK_LOG_INFO( "%s\n", renderLib.c_str() );
 
         Parser parser( assetStr.c_str() );
         parser.generateAST();
@@ -224,6 +263,17 @@ void dk::baker::Start( const char* cmdLineArgs )
             }
         }
         file->close();
+    }
+
+	DUSK_LOG_INFO( "Updating baker cache\n" );
+	FileSystemObject* passCacheStream = workingDirFS->openFile( workingDir + DUSK_STRING( "/baker_cache.bin" ), FILE_OPEN_MODE_WRITE | FILE_OPEN_MODE_BINARY );
+    if ( passCacheStream != nullptr ) {
+        for ( auto& entry : cache ) {
+			passCacheStream->write<dkStringHash_t>( entry.first );
+			passCacheStream->write<u32>( entry.second );
+        }
+
+        passCacheStream->close();
     }
 
     DUSK_LOG_INFO( "Freeing allocated memory...\n" );
