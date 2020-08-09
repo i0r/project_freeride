@@ -1,6 +1,7 @@
 lib SSR {
     properties {
-        uint2 MipLevelDimension;
+        uint2 OutputSize;
+        float2 HamiltonSequenceSample;
     }
     
     resources {
@@ -14,6 +15,34 @@ lib SSR {
         
         sampler LinearSampler {
             format = LinearClampEdge;
+        }
+        
+        // RayTrace resources
+        RWTexture2D RayHitTarget {
+            swizzle = float4;
+        }
+        
+        RWTexture2D MaskTarget {
+            swizzle = float;
+        }
+        
+        Texture2D DepthBuffer {
+            swizzle = float;
+        }
+        
+        // RG: Encoded normals
+        // B : Roughness;
+        // A : Reserved
+        Texture2D ThinGBuffer {
+            swizzle = float4;
+        }
+        
+        Texture2D ColorBuffer {
+            swizzle = float4;
+        }
+        
+        Texture2D BlueNoise {
+            swizzle = float2;
         }
     }
    
@@ -29,6 +58,187 @@ lib SSR {
             1.0f / 8,
             1.0f / 16
         };
+                
+        static const int NUM_STEPS = 300;
+        static const float BRDF_BIAS = 0.7f;
+        static const float RAY_BIAS = 0.05f;
+        static const int HIZ_START_LEVEL = 0;
+        static const int HIZ_STOP_LEVEL = 0;
+        static const float THICKNESS = 50.0f;
+        static const int BLUE_NOISE_SIZE = 1024;
+        
+        float3 GetScreenPos( float2 uv, float depth ) {
+            return float3( uv.x * 2.0f - 1.0f, 1.0f - 2.0f * uv.y, depth );
+        }
+
+        float3 ReconstructWorldPos( float2 uv, float depth ) {
+            float ndcX = uv.x * 2 - 1;
+            float ndcY = 1 - uv.y * 2;
+            float4 viewPos = mul( float4( ndcX, ndcY, depth, 1.0f ), g_InverseProjectionMatrix );
+            viewPos = viewPos / viewPos.w;
+            return mul( viewPos, g_InverseViewMatrix ).xyz;
+        }
+
+        float3 GetViewDir( float3 worldPos ) {
+            return normalize( worldPos - g_WorldPosition );
+        }
+
+        float3 GetViewPos( float3 screenPos ) {
+            float4 viewPos = mul( float4( screenPos, 1.0f ), g_InverseProjectionMatrix );
+            return viewPos.xyz / viewPos.w;
+        }
+        
+        float4 TangentToWorld(float3 N, float4 H) {
+            float3 UpVector = abs(N.y) < 0.999 ? float3(0.0, 1.0, 0.0) : float3(1.0, 0.0, 0.0);
+            float3 T = normalize(cross(UpVector, N));
+            float3 B = cross(N, T);
+
+            return float4((T * H.x) + (B * H.y) + (N * H.z), H.w);
+        }
+
+        float4 ImportanceSampleGGX(float2 Xi, float Roughness) {
+            float m = Roughness * Roughness;
+            float m2 = m * m;
+
+            float Phi = 2 * _PI * Xi.x;
+
+            float CosTheta = sqrt((1.0 - Xi.y) / (1.0 + (m2 - 1.0) * Xi.y));
+            float SinTheta = sqrt(max(1e-5, 1.0 - CosTheta * CosTheta));
+
+            float3 H;
+            H.x = SinTheta * cos(Phi);
+            H.y = SinTheta * sin(Phi);
+            H.z = CosTheta;
+
+            float d = (CosTheta * m2 - CosTheta) * CosTheta + 1;
+            float D = m2 / (_PI * d * d);
+            float pdf = D * CosTheta;
+
+            return float4(H, pdf);
+        }
+        
+        float3 intersectDepth_Plane(float3 rayOrigin, float3 rayDir, float marchSize)
+        {
+            return rayOrigin + rayDir * marchSize;
+        }
+
+        float2 cell(float2 ray, float2 cell_count) 
+        {
+            return floor(ray.xy * cell_count);
+        }
+
+        float2 cell_count(float level, float2 ScreenSize)
+        {
+            return ScreenSize / (level == 0 ? 1 : exp2(level));
+        }
+
+        float3 intersect_cell_boundary(float3 rayOrigin, float3 rayDir, float2 cellIndex, float2 cellCount, float2 crossStep, float2 crossOffset)
+        {
+            float2 cell_size = 1.0 / cellCount;
+            float2 planes = cellIndex / cellCount + cell_size * crossStep;
+
+            float2 solutions = (planes - rayOrigin.xy) / rayDir.xy;
+            float3 intersection_pos = rayOrigin + rayDir * min(solutions.x, solutions.y);
+
+            intersection_pos.xy += (solutions.x < solutions.y) ? float2(crossOffset.x, 0.0) : float2(0.0, crossOffset.y);
+
+            return intersection_pos;
+        }
+
+        bool crossed_cell_boundary(float2 cell_id_one, float2 cell_id_two)
+        {
+            return (int)cell_id_one.x != (int)cell_id_two.x || (int)cell_id_one.y != (int)cell_id_two.y;
+        }
+
+        float minimum_depth_plane(float2 ray, float level, float2 cell_count)
+        {
+            return gHiZTexture[max(level, 0)].Load(int3((ray * cell_count), 0)).r;
+        }
+        
+        float4 RayTrace(int HiZ_Max_Level, int HiZ_Start_Level, int HiZ_Stop_Level, int NumSteps, float Thickness, float2 screenSize, float3 rayOrigin, float3 rayDir)
+        {
+            HiZ_Max_Level = clamp(HiZ_Max_Level, 0, 7);
+
+            float level = HiZ_Start_Level;
+            float3 ray = rayOrigin + rayDir * RAY_BIAS;
+
+            float2 cross_step = float2(rayDir.x >= 0.0 ? 1.0 : -1.0, rayDir.y >= 0.0 ? 1.0 : -1.0);
+            float2 cross_offset = cross_step * 0.00001f;
+            cross_step = saturate(cross_step);
+
+            float2 hi_z_size = cell_count(level, screenSize); 
+            float2 ray_cell = cell(ray.xy, hi_z_size.xy);
+            ray = intersect_cell_boundary(ray, rayDir, ray_cell, hi_z_size, cross_step, cross_offset);
+
+            int iterations = 0;
+            float mask = 1.0f;
+            while (level >= HiZ_Stop_Level && iterations < NumSteps) 
+            {
+                float3 tmp_ray = ray;
+                float2 current_cell_count = cell_count(level, screenSize);
+                float2 old_cell_id = cell(ray.xy, current_cell_count);
+
+                if (ray.x < 0.0f ||
+                    ray.x > 1.0f ||
+                    ray.y < 0.0f ||
+                    ray.y > 1.0f
+                    )
+                {
+                    mask = 0.0f;
+                    return float4(ray.xy, ray.z, mask);
+                }
+
+                float min_z = minimum_depth_plane(ray.xy, level, current_cell_count);
+
+                if (min_z < 1e-7)
+                {
+                    mask = 0.0f;
+                    return float4(ray.xy, ray.z, mask);
+                }
+
+                if (rayDir.z < 0)
+                {
+                    float min_minus_ray = min_z - ray.z;
+                    tmp_ray = min_minus_ray < 0 ? ray + (rayDir / rayDir.z) * min_minus_ray : tmp_ray;
+                    float2 new_cell_id = cell(tmp_ray.xy, current_cell_count);
+
+                    if (crossed_cell_boundary(old_cell_id, new_cell_id))
+                    {
+                        tmp_ray = intersect_cell_boundary(ray, rayDir, old_cell_id, current_cell_count, cross_step, cross_offset);
+                        level = min(HiZ_Max_Level, level + 2.0);
+                    }
+                    else 
+                    {
+                        if(level == 1.0 && abs(min_minus_ray) > 0.0001) 
+                        {
+                            tmp_ray = intersect_cell_boundary(ray, rayDir, old_cell_id, current_cell_count, cross_step, cross_offset);
+                            level = 2.0;
+                        }
+                    }
+                }
+                else if (ray.z > min_z)
+                {
+                    tmp_ray = intersect_cell_boundary(ray, rayDir, old_cell_id, current_cell_count, cross_step, cross_offset);
+                    level = min(HiZ_Max_Level, level + 2.0);
+                }
+
+                ray.xyz = tmp_ray.xyz;
+                level--;
+                iterations++;
+
+                mask = (ViewDepth(ray.z) - ViewDepth(min_z)) < Thickness && iterations > 0.0;
+            }
+
+            return float4(ray.xy, ray.z, mask);
+        }
+
+        float Linear01Depth(float depth, float near, float far) {
+            return (1.0f - (depth * near) / (far - depth * (far - near)));
+        }
+        
+        float ViewDepth(float depth, float near, float far) {
+            return (far * near) / (far - depth * (far - near));
+        }
     }
     
     shader PrefilterCS {
@@ -48,6 +258,47 @@ lib SSR {
                         + InputRenderTarget.SampleLevel(LinearSampler, UvCoordinates, 0.0f, SampleOffset.zz).rgb * Weight[8];
 
         OutputRenderTarget[$SV_DispatchThreadId.xy] = float4( color, 1.0f );
+    }
+    
+    shader HiZTrace {
+        float2 PixelCoordinates = float2( $SV_DispatchThreadId.xy ) + float2( 0.5f, 0.5f );
+        float2 UvCoordinates = PixelCoordinates / g_ScreenSize;
+        
+        float4 ThinGBufferSample = ThinGBuffer.SampleLevel( LinearSampler, UvCoordinates, 0.0f );
+        
+        float3 Normals = DecodeNormals( ThinGBufferSample.rg );
+        float3 NormalsViewSpace = normalize( mul( Normals, (float3x3)g_ViewMatrix ) );
+        
+        float  Roughness = ThinGBufferSample.b;
+        float  Depth = DepthBuffer.SampleLevel( LinearSampler, UvCoordinates, 0.0f );
+            
+        float2 Hash = BlueNoise.SampleLevel(LinearSampler, (UvCoordinates + HamiltonSequenceSample.xy) * (OutputSize.xy * 0.5f) / float2(BLUE_NOISE_SIZE, BLUE_NOISE_SIZE), 0.0f).rg;
+        Hash.y = lerp(Hash.y, 0.0, BRDF_BIAS);
+    
+        float3 screenPos = GetScreenPos( uv, depth );
+        float3 worldPos = ReconstructWorldPos( uv, depth );
+        float3 viewPos = GetViewPos( screenPos );
+        float3 viewDir = GetViewDir( worldPos );
+        
+        bool IsMirror = ( Roughness > 0.1f );
+        
+        // Use a stochastic approach for rough surfaces. If roughness is below the threshold; assume the surface
+        // is mirror like and should reflect as is.
+        float4 H = ( IsMirror ) ? float4( NormalsViewSpace, 1.0f ) : TangentToWorld(viewNormal, ImportanceSampleGGX(Hash, roughness));
+        
+        float3 R = reflect(normalize(viewPos), H.xyz);
+
+        float3 rayStart = float3(uv, depth);
+        float4 rayProj = mul(float4(viewPos + ReflectionDir, 1.0), g_ProjectionMatrix);
+        float3 rayDir = normalize((rayProj.xyz / rayProj.w) - screenPos);
+        rayDir.xy *= float2(0.5f, -0.5f);
+
+        float4 rayTrace = Hierarchical_Z_Trace(SSR_MAX_MIP_LEVEL, HIZ_START_LEVEL, HIZ_STOP_LEVEL, NUM_STEPS, THICKNESS, OutputSize * 0.5f, rayStart, rayDir);
+        float4 outRayCast = rayTrace;
+        float rayMask = rayTrace.w;
+        
+        RayHitTarget[$SV_DispatchThreadId.xy] = float4(rayTrace.xyz, H.a);
+        MaskTarget[$SV_DispatchThreadId.xy] = rayTrace.a * rayTrace.a;
     }
     
     pass Prefilter {

@@ -1,8 +1,8 @@
 lib DepthPyramid {
     properties {
-        float4x4    Projection;
         uint2       TextureSize;
         float2      CameraPlanes; // .x : Near Plane; .y : Far Plane
+        float4x4    Projection;
     }
     
     resources {

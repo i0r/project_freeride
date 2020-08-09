@@ -31,6 +31,7 @@ class WorldRenderModule;
 class IBLUtilitiesModule;
 class EnvironmentProbeStreaming;
 class CascadedShadowRenderModule;
+class SSRModule;
 class RenderWorld;
 
 struct CameraData;
@@ -247,4 +248,7 @@ private:
 
     // CSM rendering (+ implicit depth pyramid compute for auto depth bound compute).
     CascadedShadowRenderModule* cascadedShadowMapRendering;
+
+    // Stochastic SSR Render Module (implicitly requires a hi-z compute).
+    SSRModule* screenSpaceReflections;
 };
