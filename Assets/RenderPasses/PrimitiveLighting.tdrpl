@@ -136,7 +136,7 @@ lib PrimitiveLighting {
                 }
                 
                 PickingBuffer.InterlockedMin(0, d, current_d_or_locked);
-                if (d < (int)current_d_or_locked) {
+                if (d < (uint)current_d_or_locked) {
                     uint last_d = 0;
                     
                     PickingBuffer.InterlockedCompareExchange(0, d, asuint(-(int)d), last_d);
