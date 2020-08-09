@@ -41,6 +41,8 @@ static dkString_t g_AssetsPath;
 static dkString_t g_GeneratedHeaderPath;
 static FileSystemNative* g_DataFS;
 
+static constexpr const char* FAILED_SHADER_DUMP_FOLDER = "./failed_shaders/";
+
 void Initialize()
 {
     Timer profileTimer;
@@ -137,7 +139,8 @@ void dk::baker::Start( const char* cmdLineArgs )
 	dk::core::CreateFolderImpl( compileShaderPathWide );
     dk::core::CreateFolderImpl( compileShaderPathWide + DUSK_STRING( "/sm5/" ) );
     dk::core::CreateFolderImpl( compileShaderPathWide + DUSK_STRING( "/sm6/" ) );
-    dk::core::CreateFolderImpl( compileShaderPathWide + DUSK_STRING( "/spirv/" ) );
+	dk::core::CreateFolderImpl( compileShaderPathWide + DUSK_STRING( "/spirv/" ) );
+	dk::core::CreateFolderImpl( StringToWideString( FAILED_SHADER_DUMP_FOLDER ) );
 
     dkString_t workingDir;
     dk::core::RetrieveWorkingDirectory( workingDir );
@@ -189,7 +192,7 @@ void dk::baker::Start( const char* cmdLineArgs )
             }
         }
 
-        cache[fileHashcode] = contentHashcode;
+		bool isLibraryValid = true;
 
 		DUSK_LOG_INFO( "%s\n", renderLib.c_str() );
 
@@ -243,29 +246,53 @@ void dk::baker::Start( const char* cmdLineArgs )
                              &include, "EntryPoint", profile.c_str(), D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &shaderBlob, &errorBlob );
                    
                     if ( FAILED( result ) ) {
-                        DUSK_LOG_ERROR( "%hs\n", std::string( ( char* )errorBlob->GetBufferPointer(), errorBlob->GetBufferSize() ).c_str() );
-                        DUSK_LOG_ERROR( "%hs\n", shader.GeneratedSource.c_str() );
+						std::ofstream shaderDumpStream( std::string( FAILED_SHADER_DUMP_FOLDER ) + shader.OriginalName + "." + shader.Hashcode + ".hlsl", std::ios::binary | std::ios::trunc );
+
+                        if ( shaderDumpStream.is_open() ) {
+                            shaderDumpStream << "/***********\n";
+                            shaderDumpStream.write( (const char*)errorBlob->GetBufferPointer(), errorBlob->GetBufferSize() - 1 );
+                            shaderDumpStream << "***********/\n\n";
+                            shaderDumpStream.write( shader.GeneratedSource.c_str(), shader.GeneratedSource.size() );
+                            shaderDumpStream.close();
+                        }
+
+						DUSK_LOG_ERROR( "%hs\n", errorBlob->GetBufferPointer() );
+
+                        if ( errorBlob != nullptr ) {
+                            errorBlob->Release();
+                        }
+
+                        if ( shaderBlob != nullptr ) {
+                            shaderBlob->Release();
+                        }
+
+                        // At least one pass is invalid; flag the file as invalid.
+                        isLibraryValid = false;
                         continue;
                     }
 
                     ID3DBlob* StrippedBlob = nullptr;
                     D3DStripShader( shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), D3DCOMPILER_STRIP_DEBUG_INFO | D3DCOMPILER_STRIP_PRIVATE_DATA | D3DCOMPILER_STRIP_ROOT_SIGNATURE, &StrippedBlob );
                     
-                    //DUSK_LOG_DEBUG( "%hs\n", shader.GeneratedSource.c_str() );
-
-                    std::ofstream shaderStrean( compiledShadersPath + "/sm5/" + shader.Hashcode, std::ios::binary | std::ios::trunc );
-                    shaderStrean.write( (const char*)shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize() );
-                    shaderStrean.close();
+                    std::ofstream shaderStream( compiledShadersPath + "/sm5/" + shader.Hashcode, std::ios::binary | std::ios::trunc );
+                    shaderStream.write( (const char*)shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize() );
+                    shaderStream.close();
                 }
             } break;
             default:
                 break;
             }
+		}
+
+		// Update cache only if the compilation was successful.
+		if ( isLibraryValid ) {
+			cache[fileHashcode] = contentHashcode;
         }
+
         file->close();
     }
 
-	DUSK_LOG_INFO( "Updating baker cache\n" );
+	DUSK_LOG_INFO( "Updating baker cache...\n" );
 	FileSystemObject* passCacheStream = workingDirFS->openFile( workingDir + DUSK_STRING( "/baker_cache.bin" ), FILE_OPEN_MODE_WRITE | FILE_OPEN_MODE_BINARY );
     if ( passCacheStream != nullptr ) {
         for ( auto& entry : cache ) {

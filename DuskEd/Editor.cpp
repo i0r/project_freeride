@@ -347,14 +347,13 @@ void InitializeIOSubsystems()
     }
     dk::core::free( g_GlobalAllocator, saveFolder );
 
-    // TODO Store thoses paths somewhere so that we don't hardcode this everywhere...
-    if ( !g_DataFileSystem->fileExists( DUSK_STRING( "./data/cache/" ) ) ) {
-        g_DataFileSystem->createFolder( DUSK_STRING( "./data/cache/" ) );
-    }
-
-    if ( !g_DataFileSystem->fileExists( DUSK_STRING( "./data/materials/" ) ) ) {
-        g_DataFileSystem->createFolder( DUSK_STRING( "./data/materials/" ) );
-    }
+	// TODO Store thoses paths somewhere so that we don't hardcode this everywhere...
+	if ( !g_DataFileSystem->fileExists( DUSK_STRING( "./data/" ) ) ) {
+		g_DataFileSystem->createFolder( DUSK_STRING( "./data/" ) );
+		g_DataFileSystem->createFolder( DUSK_STRING( "./data/cache/" ) );
+		g_DataFileSystem->createFolder( DUSK_STRING( "./data/materials/" ) );
+		g_DataFileSystem->createFolder( DUSK_STRING( "./data/failed_shaders/" ) );
+	}
 
     Logger::SetLogOutputFile( SaveFolder, DUSK_STRING( "DuskEd" ) );
 

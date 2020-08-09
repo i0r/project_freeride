@@ -49,7 +49,8 @@ public:
 
     // Compile HLSL code to a blob with SM5.0 bytecode.
     // If the compilation failed, the Bytecode pointer will be null with a Length of 0.
-    GeneratedBytecode       compileShaderModel5( const eShaderStage shaderStage, const char* sourceCode, const size_t sourceCodeLength );
+    // ShaderName is an extra parameter used for logging/debugging (can be duplicated/null if you don't need shader dump).
+    GeneratedBytecode       compileShaderModel5( const eShaderStage shaderStage, const char* sourceCode, const size_t sourceCodeLength, const char* shaderName );
 
 private:
     // The memory allocator owning this instance.

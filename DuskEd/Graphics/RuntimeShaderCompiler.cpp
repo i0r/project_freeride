@@ -12,6 +12,8 @@
 #include <Core/StringHelpers.h>
 #include <Io/TextStreamHelpers.h>
 
+DUSK_DEV_VAR( DumpFailedShaders, "If true, dump the shader source code to the working directory in a text file.", true, bool );
+
 class RuntimeInclude : public ID3DInclude {
 public:
     RuntimeInclude( VirtualFileSystem* vfs )
@@ -53,8 +55,8 @@ private:
     VirtualFileSystem* virtualFileSystem;
 };
 
-// Return the Shading Model 5 profile corresponding to a given shader stage.
-std::string GetSM5Profile( const eShaderStage shaderStage )
+// Return the Shading Model 5 target corresponding to a given shader stage.
+const char* GetSM5StageTarget( const eShaderStage shaderStage )
 {
     switch ( shaderStage ) {
     case SHADER_STAGE_VERTEX:
@@ -88,18 +90,28 @@ RuntimeShaderCompiler::~RuntimeShaderCompiler()
     virtualFileSystem = nullptr;
 }
 
-RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderModel5( const eShaderStage shaderStage, const char* sourceCode, const size_t sourceCodeLength )
+RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderModel5( const eShaderStage shaderStage, const char* sourceCode, const size_t sourceCodeLength, const char* shaderName )
 {
     ID3DBlob* shaderBlob = nullptr;
     ID3DBlob* errorBlob = nullptr;
 
-    std::string profile = GetSM5Profile( shaderStage );
+    const char* modelTarget = GetSM5StageTarget( shaderStage );
 
-    HRESULT result = D3DCompile( sourceCode, sourceCodeLength, NULL, NULL, runtimeInclude, "EntryPoint", profile.c_str(), D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &shaderBlob, &errorBlob );
-
+    HRESULT result = D3DCompile( sourceCode, sourceCodeLength, NULL, NULL, runtimeInclude, "EntryPoint", modelTarget, D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &shaderBlob, &errorBlob );
     if ( FAILED( result ) ) {
-        DUSK_LOG_ERROR( "Shader Compilation Failed!\n" );
-        DUSK_LOG_ERROR( "%hs\n", std::string( ( char* )errorBlob->GetBufferPointer(), errorBlob->GetBufferSize() ).c_str() );
+        DUSK_LOG_ERROR( "'%hs' : Compilation Failed!\n%hs\n", shaderName, errorBlob->GetBufferPointer() );
+       
+        if ( DumpFailedShaders ) {
+            dkString_t dumpFile = DUSK_STRING( "GameData/failed_shaders/" ) + StringToWideString( shaderName ) + DUSK_STRING( ".hlsl" );
+			FileSystemObject* dumpStream = virtualFileSystem->openFile( dumpFile.c_str(), eFileOpenMode::FILE_OPEN_MODE_WRITE | eFileOpenMode::FILE_OPEN_MODE_BINARY );
+			if ( dumpStream->isGood() ) {
+                dumpStream->writeString( "/***********\n" );
+				dumpStream->write( static_cast<u8*>( errorBlob->GetBufferPointer() ), errorBlob->GetBufferSize() - 1 );
+				dumpStream->writeString( "***********/\n\n" );
+                dumpStream->writeString( sourceCode, sourceCodeLength );
+                dumpStream->close();
+			}
+        }
 
         if ( errorBlob != nullptr ) {
             errorBlob->Release();
@@ -112,7 +124,7 @@ RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderMod
         return GeneratedBytecode( memoryAllocator, nullptr, 0ull );
     }
 
-    DUSK_LOG_DEBUG( "Shader compilation suceeded!\n" );
+    DUSK_LOG_DEBUG( "'%hs' : Compilation Suceeded!\n", shaderName );
 
     ID3DBlob* StrippedBlob = nullptr;
     D3DStripShader( shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), D3DCOMPILER_STRIP_DEBUG_INFO | D3DCOMPILER_STRIP_PRIVATE_DATA | D3DCOMPILER_STRIP_ROOT_SIGNATURE, &StrippedBlob );
