@@ -15,7 +15,7 @@
 
 #include "Generated/HUD.generated.h"
 
-#include <Graphics/RenderPasses/Headers/Light.h>
+#include <Graphics/ShaderHeaders/Light.h>
 
 LineRenderingModule::LineRenderingModule( BaseAllocator* allocator )
     : memoryAllocator( allocator )

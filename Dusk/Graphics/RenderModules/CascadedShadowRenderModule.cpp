@@ -24,7 +24,7 @@
 
 #include "WorldRenderModule.h"
 
-#include "Graphics/RenderPasses/Headers/Light.h"
+#include "Graphics/ShaderHeaders/Light.h"
 
 #include "Maths/Frustum.h"
 

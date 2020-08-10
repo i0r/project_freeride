@@ -1,9 +1,7 @@
 project/*
 build/*
-Tools/AssetBaker/build/*
-Tools/ShaderCache/cache/*
-Tools/ShaderCache/tmp/*
-Tools/ShaderCache/__pycache__/*
+Tools/*.bin
+Tools/*.hlsl
 DuskCore/UnityBuild/*
 DuskRenderer/UnityBuild/*
 DuskEd/UnityBuild/*

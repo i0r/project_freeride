@@ -179,9 +179,7 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
             const std::vector<RenderLibraryGenerator::GeneratedShader>& libraryShaders = renderLibGenerator.getGeneratedShaders();
             for ( const RenderLibraryGenerator::GeneratedShader& shader : libraryShaders ) {
                 RuntimeShaderCompiler::GeneratedBytecode compiledShader = shaderCompiler->compileShaderModel5( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), ( std::string( editableMaterial.Name ) + "." + shader.OriginalName + "." + shader.Hashcode ).c_str() );
-
                 if ( compiledShader.Length == 0ull || compiledShader.Bytecode == nullptr ) {
-                    DUSK_LOG_ERROR( "'%hs' : compilation failed!\n", shader.Hashcode.c_str() );
                     continue;
                 }
 
