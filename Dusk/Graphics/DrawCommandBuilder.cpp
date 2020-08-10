@@ -14,7 +14,7 @@
 #include <Core/Allocators/LinearAllocator.h>
 #include <Maths/MatrixTransformations.h>
 
-#include "Graphics/RenderPasses/Headers/Light.h"
+#include "Graphics/ShaderHeaders/Light.h"
 
 DUSK_DEV_VAR( DisplayBoundingSphere, "Display Geometry Bounding Sphere (as wireframe primitive)", false, bool );
 

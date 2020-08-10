@@ -1,5 +1,5 @@
-file(GLOB_RECURSE SRC "Baker.cpp" "EntryPointWin64.cpp" "EntryPointUnix.cpp" )
-file(GLOB_RECURSE INC "Baker.h" )
+file(GLOB_RECURSE SRC "Baker.cpp" "EntryPointWin64.cpp" "EntryPointUnix.cpp" "BakerCache.cpp" )
+file(GLOB_RECURSE INC "Baker.h" "BakerCache.h" )
 
 if ( ${DUSK_USE_UNITY_BUILD} )
 	enable_unity_build( DuskBaker SRC 16 cpp)

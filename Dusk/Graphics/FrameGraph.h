@@ -21,7 +21,7 @@ struct Image;
 #include <Rendering/RenderDevice.h>
 #include <Rendering/CommandList.h>
 
-#include "RenderPasses/Headers/MaterialRuntimeEd.h"
+#include "ShaderHeaders/MaterialRuntimeEd.h"
 
 #include "WorldRenderer.h"
 

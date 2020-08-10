@@ -19,7 +19,7 @@
 #include <Graphics/GraphicsAssetCache.h>
 #include <Rendering/RenderDevice.h>
 
-#include <Graphics/RenderPasses/Headers/MaterialRuntimeEd.h>
+#include <Graphics/ShaderHeaders/MaterialRuntimeEd.h>
 
 static constexpr dkChar_t* DefaultTextureFilter = DUSK_STRING( "All (*.dds, *.jpg, *.png, *.png16, *.tga, *.lpng)\0*.dds;*.jpg;*.png;*.png16;*.tga;*.lpng\0DirectDraw Surface (*.dds)\0*.dds\0JPG (*.jpg)\0*.jpg\0PNG (*.png)\0*.png\0PNG 16 Bits (*.png16)\0*.png16\0Low Precision PNG (*.lpng)\0*.lpng\0TGA (*.tga)\0*.tga\0" );
 

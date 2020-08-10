@@ -15,7 +15,7 @@
 #include "Generated/BRDFLut.generated.h"
 #include "Generated/IBL.generated.h"
 
-#include <Graphics/RenderPasses/Headers/Light.h>
+#include <Graphics/ShaderHeaders/Light.h>
 
 void AddCubeFaceIrradianceComputePass( FrameGraph& frameGraph, Image* cubemap, Image* irradianceCube, const u32 faceIndex )
 {

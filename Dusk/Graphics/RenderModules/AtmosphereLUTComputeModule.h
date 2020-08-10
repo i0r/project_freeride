@@ -10,7 +10,7 @@ class RenderDevice;
 
 struct Image;
 
-#include <Graphics/RenderPasses/Headers/Atmosphere.h>
+#include <Graphics/ShaderHeaders/Atmosphere.h>
 #include "Generated/AtmosphereLUTCompute.generated.h"
 
 constexpr f64 kLengthUnitInMeters = 1000.0;

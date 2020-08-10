@@ -606,7 +606,7 @@ void RenderLibraryGenerator::generateFromAST( const TypeAST& root, const bool ge
         generatedMetadata.append( "#pragma once\n\n" );
         generatedMetadata.append( "#include <Graphics/FrameGraph.h>\n\n" );
 		generatedMetadata.append( "#include <Graphics/PipelineStateCache.h>\n\n" );
-		generatedMetadata.append( "#include <Graphics/RenderPasses/Headers/Light.h>\n\n" );
+		generatedMetadata.append( "#include <Graphics/ShaderHeaders/Light.h>\n\n" );
         generatedMetadata.append( "namespace " );
         generatedMetadata.append( generatedLibraryName );
         generatedMetadata.append( "\n{\n" );

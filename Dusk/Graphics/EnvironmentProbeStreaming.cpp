@@ -13,7 +13,7 @@
 #include <Rendering/CommandList.h>
 #include <Core/ViewFormat.h>
 
-#include "RenderPasses/Headers/Light.h"
+#include "ShaderHeaders/Light.h"
 
 #include "RenderModules/Generated/BrdfLut.generated.h"
 #include "RenderModules/IBLUtilitiesModule.h"

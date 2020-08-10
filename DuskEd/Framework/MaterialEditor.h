@@ -9,7 +9,7 @@
 
 #include "EditableMaterial.h"
 
-#include <Graphics/RenderPasses/Headers/MaterialRuntimeEd.h>
+#include <Graphics/ShaderHeaders/MaterialRuntimeEd.h>
 
 class BaseAllocator;
 class GraphicsAssetCache;
