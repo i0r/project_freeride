@@ -57,5 +57,5 @@ void BakerCache::updateOrCreateEntry( const dkStringHash_t key, const u32 value 
 bool BakerCache::isEntryDirty( const dkStringHash_t key, const u32 newValue ) const
 {
 	u32 oldValue = getContentHashcode( key );
-	return ( oldValue == 0u || oldValue == newValue );
+	return ( oldValue == 0u || oldValue != newValue );
 }

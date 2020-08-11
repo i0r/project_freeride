@@ -1149,6 +1149,9 @@ void RenderLibraryGenerator::appendSharedShaderHeader( std::string& hlslSource )
     hlslSource.append( "\tfloat4x4         g_PreviousViewProjectionMatrix;\n" );
 	hlslSource.append( "\tfloat4x4         g_OrthoProjectionMatrix;\n" );
 	hlslSource.append( "\tfloat4x4         g_ViewMatrix;\n" );
+	hlslSource.append( "\tfloat4x4         g_ProjectionMatrix;\n" );
+	hlslSource.append( "\tfloat4x4         g_InverseProjectionMatrix;\n" );
+	hlslSource.append( "\tfloat4x4         g_InverseViewMatrix;\n" );
     hlslSource.append( "\tfloat2           g_ScreenSize;\n" );
     hlslSource.append( "\tfloat2           g_InverseScreenSize;\n" );
     hlslSource.append( "\tfloat3           g_WorldPosition;\n" );
@@ -1161,6 +1164,8 @@ void RenderLibraryGenerator::appendSharedShaderHeader( std::string& hlslSource )
 	hlslSource.append( "\tfloat            g_Fov;\n" );
 	hlslSource.append( "\tfloat3           g_RightVector;\n" );
 	hlslSource.append( "\tfloat            g_AspectRatio;\n" );
+	hlslSource.append( "\t// Near and Far planes.\n" );
+	hlslSource.append( "\tfloat2           g_ClippingPlanes;\n" );
     hlslSource.append( "};\n" );
 
     // PerWorldBuffer

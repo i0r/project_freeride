@@ -9,7 +9,7 @@
 #include <Graphics/ShaderCache.h>
 #include <Graphics/GraphicsAssetCache.h>
 
-#include "Graphics/RenderPasses/Headers/Light.h"
+#include "Graphics/ShaderHeaders/Light.h"
 
 #include "Graphics/RenderModules/Generated/DepthPyramid.generated.h"
 
@@ -51,7 +51,7 @@ void SSRModule::computeHiZMips( FrameGraph& frameGraph, ResHandle_t resolvedDept
 
 			// Compute the hi-z mipchain length and allocate each level.
 			passData.DepthBufferMip0 = builder.readReadOnlyImage( resolvedDepthBuffer );
-			passData.HiZMipCount = 0;
+			passData.HiZMipCount = 0u;
 			passData.Mip0Width = width;
 			passData.Mip0Height = height;
 

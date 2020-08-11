@@ -673,6 +673,9 @@ FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevi
     perViewData.PreviousViewProjectionMatrix = dkMat4x4f::Identity;
 	perViewData.OrthoProjectionMatrix = dkMat4x4f::Identity;
 	perViewData.ViewMatrix = dkMat4x4f::Identity;
+    perViewData.ProjectionMatrix = dkMat4x4f::Identity;
+	perViewData.InverseProjectionMatrix = dkMat4x4f::Identity;
+	perViewData.InverseViewMatrix = dkMat4x4f::Identity;
     perViewData.ViewportSize = dkVec2f( 0.0f, 0.0f );
     perViewData.InverseViewportSize = dkVec2f( 0.0f, 0.0f );
     perViewData.WorldPosition = dkVec3f( 0.0f, 0.0f, 0.0f );
@@ -685,6 +688,8 @@ FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevi
     perViewData.FieldOfView = 90.0f;
 	perViewData.RightVector = dkVec3f( 0.0f, 0.0f, 1.0f );
 	perViewData.AspectRatio = 1.0f;
+	perViewData.NearPlane = 0.0f;
+	perViewData.FarPlane = 100.0f;
 }
 
 FrameGraph::~FrameGraph()
@@ -756,6 +761,9 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
         perViewData.PreviousViewProjectionMatrix = activeCamera->previousViewProjectionMatrix;
         perViewData.OrthoProjectionMatrix = dk::maths::MakeOrtho( 0.0f, activeCamera->viewportSize.x, activeCamera->viewportSize.y, 0.0f, -1.0f, 1.0f );
         perViewData.ViewMatrix = activeCamera->viewMatrix;
+        perViewData.ProjectionMatrix = activeCamera->projectionMatrix;
+        perViewData.InverseProjectionMatrix = activeCamera->inverseProjectionMatrix;
+        perViewData.InverseViewMatrix = activeCamera->inverseViewMatrix;
         perViewData.ViewportSize = activeCamera->viewportSize;
         perViewData.InverseViewportSize = activeCamera->inverseViewportSize;
         perViewData.WorldPosition = activeCamera->worldPosition;
@@ -767,6 +775,8 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
 		perViewData.FieldOfView = activeCamera->fov;
         perViewData.RightVector = activeCamera->rightVector;
         perViewData.AspectRatio = activeCamera->aspectRatio;
+        perViewData.NearPlane = activeCamera->nearPlane;
+        perViewData.FarPlane = activeCamera->farPlane;
     }
     
     graphScheduler.updateMaterialEdBuffer( &localMaterialEdData );

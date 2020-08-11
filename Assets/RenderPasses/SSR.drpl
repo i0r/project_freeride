@@ -17,6 +17,10 @@ lib SSR {
             format = LinearClampEdge;
         }
         
+        sampler PointSampler {
+            format = PointClampEdge;
+        }
+        
         // RayTrace resources
         RWTexture2D RayHitTarget {
             swizzle = float4;
@@ -27,6 +31,10 @@ lib SSR {
         }
         
         Texture2D DepthBuffer {
+            swizzle = float;
+        }
+        
+        Texture2DArray HiZDepthBuffer {
             swizzle = float;
         }
         
@@ -44,9 +52,23 @@ lib SSR {
         Texture2D BlueNoise {
             swizzle = float2;
         }
+        
+        Texture2D RayTraceBuffer {
+            swizzle = float4;
+        }
+        
+        Texture2D PreviousFrameResult {
+            swizzle = float4;
+        }
+        
+        RWTexture2D TemporalResultTarget {
+            swizzle = float4;
+        }
     }
    
-    shared {        
+    shared {
+        #include <GeometryUtils.hlsli>
+        
         static const float Weight[9] = {
             1.0f / 16,
             1.0f / 8,
@@ -66,41 +88,15 @@ lib SSR {
         static const int HIZ_STOP_LEVEL = 0;
         static const float THICKNESS = 50.0f;
         static const int BLUE_NOISE_SIZE = 1024;
-        
-        float3 GetScreenPos( float2 uv, float depth ) {
-            return float3( uv.x * 2.0f - 1.0f, 1.0f - 2.0f * uv.y, depth );
-        }
-
-        float3 ReconstructWorldPos( float2 uv, float depth ) {
-            float ndcX = uv.x * 2 - 1;
-            float ndcY = 1 - uv.y * 2;
-            float4 viewPos = mul( float4( ndcX, ndcY, depth, 1.0f ), g_InverseProjectionMatrix );
-            viewPos = viewPos / viewPos.w;
-            return mul( viewPos, g_InverseViewMatrix ).xyz;
-        }
-
-        float3 GetViewDir( float3 worldPos ) {
-            return normalize( worldPos - g_WorldPosition );
-        }
-
-        float3 GetViewPos( float3 screenPos ) {
-            float4 viewPos = mul( float4( screenPos, 1.0f ), g_InverseProjectionMatrix );
-            return viewPos.xyz / viewPos.w;
-        }
-        
-        float4 TangentToWorld(float3 N, float4 H) {
-            float3 UpVector = abs(N.y) < 0.999 ? float3(0.0, 1.0, 0.0) : float3(1.0, 0.0, 0.0);
-            float3 T = normalize(cross(UpVector, N));
-            float3 B = cross(N, T);
-
-            return float4((T * H.x) + (B * H.y) + (N * H.z), H.w);
-        }
+        static const float TEMPORAL_WEIGHT = 0.99f;
+        static const float TEMPORAL_CLAMP_SCALE = 3.00f;
+        static const float EXPOSURE = 1.0f;
 
         float4 ImportanceSampleGGX(float2 Xi, float Roughness) {
             float m = Roughness * Roughness;
             float m2 = m * m;
 
-            float Phi = 2 * _PI * Xi.x;
+            float Phi = 2 * PI * Xi.x;
 
             float CosTheta = sqrt((1.0 - Xi.y) / (1.0 + (m2 - 1.0) * Xi.y));
             float SinTheta = sqrt(max(1e-5, 1.0 - CosTheta * CosTheta));
@@ -111,7 +107,7 @@ lib SSR {
             H.z = CosTheta;
 
             float d = (CosTheta * m2 - CosTheta) * CosTheta + 1;
-            float D = m2 / (_PI * d * d);
+            float D = m2 / (PI * d * d);
             float pdf = D * CosTheta;
 
             return float4(H, pdf);
@@ -152,7 +148,7 @@ lib SSR {
 
         float minimum_depth_plane(float2 ray, float level, float2 cell_count)
         {
-            return gHiZTexture[max(level, 0)].Load(int3((ray * cell_count), 0)).r;
+            return HiZDepthBuffer.Load( int4( ( ray * cell_count ), max( level, 0 ), 0) ).r;
         }
         
         float4 RayTrace(int HiZ_Max_Level, int HiZ_Start_Level, int HiZ_Stop_Level, int NumSteps, float Thickness, float2 screenSize, float3 rayOrigin, float3 rayDir)
@@ -226,24 +222,82 @@ lib SSR {
                 level--;
                 iterations++;
 
-                mask = (ViewDepth(ray.z) - ViewDepth(min_z)) < Thickness && iterations > 0.0;
+                mask = (ViewDepth(ray.z, g_ClippingPlanes.x, g_ClippingPlanes.y) - ViewDepth(min_z, g_ClippingPlanes.x, g_ClippingPlanes.y)) < Thickness && iterations > 0.0;
             }
 
             return float4(ray.xy, ray.z, mask);
         }
+    
+        float2 CalculateMotion(float2 inUV, float rawDepth)
+        {
+            float4 worldPos = float4(inUV, rawDepth, 1.0f);
 
-        float Linear01Depth(float depth, float near, float far) {
-            return (1.0f - (depth * near) / (far - depth * (far - near)));
+            float4 prevClipPos = mul(worldPos, g_PreviousViewProjectionMatrix);
+            float4 curClipPos = mul(worldPos, g_ViewProjectionMatrix);
+
+            float2 prevHPos = prevClipPos.xy / prevClipPos.w;
+            float2 curHPos = curClipPos.xy / curClipPos.w;
+
+            // V is the viewport position at this pixel in the range 0 to 1.
+            float2 vPosPrev = prevHPos.xy / float2(2.0f, -2.0f) + float2(0.5f, 0.5f);
+            float2 vPosCur = curHPos.xy / float2(2.0f, -2.0f) + float2(0.5f, 0.5f);
+            return vPosCur - vPosPrev;
         }
         
-        float ViewDepth(float depth, float near, float far) {
-            return (far * near) / (far - depth * (far - near));
+        void ResolveAABB
+        (
+            Texture2D currColor,
+            float AABBScale,
+            float2 uv,
+            float2 ScreenSize,
+            inout float Variance,
+            inout float4 MinColor,
+            inout float4 MaxColor,
+            inout float4 FilterColor
+        )
+        {
+            const int2 SampleOffset[9] = {
+                int2(-1.0, -1.0),
+                int2(0.0, -1.0),
+                int2(1.0, -1.0),
+                int2(-1.0, 0.0),
+                int2(0.0, 0.0),
+                int2(1.0, 0.0),
+                int2(-1.0, 1.0),
+                int2(0.0, 1.0),
+                int2(1.0, 1.0)
+            };
+
+            float4 SampleColors[9];
+
+            for (uint i = 0; i < 9; i++)
+            {
+                SampleColors[i] = currColor.Load(int3( uv + (SampleOffset[i] / ScreenSize), 0 ) );
+            }
+
+            half4 m1 = 0.0;
+            half4 m2 = 0.0;
+            for (uint x = 0; x < 9; x++)
+            {
+                m1 += SampleColors[x];
+                m2 += SampleColors[x] * SampleColors[x];
+            }
+
+            half4 mean = m1 / 9.0;
+            half4 stddev = sqrt((m2 / 9.0) - mean * mean);
+
+            MinColor = mean - AABBScale * stddev;
+            MaxColor = mean + AABBScale * stddev;
+
+            FilterColor = SampleColors[4];
+            MinColor = min(MinColor, FilterColor);
+            MaxColor = max(MaxColor, FilterColor);
         }
     }
     
     shader PrefilterCS {
         float2 PixelCoordinates = float2( $SV_DispatchThreadId.xy ) + float2( 0.5f, 0.5f );
-        float2 UvCoordinates = PixelCoordinates / MipLevelDimensions;
+        float2 UvCoordinates = PixelCoordinates / OutputSize;
        
         static const int3 SampleOffset = int3(-1, 0, 1);
 
@@ -260,7 +314,7 @@ lib SSR {
         OutputRenderTarget[$SV_DispatchThreadId.xy] = float4( color, 1.0f );
     }
     
-    shader HiZTrace {
+    shader HiZTraceCS {
         float2 PixelCoordinates = float2( $SV_DispatchThreadId.xy ) + float2( 0.5f, 0.5f );
         float2 UvCoordinates = PixelCoordinates / g_ScreenSize;
         
@@ -269,31 +323,31 @@ lib SSR {
         float3 Normals = DecodeNormals( ThinGBufferSample.rg );
         float3 NormalsViewSpace = normalize( mul( Normals, (float3x3)g_ViewMatrix ) );
         
-        float  Roughness = ThinGBufferSample.b;
-        float  Depth = DepthBuffer.SampleLevel( LinearSampler, UvCoordinates, 0.0f );
+        float  roughness = ThinGBufferSample.b;
+        float  depth = DepthBuffer.SampleLevel( LinearSampler, UvCoordinates, 0.0f );
             
         float2 Hash = BlueNoise.SampleLevel(LinearSampler, (UvCoordinates + HamiltonSequenceSample.xy) * (OutputSize.xy * 0.5f) / float2(BLUE_NOISE_SIZE, BLUE_NOISE_SIZE), 0.0f).rg;
         Hash.y = lerp(Hash.y, 0.0, BRDF_BIAS);
     
-        float3 screenPos = GetScreenPos( uv, depth );
-        float3 worldPos = ReconstructWorldPos( uv, depth );
+        float3 screenPos = GetScreenPos( UvCoordinates, depth );
+        float3 worldPos = ReconstructWorldPos( UvCoordinates, depth );
         float3 viewPos = GetViewPos( screenPos );
         float3 viewDir = GetViewDir( worldPos );
         
-        bool IsMirror = ( Roughness > 0.1f );
+        bool IsMirror = ( roughness > 0.1f );
         
         // Use a stochastic approach for rough surfaces. If roughness is below the threshold; assume the surface
         // is mirror like and should reflect as is.
-        float4 H = ( IsMirror ) ? float4( NormalsViewSpace, 1.0f ) : TangentToWorld(viewNormal, ImportanceSampleGGX(Hash, roughness));
+        float4 H = ( IsMirror ) ? float4( NormalsViewSpace, 1.0f ) : TangentToWorld( NormalsViewSpace, ImportanceSampleGGX( Hash, roughness ) );
         
         float3 R = reflect(normalize(viewPos), H.xyz);
 
-        float3 rayStart = float3(uv, depth);
-        float4 rayProj = mul(float4(viewPos + ReflectionDir, 1.0), g_ProjectionMatrix);
+        float3 rayStart = float3(UvCoordinates, depth);
+        float4 rayProj = mul(float4(viewPos + R, 1.0), g_ProjectionMatrix);
         float3 rayDir = normalize((rayProj.xyz / rayProj.w) - screenPos);
         rayDir.xy *= float2(0.5f, -0.5f);
 
-        float4 rayTrace = Hierarchical_Z_Trace(SSR_MAX_MIP_LEVEL, HIZ_START_LEVEL, HIZ_STOP_LEVEL, NUM_STEPS, THICKNESS, OutputSize * 0.5f, rayStart, rayDir);
+        float4 rayTrace = RayTrace(SSR_MAX_MIP_LEVEL, HIZ_START_LEVEL, HIZ_STOP_LEVEL, NUM_STEPS, THICKNESS, OutputSize * 0.5f, rayStart, rayDir);
         float4 outRayCast = rayTrace;
         float rayMask = rayTrace.w;
         
@@ -301,8 +355,57 @@ lib SSR {
         MaskTarget[$SV_DispatchThreadId.xy] = rayTrace.a * rayTrace.a;
     }
     
+    shader ResolveTraceCS {
+        
+    }
+    
+    shader TemporalResolveCS {
+        float2 PixelCoordinates = float2( $SV_DispatchThreadId.xy ) + float2( 0.5f, 0.5f );
+        float2 UvCoordinates = PixelCoordinates / OutputSize;
+           
+        float hitZ = RayTraceBuffer.SampleLevel(LinearSampler, UvCoordinates, 0).b;
+        float2 Velocity = CalculateMotion(UvCoordinates, hitZ); // Reflection Depth derived motion. Removes smudghing cause by screen motion vectors.
+        
+        // Get AABB ClipBox.
+        float variance = 0;
+        float4 currColor = 0;
+        float4 minColor;
+        float4 maxColor;
+
+        ResolveAABB(
+            InputRenderTarget,
+            TEMPORAL_CLAMP_SCALE,
+            UvCoordinates,
+            OutputSize.xy,
+            variance,
+            minColor,
+            maxColor,
+            currColor
+        );
+
+        // Clamp.
+        float4 prevColor = PreviousFrameResult.SampleLevel(LinearSampler, UvCoordinates - Velocity, 0);
+        prevColor = clamp(prevColor, minColor, maxColor);
+
+        // Combine.
+        float temporalBlendWeight = saturate(TEMPORAL_WEIGHT * (1 - length(Velocity) * 8.0f));
+        float4 color = lerp(currColor, prevColor, temporalBlendWeight);
+
+        TemporalResultTarget[$SV_DispatchThreadId.xy] = color;
+    }
+    
     pass Prefilter {
         compute = PrefilterCS;
+        dispatch = { 16, 16, 1 };
+    }
+    
+    pass HiZTrace {
+        compute = HiZTraceCS;
+        dispatch = { 16, 16, 1 };
+    }
+    
+    pass TemporalResolve {
+        compute = TemporalResolveCS;
         dispatch = { 16, 16, 1 };
     }
 }

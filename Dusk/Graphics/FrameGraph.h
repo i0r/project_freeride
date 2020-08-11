@@ -42,7 +42,7 @@ static constexpr dkStringHash_t InstanceVectorBufferHashcode = DUSK_STRING_HASH(
 
 // PerView buffer content. You must force RenderPass baking whenever the content (or the order
 // of this structure) is updated!
-struct PerViewBufferData 
+struct PerViewBufferData
 {
     // View Projection Matrix.
     dkMat4x4f   ViewProjectionMatrix;
@@ -56,8 +56,17 @@ struct PerViewBufferData
     // Orthographic Projection Matrix (for HUD/screenspace passes).
     dkMat4x4f   OrthoProjectionMatrix;
 
-	// View Matrix.
-	dkMat4x4f   ViewMatrix;
+    // View Matrix.
+    dkMat4x4f   ViewMatrix;
+
+	// Projection Matrix.
+	dkMat4x4f   ProjectionMatrix;
+
+    // Inverse projection matrix (with finite far).
+    dkMat4x4f   InverseProjectionMatrix;
+
+    // Inverse view matrix.
+    dkMat4x4f   InverseViewMatrix;
 
     // Viewport Size. This is the size of the viewport showing the world view.
     // THIS VALUE MIGHT BE DIFFERENT FROM THE ACTUAL SCREEN SIZE (e.g. in editor).
@@ -73,13 +82,13 @@ struct PerViewBufferData
     i32         FrameIndex;
 
     // View direction of the camera (normalized).
-	dkVec3f     ViewDirection;
+    dkVec3f     ViewDirection;
 
     // SSAA factor applied during the geometry renderpass.
-	f32         ImageQuality;
+    f32         ImageQuality;
 
     // Jittering offset applied to avoid temporal artifacts.
-	dkVec2f     CameraJitteringOffset;
+    dkVec2f     CameraJitteringOffset;
 
     // Mouse coordinates (in screen space). Uses top-left referential.
     dkVec2u     MouseCoordinates;
@@ -91,6 +100,12 @@ struct PerViewBufferData
     dkVec3f     RightVector;
 
     f32         AspectRatio;
+
+    f32         NearPlane;
+
+    f32         FarPlane;
+
+    u32         __PADDING__[2];
 };
 DUSK_IS_MEMORY_ALIGNED_STATIC( PerViewBufferData, 16 );
 
