@@ -26,7 +26,7 @@ void dk::editor::DisplayLoggingConsole()
 {
     const char* logData = NarrowLogging( g_LogHistoryTest, g_LogHistoryPointer );
 
-    if ( ImGui::Begin( "Console", nullptr ) ) {
+    if ( ImGui::Begin( ICON_MD_DEVELOPER_MODE " Console", nullptr ) ) {
         ImGui::BeginChild( "scrolling" );
         ImGui::TextUnformatted( logData );
         ImGui::SetScrollHereY( 1.0f );

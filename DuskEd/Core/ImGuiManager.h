@@ -6,6 +6,7 @@
 
 #if DUSK_DEVBUILD
 class DisplaySurface;
+class VirtualFileSystem;
 
 class ImGuiManager
 {
@@ -15,12 +16,16 @@ public:
                                     ImGuiManager& operator = ( ImGuiManager& ) = delete;
                                     ~ImGuiManager();
 
-    void                            create( const DisplaySurface& displaySurface );
+    void                            create( const DisplaySurface& displaySurface, VirtualFileSystem* virtualFileSystem, BaseAllocator* allocator );
     void                            update( const f32 deltaTime );
 
     void                            setVisible( const bool isVisible );
 
 private:
+    BaseAllocator*                  memoryAllocator;
+
+    u8*                             iconFontTexels;
+
     std::string                     settingsFilePath;
 };
 #endif

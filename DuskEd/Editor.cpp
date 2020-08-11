@@ -474,7 +474,7 @@ void InitializeRenderSubsystems()
 
 #if DUSK_USE_IMGUI
     g_ImGuiManager = dk::core::allocate<ImGuiManager>( g_GlobalAllocator );
-	g_ImGuiManager->create( *g_DisplaySurface );
+	g_ImGuiManager->create( *g_DisplaySurface, g_VirtualFileSystem, g_GlobalAllocator );
 	g_ImGuiManager->setVisible( true );
 
     g_ImGuiRenderModule = dk::core::allocate<ImGuiRenderModule>( g_GlobalAllocator );
@@ -666,17 +666,17 @@ void MainLoop()
                 }
 
 				if ( ImGui::BeginMenu( "Edit" ) ) {
-					if ( ImGui::MenuItem( "Undo", g_TransactionHandler->getPreviousActionName(), false, g_TransactionHandler->canUndo() ) ) {
+					if ( ImGui::MenuItem( ICON_MD_UNDO " Undo", g_TransactionHandler->getPreviousActionName(), false, g_TransactionHandler->canUndo() ) ) {
                         g_TransactionHandler->undo();
 					}
 
-                    if ( ImGui::MenuItem( "Redo", g_TransactionHandler->getNextActionName(), false, g_TransactionHandler->canRedo() ) ) {
+                    if ( ImGui::MenuItem( ICON_MD_REDO " Redo", g_TransactionHandler->getNextActionName(), false, g_TransactionHandler->canRedo() ) ) {
 						g_TransactionHandler->redo();
 					}
 
                     ImGui::Separator();
 
-					if ( ImGui::MenuItem( "Delete", nullptr, false, ( g_PickedEntity.getIdentifier() != Entity::INVALID_ID ) ) ) {
+					if ( ImGui::MenuItem( ICON_MD_DELETE " Delete", nullptr, false, ( g_PickedEntity.getIdentifier() != Entity::INVALID_ID ) ) ) {
 						g_World->releaseEntity( g_PickedEntity );
 						g_PickedEntity.setIdentifier( Entity::INVALID_ID );
 					}
@@ -732,11 +732,11 @@ void MainLoop()
                         IsRenderDocVisible = true;
                     }
 
-                    if ( ImGui::MenuItem( "Material Editor" ) ) {
+                    if ( ImGui::MenuItem( ICON_MD_TEXTURE " Material Editor" ) ) {
                         g_MaterialEditor->openEditorWindow();
                     }
 
-                    if ( ImGui::MenuItem( "Inspector" ) ) {
+                    if ( ImGui::MenuItem( ICON_MD_ZOOM_IN " Inspector" ) ) {
                         g_EntityEditor->openEditorWindow();
                     }
 
@@ -840,7 +840,7 @@ void MainLoop()
             g_MaterialEditor->displayEditorWindow();
 
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
-            if ( ImGui::Begin( "Time Of Day" ) ) {
+            if ( ImGui::Begin( ICON_MD_ACCESS_TIME " Time Of Day" ) ) {
                 if ( ImGui::TreeNode( "Atmosphere" ) ) {
                     AtmosphereRenderModule* atmosphereRenderModule = g_WorldRenderer->getAtmosphereRenderingModule();
                     LightGrid* lightGrid = g_WorldRenderer->getLightGrid();
@@ -853,8 +853,7 @@ void MainLoop()
                     static bool overrideTod = true;
                     ImGui::Checkbox( "Override ToD", &overrideTod );
                     if ( overrideTod ) {
-                        ImGui::Text( "Sun Settings" );
-
+                        ImGui::Text( ICON_MD_WB_SUNNY " Sun Settings" );
                         if ( ImGui::SliderFloat2( "Sun Pos", ( float* )&sunLight->SphericalCoordinates, -1.0f, 1.0f ) ) {
                             sunLight->NormalizedDirection = dk::maths::SphericalToCarthesianCoordinates( sunLight->SphericalCoordinates[0], sunLight->SphericalCoordinates[1] );
                             atmosphereRenderModule->setSunAngles( sunLight->SphericalCoordinates[0], sunLight->SphericalCoordinates[1] );
@@ -866,11 +865,11 @@ void MainLoop()
                         const f32 solidAngle = ( 2.0f * dk::maths::PI<f32>() ) * ( 1.0f - cos( sunLight->AngularRadius ) );
 
                         f32 illuminance = sunLight->IlluminanceInLux / solidAngle;
-                        if ( ImGui::InputFloat( "Illuminance (lux)", &illuminance ) ) {
+                        if ( ImGui::InputFloat( ICON_MD_LIGHTBULB_OUTLINE " Illuminance (lux)", &illuminance ) ) {
                             sunLight->IlluminanceInLux = illuminance * solidAngle;
                         }
 
-                        ImGui::ColorEdit3( "Color", ( float* )&sunLight->ColorLinearSpace );
+                        ImGui::ColorEdit3( ICON_MD_PALETTE " Color", ( float* )&sunLight->ColorLinearSpace );
                     }
 
                     ImGui::TreePop();
@@ -894,7 +893,7 @@ void MainLoop()
             static ImVec2 viewportWinPos;
 
             ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
-            if ( ImGui::Begin( "Viewport", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar ) ) {
+            if ( ImGui::Begin( ICON_MD_SCREEN_SHARE " Viewport", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar ) ) {
                 static ImVec2 prevWinSize = ImGui::GetWindowSize();
                 
                 ImVec2 winSize = ImGui::GetWindowSize();
@@ -937,7 +936,7 @@ void MainLoop()
 				if ( g_RightClickMenuOpened = dk::imgui::BeginPopupContextWindowWithCondition( "Viewport Popup", g_IsContextMenuOpened ) ) {
                     g_IsContextMenuOpened = false;
 
-					if ( ImGui::BeginMenu( "New Entity..." ) ) {
+					if ( ImGui::BeginMenu( ICON_MD_CREATE " New Entity..." ) ) {
 						if ( ImGui::MenuItem( "Static Mesh" ) ) {
                             g_PickedEntity = g_World->createStaticMesh();
 
@@ -982,7 +981,7 @@ void MainLoop()
 					}
 
 					if ( g_PickedEntity.getIdentifier() != Entity::INVALID_ID ) {
-					    if ( ImGui::MenuItem( "Delete" ) ) {
+					    if ( ImGui::MenuItem( ICON_MD_DELETE " Delete" ) ) {
 							g_World->releaseEntity( g_PickedEntity );
 							g_PickedEntity.setIdentifier( Entity::INVALID_ID );
 						}
