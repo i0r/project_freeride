@@ -11,6 +11,7 @@ class Model;
 class Material;
 
 #include <Graphics/Material.h>
+#include "Maths/Matrix.h"
 
 using ResHandle_t = uint32_t;
 

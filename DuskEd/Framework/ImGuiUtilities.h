@@ -64,7 +64,7 @@ namespace dk
 			return hasBeenManipulated;
 		}
 
-        bool BeginPopupContextWindowWithCondition( const char* str_id, bool isOpened, bool also_over_items = true )
+        static bool BeginPopupContextWindowWithCondition( const char* str_id, bool isOpened, bool also_over_items = true )
         {
             if ( !str_id )
                 str_id = "window_context";

@@ -8,14 +8,25 @@ class FrameGraph;
 class RenderDevice;
 class GraphicsAssetCache;
 class BaseAllocator;
+class RenderWorld;
+class LinearAllocator;
+
+struct GPUShadowDrawCmd;
 struct DrawCall;
 struct GPUShadowBatchInfos;
 struct Image;
 struct Buffer;
+struct DirectionalLightGPU;
+struct CameraData;
+struct MeshConstants;
+struct MeshCluster;
+struct SmallBatchData;
+struct SmallBatchDrawConstants;
 
 using ResHandle_t = uint32_t;
 
 #include <Maths/Matrix.h>
+#include <vector>
 
 class CascadedShadowRenderModule
 {

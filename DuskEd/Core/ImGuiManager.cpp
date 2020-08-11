@@ -17,20 +17,33 @@
 #include <Core/Display/DisplaySurfaceXcb.h>
 #endif
 
-#include <imgui/imgui.h>
+#include "FileSystem/VirtualFileSystem.h"
+
+// TODO Expose this in the build script?
+#define DUSKED_USE_MATERIAL_DESIGN_FONT 1
+
+#if DUSKED_USE_MATERIAL_DESIGN_FONT
+#include "ThirdParty/Google/IconsMaterialDesign.h"
+#endif
+
+#include "ThirdParty/imgui/imgui.h"
 
 ImGuiManager::ImGuiManager()
-    : settingsFilePath( "" )
+    : memoryAllocator( nullptr )
+    , iconFontTexels( nullptr )
+    , settingsFilePath( "" )
 {
 
 }
 
 ImGuiManager::~ImGuiManager()
 {
-
+    if ( iconFontTexels != nullptr ) {
+        dk::core::freeArray( memoryAllocator, iconFontTexels );
+    }
 }
 
-void ImGuiManager::create( const DisplaySurface& displaySurface )
+void ImGuiManager::create( const DisplaySurface& displaySurface, VirtualFileSystem* virtualFileSystem, BaseAllocator* allocator )
 {
     dkString_t saveFolderPath;
     dk::core::RetrieveSavedGamesDirectory( saveFolderPath );
@@ -40,7 +53,29 @@ void ImGuiManager::create( const DisplaySurface& displaySurface )
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
 
-    ImGuiIO& io = ImGui::GetIO();
+	ImGuiIO& io = ImGui::GetIO();
+	io.Fonts->AddFontDefault();
+
+	static const ImWchar icons_ranges[] = { ICON_MIN_MD, ICON_MAX_MD, 0 };
+	ImFontConfig icons_config; 
+    icons_config.MergeMode = true; 
+    icons_config.PixelSnapH = true;
+
+    // Load font and forward it to imgui internal.
+    FileSystemObject* iconFontTTF = virtualFileSystem->openFile( DUSK_STRING( "GameData/fonts/MaterialIcons-Regular.ttf" ), eFileOpenMode::FILE_OPEN_MODE_READ | eFileOpenMode::FILE_OPEN_MODE_BINARY );
+	if ( iconFontTTF->isGood() ) {
+        memoryAllocator = allocator;
+
+		const u64 contentLength = iconFontTTF->getSize();
+        iconFontTexels = dk::core::allocateArray<u8>( memoryAllocator, contentLength );
+        iconFontTTF->read( iconFontTexels, contentLength * sizeof( u8 ) );
+		iconFontTTF->close();
+        
+        io.Fonts->AddFontFromMemoryTTF( iconFontTexels, static_cast<i32>( contentLength ), 12.0f, &icons_config, icons_ranges );
+    } else {
+        DUSK_LOG_WARN( "Missing font resources '%hs'...\n", FONT_ICON_FILE_NAME_MD );
+    }
+
     io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;
     io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;
     io.BackendPlatformName = "DuskEd::ImGuiManager";

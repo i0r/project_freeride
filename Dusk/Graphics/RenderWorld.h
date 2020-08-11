@@ -11,6 +11,10 @@ class PoolAllocator;
 class GraphicsAssetCache;
 class CommandList;
 
+struct MeshConstants;
+struct Buffer;
+struct MeshCluster;
+
 #include <Parsing/GeometryParser.h>
 
 #include <Maths/Matrix.h>

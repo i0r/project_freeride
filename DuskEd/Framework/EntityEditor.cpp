@@ -9,6 +9,8 @@
 #include <imgui/imgui.h>
 #include <imgui/imgui_internal.h>
 #include <ImGuizmo/ImGuizmo.h>
+
+#include "ThirdParty/Google/IconsMaterialDesign.h"
 #endif
 
 #if DUSK_USE_FBXSDK
@@ -34,7 +36,9 @@
 #include <Maths/Vector.h>
 
 #include "ImGuiUtilities.h"
-#include "TransformCommands.h"
+
+#include "Framework/Transaction/TransactionHandler.h"
+#include "Framework/Transaction/TransformCommands.h"
 
 EntityEditor::EntityEditor( BaseAllocator* allocator, GraphicsAssetCache* gfxCache, VirtualFileSystem* vfs, RenderWorld* rWorld, RenderDevice* activeRenderDevice )
     : isOpened( false )
@@ -100,7 +104,7 @@ void EntityEditor::displayEditorWindow( CameraData& viewportCamera, const dkVec4
         return;
     }
 
-	if ( ImGui::Begin( "Inspector", &isOpened ) ) {
+	if ( ImGui::Begin( ICON_MD_ZOOM_IN " Inspector", &isOpened ) ) {
 		if ( activeEntity->getIdentifier() != Entity::INVALID_ID ) {
 			// Name Edition.
 			char* entityName = activeWorld->getEntityNameRegister()->getNameBuffer( *activeEntity );
@@ -114,7 +118,7 @@ void EntityEditor::displayEditorWindow( CameraData& viewportCamera, const dkVec4
 	}
 	ImGui::End();
 
-    if ( ImGui::Begin( "Streamed Hiearchy", &isOpened ) ) {
+    if ( ImGui::Begin( ICON_MD_LIST " Streamed Hiearchy", &isOpened ) ) {
         const auto& nameHashmap = activeWorld->getEntityNameRegister()->getRegisterHashmap();
 
         for ( auto& name : nameHashmap ) {
@@ -134,7 +138,7 @@ void EntityEditor::displayTransformSection( const dkVec4f& viewportBounds, Camer
     }
 
 	ImGui::SetNextItemOpen( true );
-    if ( ImGui::TreeNode( "Transform" ) ) {
+    if ( ImGui::TreeNode( ICON_MD_3D_ROTATION " Transform" ) ) {
         // Retrieve this instance transform information.
         TransformDatabase* transformDb = activeWorld->getTransformDatabase();
         TransformDatabase::EdInstanceData& editorInstance = transformDb->getEditorInstanceData( transformDb->lookup( *activeEntity ) );
@@ -263,7 +267,7 @@ void EntityEditor::displayStaticGeometrySection()
 	}
 
     ImGui::SetNextItemOpen( true );
-	if ( ImGui::TreeNode( "Static Geometry" ) ) {
+	if ( ImGui::TreeNode( ICON_MD_ADD_BOX " Static Geometry" ) ) {
 		// Retrieve this instance static geometry information.
 		StaticGeometryDatabase* staticGeoDb = activeWorld->getStaticGeometryDatabase();
 

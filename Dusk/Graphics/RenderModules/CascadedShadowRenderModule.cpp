@@ -14,7 +14,10 @@
 
 #include <Core/ViewFormat.h>
 
+#include "Core/Allocators/LinearAllocator.h"
+
 #include "Graphics/RenderWorld.h"
+#include "Graphics/ShaderHeaders/Light.h"
 
 #include "Generated/DepthPyramid.generated.h"
 #include "Generated/ShadowSetup.generated.h"
@@ -24,9 +27,8 @@
 
 #include "WorldRenderModule.h"
 
-#include "Graphics/ShaderHeaders/Light.h"
-
 #include "Maths/Frustum.h"
+#include "Maths/MatrixTransformations.h"
 
 #include <numeric>
 

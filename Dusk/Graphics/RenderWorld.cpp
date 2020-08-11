@@ -14,6 +14,10 @@
 #include <Graphics/Material.h>
 #include <Graphics/GraphicsAssetCache.h>
 
+#include "Graphics/ShaderHeaders/Light.h"
+
+#include "Rendering/CommandList.h"
+
 #include <array>
 #include <vector>
 

@@ -5,6 +5,8 @@
 #include <Shared.h>
 #include "FileSystemArchive.h"
 
+#include "Core/StringHelpers.h"
+
 FileSystemArchive::FileSystemArchive( BaseAllocator* allocator, const dkString_t& archiveFilename )
     : archiveName( archiveFilename )
     , nativeZipObject( dk::core::allocate<mz_zip_archive>( allocator ) )
