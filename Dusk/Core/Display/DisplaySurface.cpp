@@ -12,3 +12,24 @@ DisplaySurface::DisplaySurface( BaseAllocator* allocator )
 {
 
 }
+
+void DisplaySurface::changeDisplayMode( const eDisplayMode newDisplayMode )
+{
+    switch ( newDisplayMode ) {
+    case WINDOWED:
+        if ( displayMode == FULLSCREEN ) {
+            setFullscreenDisplayMode();
+		} else if ( displayMode == FULLSCREEN ) {
+			setFullscreenBorderlessDisplayMode();
+		}
+        break;
+	case FULLSCREEN:
+		setFullscreenDisplayMode();
+        break;
+	case BORDERLESS:
+		setFullscreenBorderlessDisplayMode();
+        break;
+    }
+
+    displayMode = newDisplayMode;
+}
