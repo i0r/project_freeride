@@ -54,6 +54,10 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
         nativeSurface->Flags.HasLostFocus = 1;
         return 0;
 
+	case WM_SIZE:
+        nativeSurface->Flags.HasReceivedResizeEvent = 1;
+		break;
+
     default:
         break;
     }
@@ -165,64 +169,64 @@ void DisplaySurface::pollSystemEvents( InputReader* inputReader )
     MSG msg = { 0 };
 
     while ( PeekMessage( &msg, NULL, 0, 0, PM_REMOVE ) ) {
-        if ( msg.message == WM_INPUT ) {
+        switch ( msg.message ) {
+        case WM_INPUT:
             dk::input::ProcessInputEventImpl( inputReader, msg.hwnd, msg.lParam, msg.time );
-        } else if ( msg.message == WM_QUIT ) {
+            break;
+        case WM_SIZE:
             displaySurface->Flags.ShouldQuit = 1;
-        } else if ( msg.message == WM_CHAR ) {
+            break;
+        case WM_CHAR:
             if ( msg.wParam > 0 && msg.wParam < 0x10000 ) {
                 inputReader->pushKeyStroke( static_cast< dk::input::eInputKey >( msg.wParam ) );
             }
-        }
+            break;
+        };
 
         TranslateMessage( &msg );
         DispatchMessage( &msg );
     }
 }
+
+void DisplaySurface::setFullscreenDisplayMode()
+{
+	DWORD windowExFlags = WS_EX_APPWINDOW, windowFlags = WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+
+	i32 screenWidth = GetSystemMetrics( SM_CXSCREEN ),
+		screenHeight = GetSystemMetrics( SM_CYSCREEN );
+
+	RECT windowRectangle;
+	GetWindowRect( displaySurface->Handle, &windowRectangle );
+
+	DWORD width = windowRectangle.right - windowRectangle.left;
+    DWORD height = windowRectangle.bottom - windowRectangle.top;
+
+	DEVMODE devMode = {};
+	devMode.dmSize = sizeof( devMode );
+	devMode.dmPelsWidth = width;
+	devMode.dmPelsHeight = height;
+	devMode.dmBitsPerPel = 32;
+	devMode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
+
+	LONG changeDispResult = ChangeDisplaySettings( &devMode, CDS_FULLSCREEN );
+	if ( changeDispResult != DISP_CHANGE_SUCCESSFUL ) {
+		DUSK_LOG_WARN( "Failed to toggle fullscreen (ChangeDisplaySettings returned 0x%x)\n", changeDispResult );
+	}
+}
+
+void DisplaySurface::setFullscreenBorderlessDisplayMode()
+{
+	RECT windowRectangle;
+	GetWindowRect( displaySurface->Handle, &windowRectangle );
+
+    i32 width = windowRectangle.right - windowRectangle.left;
+    i32 height = windowRectangle.bottom - windowRectangle.top;
+
+	SetWindowLongPtr( displaySurface->Handle, GWL_STYLE, WS_SYSMENU | WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_VISIBLE );
+	MoveWindow( displaySurface->Handle, 0, 0, width, height, TRUE );
+}
 #endif
-//
-//#if DUSK_WIN
-//#include "DisplaySurface.h"
-//#include "EventLoopWin32.h"
-//
-//void dk::display::ToggleFullscreenImpl( NativeDisplaySurface* surface )
-//{
-//    DWORD windowExFlags = WS_EX_APPWINDOW, windowFlags = WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-//
-//    i32 screenWidth = GetSystemMetrics( SM_CXSCREEN ),
-//        screenHeight = GetSystemMetrics( SM_CYSCREEN );
-//
-//    RECT windowRectangle;
-//    GetWindowRect( surface->Handle, &windowRectangle );
-//
-//    long width = windowRectangle.right - windowRectangle.left;
-//    long height = windowRectangle.bottom - windowRectangle.top;
-//
-//    DEVMODE devMode = {};
-//    devMode.dmSize = sizeof( devMode );
-//    devMode.dmPelsWidth = width;
-//    devMode.dmPelsHeight = height;
-//    devMode.dmBitsPerPel = 32;
-//    devMode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
-//
-//    LONG changeDispResult = ChangeDisplaySettings( &devMode, CDS_FULLSCREEN );
-//    if ( changeDispResult != DISP_CHANGE_SUCCESSFUL ) {
-//        DUSK_LOG_WARN( "Failed to toggle fullscreen (ChangeDisplaySettings returned 0x%x)\n", changeDispResult );
-//    }
-//}
-//
-//void dk::display::ToggleBorderlessImpl( NativeDisplaySurface* surface )
-//{
-//    RECT windowRectangle;
-//    GetWindowRect( surface->Handle, &windowRectangle );
-//
-//    auto width = windowRectangle.right - windowRectangle.left;
-//    auto height = windowRectangle.bottom - windowRectangle.top;
-//
-//    SetWindowLongPtr( surface->Handle, GWL_STYLE, WS_SYSMENU | WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_VISIBLE );
-//    MoveWindow( surface->Handle, 0, 0, width, height, TRUE );
-//}
-//
+
 //void dk::display::SetMousePositionImpl( NativeDisplaySurface* surface, const f32 surfaceNormalizedX, const f32 surfaceNormalizedY )
 //{
 //    // Don't trap mouse if the user has alt-tabbed the application
@@ -238,4 +242,3 @@ void DisplaySurface::pollSystemEvents( InputReader* inputReader )
 //
 //    SetCursorPos( screenPoint.x, screenPoint.y );
 //}
-//#endif
