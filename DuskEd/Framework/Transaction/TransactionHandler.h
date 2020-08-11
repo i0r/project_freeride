@@ -6,6 +6,8 @@
 
 #include "TransactionCommand.h"
 
+#include "Core/Allocators/PoolAllocator.h"
+
 class BaseAllocator;
 
 class TransactionHandler

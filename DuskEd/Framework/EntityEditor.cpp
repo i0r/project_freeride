@@ -9,6 +9,8 @@
 #include <imgui/imgui.h>
 #include <imgui/imgui_internal.h>
 #include <ImGuizmo/ImGuizmo.h>
+
+#include "ThirdParty/Google/IconsMaterialDesign.h"
 #endif
 
 #if DUSK_USE_FBXSDK
@@ -34,7 +36,9 @@
 #include <Maths/Vector.h>
 
 #include "ImGuiUtilities.h"
-#include "TransformCommands.h"
+
+#include "Framework/Transaction/TransactionHandler.h"
+#include "Framework/Transaction/TransformCommands.h"
 
 EntityEditor::EntityEditor( BaseAllocator* allocator, GraphicsAssetCache* gfxCache, VirtualFileSystem* vfs, RenderWorld* rWorld, RenderDevice* activeRenderDevice )
     : isOpened( false )

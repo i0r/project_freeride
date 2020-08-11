@@ -6,6 +6,8 @@
 #include <imgui/imgui.h>
 #include <imgui/imgui_internal.h>
 
+#include "ThirdParty/Google/IconsMaterialDesign.h"
+
 #if DUSK_USE_IMGUI
 #if DUSK_UNICODE
 static thread_local char logHistory[2 * 4096];

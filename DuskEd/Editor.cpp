@@ -47,12 +47,15 @@
 #if DUSK_USE_IMGUI
 #include "Core/ImGuiManager.h"
 #include "Graphics/RenderModules/ImGuiRenderModule.h"
+
 #include "ThirdParty/imgui/imgui.h"
 #include "ThirdParty/imgui/imgui_internal.h"
 #include "ThirdParty/ImGuizmo/ImGuizmo.h"
 
 #include "Framework/ImGuiUtilities.h"
-#include "Framework/LoggingConsole.h"
+#include "Framework/EditorWidgets/LoggingConsole.h"
+
+#include "ThirdParty/Google/IconsMaterialDesign.h"
 #endif
 
 #include "Physics/BulletDynamicsWorld.h"
@@ -75,7 +78,9 @@
 #include "Framework/Transform.h"
 #include "DefaultInputConfig.h"
 
-#include "Framework/TransactionHandler.h"
+#include "Framework/Transaction/TransactionHandler.h"
+
+#include "Core/StringHelpers.h"
 
 static char  g_BaseBuffer[128];
 static void* g_AllocatedTable;
