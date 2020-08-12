@@ -89,11 +89,11 @@ void ImGuiRenderModule::loadCachedResources( RenderDevice& renderDevice, Graphic
 
 void ImGuiRenderModule::destroy( RenderDevice& renderDevice )
 {
-    ImGui::DestroyContext();
+	renderDevice.destroyImage( fontAtlas );
+	renderDevice.destroyBuffer( vertexBuffer );
+	renderDevice.destroyBuffer( indiceBuffer );
 
-    renderDevice.destroyImage( fontAtlas );
-    renderDevice.destroyBuffer( vertexBuffer );
-    renderDevice.destroyBuffer( indiceBuffer );
+    ImGui::DestroyContext();
 }
 
 ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_t renderTarget )
