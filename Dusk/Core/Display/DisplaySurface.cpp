@@ -9,6 +9,8 @@ DisplaySurface::DisplaySurface( BaseAllocator* allocator )
     : memoryAllocator( allocator )
     , displaySurface( nullptr )
     , displayMode( eDisplayMode::WINDOWED )
+    , width( 0u )
+    , height( 0u )
 {
 
 }
@@ -17,11 +19,7 @@ void DisplaySurface::changeDisplayMode( const eDisplayMode newDisplayMode )
 {
     switch ( newDisplayMode ) {
     case WINDOWED:
-        if ( displayMode == FULLSCREEN ) {
-            setFullscreenDisplayMode();
-		} else if ( displayMode == FULLSCREEN ) {
-			setFullscreenBorderlessDisplayMode();
-		}
+        setWindowedDisplayMode();
         break;
 	case FULLSCREEN:
 		setFullscreenDisplayMode();

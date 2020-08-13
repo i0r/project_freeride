@@ -20,7 +20,7 @@
 void AddCubeFaceIrradianceComputePass( FrameGraph& frameGraph, Image* cubemap, Image* irradianceCube, const u32 faceIndex )
 {
 	struct PassData {
-		ResHandle_t         PerPassBuffer;
+		FGHandle         PerPassBuffer;
 	};
 
 	PassData& passData = frameGraph.addRenderPass<PassData>(
@@ -78,7 +78,7 @@ void AddCubeFaceIrradianceComputePass( FrameGraph& frameGraph, Image* cubemap, I
 void AddCubeFaceFilteringPass( FrameGraph& frameGraph, Image* cubemap, Image* filteredCube, const u32 faceIndex, const u32 mipIndex )
 {
 	struct PassData {
-		ResHandle_t	PerPassBuffer;
+		FGHandle	PerPassBuffer;
 	};
 
 	PassData& passData = frameGraph.addRenderPass<PassData>(

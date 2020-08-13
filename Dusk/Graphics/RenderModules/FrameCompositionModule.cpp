@@ -27,18 +27,18 @@ FrameCompositionModule::~FrameCompositionModule()
     colorGradingLUT = nullptr;
 }
 
-ResHandle_t FrameCompositionModule::addFrameCompositionPass( FrameGraph& frameGraph, ResHandle_t input, ResHandle_t glareInput )
+FGHandle FrameCompositionModule::addFrameCompositionPass( FrameGraph& frameGraph, FGHandle input, FGHandle glareInput )
 {
     struct PassData {
-        ResHandle_t input;
-        ResHandle_t output;
+        FGHandle input;
+        FGHandle output;
 
-        ResHandle_t bloomRtInput;
-        ResHandle_t glareRtInput;
+        FGHandle bloomRtInput;
+        FGHandle glareRtInput;
 
-        ResHandle_t autoExposureBuffer;
-        ResHandle_t PerPassBuffer;
-        ResHandle_t PerViewBuffer;
+        FGHandle autoExposureBuffer;
+        FGHandle PerPassBuffer;
+        FGHandle PerViewBuffer;
     };
 
     constexpr PipelineStateDesc CompositionPipelineDesc = PipelineStateDesc(

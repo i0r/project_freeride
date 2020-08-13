@@ -37,7 +37,7 @@ AtmosphereRenderModule::~AtmosphereRenderModule()
 
 }
 
-ResHandle_t AtmosphereRenderModule::renderAtmosphere( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer )
+FGHandle AtmosphereRenderModule::renderAtmosphere( FrameGraph& frameGraph, FGHandle renderTarget, FGHandle depthBuffer )
 {
     if ( !lutComputeJobTodo.empty() ) {
         RecomputeJob& job = lutComputeJobTodo.front();
@@ -60,18 +60,18 @@ ResHandle_t AtmosphereRenderModule::renderAtmosphere( FrameGraph& frameGraph, Re
         }
 	}
 
-    ResHandle_t skyRendering = renderSky( frameGraph, renderTarget, depthBuffer );
+    FGHandle skyRendering = renderSky( frameGraph, renderTarget, depthBuffer );
 	return skyRendering;
 }
 
-ResHandle_t AtmosphereRenderModule::renderSky( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer )
+FGHandle AtmosphereRenderModule::renderSky( FrameGraph& frameGraph, FGHandle renderTarget, FGHandle depthBuffer )
 {
     struct PassData {
-        ResHandle_t         Output;
-        ResHandle_t         DepthBuffer;
+        FGHandle         Output;
+        FGHandle         DepthBuffer;
 
-        ResHandle_t         PerPassBuffer;
-        ResHandle_t         PerViewBuffer;
+        FGHandle         PerPassBuffer;
+        FGHandle         PerViewBuffer;
     };
 
     PassData& passData = frameGraph.addRenderPass<PassData>(
@@ -175,7 +175,7 @@ ResHandle_t AtmosphereRenderModule::renderSky( FrameGraph& frameGraph, ResHandle
 void AtmosphereRenderModule::renderSkyForProbeCapture( FrameGraph& frameGraph, Image* outputImage, const ImageViewDesc& outputImageTarget, const CameraData& cameraData )
 {
     struct PassData {
-        ResHandle_t         PerPassBuffer;
+        FGHandle         PerPassBuffer;
     };
 
     PassData& passData = frameGraph.addRenderPass<PassData>(
@@ -242,7 +242,7 @@ void AtmosphereRenderModule::renderSkyForProbeCapture( FrameGraph& frameGraph, I
     );
 }
 
-ResHandle_t AtmosphereRenderModule::renderAtmoshpericFog( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer )
+FGHandle AtmosphereRenderModule::renderAtmoshpericFog( FrameGraph& frameGraph, FGHandle renderTarget, FGHandle depthBuffer )
 {
 	return -1;
 }

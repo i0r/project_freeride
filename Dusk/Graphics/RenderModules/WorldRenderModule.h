@@ -10,19 +10,26 @@ class ShaderCache;
 class Model;
 class Material;
 
-#include <Graphics/Material.h>
+#include "Graphics/Material.h"
 #include "Maths/Matrix.h"
-
-using ResHandle_t = uint32_t;
+#include "Graphics/FrameGraph.h"
 
 class WorldRenderModule
 {
 public:
 	struct LightPassOutput
 	{
-		ResHandle_t	OutputRenderTarget;
-		ResHandle_t	OutputDepthTarget;
-		ResHandle_t	OutputVelocityTarget;
+		FGHandle	OutputRenderTarget;
+		FGHandle	OutputDepthTarget;
+		FGHandle	OutputVelocityTarget;
+
+		LightPassOutput()
+			: OutputRenderTarget( FGHandle::Invalid )
+			, OutputDepthTarget( FGHandle::Invalid )
+			, OutputVelocityTarget( FGHandle::Invalid )
+		{
+
+		}
 	};
 
 public:
@@ -41,9 +48,9 @@ public:
     void                destroy( RenderDevice& renderDevice );
 	void                loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache );
 
-	LightPassOutput     addPrimitiveLightPass( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, ResHandle_t depthPrepassBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular, const dkMat4x4f& globalShadowMatrix );
+	LightPassOutput     addPrimitiveLightPass( FrameGraph& frameGraph, FGHandle perSceneBuffer, FGHandle depthPrepassBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular, const dkMat4x4f& globalShadowMatrix );
 
-	ResHandle_t			addDepthPrepass( FrameGraph& frameGraph );
+	FGHandle			addDepthPrepass( FrameGraph& frameGraph );
 
 	void				setDefaultBrdfDfgLut( Image* brdfDfgLut );
 

@@ -52,11 +52,11 @@ void TextRenderingModule::destroy( RenderDevice& renderDevice )
     renderDevice.destroyBuffer( glyphIndiceBuffer );
 }
 
-ResHandle_t TextRenderingModule::renderText( FrameGraph& frameGraph, ResHandle_t output )
+FGHandle TextRenderingModule::renderText( FrameGraph& frameGraph, FGHandle output )
 {
     struct PassData {
-        ResHandle_t Output;
-        ResHandle_t PerViewBuffer;
+        FGHandle Output;
+        FGHandle PerViewBuffer;
     };
 
     constexpr PipelineStateDesc PipelineStateDefault = PipelineStateDesc( 

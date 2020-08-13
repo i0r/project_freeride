@@ -84,6 +84,7 @@ DUSK_STRING_HASH( "e"#name ),\
 } );
 
 #define DUSK_ENV_VAR( name, defaultValue, type ) static type name = EnvironmentVariables::registerVariable<type>( #name, DUSK_STRING_HASH( #type ), &name, defaultValue );
+#define DUSK_ENV_VAR_TRANSIENT( name, defaultValue, type ) static type name = EnvironmentVariables::registerVariable<type>( #name, DUSK_STRING_HASH( #type ), &name, defaultValue, false );
 
 #if DUSK_DEVBUILD
 #define DUSK_DEV_VAR_PERSISTENT( name, defaultValue, type ) static type name = EnvironmentVariables::registerVariable<type>( #name, DUSK_STRING_HASH( #type ), &name, defaultValue );

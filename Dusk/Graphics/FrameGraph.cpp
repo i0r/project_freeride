@@ -23,6 +23,8 @@ static constexpr dkStringHash_t VECTORDATA_BUFFER_RESOURCE_HASHCODE = DUSK_STRIN
 static constexpr size_t MAX_VECTOR_PER_INSTANCE = 1024;
 static constexpr size_t VECTOR_BUFFER_SIZE = MAX_VECTOR_PER_INSTANCE * sizeof( dkVec4f );
 
+const FGHandle FGHandle::Invalid = FGHandle( ~0 );
+
 FrameGraphBuilder::FrameGraphBuilder()
     : frameSamplerCount( 1 )
     , frameImageQuality( 1.0f )
@@ -171,7 +173,7 @@ void FrameGraphBuilder::ApplyImageDescriptionFlags( ImageDesc& description, cons
     }
 }
 
-ResHandle_t FrameGraphBuilder::allocateImage( ImageDesc& description, const u32 imageFlags )
+FGHandle FrameGraphBuilder::allocateImage( ImageDesc& description, const u32 imageFlags )
 {
     const FrameGraphRenderPass::Handle_t requesterHandle = ( renderPassCount - 1 );
 
@@ -188,7 +190,7 @@ ResHandle_t FrameGraphBuilder::allocateImage( ImageDesc& description, const u32 
     return imageCount++;
 }
 
-ResHandle_t FrameGraphBuilder::copyImage( const ResHandle_t resourceToCopy, ImageDesc** descRef, const u32 imageFlags )
+FGHandle FrameGraphBuilder::copyImage( const FGHandle resourceToCopy, ImageDesc** descRef, const u32 imageFlags )
 {
     images[imageCount].description = images[resourceToCopy].description;
     images[imageCount].flags = 0u;
@@ -207,7 +209,7 @@ ResHandle_t FrameGraphBuilder::copyImage( const ResHandle_t resourceToCopy, Imag
     return imageCount++;
 }
 
-ResHandle_t FrameGraphBuilder::allocateBuffer( BufferDesc& description, const u32 shaderStageBinding )
+FGHandle FrameGraphBuilder::allocateBuffer( BufferDesc& description, const u32 shaderStageBinding )
 {
     const FrameGraphRenderPass::Handle_t requesterHandle = ( renderPassCount - 1 );
 
@@ -222,19 +224,19 @@ ResHandle_t FrameGraphBuilder::allocateBuffer( BufferDesc& description, const u3
     return bufferCount++;
 }
 
-ResHandle_t FrameGraphBuilder::allocateSampler( const SamplerDesc& description )
+FGHandle FrameGraphBuilder::allocateSampler( const SamplerDesc& description )
 {
     samplers[samplerStateCount] = description;
     return samplerStateCount++;
 }
 
-ResHandle_t FrameGraphBuilder::readReadOnlyImage( const ResHandle_t resourceHandle )
+FGHandle FrameGraphBuilder::readReadOnlyImage( const FGHandle resourceHandle )
 {
     images[resourceHandle].referenceCount++;
     return resourceHandle;
 }
 
-ResHandle_t FrameGraphBuilder::readReadOnlyBuffer( const ResHandle_t resourceHandle )
+FGHandle FrameGraphBuilder::readReadOnlyBuffer( const FGHandle resourceHandle )
 {
     buffers[resourceHandle].referenceCount++;
     return resourceHandle;
@@ -253,7 +255,7 @@ void FrameGraphBuilder::updatePassDependency( PassInfos& passInfos, const FrameG
     passInfos.dependencyCount++;
 }
 
-ResHandle_t FrameGraphBuilder::readImage( const ResHandle_t resourceHandle )
+FGHandle FrameGraphBuilder::readImage( const FGHandle resourceHandle )
 {
     images[resourceHandle].referenceCount++;
 
@@ -265,7 +267,7 @@ ResHandle_t FrameGraphBuilder::readImage( const ResHandle_t resourceHandle )
     return resourceHandle;
 }
 
-ResHandle_t FrameGraphBuilder::readBuffer( const ResHandle_t resourceHandle )
+FGHandle FrameGraphBuilder::readBuffer( const FGHandle resourceHandle )
 {
     buffers[resourceHandle].referenceCount++;
 
@@ -277,43 +279,43 @@ ResHandle_t FrameGraphBuilder::readBuffer( const ResHandle_t resourceHandle )
     return resourceHandle;
 }
 
-ResHandle_t FrameGraphBuilder::retrieveSwapchainBuffer()
+FGHandle FrameGraphBuilder::retrieveSwapchainBuffer()
 {
     persitentImages[persitentImageCount] = SWAPCHAIN_BUFFER_RESOURCE_HASHCODE;
     return persitentImageCount++;
 }
 
-ResHandle_t FrameGraphBuilder::retrievePresentImage()
+FGHandle FrameGraphBuilder::retrievePresentImage()
 {
     persitentImages[persitentImageCount] = PRESENT_IMAGE_RESOURCE_HASHCODE;
     return persitentImageCount++;
 }
 
-ResHandle_t FrameGraphBuilder::retrieveLastFrameImage()
+FGHandle FrameGraphBuilder::retrieveLastFrameImage()
 {
     persitentImages[persitentImageCount] = LAST_FRAME_IMAGE_RESOURCE_HASHCODE;
     return persitentImageCount++;
 }
 
-ResHandle_t FrameGraphBuilder::retrievePerViewBuffer()
+FGHandle FrameGraphBuilder::retrievePerViewBuffer()
 {
     persitentBuffers[persitentBufferCount] = PERVIEW_BUFFER_RESOURCE_HASHCODE;
     return persitentBufferCount++;
 }
 
-ResHandle_t FrameGraphBuilder::retrieveMaterialEdBuffer()
+FGHandle FrameGraphBuilder::retrieveMaterialEdBuffer()
 {
     persitentBuffers[persitentBufferCount] = MATERIALED_BUFFER_RESOURCE_HASHCODE;
     return persitentBufferCount++;
 }
 
-ResHandle_t FrameGraphBuilder::retrieveVectorDataBuffer()
+FGHandle FrameGraphBuilder::retrieveVectorDataBuffer()
 {
 	persitentBuffers[persitentBufferCount] = VECTORDATA_BUFFER_RESOURCE_HASHCODE;
 	return persitentBufferCount++;
 }
 
-ResHandle_t FrameGraphBuilder::retrievePersistentImage( const dkStringHash_t resourceHashcode )
+FGHandle FrameGraphBuilder::retrievePersistentImage( const dkStringHash_t resourceHashcode )
 {
     persitentImages[persitentImageCount] = resourceHashcode;
 
@@ -324,7 +326,7 @@ ResHandle_t FrameGraphBuilder::retrievePersistentImage( const dkStringHash_t res
     return persitentImageCount++;
 }
 
-ResHandle_t FrameGraphBuilder::retrievePersistentBuffer( const dkStringHash_t resourceHashcode )
+FGHandle FrameGraphBuilder::retrievePersistentBuffer( const dkStringHash_t resourceHashcode )
 {
     persitentBuffers[persitentBufferCount] = resourceHashcode;
 
@@ -536,32 +538,32 @@ f32 FrameGraphResources::getDeltaTime() const
     return deltaTime;
 }
 
-Buffer* FrameGraphResources::getBuffer( const ResHandle_t resourceHandle ) const
+Buffer* FrameGraphResources::getBuffer( const FGHandle resourceHandle ) const
 {
     return inUseBuffers[resourceHandle];
 }
 
-Image* FrameGraphResources::getImage( const ResHandle_t resourceHandle ) const
+Image* FrameGraphResources::getImage( const FGHandle resourceHandle ) const
 {
     return inUseImages[resourceHandle];
 }
 
-Sampler* FrameGraphResources::getSampler( const ResHandle_t resourceHandle ) const
+Sampler* FrameGraphResources::getSampler( const FGHandle resourceHandle ) const
 {
     return inUseSamplers[resourceHandle];
 }
 
-Buffer* FrameGraphResources::getPersistentBuffer( const ResHandle_t resourceHandle ) const
+Buffer* FrameGraphResources::getPersistentBuffer( const FGHandle resourceHandle ) const
 {
     return persistentBuffers[resourceHandle];
 }
 
-Image* FrameGraphResources::getPersitentImage( const ResHandle_t resourceHandle ) const
+Image* FrameGraphResources::getPersitentImage( const FGHandle resourceHandle ) const
 {
     return persistentImages[resourceHandle];
 }
 
-void FrameGraphResources::allocateBuffer( RenderDevice* renderDevice, const ResHandle_t resourceHandle, const BufferDesc& description )
+void FrameGraphResources::allocateBuffer( RenderDevice* renderDevice, const FGHandle resourceHandle, const BufferDesc& description )
 {
     Buffer* buffer = nullptr;
 
@@ -583,7 +585,7 @@ void FrameGraphResources::allocateBuffer( RenderDevice* renderDevice, const ResH
     inUseBuffers[resourceHandle] = buffer;
 }
 
-void FrameGraphResources::allocateImage( RenderDevice* renderDevice, const ResHandle_t resourceHandle, const ImageDesc& description )
+void FrameGraphResources::allocateImage( RenderDevice* renderDevice, const FGHandle resourceHandle, const ImageDesc& description )
 {
     Image* image = nullptr;
 
@@ -605,7 +607,7 @@ void FrameGraphResources::allocateImage( RenderDevice* renderDevice, const ResHa
     inUseImages[resourceHandle] = image;
 }
 
-void FrameGraphResources::allocateSampler( RenderDevice* renderDevice, const ResHandle_t resourceHandle, const SamplerDesc& description )
+void FrameGraphResources::allocateSampler( RenderDevice* renderDevice, const FGHandle resourceHandle, const SamplerDesc& description )
 {
     Sampler* sampler = nullptr;
 
@@ -627,13 +629,13 @@ void FrameGraphResources::allocateSampler( RenderDevice* renderDevice, const Res
     inUseSamplers[resourceHandle] = sampler;
 }
 
-void FrameGraphResources::bindPersistentBuffers( const ResHandle_t resourceHandle, const dkStringHash_t hashcode )
+void FrameGraphResources::bindPersistentBuffers( const FGHandle resourceHandle, const dkStringHash_t hashcode )
 {
     auto it = persistentBuffersMap.find( hashcode );
     persistentBuffers[resourceHandle] = ( it != persistentBuffersMap.end() ) ? it->second : nullptr;
 }
 
-void FrameGraphResources::bindPersistentImages( const ResHandle_t resourceHandle, const dkStringHash_t hashcode )
+void FrameGraphResources::bindPersistentImages( const FGHandle resourceHandle, const dkStringHash_t hashcode )
 {
     auto it = persistentImagesMap.find( hashcode );
     persistentImages[resourceHandle] = ( it != persistentImagesMap.end() ) ? it->second : nullptr;
@@ -867,7 +869,7 @@ enum class CopyImageTarget
 // Copy a FrameGraph image to a persistent image owned by the same FrameGraph (see CopyImageTarget or extend it
 // if you need to).
 template<CopyImageTarget OuputTarget>
-DUSK_INLINE void AddCopyImagePass( FrameGraph& frameGraph, ResHandle_t inputRenderTarget )
+DUSK_INLINE void AddCopyImagePass( FrameGraph& frameGraph, FGHandle inputRenderTarget )
 { 
     constexpr PipelineStateDesc DefaultPipelineStateDesc = PipelineStateDesc( 
         PipelineStateDesc::GRAPHICS,
@@ -880,8 +882,8 @@ DUSK_INLINE void AddCopyImagePass( FrameGraph& frameGraph, ResHandle_t inputRend
     );
         
     struct PassData {
-        ResHandle_t inputImage;
-        ResHandle_t outputImage;
+        FGHandle inputImage;
+        FGHandle outputImage;
     };
 
     PassData& downscaleData = frameGraph.addRenderPass<PassData>(
@@ -946,12 +948,12 @@ DUSK_INLINE void AddCopyImagePass( FrameGraph& frameGraph, ResHandle_t inputRend
     );
 }
 
-void FrameGraph::savePresentRenderTarget( ResHandle_t inputRenderTarget )
+void FrameGraph::savePresentRenderTarget( FGHandle inputRenderTarget )
 {
     AddCopyImagePass<CopyImageTarget::PresentImage>( *this, inputRenderTarget );
 }
 
-void FrameGraph::saveLastFrameRenderTarget( ResHandle_t inputRenderTarget )
+void FrameGraph::saveLastFrameRenderTarget( FGHandle inputRenderTarget )
 {
     AddCopyImagePass<CopyImageTarget::LastFrameImage>( *this, inputRenderTarget );
 }

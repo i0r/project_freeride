@@ -8,9 +8,11 @@ class FrameGraphResources;
 class GraphicsProfiler;
 class FrameGraphBuilder;
 class PipelineStateCache;
+class VirtualFileSystem;
 
 struct Buffer;
 struct Image;
+struct DrawCmd;
 
 #include <unordered_map>
 #include <atomic>
@@ -21,12 +23,9 @@ struct Image;
 #include <Rendering/RenderDevice.h>
 #include <Rendering/CommandList.h>
 
+#include "DrawCommand.h"
+
 #include "ShaderHeaders/MaterialRuntimeEd.h"
-
-#include "WorldRenderer.h"
-
-using ResHandle_t = u32;
-static constexpr ResHandle_t RES_HANDLE_INVALID = static_cast<ResHandle_t>( - 1 );
 
 template<typename T>
 using dkPassSetup_t = std::function< void( FrameGraphBuilder&, T& ) >;
@@ -93,6 +92,39 @@ struct PerViewBufferData
     f32         AspectRatio;
 };
 DUSK_IS_MEMORY_ALIGNED_STATIC( PerViewBufferData, 16 );
+
+// Strongly typed handle for anything frame graph related (resources, render passes, etc.).
+// Graph handles are immutable 
+struct FGHandle 
+{
+private:
+    u32 identifier;
+
+public:
+    FGHandle( const u32 id )
+        : identifier( id )
+    {
+
+    }
+
+    bool operator == ( FGHandle& r ) const
+    {
+        return identifier == r.identifier;
+    }
+
+    bool operator != ( FGHandle& r ) const
+    {
+        return !( *this == r );
+    }
+
+    operator u32() const 
+    {
+        return identifier; 
+    }
+
+public:
+    static const FGHandle Invalid;
+};
 
 struct FrameGraphRenderPass
 {
@@ -418,58 +450,58 @@ public:
     void        addRenderPass();
 
     // Request an image allocation (with an optional combination of eImageFlags flags). 
-    ResHandle_t allocateImage( ImageDesc& description, const u32 imageFlags = 0 );
+    FGHandle allocateImage( ImageDesc& description, const u32 imageFlags = 0 );
 
     // Request a buffer allocation for one or several stage bind (required for buffer reuse in a same pass).
-    ResHandle_t allocateBuffer( BufferDesc& description, const u32 shaderStageBinding );
+    FGHandle allocateBuffer( BufferDesc& description, const u32 shaderStageBinding );
 
     // Request a sampler allocation.
-    ResHandle_t allocateSampler( const SamplerDesc& description );
+    FGHandle allocateSampler( const SamplerDesc& description );
 
     // Declare the read of a read-only image (used as a hint for render pass scheduling).
-    ResHandle_t readReadOnlyImage( const ResHandle_t resourceHandle );
+    FGHandle readReadOnlyImage( const FGHandle resourceHandle );
 
     // Declare the read of a read-only buffer (used as a hint for render pass scheduling).
-    ResHandle_t readReadOnlyBuffer( const ResHandle_t resourceHandle );
+    FGHandle readReadOnlyBuffer( const FGHandle resourceHandle );
 
     // Declare the read of a read/write image (will create an implicit dependency with the owner of the resource).
     // Use readReadOnlyImage if you won't write to this image.
-    ResHandle_t readImage( const ResHandle_t resourceHandle );
+    FGHandle readImage( const FGHandle resourceHandle );
 
     // Declare the read of a read/write buffer (will create an implicit dependency with the owner of the resource).
     // Use readReadOnlyImage if you won't write to this buffer.
-    ResHandle_t readBuffer( const ResHandle_t resourceHandle );
+    FGHandle readBuffer( const FGHandle resourceHandle );
 
     // Retrieve the swapchain buffer for the current frame being recorded.
-    ResHandle_t retrieveSwapchainBuffer();
+    FGHandle retrieveSwapchainBuffer();
 
     // Retrieve the post-fx output image for the current frame being recorded.
-    ResHandle_t retrievePresentImage();
+    FGHandle retrievePresentImage();
 
     // Retrieve last frame image (pre post-fx and post resolve).
-    ResHandle_t retrieveLastFrameImage();
+    FGHandle retrieveLastFrameImage();
 
     // Retrieve the PerView buffer for the current frame being recorded.
     // The data should be immutable (the buffer is updated at the beginning of the frame once).
-    ResHandle_t retrievePerViewBuffer();
+    FGHandle retrievePerViewBuffer();
 
     // Retrieve the MaterialEd buffer for the current frame being recorded.
     // The data should be immutable (the buffer is updated at the beginning of the frame once).
-    ResHandle_t retrieveMaterialEdBuffer();
+    FGHandle retrieveMaterialEdBuffer();
     
 	// Retrieve the VectorData buffer for the current frame being recorded.
 	// The data should be immutable (the buffer is updated at the beginning of the frame once).
-    ResHandle_t retrieveVectorDataBuffer();
+    FGHandle retrieveVectorDataBuffer();
 
     // Retrieve a persistent image.
-    ResHandle_t retrievePersistentImage( const dkStringHash_t resourceHashcode );
+    FGHandle retrievePersistentImage( const dkStringHash_t resourceHashcode );
 
     // Retrieve a persistent buffer.
-    ResHandle_t retrievePersistentBuffer( const dkStringHash_t resourceHashcode );
+    FGHandle retrievePersistentBuffer( const dkStringHash_t resourceHashcode );
 
     // Copy an image resource description to a new resource.
     // NOTE descRef is a WRITE only OPTIONAL parameter to retrieve the copied resource description (for modifications, e.g. modifying the bind flags).
-    ResHandle_t copyImage( const ResHandle_t resourceToCopy, ImageDesc** descRef, const u32 imageFlags = 0 );
+    FGHandle copyImage( const FGHandle resourceToCopy, ImageDesc** descRef, const u32 imageFlags = 0 );
 
 private:
     // FrameGraph active viewport.
@@ -586,20 +618,20 @@ public:
     void                    updateDeltaTime( const float dt );
     f32                     getDeltaTime() const;
 
-    Buffer*                 getBuffer( const ResHandle_t resourceHandle ) const;
-    Image*                  getImage( const ResHandle_t resourceHandle ) const;
-    Sampler*                getSampler( const ResHandle_t resourceHandle ) const;
+    Buffer*                 getBuffer( const FGHandle resourceHandle ) const;
+    Image*                  getImage( const FGHandle resourceHandle ) const;
+    Sampler*                getSampler( const FGHandle resourceHandle ) const;
 
     // TODO Find a clean way to merge persistent getters with regular resource getters?
-    Buffer*                 getPersistentBuffer( const ResHandle_t resourceHandle ) const;
-    Image*                  getPersitentImage( const ResHandle_t resourceHandle ) const;
+    Buffer*                 getPersistentBuffer( const FGHandle resourceHandle ) const;
+    Image*                  getPersitentImage( const FGHandle resourceHandle ) const;
 
-    void                    allocateBuffer( RenderDevice* renderDevice, const ResHandle_t resourceHandle, const BufferDesc& description );
-    void                    allocateImage( RenderDevice* renderDevice, const ResHandle_t resourceHandle, const ImageDesc& description );
-    void                    allocateSampler( RenderDevice* renderDevice, const ResHandle_t resourceHandle, const SamplerDesc& description );
+    void                    allocateBuffer( RenderDevice* renderDevice, const FGHandle resourceHandle, const BufferDesc& description );
+    void                    allocateImage( RenderDevice* renderDevice, const FGHandle resourceHandle, const ImageDesc& description );
+    void                    allocateSampler( RenderDevice* renderDevice, const FGHandle resourceHandle, const SamplerDesc& description );
 
-    void                    bindPersistentBuffers( const ResHandle_t resourceHandle, const dkStringHash_t hashcode );
-    void                    bindPersistentImages( const ResHandle_t resourceHandle, const  dkStringHash_t hashcode );
+    void                    bindPersistentBuffers( const FGHandle resourceHandle, const dkStringHash_t hashcode );
+    void                    bindPersistentImages( const FGHandle resourceHandle, const  dkStringHash_t hashcode );
 
     bool                    isPersistentImageAvailable( const dkStringHash_t resourceHashcode ) const;
     bool                    isPersistentBufferAvailable( const dkStringHash_t resourceHashcode ) const;
@@ -703,16 +735,16 @@ public:
     void    importPersistentBuffer( const dkStringHash_t resourceHashcode, Buffer* buffer );
 
     // Copy the input rendertarget and store it in a given persistent resource.
-    void    savePresentRenderTarget( ResHandle_t inputRenderTarget );
+    void    savePresentRenderTarget( FGHandle inputRenderTarget );
 
     // Copy the input rendertarget and store it in a given persistent resource.
-    void    saveLastFrameRenderTarget( ResHandle_t inputRenderTarget );
+    void    saveLastFrameRenderTarget( FGHandle inputRenderTarget );
 
     // Add a renderpass to this framegraph. T should be the datatype used to forward resource handles (or misc data) from
     // the setup step to the execution step.
     template<typename T>
     T& addRenderPass( const char* name, dkPassSetup_t<T> setup, dkPassCallback_t<T> execute ) {
-        static_assert( sizeof( T ) <= sizeof( ResHandle_t ) * 128, "Pass data 128 resource limit hit!" );
+        static_assert( sizeof( T ) <= sizeof( FGHandle ) * 128, "Pass data 128 resource limit hit!" );
         static_assert( sizeof( execute ) <= 1024 * 1024, "Execute lambda should be < 1ko!" );
 
         FrameGraphRenderPass::Handle_t renderPassHandle = renderPassCount;

@@ -41,12 +41,12 @@ void AutomaticExposureModule::importResourcesToGraph( FrameGraph& frameGraph )
     exposureTarget = ( ++exposureTarget % EXPOSURE_INFO_BUFFER_COUNT );
 }
 
-ResHandle_t AutomaticExposureModule::computeExposure( FrameGraph& frameGraph, ResHandle_t lightRenderTarget, const dkVec2u& screenSize )
+FGHandle AutomaticExposureModule::computeExposure( FrameGraph& frameGraph, FGHandle lightRenderTarget, const dkVec2u& screenSize )
 {
     // Update persistent buffer pointers
-    ResHandle_t histoBins = addBinComputePass( frameGraph, lightRenderTarget, screenSize );
-    ResHandle_t mergedBuffer = addHistogramMergePass( frameGraph, histoBins, screenSize );
-    ResHandle_t autoExposureInfo = addExposureComputePass( frameGraph, mergedBuffer );
+    FGHandle histoBins = addBinComputePass( frameGraph, lightRenderTarget, screenSize );
+    FGHandle mergedBuffer = addHistogramMergePass( frameGraph, histoBins, screenSize );
+    FGHandle autoExposureInfo = addExposureComputePass( frameGraph, mergedBuffer );
 
     return autoExposureInfo;
 }
@@ -74,12 +74,12 @@ void AutomaticExposureModule::loadCachedResources( RenderDevice& renderDevice )
     }
 }
 
-ResHandle_t AutomaticExposureModule::addBinComputePass( FrameGraph& frameGraph, const ResHandle_t inputRenderTarget, const dkVec2u& screenSize )
+FGHandle AutomaticExposureModule::addBinComputePass( FrameGraph& frameGraph, const FGHandle inputRenderTarget, const dkVec2u& screenSize )
 {
     struct PassData {
-        ResHandle_t Input;
-        ResHandle_t Output;
-        ResHandle_t PerViewBuffer;
+        FGHandle Input;
+        FGHandle Output;
+        FGHandle PerViewBuffer;
     };
 
     PassData& passData = frameGraph.addRenderPass<PassData>(
@@ -128,11 +128,11 @@ ResHandle_t AutomaticExposureModule::addBinComputePass( FrameGraph& frameGraph, 
     return passData.Output;
 }
 
-ResHandle_t AutomaticExposureModule::addHistogramMergePass( FrameGraph& frameGraph, const ResHandle_t perTileHistoBuffer, const dkVec2u& screenSize )
+FGHandle AutomaticExposureModule::addHistogramMergePass( FrameGraph& frameGraph, const FGHandle perTileHistoBuffer, const dkVec2u& screenSize )
 {
     struct PassData {
-        ResHandle_t Input;
-        ResHandle_t Output;
+        FGHandle Input;
+        FGHandle Output;
     };
 
     PassData& passData = frameGraph.addRenderPass<PassData>(
@@ -175,14 +175,14 @@ ResHandle_t AutomaticExposureModule::addHistogramMergePass( FrameGraph& frameGra
     return passData.Output;
 }
 
-ResHandle_t AutomaticExposureModule::addExposureComputePass( FrameGraph& frameGraph, const ResHandle_t mergedHistoBuffer )
+FGHandle AutomaticExposureModule::addExposureComputePass( FrameGraph& frameGraph, const FGHandle mergedHistoBuffer )
 {
     struct PassData {
-        ResHandle_t Input;
-        ResHandle_t Output;
+        FGHandle Input;
+        FGHandle Output;
 
-        ResHandle_t LastFrameOutput;
-        ResHandle_t ParametersBuffer;
+        FGHandle LastFrameOutput;
+        FGHandle ParametersBuffer;
     };
 
     PassData& passData = frameGraph.addRenderPass<PassData>(

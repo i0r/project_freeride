@@ -13,11 +13,11 @@
 
 #include "Generated/BuiltIn.generated.h"
 
-void AddPresentRenderPass( FrameGraph& frameGraph, ResHandle_t imageToPresent )
+void AddPresentRenderPass( FrameGraph& frameGraph, FGHandle imageToPresent )
 {
     struct PassData {
-        ResHandle_t input;
-        ResHandle_t swapchain;
+        FGHandle input;
+        FGHandle swapchain;
     };
 
 #if DUSK_VULKAN

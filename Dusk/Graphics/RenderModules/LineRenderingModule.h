@@ -5,6 +5,7 @@
 #pragma once
 
 #include <Maths/Vector.h>
+#include <Graphics/FrameGraph.h>
 
 struct Buffer;
 struct LineInfos;
@@ -12,8 +13,6 @@ struct LineInfos;
 class FrameGraph;
 class RenderDevice;
 class BaseAllocator;
-
-using ResHandle_t = uint32_t;
 
 class LineRenderingModule
 {
@@ -23,7 +22,7 @@ public:
                         ~LineRenderingModule();
 
     void                destroy( RenderDevice& renderDevice );
-    ResHandle_t         renderLines( FrameGraph& frameGraph, ResHandle_t output );
+    FGHandle         renderLines( FrameGraph& frameGraph, FGHandle output );
 
     void                addLine( const dkVec3f& p0, const dkVec4f& p0Color, const dkVec3f& p1, const dkVec4f& p1Color, const f32 lineThickness );
     void                createPersistentResources( RenderDevice& renderDevice );

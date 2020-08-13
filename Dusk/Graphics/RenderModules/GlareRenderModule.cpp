@@ -30,10 +30,10 @@ GlareRenderModule::~GlareRenderModule()
 FFTPassOutput GlareRenderModule::addGlareComputePass( FrameGraph& frameGraph, FFTPassOutput fftInput )
 {
     struct PassData {
-        ResHandle_t inputReal;
-        ResHandle_t inputImaginary;
-        ResHandle_t outputReal;
-        ResHandle_t outputImaginary;
+        FGHandle inputReal;
+        FGHandle inputImaginary;
+        FGHandle outputReal;
+        FGHandle outputImaginary;
     };
 
     PassData rowPassData = frameGraph.addRenderPass<PassData>(
@@ -118,8 +118,8 @@ void GlareRenderModule::loadCachedResources( RenderDevice& renderDevice, Graphic
 void GlareRenderModule::precomputePipelineResources( FrameGraph& frameGraph )
 {
     struct PassData {
-        ResHandle_t outputReal;
-        ResHandle_t outputImaginary;
+        FGHandle outputReal;
+        FGHandle outputImaginary;
     };
 
     PassData rowPassData = frameGraph.addRenderPass<PassData>(
