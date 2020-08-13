@@ -5,7 +5,40 @@
 #include <Shared.h>
 #include "EditorInterface.h"
 
+#include "Editor.h"
+
+#include "Graphics/RenderDocHelper.h"
+#include "Graphics/WorldRenderer.h"
+#include "Graphics/LightGrid.h"
+
+#include "Framework/MaterialEditor.h"
+#include "Framework/World.h"
+#include "Framework/Cameras/FreeCamera.h"
+#include "Framework/EntityEditor.h"
+#include "Framework/Transform.h"
+#include "Framework/Transaction/TransactionHandler.h"
+
+#include "Core/Display/DisplaySurface.h"
+
+#include "Graphics/ShaderHeaders/Light.h"
+#include "Graphics/RenderModules/AtmosphereRenderModule.h"
+
+#if DUSK_USE_IMGUI
+#include "Graphics/RenderModules/ImGuiRenderModule.h"
+#include "Framework/EditorWidgets/LoggingConsole.h"
+#include "Framework/ImGuiUtilities.h"
+
+#include "ThirdParty/imgui/imgui.h"
+#include "ThirdParty/imgui/imgui_internal.h"
+
+#include "ThirdParty/ImGuizmo/ImGuizmo.h"
+
+#include "ThirdParty/Google/IconsMaterialDesign.h"
+#endif
+
 #if DUSK_USE_RENDERDOC
+#include "Framework/EditorWidgets/RenderDocHelper.h"
+
 extern RenderDocHelper* g_RenderDocHelper;
 #endif
 
@@ -17,17 +50,18 @@ extern RenderDevice* g_RenderDevice;
 extern FreeCamera* g_FreeCamera;
 extern EntityEditor* g_EntityEditor;
 extern dkVec2u g_ViewportWindowPosition;
-extern bool g_IsResizing;
+extern DisplaySurface* g_DisplaySurface;
 extern bool g_RightClickMenuOpened;
 extern bool g_IsContextMenuOpened;
 extern bool g_IsMouseOverViewportWindow;
 
 EditorInterface::EditorInterface( BaseAllocator* allocator )
-	: menuBarHeight( 0.0f )
-	, memoryAllocator( allocator )
+	: memoryAllocator( allocator )
 #if DUSK_USE_RENDERDOC
 	, renderDocWidget( dk::core::allocate<RenderDocHelperWidget>( memoryAllocator, g_RenderDocHelper ) )
 #endif
+	, menuBarHeight( 0.0f )  
+	, isResizing( false )
 {
 
 }
@@ -42,6 +76,7 @@ EditorInterface::~EditorInterface()
 void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* renderModule )
 {
 	const dkVec2u& ScreenSize = *EnvironmentVariables::getVariable<dkVec2u>( DUSK_STRING_HASH( "ScreenSize" ) );
+	const bool IsFirstLaunch = *EnvironmentVariables::getVariable<bool>( DUSK_STRING_HASH( "IsFirstLaunch" ) );
 
 	renderModule->lockForRendering();
 
@@ -54,7 +89,7 @@ void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* render
 	ImGui::SetNextWindowPos( ImVec2( 0, menuBarHeight ) );
 	ImGui::Begin( "MasterWindow", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing );
 	
-	static bool NeedDockSetup = g_IsFirstLaunch;
+	static bool NeedDockSetup = IsFirstLaunch;
 	ImGuiIO& io = ImGui::GetIO();
 
 	ImGuiID dockspaceID = ImGui::GetID( "EdDockspace" );
@@ -154,9 +189,9 @@ void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* render
 		g_ViewportWindowPosition.x = static_cast< u32 >( viewportWinPos.x );
 		g_ViewportWindowPosition.y = static_cast< u32 >( viewportWinPos.y );
 
-		if ( !g_IsResizing && ( winSize.x != prevWinSize.x || winSize.y != prevWinSize.y ) ) {
-			g_IsResizing = true;
-		} else if ( g_IsResizing ) {
+		if ( !isResizing && ( winSize.x != prevWinSize.x || winSize.y != prevWinSize.y ) ) {
+			isResizing = true;
+		} else if ( isResizing ) {
 			f32 deltaX = ( winSize.x - prevWinSize.x );
 			f32 deltaY = ( winSize.y - prevWinSize.y );
 
@@ -177,7 +212,7 @@ void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* render
 				vpSr.Right = static_cast< i32 >( viewportSize.x );
 				vpSr.Bottom = static_cast< i32 >( viewportSize.y );
 
-				g_IsResizing = false;
+				isResizing = false;
 			}
 		}
 		prevWinSize = winSize;
@@ -309,7 +344,24 @@ void EditorInterface::displayGraphicsMenu()
 		u32& MSAASamplerCount = *EnvironmentVariables::getVariable<u32>( DUSK_STRING_HASH( "MSAASamplerCount" ) );
 		f32& ImageQuality = *EnvironmentVariables::getVariable<f32>( DUSK_STRING_HASH( "ImageQuality" ) );
 		bool& EnableVSync = *EnvironmentVariables::getVariable<bool>( DUSK_STRING_HASH( "EnableVSync" ) );
-		bool* EnableTAA = EnvironmentVariables::getVariable<bool>( DUSK_STRING_HASH( "EnableTAA" ) );
+        bool* EnableTAA = EnvironmentVariables::getVariable<bool>( DUSK_STRING_HASH( "EnableTAA" ) );
+		eWindowMode* WindowMode = EnvironmentVariables::getVariable<eWindowMode>( DUSK_STRING_HASH( "WindowMode" ) );
+
+        if ( ImGui::BeginMenu( "Display Mode" ) ) {
+            if ( ImGui::MenuItem( "Windowed", nullptr, *WindowMode == eWindowMode::WINDOWED_MODE ) ) {
+                *WindowMode = eWindowMode::WINDOWED_MODE;
+                g_DisplaySurface->changeDisplayMode( eDisplayMode::WINDOWED );
+            }
+            if ( ImGui::MenuItem( "Fullscreen", nullptr, *WindowMode == eWindowMode::FULLSCREEN_MODE ) ) {
+                *WindowMode = eWindowMode::FULLSCREEN_MODE;
+                g_DisplaySurface->changeDisplayMode( eDisplayMode::FULLSCREEN );
+            }
+            if ( ImGui::MenuItem( "Borderless", nullptr, *WindowMode == eWindowMode::BORDERLESS_MODE ) ) {
+                *WindowMode = eWindowMode::BORDERLESS_MODE;
+                g_DisplaySurface->changeDisplayMode( eDisplayMode::BORDERLESS );
+            }
+            ImGui::EndMenu();
+        }
 
 		if ( ImGui::BeginMenu( "MSAA" ) ) {
 			if ( ImGui::MenuItem( "x1", nullptr, MSAASamplerCount == 1 ) ) {

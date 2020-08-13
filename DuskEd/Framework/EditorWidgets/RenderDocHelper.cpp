@@ -1,5 +1,20 @@
+/*
+	Dusk Source Code
+	Copyright (C) 2020 Prevost Baptiste
+*/
 #include <Shared.h>
 #include "RenderDocHelper.h"
+
+#if DUSK_USE_IMGUI
+#include "ThirdParty/imgui/imgui.h"
+#include "ThirdParty/imgui/imgui_internal.h"
+#endif
+
+#include "Graphics/RenderDocHelper.h"
+#include "Graphics/GraphicsAssetCache.h"
+
+#include "Core/Environment.h"
+#include "Core/StringHelpers.h"
 
 static constexpr const dkChar_t* RENDERDOC_ICON_PATH = DUSK_STRING( "GameData/textures/renderdoc_icon_40.dds" );
 
@@ -81,5 +96,5 @@ void RenderDocHelperWidget::openWindow()
 
 void RenderDocHelperWidget::loadCachedResources( GraphicsAssetCache* graphicsAssetCache )
 {
-	renderDocIcon = g_GraphicsAssetCache->getImage( RENDERDOC_ICON_PATH, true );
+	renderDocIcon = graphicsAssetCache->getImage( RENDERDOC_ICON_PATH, true );
 }

@@ -265,6 +265,9 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
     output->Release();
     factory->Release();
 
+    const eDisplayMode displayMode = displaySurface.getDisplayMode();
+    const BOOL isWindowed = ( displayMode == eDisplayMode::WINDOWED || displayMode == eDisplayMode::BORDERLESS );
+
     DXGI_SWAP_CHAIN_DESC swapChainDesc = {
         {																					// DXGI_MODE_DESC BufferDesc
             surface->WindowWidth,												    //		UINT Width
@@ -284,7 +287,7 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
         DXGI_USAGE_RENDER_TARGET_OUTPUT,													// DXGI_USAGE BufferUsage
         1,																					// UINT BufferCount
         surface->Handle,														// HWND OutputWindow
-        static_cast< BOOL >( displaySurface.getDisplayMode() == eDisplayMode::WINDOWED ),	// BOOL Windowed
+        isWindowed,	// BOOL Windowed
         DXGI_SWAP_EFFECT_DISCARD,															// DXGI_SWAP_EFFECT SwapEffect
         0,																					// UINT Flags
     };

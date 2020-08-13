@@ -88,7 +88,7 @@ static char  g_BaseBuffer[128];
 static void* g_AllocatedTable;
 
 static LinearAllocator* g_GlobalAllocator;
-static DisplaySurface* g_DisplaySurface;
+DisplaySurface* g_DisplaySurface;
 static InputMapper* g_InputMapper;
 static InputReader* g_InputReader;
 RenderDevice* g_RenderDevice;
@@ -127,13 +127,11 @@ static DynamicsWorld*          g_DynamicsWorld;
 TransactionHandler*            g_TransactionHandler;
 
 static bool                    g_IsGamePaused = false;
-static bool                    g_IsFirstLaunch = false;
 bool                    g_IsMouseOverViewportWindow = false;
 static bool                    g_CanMoveCamera = false;
 static bool                    g_WasRightButtonDown = false;
 bool                    g_IsContextMenuOpened = false;
 static Timer                   g_RightButtonTimer;
-bool                    g_IsResizing = true;
 static bool                    g_RequestPickingUpdate = false;
 bool                    g_RightClickMenuOpened = false;
 static dkVec2u                 g_CursorPosition = dkVec2u( 0, 0 );
@@ -145,12 +143,14 @@ i32 shiftedMouseY;
 Viewport vp;
 ScissorRegion vpSr;
 
+DUSK_ENV_VAR( WindowMode, WINDOWED_MODE, eWindowMode ) // Defines application window mode [Windowed/Fullscreen/Borderless]
 DUSK_ENV_VAR( EnableVSync, true, bool ); // "Enable Vertical Synchronisation [false/true]"
 DUSK_ENV_VAR( ScreenSize, dkVec2u( 1280, 720 ), dkVec2u ); // "Defines application screen size [0..N]"
 DUSK_ENV_VAR( MSAASamplerCount, 1, u32 ) // "MSAA sampler count [1..N]"
 DUSK_ENV_VAR( ImageQuality, 1.0f, f32 ) // "Image Quality factor [0.1..N]"
 DUSK_ENV_VAR( RefreshRate, -1, u32 ) // "Refresh rate. If -1, the application will find the highest refresh rate possible and use it"
 DUSK_ENV_VAR( DefaultCameraFov, 90.0f, f32 ) // "Default Field Of View set to a new Camera"
+DUSK_ENV_VAR_TRANSIENT( IsFirstLaunch, false, bool ) // "True if this is the first time the editor is launched" [false/true]
 DUSK_DEV_VAR_PERSISTENT( UseDebugLayer, false, bool ); // "Enable render debug context/layers" [false/true]
 DUSK_DEV_VAR_PERSISTENT( UseRenderDocCapture, false, bool );// "Use RenderDoc frame capture tool [false/true]"
                                                            // (note: renderdoc dynamic lib must be present in the working dir)
@@ -376,7 +376,7 @@ void InitializeIOSubsystems()
 
     FileSystemObject* envConfigurationFile = g_VirtualFileSystem->openFile( DUSK_STRING( "SaveData/environment.cfg" ), eFileOpenMode::FILE_OPEN_MODE_READ );
     if ( envConfigurationFile == nullptr ) {
-        g_IsFirstLaunch = true;
+        IsFirstLaunch = true;
 
         DUSK_LOG_INFO( "Creating default user configuration!\n" );
         FileSystemObject* newEnvConfigurationFile = g_VirtualFileSystem->openFile( DUSK_STRING( "SaveData/environment.cfg" ), eFileOpenMode::FILE_OPEN_MODE_WRITE );
@@ -444,6 +444,18 @@ void InitializeRenderSubsystems()
     g_DisplaySurface->create( ScreenSize.x, ScreenSize.y, eDisplayMode::WINDOWED );
     g_DisplaySurface->setCaption( DUSK_STRING( "DuskEd" ) );
 
+    switch ( WindowMode ) {
+    case WINDOWED_MODE:
+        g_DisplaySurface->changeDisplayMode( eDisplayMode::WINDOWED );
+        break;
+    case FULLSCREEN_MODE:
+        g_DisplaySurface->changeDisplayMode( eDisplayMode::FULLSCREEN );
+        break;
+    case BORDERLESS_MODE:
+        g_DisplaySurface->changeDisplayMode( eDisplayMode::BORDERLESS );
+        break;
+    }
+    
     DUSK_LOG_INFO( "Creating RenderDevice (%s)...\n", RenderDevice::getBackendName() );
 
     g_RenderDevice = dk::core::allocate<RenderDevice>( g_GlobalAllocator, g_GlobalAllocator );
@@ -552,7 +564,7 @@ void Initialize( const char* cmdLineArgs )
 void BuildThisFrameGraph( FrameGraph& frameGraph, const Material::RenderScenario scenario, const dkVec2f& viewportSize )
 {
     // Append the regular render pipeline.
-    ResHandle_t presentRt = g_WorldRenderer->buildDefaultGraph( frameGraph, scenario, viewportSize, g_RenderWorld );
+    FGHandle presentRt = g_WorldRenderer->buildDefaultGraph( frameGraph, scenario, viewportSize, g_RenderWorld );
 
     // Render editor grid.
     presentRt = g_EditorGridModule->addEditorGridPass( frameGraph, presentRt, g_WorldRenderer->getResolvedDepth() );
@@ -609,6 +621,12 @@ void MainLoop()
 
         if ( g_DisplaySurface->hasReceivedQuitSignal() ) {
             break;
+        }
+
+        if ( g_DisplaySurface->hasReceivedResizeEvent() ) {
+
+
+            g_DisplaySurface->acknowledgeResizeEvent();
         }
 
         frameTime = static_cast< f32 >( logicTimer.getDeltaAsSeconds() );

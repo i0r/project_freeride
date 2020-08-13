@@ -13,6 +13,9 @@ class FrameGraph;
 class EditorInterface
 {
 public:
+    DUSK_INLINE bool isViewportBeingResized() const { return isResizing; }
+
+public:
             EditorInterface( BaseAllocator* allocator );
             ~EditorInterface();
 
@@ -21,16 +24,19 @@ public:
     void    loadCachedResources( GraphicsAssetCache* graphicsAssetCache );
 
 private:
-    // Height of the main menubar (0 if the bar is disabled).
-    f32     menuBarHeight;
-
     // The memory allocator owning this module.
-    BaseAllocator* memoryAllocator;
+    BaseAllocator*  memoryAllocator;
 
 #if DUSK_USE_RENDERDOC
     // Widget for RenderDoc capture.
-	RenderDocHelperWidget* renderDocWidget;
+    RenderDocHelperWidget* renderDocWidget;
 #endif
+
+    // Height of the main menubar (0 if the bar is disabled).
+    f32             menuBarHeight;
+
+    // True if the user if a resize operation is in progress (done by the user).
+    bool            isResizing;
 
 private:
 	void    displayMenuBar();

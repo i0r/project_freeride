@@ -96,11 +96,11 @@ void ImGuiRenderModule::destroy( RenderDevice& renderDevice )
     ImGui::DestroyContext();
 }
 
-ResHandle_t ImGuiRenderModule::render( FrameGraph& frameGraph, MutableResHandle_t renderTarget )
+FGHandle ImGuiRenderModule::render( FrameGraph& frameGraph, FGHandle renderTarget )
 {
     struct PassData {
-        ResHandle_t Output;
-        ResHandle_t PerPassBuffer;
+        FGHandle Output;
+        FGHandle PerPassBuffer;
     };
 
     constexpr PipelineStateDesc PipelineDesc(
