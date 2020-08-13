@@ -60,6 +60,7 @@ void ImGuiManager::create( const DisplaySurface& displaySurface, VirtualFileSyst
 	ImFontConfig icons_config; 
     icons_config.MergeMode = true; 
     icons_config.PixelSnapH = true;
+    icons_config.FontDataOwnedByAtlas = false;
 
     // Load font and forward it to imgui internal.
     FileSystemObject* iconFontTTF = virtualFileSystem->openFile( DUSK_STRING( "GameData/fonts/MaterialIcons-Regular.ttf" ), eFileOpenMode::FILE_OPEN_MODE_READ | eFileOpenMode::FILE_OPEN_MODE_BINARY );
