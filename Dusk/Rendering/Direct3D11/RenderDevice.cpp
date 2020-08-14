@@ -356,18 +356,8 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
     renderContext->ImmediateContext = nativeDeviceContext;
     renderContext->SwapChain = swapChain;
 
-    // Unbind backbuffer
-    nativeDeviceContext->OMSetRenderTargets( 0, 0, 0 );
-
-    // Release backbuffer resources
-    swapChain->ResizeBuffers( 0, 0, 0, DXGI_FORMAT_UNKNOWN, 0 );
-
-    // Recreate the render target
-    ID3D11Texture2D* backbufferTex2D = nullptr;
-    swapChain->GetBuffer( 0, __uuidof( ID3D11Texture2D ), ( LPVOID* )&backbufferTex2D );
-
     swapChainImage = dk::core::allocate<Image>( memoryAllocator );
-    swapChainImage->texture2D = backbufferTex2D;
+    swapChainImage->texture2D = nullptr;
     swapChainImage->Description.width = surface->WindowWidth;
     swapChainImage->Description.height = surface->WindowHeight;
     swapChainImage->Description.arraySize = 1;
@@ -376,8 +366,8 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
     swapChainImage->Description.depth = 1;
     swapChainImage->Description.mipCount = 1;
 
-    ImageViewDesc dummyView;
-    swapChainImage->DefaultRenderTargetView = CreateImageRenderTargetView( nativeDevice, *swapChainImage, dummyView );
+    // Allocate backbuffer texels.
+    resizeBackbuffer( surface->WindowWidth, surface->WindowHeight );
 
 #if DUSK_ENABLE_GPU_DEBUG_MARKER
     // Retrieve debug marker module
@@ -727,5 +717,42 @@ void RenderDevice::waitForPendingFrameCompletion()
 const dkChar_t* RenderDevice::getBackendName()
 {
     return DUSK_STRING( "Direct3D11" );
+}
+
+void RenderDevice::resizeBackbuffer( const u32 width, const u32 height )
+{
+    DUSK_LOG_DEBUG( "Received resize event: new size %ux%u\n", width, height );
+
+    ID3D11Device* physicalDevice = renderContext->PhysicalDevice;
+    ID3D11DeviceContext* immediateContext = renderContext->ImmediateContext;
+    IDXGISwapChain* swapchain = renderContext->SwapChain;
+
+    // Unbind backbuffer
+    if ( swapChainImage->DefaultRenderTargetView != nullptr ) {
+        swapChainImage->DefaultRenderTargetView->Release();
+        swapChainImage->DefaultRenderTargetView = nullptr;
+    }
+    if ( swapChainImage->texture2D != nullptr ) {
+        swapChainImage->texture2D->Release();
+        swapChainImage->texture2D = nullptr;
+    }
+
+    immediateContext->OMSetRenderTargets( 0, 0, 0 );
+    immediateContext->Flush();
+
+    HRESULT resizeResult = swapchain->ResizeBuffers( 0, 0, 0, DXGI_FORMAT_UNKNOWN, 0 );
+    DUSK_ASSERT( SUCCEEDED( resizeResult ), "ResizeBuffers failed! (error code: 0x%x)", resizeResult );
+
+    // Recreate the texture resource.
+    ID3D11Texture2D* backbufferTex2D = nullptr;
+    swapchain->GetBuffer( 0, __uuidof( ID3D11Texture2D ), ( LPVOID* )&backbufferTex2D );
+
+    swapChainImage->texture2D = backbufferTex2D;
+    swapChainImage->Description.width = width;
+    swapChainImage->Description.height = height;
+
+    // Create backbuffer RTV.
+    ImageViewDesc dummyView;
+    swapChainImage->DefaultRenderTargetView = CreateImageRenderTargetView( physicalDevice, *swapChainImage, dummyView );
 }
 #endif

@@ -868,13 +868,10 @@ void BindBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hashc
         return;
     }
     
-    ClearBufferUAVRegister( renderContext, buffer );
-    FlushUAVRegisterUpdate( renderContext );
-
-    ClearBufferSRVRegister( renderContext, buffer );
-    FlushSRVRegisterUpdate( renderContext );
-
     if ( resource->type == PipelineState::InternalResourceType::RESOURCE_TYPE_SHADER_RESOURCE_VIEW ) {
+        ClearBufferUAVRegister( renderContext, buffer );
+        FlushUAVRegisterUpdate( renderContext );
+
         ID3D11ShaderResourceView* srv = buffer->DefaultShaderResourceView;
 
         for ( i32 i = 0; i < resource->activeStageCount; i++ ) {
@@ -883,9 +880,14 @@ void BindBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hashc
             const u32 shaderStageIndex = stageBinding.ShaderStageIndex;
             const u32 srvRegisterIndex = stageBinding.RegisterIndex;
 
+            // Already binded at the same register index; skip it.
+            if ( buffer->SRVRegisterIndex[shaderStageIndex] == srvRegisterIndex ) {
+                continue;
+            }
+
             // Update RenderContext register data
             RenderContext::RegisterData& registerData = renderContext->SrvRegistersInfo[shaderStageIndex][srvRegisterIndex];
-            
+
             if ( registerData.ResourceType == RenderContext::RegisterData::Type::BUFFER_RESOURCE ) {
                 registerData.BufferObject->SRVRegisterIndex[shaderStageIndex] = ~0;
             } else if ( registerData.ResourceType == RenderContext::RegisterData::Type::IMAGE_RESOURCE ) {
@@ -901,6 +903,9 @@ void BindBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hashc
             buffer->SRVRegisterIndex[shaderStageIndex] = srvRegisterIndex;
         }
     } else if ( resource->type == PipelineState::InternalResourceType::RESOURCE_TYPE_UNORDERED_ACCESS_VIEW ) {
+        ClearBufferSRVRegister( renderContext, buffer );
+        FlushSRVRegisterUpdate( renderContext );
+
         ID3D11UnorderedAccessView* uav = buffer->DefaultUnorderedAccessView;
 
         for ( i32 i = 0; i < resource->activeStageCount; i++ ) {
@@ -948,7 +953,6 @@ void BindCBuffer_Replay( RenderContext* renderContext, const dkStringHash_t hash
         buffer->CbufferRegisterIndex[stageBinding.ShaderStageIndex] = stageBinding.RegisterIndex;
     }
 }
-
 
 void BindImage_Replay( RenderContext* renderContext, Image* image, const u64 imageViewDesc, const dkStringHash_t hashcode )
 {
