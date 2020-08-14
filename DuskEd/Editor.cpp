@@ -624,8 +624,23 @@ void MainLoop()
         }
 
         if ( g_DisplaySurface->hasReceivedResizeEvent() ) {
+            u32 surfaceWidth = g_DisplaySurface->getWidth();
+            u32 surfaceHeight = g_DisplaySurface->getHeight();
 
+            g_RenderDevice->resizeBackbuffer( surfaceWidth, surfaceHeight );
 
+#if DUSK_USE_IMGUI
+            g_ImGuiManager->resize( surfaceWidth, surfaceHeight );
+#endif
+
+            // Update screen size (it will update the widget dimensions at the same time).
+            ScreenSize.x = surfaceWidth;
+            ScreenSize.y = surfaceHeight;
+
+            // Update editor camera aspect ratio.
+            g_FreeCamera->setProjectionMatrix( DefaultCameraFov, (f32)ScreenSize.x, ( f32 )ScreenSize.y );
+
+            // Clear the surface flag.
             g_DisplaySurface->acknowledgeResizeEvent();
         }
 

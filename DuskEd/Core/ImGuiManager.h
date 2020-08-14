@@ -21,6 +21,8 @@ public:
 
     void                            setVisible( const bool isVisible );
 
+    void                            resize( const u32 screenWidth, const u32 screenHeight );
+
 private:
     BaseAllocator*                  memoryAllocator;
 

@@ -35,6 +35,7 @@ public:
 
     void                    create();
     void                    attachTo( const DisplaySurface & displaySurface, const RenderDevice & renderDevice );
+    void                    remove();
 
     void                    triggerCapture( const u32 frameCountToCapture = 1u );
     bool                    openLatestCapture();

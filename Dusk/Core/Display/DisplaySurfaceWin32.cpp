@@ -55,7 +55,7 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
         return 0;
 
 	case WM_SIZE:
-        nativeSurface->Flags.HasReceivedResizeEvent = 1;
+        nativeSurface->Flags.IsResizing = 1;
 		break;
 
     default:
@@ -103,7 +103,7 @@ void DisplaySurface::create( const u32 surfaceWidth, const u32 surfaceHeight, co
         return;
     }
 
-    DWORD windowExFlags = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE, windowFlags = WS_CLIPSIBLINGS | WS_CLIPCHILDREN | ( WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_BORDER | WS_VISIBLE );
+    DWORD windowExFlags = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE, windowFlags = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
 
     i32 screenWidth = GetSystemMetrics( SM_CXSCREEN ),
         screenHeight = GetSystemMetrics( SM_CYSCREEN );
@@ -203,6 +203,18 @@ void DisplaySurface::pollSystemEvents( InputReader* inputReader )
     if ( !isResizing && displaySurface->Flags.IsResizing )  {
         displaySurface->Flags.IsResizing = false;
         displaySurface->Flags.HasBeenResized = true;
+
+        RECT windowRectangle;
+        GetWindowRect( displaySurface->Handle, &windowRectangle );
+
+        DWORD clientWidth = windowRectangle.right - windowRectangle.left;
+        DWORD clientHeight = windowRectangle.bottom - windowRectangle.top;
+
+        displaySurface->ClientWidth = clientWidth;
+        displaySurface->ClientHeight = clientHeight;
+
+        width = displaySurface->ClientWidth;
+        height = displaySurface->ClientHeight;
     }
 }
 
@@ -213,7 +225,7 @@ void DisplaySurface::setWindowedDisplayMode()
     MoveWindow( displaySurface->Handle, 0, 0, width, height, TRUE );
 
     SetWindowLongPtr( displaySurface->Handle, GWL_EXSTYLE, WS_EX_APPWINDOW | WS_EX_WINDOWEDGE );
-    SetWindowLongPtr( displaySurface->Handle, GWL_STYLE, WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_BORDER | WS_VISIBLE );
+    SetWindowLongPtr( displaySurface->Handle, GWL_STYLE, WS_OVERLAPPEDWINDOW | WS_VISIBLE );
 
     if ( displayMode == FULLSCREEN ) {
         SetWindowPos( displaySurface->Handle, 0, 0, 0, width, height, SWP_FRAMECHANGED | SWP_SHOWWINDOW );
