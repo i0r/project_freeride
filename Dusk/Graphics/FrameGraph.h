@@ -414,6 +414,9 @@ public:
 
         // Use ScreenSize (THIS IS NOT THE VIEWPORT SIZE, this is the display surface size) (override width/height).
         USE_SCREEN_SIZE = 1 << 4,
+
+        // Allocate one resource view per mip level allocable.
+        REQUEST_PER_MIP_RESOURCE_VIEW = 1 << 5,
     };
 
     // Maximum of RenderPass count (per frame).
@@ -642,7 +645,7 @@ public:
     Image*                  getPersitentImage( const FGHandle resourceHandle ) const;
 
     void                    allocateBuffer( RenderDevice* renderDevice, const FGHandle resourceHandle, const BufferDesc& description );
-    void                    allocateImage( RenderDevice* renderDevice, const FGHandle resourceHandle, const ImageDesc& description );
+    void                    allocateImage( RenderDevice* renderDevice, const FGHandle resourceHandle, const ImageDesc& description, const u32 flags );
     void                    allocateSampler( RenderDevice* renderDevice, const FGHandle resourceHandle, const SamplerDesc& description );
 
     void                    bindPersistentBuffers( const FGHandle resourceHandle, const dkStringHash_t hashcode );

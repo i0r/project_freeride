@@ -23,13 +23,13 @@ SSRModule::~SSRModule()
 
 }
 
-void SSRModule::computeHiZMips( FrameGraph& frameGraph, ResHandle_t resolvedDepthBuffer, const u32 width, const u32 height )
+void SSRModule::computeHiZMips( FrameGraph& frameGraph, FGHandle resolvedDepthBuffer, const u32 width, const u32 height )
 {
 	struct PassData
 	{
-		ResHandle_t PerPassBuffer;
-		ResHandle_t	DepthBufferMip0;
-		ResHandle_t DepthMips[SSR_MAX_MIP_LEVEL];
+		FGHandle	PerPassBuffer;
+		FGHandle	DepthBufferMip0;
+		FGHandle	DepthMips[SSR_MAX_MIP_LEVEL];
 		i32         HiZMipCount;
 		u32			Mip0Width;
 		u32			Mip0Height;

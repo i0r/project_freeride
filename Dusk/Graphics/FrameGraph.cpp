@@ -585,7 +585,7 @@ void FrameGraphResources::allocateBuffer( RenderDevice* renderDevice, const FGHa
     inUseBuffers[resourceHandle] = buffer;
 }
 
-void FrameGraphResources::allocateImage( RenderDevice* renderDevice, const FGHandle resourceHandle, const ImageDesc& description )
+void FrameGraphResources::allocateImage( RenderDevice* renderDevice, const FGHandle resourceHandle, const ImageDesc& description, const u32 flags )
 {
     Image* image = nullptr;
 
@@ -601,6 +601,11 @@ void FrameGraphResources::allocateImage( RenderDevice* renderDevice, const FGHan
         image = renderDevice->createImage( description );
         allocatedImages[allocatedImageCount] = image;
         imagesDesc[allocatedImageCount] = description;
+
+        if ( flags & FrameGraphBuilder::eImageFlags::REQUEST_PER_MIP_RESOURCE_VIEW ) {
+            const u32 mipCount = ( description.mipCount < 0 ) ? ( 1 + floor( log2( Max( description.width, description.height ) ) ) ) : description.mipCount;
+        }
+
         allocatedImageCount++;
     }
 

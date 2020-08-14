@@ -9,6 +9,7 @@ class GraphicsAssetCache;
 class RenderDevice;
 
 struct Image;
+struct FGHandle;
 
 class SSRModule 
 {
@@ -18,7 +19,7 @@ public:
                                 SSRModule& operator = ( SSRModule& ) = delete;
                                 ~SSRModule();
 
-    void                        computeHiZMips( FrameGraph& frameGraph, ResHandle_t resolvedDepthBuffer, const u32 width, const u32 height );
+    void                        computeHiZMips( FrameGraph& frameGraph, FGHandle resolvedDepthBuffer, const u32 width, const u32 height );
 
     // Release and destroy persistent resources created by this module.
     void                        destroy( RenderDevice& renderDevice );
