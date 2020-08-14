@@ -8,6 +8,7 @@
 #include <Maths/Matrix.h>
 
 #include "Material.h"
+#include "FrameGraph.h"
 
 class RenderDevice;
 class ShaderCache;
@@ -21,8 +22,6 @@ class VirtualFileSystem;
 struct CameraData;
 struct Buffer;
 struct Image;
-
-using ResHandle_t = u32;
 
 class HUDRenderer
 {
@@ -47,7 +46,7 @@ public:
     // Append render passes required to build the default HUD pipeline.
     // TODO In the future, this pipeline should be independent from the WorldRenderer pipeline (this way we'll be able to render
     // the HUD at the same time; and we'll simply have to blit both textures).
-    ResHandle_t             buildDefaultGraph( FrameGraph& frameGraph, ResHandle_t presentRenderTarget );
+    FGHandle                buildDefaultGraph( FrameGraph& frameGraph, FGHandle presentRenderTarget );
 
 private:
     // The memory allocator owning this instance.

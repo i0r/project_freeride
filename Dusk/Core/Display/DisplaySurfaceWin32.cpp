@@ -55,7 +55,7 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
         return 0;
 
 	case WM_SIZE:
-        nativeSurface->Flags.HasReceivedResizeEvent = 1;
+        nativeSurface->Flags.IsResizing = 1;
 		break;
 
     default:
@@ -103,7 +103,7 @@ void DisplaySurface::create( const u32 surfaceWidth, const u32 surfaceHeight, co
         return;
     }
 
-    DWORD windowExFlags = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE, windowFlags = WS_CLIPSIBLINGS | WS_CLIPCHILDREN | ( WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_BORDER | WS_VISIBLE );
+    DWORD windowExFlags = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE, windowFlags = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
 
     i32 screenWidth = GetSystemMetrics( SM_CXSCREEN ),
         screenHeight = GetSystemMetrics( SM_CYSCREEN );
@@ -161,12 +161,24 @@ void DisplaySurface::setCaption( const dkChar_t* caption )
 
 bool DisplaySurface::hasReceivedQuitSignal() const
 {
-    return ( displaySurface->Flags.ShouldQuit & 1 );
+    return displaySurface->Flags.ShouldQuit;
+}
+
+bool DisplaySurface::hasReceivedResizeEvent() const
+{
+    return displaySurface->Flags.HasBeenResized;
+}
+
+void DisplaySurface::acknowledgeResizeEvent()
+{
+    displaySurface->Flags.HasBeenResized = 0;
 }
 
 void DisplaySurface::pollSystemEvents( InputReader* inputReader )
 {
     MSG msg = { 0 };
+
+    bool isResizing = false;
 
     while ( PeekMessage( &msg, NULL, 0, 0, PM_REMOVE ) ) {
         switch ( msg.message ) {
@@ -174,7 +186,8 @@ void DisplaySurface::pollSystemEvents( InputReader* inputReader )
             dk::input::ProcessInputEventImpl( inputReader, msg.hwnd, msg.lParam, msg.time );
             break;
         case WM_SIZE:
-            displaySurface->Flags.ShouldQuit = 1;
+            displaySurface->Flags.IsResizing = 1;
+            isResizing = true;
             break;
         case WM_CHAR:
             if ( msg.wParam > 0 && msg.wParam < 0x10000 ) {
@@ -185,6 +198,38 @@ void DisplaySurface::pollSystemEvents( InputReader* inputReader )
 
         TranslateMessage( &msg );
         DispatchMessage( &msg );
+    }
+
+    if ( !isResizing && displaySurface->Flags.IsResizing )  {
+        displaySurface->Flags.IsResizing = false;
+        displaySurface->Flags.HasBeenResized = true;
+
+        RECT windowRectangle;
+        GetWindowRect( displaySurface->Handle, &windowRectangle );
+
+        DWORD clientWidth = windowRectangle.right - windowRectangle.left;
+        DWORD clientHeight = windowRectangle.bottom - windowRectangle.top;
+
+        displaySurface->ClientWidth = clientWidth;
+        displaySurface->ClientHeight = clientHeight;
+
+        width = displaySurface->ClientWidth;
+        height = displaySurface->ClientHeight;
+    }
+}
+
+void DisplaySurface::setWindowedDisplayMode()
+{
+    width = displaySurface->ClientWidth;
+    height = displaySurface->ClientHeight;
+    MoveWindow( displaySurface->Handle, 0, 0, width, height, TRUE );
+
+    SetWindowLongPtr( displaySurface->Handle, GWL_EXSTYLE, WS_EX_APPWINDOW | WS_EX_WINDOWEDGE );
+    SetWindowLongPtr( displaySurface->Handle, GWL_STYLE, WS_OVERLAPPEDWINDOW | WS_VISIBLE );
+
+    if ( displayMode == FULLSCREEN ) {
+        SetWindowPos( displaySurface->Handle, 0, 0, 0, width, height, SWP_FRAMECHANGED | SWP_SHOWWINDOW );
+        ChangeDisplaySettings( 0, 0 );
     }
 }
 
@@ -198,20 +243,23 @@ void DisplaySurface::setFullscreenDisplayMode()
 	RECT windowRectangle;
 	GetWindowRect( displaySurface->Handle, &windowRectangle );
 
-	DWORD width = windowRectangle.right - windowRectangle.left;
-    DWORD height = windowRectangle.bottom - windowRectangle.top;
+	DWORD clientWidth = windowRectangle.right - windowRectangle.left;
+    DWORD clientHeight = windowRectangle.bottom - windowRectangle.top;
 
 	DEVMODE devMode = {};
 	devMode.dmSize = sizeof( devMode );
-	devMode.dmPelsWidth = width;
-	devMode.dmPelsHeight = height;
+	devMode.dmPelsWidth = screenWidth;
+	devMode.dmPelsHeight = screenHeight;
 	devMode.dmBitsPerPel = 32;
 	devMode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
 
 	LONG changeDispResult = ChangeDisplaySettings( &devMode, CDS_FULLSCREEN );
 	if ( changeDispResult != DISP_CHANGE_SUCCESSFUL ) {
-		DUSK_LOG_WARN( "Failed to toggle fullscreen (ChangeDisplaySettings returned 0x%x)\n", changeDispResult );
-	}
+		DUSK_LOG_WARN( "Failed to toggle fullscreen (ChangeDisplaySettings returned 0x%x; %u x %u)\n", changeDispResult, screenWidth, screenHeight );
+    } else {
+        width = static_cast< u32 >( screenWidth );
+        height = static_cast< u32 >( screenHeight );
+    }
 }
 
 void DisplaySurface::setFullscreenBorderlessDisplayMode()
@@ -219,11 +267,14 @@ void DisplaySurface::setFullscreenBorderlessDisplayMode()
 	RECT windowRectangle;
 	GetWindowRect( displaySurface->Handle, &windowRectangle );
 
-    i32 width = windowRectangle.right - windowRectangle.left;
-    i32 height = windowRectangle.bottom - windowRectangle.top;
+    i32 screenWidth = GetSystemMetrics( SM_CXSCREEN ),
+        screenHeight = GetSystemMetrics( SM_CYSCREEN );
 
 	SetWindowLongPtr( displaySurface->Handle, GWL_STYLE, WS_SYSMENU | WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_VISIBLE );
-	MoveWindow( displaySurface->Handle, 0, 0, width, height, TRUE );
+	MoveWindow( displaySurface->Handle, 0, 0, screenWidth, screenHeight, TRUE );
+
+    width = static_cast< u32 >( screenWidth );
+    height = static_cast< u32 >( screenHeight );
 }
 #endif
 

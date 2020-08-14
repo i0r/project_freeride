@@ -23,8 +23,7 @@ struct MeshCluster;
 struct SmallBatchData;
 struct SmallBatchDrawConstants;
 
-using ResHandle_t = uint32_t;
-
+#include "Graphics/FrameGraph.h"
 #include <Maths/Matrix.h>
 #include <vector>
 
@@ -48,15 +47,15 @@ public:
 
 	void                loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache );
 
-    void                captureShadowMap( FrameGraph& frameGraph, ResHandle_t depthBuffer, const dkVec2f& depthBufferSize, const DirectionalLightGPU& directionalLight, const RenderWorld* renderWorld );
+    void                captureShadowMap( FrameGraph& frameGraph, FGHandle depthBuffer, const dkVec2f& depthBufferSize, const DirectionalLightGPU& directionalLight, const RenderWorld* renderWorld );
 
     void                submitGPUShadowCullCmds( GPUShadowDrawCmd* drawCmds, const size_t drawCmdCount );
 
 private:
     struct CullPassOutput
 	{
-		ResHandle_t DrawCallsBuffer;
-		ResHandle_t CulledIndexesBuffer;
+		FGHandle DrawCallsBuffer;
+		FGHandle CulledIndexesBuffer;
     };
 
 private:
@@ -66,14 +65,14 @@ private:
     void                clearIndirectArgsBuffer( FrameGraph& frameGraph );
 
     // Build matrices and parameters to capture CSM slices on GPU.
-    void                setupParameters( FrameGraph& frameGraph, ResHandle_t depthMinMax, const DirectionalLightGPU& directionalLight );
+    void                setupParameters( FrameGraph& frameGraph, FGHandle depthMinMax, const DirectionalLightGPU& directionalLight );
 
     // Reduce and extract the min/max of a given depth buffer (assuming the input buffer is reversed).
-    ResHandle_t         reduceDepthBuffer( FrameGraph& frameGraph, ResHandle_t depthBuffer, const dkVec2f& depthBufferSize );
+    FGHandle         reduceDepthBuffer( FrameGraph& frameGraph, FGHandle depthBuffer, const dkVec2f& depthBufferSize );
 
     CullPassOutput      cullShadowCasters( FrameGraph& frameGraph );
 
-    ResHandle_t         batchDrawCalls( FrameGraph& frameGraph, CullPassOutput& cullPassOutput, const u32 gpuShadowCastersCount, MeshConstants* gpuShadowCasters );
+    FGHandle         batchDrawCalls( FrameGraph& frameGraph, CullPassOutput& cullPassOutput, const u32 gpuShadowCastersCount, MeshConstants* gpuShadowCasters );
 
 private:
     struct BatchChunk {

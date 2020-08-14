@@ -119,7 +119,7 @@ void RenderDocHelper::create()
     renderDocAPI->SetCaptureKeys( captureButtons, 1 );
 }
 
-void RenderDocHelper::attachTo( const DisplaySurface & displaySurface, const RenderDevice & renderDevice )
+void RenderDocHelper::attachTo( const DisplaySurface& displaySurface, const RenderDevice& renderDevice )
 {
     RENDERDOC_WindowHandle windowHandle = GetDisplaySurfaceNativePointer( displaySurface );
     RENDERDOC_DevicePointer devicePointer = GetRenderDevicePointer( renderDevice );
@@ -134,6 +134,11 @@ void RenderDocHelper::attachTo( const DisplaySurface & displaySurface, const Ren
     captureStorageFolder = WideStringToString( workingDirectory + DUSK_STRING( "captures/" ) );
 
     renderDocAPI->SetCaptureFilePathTemplate( WideStringToString( basePath ).c_str() );
+}
+
+void RenderDocHelper::remove()
+{
+    renderDocAPI->Shutdown();
 }
 
 void RenderDocHelper::triggerCapture( const u32 frameCountToCapture )

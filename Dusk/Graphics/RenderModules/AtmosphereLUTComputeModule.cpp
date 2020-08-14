@@ -658,7 +658,7 @@ void AtmosphereLUTComputeModule::precomputePipelineResources( FrameGraph& frameG
 void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, const dkVec3f& lambdas, const u32 num_scattering_orders, const bool enableBlending )
 {
     struct PassData {
-        ResHandle_t PerPassBuffer;
+        FGHandle PerPassBuffer;
         u32 ScatteringOrder;
     };
 

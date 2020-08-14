@@ -50,7 +50,7 @@ LightGrid::Data LightGrid::updateClusters( FrameGraph& frameGraph )
     constexpr PipelineStateDesc DefaultPipelineState( PipelineStateDesc::COMPUTE );
 
     struct PassData {
-        ResHandle_t PerSceneBuffer;
+        FGHandle PerSceneBuffer;
     };
 
     PassData& passData = frameGraph.addRenderPass<PassData>(
@@ -106,7 +106,7 @@ LightGrid::Data LightGrid::updateClusters( FrameGraph& frameGraph )
         }
     );
 
-    Data returnData;
+    LightGrid::Data returnData;
     returnData.PerSceneBuffer = passData.PerSceneBuffer;
 
     return returnData;

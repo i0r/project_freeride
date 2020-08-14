@@ -85,12 +85,12 @@ void GetDepthThreadCount( u32& threadCountX, u32& threadCountY, u32& threadCount
 }
 
 template<i32 SamplerCount>
-ResHandle_t AddResolveDepthMSAARenderPass( FrameGraph& frameGraph,
-                                                  ResHandle_t inputDepthImage )
+FGHandle AddResolveDepthMSAARenderPass( FrameGraph& frameGraph,
+                                                  FGHandle inputDepthImage )
 {
     struct PassData {
-        ResHandle_t InputDepth;
-        ResHandle_t ResolvedDepth;
+        FGHandle InputDepth;
+        FGHandle ResolvedDepth;
     };
     
     PassData passData = frameGraph.addRenderPass<PassData>(
@@ -231,20 +231,20 @@ void GetThreadCount( u32& threadCountX, u32& threadCountY, u32& threadCountZ )
 }
 
 template<i32 SamplerCount, bool UseTemporalAA>
-ResHandle_t AddResolveMSAARenderPass( FrameGraph& frameGraph,
-                                             ResHandle_t inputImage,
-                                             ResHandle_t inputVelocityImage,
-                                             ResHandle_t inputDepthImage )
+FGHandle AddResolveMSAARenderPass( FrameGraph& frameGraph,
+                                             FGHandle inputImage,
+                                             FGHandle inputVelocityImage,
+                                             FGHandle inputDepthImage )
 {
     struct PassData
     {
-        ResHandle_t Input;
-        ResHandle_t InputDepth;
-        ResHandle_t InputVelocity;
-        ResHandle_t InputLastFrame;
-        ResHandle_t Output;
-        ResHandle_t PerPassBuffer;
-        ResHandle_t AutoExposureBuffer;
+        FGHandle Input;
+        FGHandle InputDepth;
+        FGHandle InputVelocity;
+        FGHandle InputLastFrame;
+        FGHandle Output;
+        FGHandle PerPassBuffer;
+        FGHandle AutoExposureBuffer;
     };
 
     PassData passData = frameGraph.addRenderPass<PassData>(
@@ -335,11 +335,11 @@ ResHandle_t AddResolveMSAARenderPass( FrameGraph& frameGraph,
     return passData.Output;
 }
 
-ResHandle_t AddMSAAResolveRenderPass(
+FGHandle AddMSAAResolveRenderPass(
     FrameGraph& frameGraph,
-    ResHandle_t inputImage,
-    ResHandle_t inputVelocityImage,
-    ResHandle_t inputDepthImage,
+    FGHandle inputImage,
+    FGHandle inputVelocityImage,
+    FGHandle inputDepthImage,
     const u32   sampleCount,
     const bool  enableTAA
 )
@@ -364,7 +364,7 @@ ResHandle_t AddMSAAResolveRenderPass(
     }
 }
 
-ResHandle_t AddMSAADepthResolveRenderPass( FrameGraph& frameGraph, ResHandle_t inputDepthImage, const u32 sampleCount )
+FGHandle AddMSAADepthResolveRenderPass( FrameGraph& frameGraph, FGHandle inputDepthImage, const u32 sampleCount )
 {
     switch ( sampleCount ) {
     case 2:
@@ -378,7 +378,7 @@ ResHandle_t AddMSAADepthResolveRenderPass( FrameGraph& frameGraph, ResHandle_t i
     }
 }
 
-ResHandle_t AddSSAAResolveRenderPass( FrameGraph& frameGraph, ResHandle_t resolvedInput, bool isDepth )
+FGHandle AddSSAAResolveRenderPass( FrameGraph& frameGraph, FGHandle resolvedInput, bool isDepth )
 {
 	constexpr PipelineStateDesc DefaultPipelineStateDesc = PipelineStateDesc(
 		PipelineStateDesc::GRAPHICS,
@@ -394,8 +394,8 @@ ResHandle_t AddSSAAResolveRenderPass( FrameGraph& frameGraph, ResHandle_t resolv
 
 	struct PassData
 	{
-		ResHandle_t Input;
-		ResHandle_t Output;
+		FGHandle Input;
+		FGHandle Output;
     };
 
     PassData& downscaleData = frameGraph.addRenderPass<PassData>(

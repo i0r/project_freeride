@@ -5,7 +5,6 @@
 #include "Shared.h"
 #include "LineRenderingModule.h"
 
-#include <Graphics/FrameGraph.h>
 #include <Graphics/GraphicsAssetCache.h>
 #include <Graphics/ShaderCache.h>
 
@@ -43,12 +42,12 @@ void LineRenderingModule::destroy( RenderDevice& renderDevice )
     linePointsConstantBuffer = nullptr;
 }
 
-ResHandle_t LineRenderingModule::renderLines( FrameGraph& frameGraph, ResHandle_t output )
+FGHandle LineRenderingModule::renderLines( FrameGraph& frameGraph, FGHandle output )
 {
     struct PassData
     {
-        ResHandle_t Output;
-        ResHandle_t PerViewBuffer;
+        FGHandle Output;
+        FGHandle PerViewBuffer;
     };
 
     constexpr PipelineStateDesc PipelineStateDefault = PipelineStateDesc(

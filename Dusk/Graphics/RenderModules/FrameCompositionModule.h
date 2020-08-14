@@ -10,7 +10,7 @@ class RenderDevice;
 
 struct Image;
 
-using ResHandle_t = u32;
+#include "Graphics/FrameGraph.h"
 
 class FrameCompositionModule 
 {
@@ -21,7 +21,7 @@ public:
                                 ~FrameCompositionModule();
 
     // Execute the frame composition pass (apply tonemapping; color correction; film grain; etc.).
-    ResHandle_t                 addFrameCompositionPass( FrameGraph& frameGraph, ResHandle_t input, ResHandle_t glareInput );
+    FGHandle                 addFrameCompositionPass( FrameGraph& frameGraph, FGHandle input, FGHandle glareInput );
 
     // Load cached resource from the harddrive and pre-allocate resources for this module.
     void                        loadCachedResources( GraphicsAssetCache& graphicsAssetCache );

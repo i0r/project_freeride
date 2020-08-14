@@ -10,6 +10,7 @@
 #include <Graphics/LightGrid.h>
 #include <Graphics/Model.h>
 #include <Graphics/Mesh.h>
+#include "Graphics/WorldRenderer.h"
 
 #include <Core/Allocators/LinearAllocator.h>
 #include <Maths/MatrixTransformations.h>

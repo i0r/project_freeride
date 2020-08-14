@@ -23,14 +23,14 @@ EditorGridModule::~EditorGridModule()
 
 }
 
-ResHandle_t EditorGridModule::addEditorGridPass( FrameGraph& frameGraph, ResHandle_t outputRenderTarget, ResHandle_t depthBuffer )
+FGHandle EditorGridModule::addEditorGridPass( FrameGraph& frameGraph, FGHandle outputRenderTarget, FGHandle depthBuffer )
 {
 	struct PassData
 	{
-		ResHandle_t Output;
-        ResHandle_t InputDepth;
-        ResHandle_t PerPassBuffer;
-        ResHandle_t PerViewBuffer;
+		FGHandle Output;
+        FGHandle InputDepth;
+        FGHandle PerPassBuffer;
+        FGHandle PerViewBuffer;
 	};
 
 	constexpr PipelineStateDesc PipelineStateDefault = PipelineStateDesc(

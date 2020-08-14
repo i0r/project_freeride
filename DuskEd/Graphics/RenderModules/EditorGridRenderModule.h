@@ -8,7 +8,7 @@ class FrameGraph;
 class RenderDevice;
 class ShaderCache;
 
-using ResHandle_t = uint32_t;
+#include "Graphics/FrameGraph.h"
 
 class EditorGridModule
 {
@@ -19,5 +19,5 @@ public:
 								~EditorGridModule();
 
 	// Execute the frame composition pass (apply tonemapping; color correction; film grain; etc.).
-	ResHandle_t                 addEditorGridPass( FrameGraph& frameGraph, ResHandle_t outputRenderTarget, ResHandle_t depthBuffer );
+	FGHandle                 addEditorGridPass( FrameGraph& frameGraph, FGHandle outputRenderTarget, FGHandle depthBuffer );
 };

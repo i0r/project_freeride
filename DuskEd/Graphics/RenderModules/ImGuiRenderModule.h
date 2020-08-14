@@ -16,11 +16,10 @@ struct PipelineState;
 struct Image;
 struct Buffer;
 
-using ResHandle_t = u32;
-using MutableResHandle_t = u32;
-
 #include <Maths/Matrix.h>
 #include <atomic>
+
+#include "Graphics/FrameGraph.h"
 
 class ImGuiRenderModule
 {
@@ -33,7 +32,7 @@ public:
     void                            loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache );
     void                            destroy( RenderDevice& renderDevice );
 
-    ResHandle_t                     render( FrameGraph& frameGraph, MutableResHandle_t renderTarget );
+    FGHandle                        render( FrameGraph& frameGraph, FGHandle renderTarget );
 
     void                            lockForUpload();
 

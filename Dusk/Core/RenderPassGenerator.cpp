@@ -966,7 +966,7 @@ void RenderLibraryGenerator::generateResourceMetadata( RenderPassInfos& passInfo
                 continue;
             }
 
-            generatedMetadata.append( "\t\tResHandle_t\t" );
+            generatedMetadata.append( "\t\tFGHandle\t" );
             generatedMetadata.append( resourceListNode->Names[resIdx].StreamPointer, resourceListNode->Names[resIdx].Length );
             generatedMetadata.append( ";\n" );
         }

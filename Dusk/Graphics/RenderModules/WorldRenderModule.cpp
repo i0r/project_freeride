@@ -98,20 +98,20 @@ void WorldRenderModule::loadCachedResources( RenderDevice& renderDevice, Graphic
 #endif
 }
 
-WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, ResHandle_t perSceneBuffer, ResHandle_t depthPrepassBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular, const dkMat4x4f& globalShadowMatrix )
+WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, FGHandle perSceneBuffer, FGHandle depthPrepassBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular, const dkMat4x4f& globalShadowMatrix )
 {
     struct PassData {
-        ResHandle_t output;
-        ResHandle_t velocityBuffer;
-        ResHandle_t depthBuffer;
-        ResHandle_t PerPassBuffer;
-        ResHandle_t PerViewBuffer;
-        ResHandle_t PerSceneBuffer;
-		ResHandle_t MaterialEdBuffer;
-		ResHandle_t VectorDataBuffer;
-        ResHandle_t MaterialInputSampler;
-		ResHandle_t CSMSliceBuffer;
-		ResHandle_t CSMSlices;
+        FGHandle output;
+        FGHandle velocityBuffer;
+        FGHandle depthBuffer;
+        FGHandle PerPassBuffer;
+        FGHandle PerViewBuffer;
+        FGHandle PerSceneBuffer;
+		FGHandle MaterialEdBuffer;
+		FGHandle VectorDataBuffer;
+        FGHandle MaterialInputSampler;
+		FGHandle CSMSliceBuffer;
+		FGHandle CSMSlices;
 	};
 
 	const bool isPickingRequested = ( scenario == Material::RenderScenario::Default_Picking
@@ -332,13 +332,13 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
     return output;
 }
 
-ResHandle_t WorldRenderModule::addDepthPrepass( FrameGraph& frameGraph )
+FGHandle WorldRenderModule::addDepthPrepass( FrameGraph& frameGraph )
 {
     struct PassData {
-        ResHandle_t DepthBuffer;
-        ResHandle_t PerPassBuffer;
-        ResHandle_t PerViewBuffer;
-        ResHandle_t VectorDataBuffer;
+        FGHandle DepthBuffer;
+        FGHandle PerPassBuffer;
+        FGHandle PerViewBuffer;
+        FGHandle VectorDataBuffer;
     };
 
     PassData& data = frameGraph.addRenderPass<PassData>(

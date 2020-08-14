@@ -46,10 +46,10 @@ void HUDRenderer::drawLine( const dkVec3f& p0, const dkVec4f& p0Color, const dkV
     lineRendering->addLine( p0, p0Color, p1, p1Color, lineThickness );
 }
 
-ResHandle_t HUDRenderer::buildDefaultGraph( FrameGraph& frameGraph, ResHandle_t presentRenderTarget )
+FGHandle HUDRenderer::buildDefaultGraph( FrameGraph& frameGraph, FGHandle presentRenderTarget )
 {
     // Line Rendering.
-    ResHandle_t hudRenderTarget = lineRendering->renderLines( frameGraph, presentRenderTarget );
+    FGHandle hudRenderTarget = lineRendering->renderLines( frameGraph, presentRenderTarget );
 
     // HUD Text.
     hudRenderTarget = textRendering->renderText( frameGraph, hudRenderTarget );

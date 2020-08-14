@@ -24,9 +24,17 @@ class LightGrid
 {
 public:
     struct Data {
-        ResHandle_t	LightClusters;
-        ResHandle_t	ItemList;
-        ResHandle_t	PerSceneBuffer;
+        FGHandle	LightClusters;
+        FGHandle	ItemList;
+        FGHandle	PerSceneBuffer;
+
+        Data()
+            : LightClusters( FGHandle::Invalid )
+            , ItemList( FGHandle::Invalid )
+            , PerSceneBuffer( FGHandle::Invalid )
+        {
+
+        }
     };
 
 public:

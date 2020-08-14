@@ -60,6 +60,7 @@ void ImGuiManager::create( const DisplaySurface& displaySurface, VirtualFileSyst
 	ImFontConfig icons_config; 
     icons_config.MergeMode = true; 
     icons_config.PixelSnapH = true;
+    icons_config.FontDataOwnedByAtlas = false;
 
     // Load font and forward it to imgui internal.
     FileSystemObject* iconFontTTF = virtualFileSystem->openFile( DUSK_STRING( "GameData/fonts/MaterialIcons-Regular.ttf" ), eFileOpenMode::FILE_OPEN_MODE_READ | eFileOpenMode::FILE_OPEN_MODE_BINARY );
@@ -83,6 +84,8 @@ void ImGuiManager::create( const DisplaySurface& displaySurface, VirtualFileSyst
 
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
+    resize( displaySurface.getWidth(), displaySurface.getHeight() );
+
     ImGuiViewport* main_viewport = ImGui::GetMainViewport();
 
     for ( i32 i = 0; i < ImGuiKey_COUNT; i++ ) {
@@ -96,9 +99,6 @@ void ImGuiManager::create( const DisplaySurface& displaySurface, VirtualFileSyst
     main_viewport->PlatformHandleRaw = nativeHandle;
 #endif
     
-    io.DisplaySize.x = static_cast<f32>( displaySurface.getWidth() );
-    io.DisplaySize.y = static_cast<f32>( displaySurface.getHeight() );
-
     // Setup style
     ImGui::StyleColorsDark();
 
@@ -194,5 +194,12 @@ void ImGuiManager::setVisible( const bool isVisible )
 {
     ImGuiIO& io = ImGui::GetIO();
     io.UserData = (void*)isVisible;
+}
+
+void ImGuiManager::resize( const u32 screenWidth, const u32 screenHeight )
+{
+    ImGuiIO& io = ImGui::GetIO();
+    io.DisplaySize.x = static_cast< f32 >( screenWidth );
+    io.DisplaySize.y = static_cast< f32 >( screenHeight );
 }
 #endif

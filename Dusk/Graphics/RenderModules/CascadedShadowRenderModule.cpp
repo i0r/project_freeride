@@ -16,12 +16,12 @@
 
 #include "Core/Allocators/LinearAllocator.h"
 
+#include "Graphics/WorldRenderer.h"
 #include "Graphics/RenderWorld.h"
 #include "Graphics/ShaderHeaders/Light.h"
 
 #include "Generated/DepthPyramid.generated.h"
 #include "Generated/ShadowSetup.generated.h"
-#include "Generated/SceneCulling.generated.h"
 #include "Generated/Culling.generated.h"
 #include "Generated/ShadowRendering.generated.h"
 
@@ -224,10 +224,10 @@ void CascadedShadowRenderModule::loadCachedResources( RenderDevice& renderDevice
     }
 }
 
-void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, ResHandle_t depthBuffer, const dkVec2f& depthBufferSize, const DirectionalLightGPU& directionalLight, const RenderWorld* renderWorld )
+void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, FGHandle depthBuffer, const dkVec2f& depthBufferSize, const DirectionalLightGPU& directionalLight, const RenderWorld* renderWorld )
 {   
     // Extract depth min/max.
-    ResHandle_t depthMinMax = reduceDepthBuffer( frameGraph, depthBuffer, depthBufferSize );
+    FGHandle depthMinMax = reduceDepthBuffer( frameGraph, depthBuffer, depthBufferSize );
     
     // Compute shadow matrices for each csm slice.
     setupParameters( frameGraph, depthMinMax, directionalLight );
@@ -283,8 +283,8 @@ void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, ResHa
 	// Render each CSM slice.
     struct PassData
     {
-		ResHandle_t VectorDataBuffer;
-		ResHandle_t PerPassBuffer;
+		FGHandle VectorDataBuffer;
+		FGHandle PerPassBuffer;
     };
 
     PassData& data = frameGraph.addRenderPass<PassData>(
@@ -542,11 +542,11 @@ void CascadedShadowRenderModule::clearIndirectArgsBuffer( FrameGraph& frameGraph
     );
 }
 
-void CascadedShadowRenderModule::setupParameters( FrameGraph& frameGraph, ResHandle_t depthMinMax, const DirectionalLightGPU& directionalLight )
+void CascadedShadowRenderModule::setupParameters( FrameGraph& frameGraph, FGHandle depthMinMax, const DirectionalLightGPU& directionalLight )
 {
     struct PassData {
-        ResHandle_t PerPassBuffer;
-        ResHandle_t ReducedDepth;
+        FGHandle PerPassBuffer;
+        FGHandle ReducedDepth;
     };
 
     PassData& passData = frameGraph.addRenderPass<PassData>(
@@ -601,12 +601,12 @@ void CascadedShadowRenderModule::setupParameters( FrameGraph& frameGraph, ResHan
     );
 }
 
-ResHandle_t CascadedShadowRenderModule::reduceDepthBuffer( FrameGraph& frameGraph, ResHandle_t depthBuffer, const dkVec2f& depthBufferSize )
+FGHandle CascadedShadowRenderModule::reduceDepthBuffer( FrameGraph& frameGraph, FGHandle depthBuffer, const dkVec2f& depthBufferSize )
 {
     struct PassData {
-        ResHandle_t	PerPassBuffer;
-        ResHandle_t	DepthBuffer;
-        ResHandle_t	DepthChain[16];
+        FGHandle	PerPassBuffer;
+        FGHandle	DepthBuffer;
+        FGHandle	DepthChain[16];
         i32			DepthLevelCount;
     };
 

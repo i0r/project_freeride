@@ -25,7 +25,7 @@ public:
                         ~AutomaticExposureModule();
 
     void                importResourcesToGraph( FrameGraph& frameGraph );
-    ResHandle_t         computeExposure( FrameGraph& frameGraph, ResHandle_t lightRenderTarget, const dkVec2u& screenSize );
+    FGHandle         computeExposure( FrameGraph& frameGraph, FGHandle lightRenderTarget, const dkVec2u& screenSize );
 
     void                destroy( RenderDevice& renderDevice );
     void                loadCachedResources( RenderDevice& renderDevice );
@@ -61,7 +61,7 @@ private:
     AutoExposureInfo    autoExposureInfo;
 
 private:
-    ResHandle_t         addBinComputePass( FrameGraph& frameGraph, const ResHandle_t inputRenderTarget, const dkVec2u& screenSize );
-    ResHandle_t         addHistogramMergePass( FrameGraph& frameGraph, const ResHandle_t perTileHistoBuffer, const dkVec2u& screenSize );
-    ResHandle_t         addExposureComputePass( FrameGraph& frameGraph, const ResHandle_t mergedHistoBuffer );
+    FGHandle         addBinComputePass( FrameGraph& frameGraph, const FGHandle inputRenderTarget, const dkVec2u& screenSize );
+    FGHandle         addHistogramMergePass( FrameGraph& frameGraph, const FGHandle perTileHistoBuffer, const dkVec2u& screenSize );
+    FGHandle         addExposureComputePass( FrameGraph& frameGraph, const FGHandle mergedHistoBuffer );
 };

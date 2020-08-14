@@ -36,6 +36,13 @@ public:
     // Return true if this surface has received a quit signal from the system; false otherwise.
     bool                    hasReceivedQuitSignal() const;
 
+    // Return true if this surface has received a resize event. This call DOES NOT consume the event; instead, you should
+    // call acknowledgeResizeEvent().
+    bool                    hasReceivedResizeEvent() const;
+
+    // Reset internal flags related to resizing. Should be called once a resize event has been handled by the engine.
+    void                    acknowledgeResizeEvent();
+
     // Poll events received from the system for this frame.
     void                    pollSystemEvents( InputReader* inputReader );
 
@@ -51,6 +58,8 @@ private:
     u32                     height;
 
 private:
+    void                    setWindowedDisplayMode();
+
     void                    setFullscreenDisplayMode();
 
     void                    setFullscreenBorderlessDisplayMode();

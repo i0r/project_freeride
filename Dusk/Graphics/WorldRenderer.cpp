@@ -6,7 +6,6 @@
 #include "WorldRenderer.h"
 
 #include "PrimitiveCache.h"
-#include "FrameGraph.h"
 #include "GraphicsAssetCache.h"
 
 #include <Framework/Cameras/Camera.h>
@@ -112,7 +111,7 @@ WorldRenderer::WorldRenderer( BaseAllocator* allocator )
     , wireframeMaterial( nullptr )
     , brdfDfgLut( nullptr )
     , lightGrid( dk::core::allocate<LightGrid>( allocator, allocator ) )
-    , resolvedDepth( 0u )
+    , resolvedDepth( FGHandle::Invalid )
     , environmentProbeStreaming( dk::core::allocate<EnvironmentProbeStreaming>( allocator, allocator ) )
     , cascadedShadowMapRendering( dk::core::allocate<CascadedShadowRenderModule>( allocator, allocator ) )
     , screenSpaceReflections( dk::core::allocate<SSRModule>( allocator ) )
@@ -286,7 +285,7 @@ const Material* WorldRenderer::getWireframeMaterial() const
     return wireframeMaterial;
 }
 
-ResHandle_t WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Material::RenderScenario scenario, const dkVec2f& viewportSize, RenderWorld* renderWorld )
+FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Material::RenderScenario scenario, const dkVec2f& viewportSize, RenderWorld* renderWorld )
 {
     f32 imageQuality = frameGraph.getImageQuality();
     u32 msaaSamplerCount = frameGraph.getMSAASamplerCount();
@@ -299,7 +298,7 @@ ResHandle_t WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Mate
     LightGrid::Data lightGridData = lightGrid->updateClusters( frameGraph );
 
     // Do a depth prepass (and capture normals/roughness at the same time).
-    ResHandle_t prepassTarget = WorldRendering->addDepthPrepass( frameGraph );
+    FGHandle prepassTarget = WorldRendering->addDepthPrepass( frameGraph );
 
     resolvedDepth = AddMSAADepthResolveRenderPass( frameGraph, prepassTarget, msaaSamplerCount );
 
@@ -323,7 +322,7 @@ ResHandle_t WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Mate
     primRenderPass.OutputRenderTarget = atmosphereRendering->renderAtmosphere( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
 
     // AntiAliasing resolve. (we merge both TAA and MSAA in a single pass to avoid multiple dispatch).
-    ResHandle_t resolvedColor = primRenderPass.OutputRenderTarget;
+    FGHandle resolvedColor = primRenderPass.OutputRenderTarget;
     if ( msaaSamplerCount > 1 || EnableTAA ) {
         resolvedColor = AddMSAAResolveRenderPass( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputVelocityTarget, primRenderPass.OutputDepthTarget, msaaSamplerCount, EnableTAA );
     }
@@ -338,23 +337,23 @@ ResHandle_t WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Mate
     }
 
     // Atmosphere Rendering.
-    ResHandle_t presentRt = resolvedColor;
+    FGHandle presentRt = resolvedColor;
 
     // Glare Rendering.
     FFTPassOutput frequencyDomainRt = AddFFTComputePass( frameGraph, presentRt, viewportSize.x, viewportSize.y );
     FFTPassOutput convolutedFFT = glareRendering->addGlareComputePass( frameGraph, frequencyDomainRt );
-    ResHandle_t inverseFFT = AddInverseFFTComputePass( frameGraph, convolutedFFT, viewportSize.x, viewportSize.y );
+    FGHandle inverseFFT = AddInverseFFTComputePass( frameGraph, convolutedFFT, viewportSize.x, viewportSize.y );
 
     // Automatic Exposure.
     automaticExposure->computeExposure( frameGraph, presentRt, dkVec2u( static_cast< u32 >( viewportSize.x ), static_cast< u32 >( viewportSize.y ) ) );
 
     // Frame composition.
-    ResHandle_t composedFrame = frameComposition->addFrameCompositionPass( frameGraph, presentRt, inverseFFT );
+    FGHandle composedFrame = frameComposition->addFrameCompositionPass( frameGraph, presentRt, inverseFFT );
 
     return composedFrame;
 }
 
-ResHandle_t WorldRenderer::getResolvedDepth()
+FGHandle WorldRenderer::getResolvedDepth()
 {
     return resolvedDepth;
 }

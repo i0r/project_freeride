@@ -33,13 +33,13 @@ static dkVec2f FitImageDimensionForFFT( const dkVec2f& inputTargetSize )
     return downscaledInput;
 }
 
-FFTPassOutput AddFFTComputePass( FrameGraph& frameGraph, ResHandle_t input, f32 inputTargetWidth, f32 inputTargetHeight )
+FFTPassOutput AddFFTComputePass( FrameGraph& frameGraph, FGHandle input, f32 inputTargetWidth, f32 inputTargetHeight )
 { 
     struct PassData {
-        ResHandle_t outputReal[2];
-        ResHandle_t outputImaginary[2];
+        FGHandle outputReal[2];
+        FGHandle outputImaginary[2];
 
-        ResHandle_t inputImage;
+        FGHandle inputImage;
     };
 
     dkVec2f inputTargetSize = dkVec2f( inputTargetWidth, inputTargetHeight );
@@ -59,8 +59,8 @@ FFTPassOutput AddFFTComputePass( FrameGraph& frameGraph, ResHandle_t input, f32 
         );
         
         struct DownscalePassData {
-            ResHandle_t inputImage;
-            ResHandle_t downscaledImage;
+            FGHandle inputImage;
+            FGHandle downscaledImage;
         };
 
         DownscalePassData& downscaleData = frameGraph.addRenderPass<DownscalePassData>(
@@ -190,14 +190,14 @@ FFTPassOutput AddFFTComputePass( FrameGraph& frameGraph, ResHandle_t input, f32 
     return output;
 }
 
-ResHandle_t AddInverseFFTComputePass( FrameGraph& frameGraph, FFTPassOutput& inputInFrequencyDomain, f32 outputTargetWidth, f32 outputTargetHeight )
+FGHandle AddInverseFFTComputePass( FrameGraph& frameGraph, FFTPassOutput& inputInFrequencyDomain, f32 outputTargetWidth, f32 outputTargetHeight )
 {
     struct PassDataRow {
-        ResHandle_t inputReal;
-        ResHandle_t inputImaginary;
+        FGHandle inputReal;
+        FGHandle inputImaginary;
 
-        ResHandle_t outputReal;
-        ResHandle_t outputImaginary;
+        FGHandle outputReal;
+        FGHandle outputImaginary;
     };
     
     PassDataRow& rowPassData = frameGraph.addRenderPass<PassDataRow>(
@@ -247,11 +247,11 @@ ResHandle_t AddInverseFFTComputePass( FrameGraph& frameGraph, FFTPassOutput& inp
     );
     
     struct PassDataCol {
-        ResHandle_t inputReal;
-        ResHandle_t inputImaginary;
+        FGHandle inputReal;
+        FGHandle inputImaginary;
 
-        ResHandle_t outputReal;
-        ResHandle_t outputImaginary;
+        FGHandle outputReal;
+        FGHandle outputImaginary;
     };
     
     PassDataCol& colPassData = frameGraph.addRenderPass<PassDataCol>(
@@ -333,9 +333,9 @@ ResHandle_t AddInverseFFTComputePass( FrameGraph& frameGraph, FFTPassOutput& inp
         );
         
         struct DownscalePassData {
-            ResHandle_t inputImage;
-            ResHandle_t downscaledImage;
-            ResHandle_t passBuffer;
+            FGHandle inputImage;
+            FGHandle downscaledImage;
+            FGHandle passBuffer;
         };
 
         f32 borderHorizontal = ( FFT_TEXTURE_DIMENSION - downscaledInput.x ) * 0.5f;

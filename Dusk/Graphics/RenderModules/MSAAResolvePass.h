@@ -8,30 +8,30 @@ class FrameGraph;
 class RenderDevice;
 class ShaderCache;
 
-using ResHandle_t = uint32_t;
+#include "Graphics/FrameGraph.h"
 
 struct ResolvedPassOutput {
-    ResHandle_t ResolvedColor;
-    ResHandle_t ResolvedDepth;
+    FGHandle ResolvedColor;
+    FGHandle ResolvedDepth;
 };
 
-ResHandle_t AddMSAAResolveRenderPass(
+FGHandle AddMSAAResolveRenderPass(
     FrameGraph& frameGraph,
-    ResHandle_t inputImage,
-    ResHandle_t inputVelocityImage,
-    ResHandle_t inputDepthImage,
+    FGHandle inputImage,
+    FGHandle inputVelocityImage,
+    FGHandle inputDepthImage,
     const u32   sampleCount = 1,
     const bool  enableTAA = false
 );
 
-ResHandle_t AddMSAADepthResolveRenderPass(
+FGHandle AddMSAADepthResolveRenderPass(
     FrameGraph& frameGraph,
-    ResHandle_t inputDepthImage,
+    FGHandle inputDepthImage,
     const u32   sampleCount = 1
 );
 
-ResHandle_t AddSSAAResolveRenderPass( 
+FGHandle AddSSAAResolveRenderPass( 
     FrameGraph& frameGraph, 
-    ResHandle_t resolvedInput, 
+    FGHandle resolvedInput, 
     bool isDepth = false
 );

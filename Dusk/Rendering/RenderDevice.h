@@ -951,6 +951,9 @@ public:
     void                        enableVerticalSynchronisation( const bool enabled );
     void                        present();
 
+    // Resize this device backbuffer (assuming this device has been created with graphics and present capabilities).
+    void                        resizeBackbuffer( const u32 width, const u32 height );
+
     void                        waitForPendingFrameCompletion();
 
     static const dkChar_t*      getBackendName();

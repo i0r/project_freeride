@@ -25,18 +25,18 @@ public:
                                 ~AtmosphereRenderModule();
 
     // Render world atmosphere (sky + atmospheric fog). If you want to skip the sky/fog, you can use the functions below.
-    ResHandle_t                 renderAtmosphere( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer );
+    FGHandle                 renderAtmosphere( FrameGraph& frameGraph, FGHandle renderTarget, FGHandle depthBuffer );
 
     // Render sky only. Should happen after the geometry render pass (to take advantage of the early z). Does not include
     // atmospheric fog.
-    ResHandle_t                 renderSky( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer );
+    FGHandle                 renderSky( FrameGraph& frameGraph, FGHandle renderTarget, FGHandle depthBuffer );
 
     // Render sky only for probe capture.
     void                        renderSkyForProbeCapture( FrameGraph& frameGraph, Image* outputImage, const ImageViewDesc& outputImageTarget, const CameraData& cameraData );
 
     // Render atmospheric fog. Will be applied on anything which has been written to the depth buffer, which is why the fog
     // should be applied after geometry rendering.
-    ResHandle_t                 renderAtmoshpericFog( FrameGraph& frameGraph, ResHandle_t renderTarget, ResHandle_t depthBuffer );
+    FGHandle                 renderAtmoshpericFog( FrameGraph& frameGraph, FGHandle renderTarget, FGHandle depthBuffer );
 
     // Release resources allocated by this RenderModule.
     void                        destroy( RenderDevice& renderDevice );

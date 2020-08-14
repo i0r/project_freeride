@@ -7,7 +7,6 @@
 class FrameGraph;
 class RenderDevice;
 class ShaderCache;
+struct FGHandle;
 
-using ResHandle_t = uint32_t;
-
-void AddPresentRenderPass( FrameGraph& frameGraph, ResHandle_t imageToPresent );
+void AddPresentRenderPass( FrameGraph& frameGraph, FGHandle imageToPresent );
