@@ -60,7 +60,7 @@ void FrameGraphBuilder::compile( RenderDevice* renderDevice, FrameGraphResources
             continue;
         }*/
 
-        resources.allocateImage( renderDevice, i, resToAlloc.description );
+        resources.allocateImage( renderDevice, i, resToAlloc.description, resToAlloc.flags );
     }
 
     for ( u32 i = 0; i < bufferCount; i++ ) {
@@ -589,7 +589,7 @@ void FrameGraphResources::allocateImage( RenderDevice* renderDevice, const FGHan
 {
     Image* image = nullptr;
 
-    for ( int i = 0; i < allocatedImageCount; i++ ) {
+    for ( i32 i = 0; i < allocatedImageCount; i++ ) {
         if ( imagesDesc[i] == description && isImageFree[i] ) {
             image = allocatedImages[i];
             isImageFree[i] = false;
@@ -603,7 +603,21 @@ void FrameGraphResources::allocateImage( RenderDevice* renderDevice, const FGHan
         imagesDesc[allocatedImageCount] = description;
 
         if ( flags & FrameGraphBuilder::eImageFlags::REQUEST_PER_MIP_RESOURCE_VIEW ) {
-            const u32 mipCount = ( description.mipCount < 0 ) ? ( 1 + floor( log2( Max( description.width, description.height ) ) ) ) : description.mipCount;
+            // Negative or null mip count means that the mip count must be automatically computed.
+            if ( description.mipCount <= 0 ) {
+                const u32 mipCount = ImageDesc::GetMipCount( description );
+
+                for ( u32 mipIdx = 0u; mipIdx < mipCount; mipIdx++ ) {
+                    ImageViewDesc mipView;
+                    mipView.MipCount = 1;
+                    mipView.StartMipIndex = mipIdx;
+                    renderDevice->createImageView( *image, mipView, IMAGE_VIEW_CREATE_SRV );
+                }
+            } else {
+                ImageViewDesc dummyView;
+                dummyView.MipCount = 1;
+                renderDevice->createImageView( *image, dummyView, IMAGE_VIEW_CREATE_SRV | IMAGE_VIEW_COVER_WHOLE_MIPCHAIN );
+            }
         }
 
         allocatedImageCount++;
