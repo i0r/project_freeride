@@ -393,6 +393,11 @@ struct ImageDesc
             && miscFlags == r.miscFlags
             && usage == r.usage;
     }
+
+    static DUSK_INLINE u32 GetMipCount( const ImageDesc& description )
+    {
+        return 1u + static_cast< u32 >( floor( log2( Max( description.width, description.height ) ) ) );
+    }
 };
 
 struct BufferViewDesc

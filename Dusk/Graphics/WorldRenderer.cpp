@@ -27,6 +27,7 @@
 #include "RenderModules/WorldRenderModule.h"
 #include "RenderModules/IBLUtilitiesModule.h"
 #include "RenderModules/CascadedShadowRenderModule.h"
+#include "RenderModules/ScreenSpaceReflectionModule.h"
 
 DUSK_ENV_VAR( EnableTAA, false, bool ); // "Enable Temporal AntiAliasing [false/true]
 
@@ -113,6 +114,7 @@ WorldRenderer::WorldRenderer( BaseAllocator* allocator )
     , resolvedDepth( FGHandle::Invalid )
     , environmentProbeStreaming( dk::core::allocate<EnvironmentProbeStreaming>( allocator, allocator ) )
     , cascadedShadowMapRendering( dk::core::allocate<CascadedShadowRenderModule>( allocator, allocator ) )
+    , screenSpaceReflections( dk::core::allocate<SSRModule>( allocator ) )
 {
 
 }
@@ -131,7 +133,8 @@ WorldRenderer::~WorldRenderer()
     dk::core::free( memoryAllocator, frameDrawCmds );
     dk::core::free( memoryAllocator, lightGrid );
     dk::core::free( memoryAllocator, environmentProbeStreaming );
-    dk::core::free( memoryAllocator, cascadedShadowMapRendering );
+	dk::core::free( memoryAllocator, cascadedShadowMapRendering );
+	dk::core::free( memoryAllocator, screenSpaceReflections );
     
     memoryAllocator = nullptr;
 }
@@ -150,7 +153,8 @@ void WorldRenderer::destroy( RenderDevice* renderDevice )
     }
 
     environmentProbeStreaming->destroyResources( *renderDevice );
-    cascadedShadowMapRendering->destroy( *renderDevice );
+	cascadedShadowMapRendering->destroy( *renderDevice );
+	screenSpaceReflections->destroy( *renderDevice );
 
     automaticExposure->destroy( *renderDevice );
     glareRendering->destroy( *renderDevice );
@@ -293,6 +297,7 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
     // Update clusters.
     LightGrid::Data lightGridData = lightGrid->updateClusters( frameGraph );
 
+    // Do a depth prepass (and capture normals/roughness at the same time).
     FGHandle prepassTarget = WorldRendering->addDepthPrepass( frameGraph );
 
     resolvedDepth = AddMSAADepthResolveRenderPass( frameGraph, prepassTarget, msaaSamplerCount );
@@ -302,9 +307,14 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
         resolvedDepth = AddSSAAResolveRenderPass( frameGraph, resolvedDepth, true );
     }
 
+    // Forward shadow casters commands to the CSM render module.
     cascadedShadowMapRendering->submitGPUShadowCullCmds( static_cast<GPUShadowDrawCmd*>( gpuShadowCullAllocator->getBaseAddress() ), gpuShadowCullAllocator->getAllocationCount() );
 
+    // Compute depth min/max and capture CSM shadows (using GPU-driven submit).
     cascadedShadowMapRendering->captureShadowMap( frameGraph, resolvedDepth, viewportSize, *lightGrid->getDirectionalLightData(), renderWorld );
+
+    // Compute Hi-Z as early as possible (we can fire it asynchronously while the geometry is rendering).
+    screenSpaceReflections->computeHiZMips( frameGraph, resolvedDepth, static_cast< u32 >( viewportSize.x ), static_cast< u32 >( viewportSize.y ) );
 
     // LightPass.
     WorldRenderModule::LightPassOutput primRenderPass = WorldRendering->addPrimitiveLightPass( frameGraph, lightGridData.PerSceneBuffer, prepassTarget, scenario, environmentProbeStreaming->getReadDistantProbeIrradiance(), environmentProbeStreaming->getReadDistantProbeRadiance(), cascadedShadowMapRendering->getGlobalShadowMatrix() );

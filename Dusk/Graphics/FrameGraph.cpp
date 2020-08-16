@@ -60,7 +60,7 @@ void FrameGraphBuilder::compile( RenderDevice* renderDevice, FrameGraphResources
             continue;
         }*/
 
-        resources.allocateImage( renderDevice, i, resToAlloc.description );
+        resources.allocateImage( renderDevice, i, resToAlloc.description, resToAlloc.flags );
     }
 
     for ( u32 i = 0; i < bufferCount; i++ ) {
@@ -585,11 +585,11 @@ void FrameGraphResources::allocateBuffer( RenderDevice* renderDevice, const FGHa
     inUseBuffers[resourceHandle] = buffer;
 }
 
-void FrameGraphResources::allocateImage( RenderDevice* renderDevice, const FGHandle resourceHandle, const ImageDesc& description )
+void FrameGraphResources::allocateImage( RenderDevice* renderDevice, const FGHandle resourceHandle, const ImageDesc& description, const u32 flags )
 {
     Image* image = nullptr;
 
-    for ( int i = 0; i < allocatedImageCount; i++ ) {
+    for ( i32 i = 0; i < allocatedImageCount; i++ ) {
         if ( imagesDesc[i] == description && isImageFree[i] ) {
             image = allocatedImages[i];
             isImageFree[i] = false;
@@ -601,6 +601,25 @@ void FrameGraphResources::allocateImage( RenderDevice* renderDevice, const FGHan
         image = renderDevice->createImage( description );
         allocatedImages[allocatedImageCount] = image;
         imagesDesc[allocatedImageCount] = description;
+
+        if ( flags & FrameGraphBuilder::eImageFlags::REQUEST_PER_MIP_RESOURCE_VIEW ) {
+            // Negative or null mip count means that the mip count must be automatically computed.
+            if ( description.mipCount <= 0 ) {
+                const u32 mipCount = ImageDesc::GetMipCount( description );
+
+                for ( u32 mipIdx = 0u; mipIdx < mipCount; mipIdx++ ) {
+                    ImageViewDesc mipView;
+                    mipView.MipCount = 1;
+                    mipView.StartMipIndex = mipIdx;
+                    renderDevice->createImageView( *image, mipView, IMAGE_VIEW_CREATE_SRV );
+                }
+            } else {
+                ImageViewDesc dummyView;
+                dummyView.MipCount = 1;
+                renderDevice->createImageView( *image, dummyView, IMAGE_VIEW_CREATE_SRV | IMAGE_VIEW_COVER_WHOLE_MIPCHAIN );
+            }
+        }
+
         allocatedImageCount++;
     }
 
@@ -675,6 +694,9 @@ FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevi
     perViewData.PreviousViewProjectionMatrix = dkMat4x4f::Identity;
 	perViewData.OrthoProjectionMatrix = dkMat4x4f::Identity;
 	perViewData.ViewMatrix = dkMat4x4f::Identity;
+    perViewData.ProjectionMatrix = dkMat4x4f::Identity;
+	perViewData.InverseProjectionMatrix = dkMat4x4f::Identity;
+	perViewData.InverseViewMatrix = dkMat4x4f::Identity;
     perViewData.ViewportSize = dkVec2f( 0.0f, 0.0f );
     perViewData.InverseViewportSize = dkVec2f( 0.0f, 0.0f );
     perViewData.WorldPosition = dkVec3f( 0.0f, 0.0f, 0.0f );
@@ -687,6 +709,8 @@ FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevi
     perViewData.FieldOfView = 90.0f;
 	perViewData.RightVector = dkVec3f( 0.0f, 0.0f, 1.0f );
 	perViewData.AspectRatio = 1.0f;
+	perViewData.NearPlane = 0.0f;
+	perViewData.FarPlane = 100.0f;
 }
 
 FrameGraph::~FrameGraph()
@@ -758,6 +782,9 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
         perViewData.PreviousViewProjectionMatrix = activeCamera->previousViewProjectionMatrix;
         perViewData.OrthoProjectionMatrix = dk::maths::MakeOrtho( 0.0f, activeCamera->viewportSize.x, activeCamera->viewportSize.y, 0.0f, -1.0f, 1.0f );
         perViewData.ViewMatrix = activeCamera->viewMatrix;
+        perViewData.ProjectionMatrix = activeCamera->projectionMatrix;
+        perViewData.InverseProjectionMatrix = activeCamera->inverseProjectionMatrix;
+        perViewData.InverseViewMatrix = activeCamera->inverseViewMatrix;
         perViewData.ViewportSize = activeCamera->viewportSize;
         perViewData.InverseViewportSize = activeCamera->inverseViewportSize;
         perViewData.WorldPosition = activeCamera->worldPosition;
@@ -769,6 +796,8 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
 		perViewData.FieldOfView = activeCamera->fov;
         perViewData.RightVector = activeCamera->rightVector;
         perViewData.AspectRatio = activeCamera->aspectRatio;
+        perViewData.NearPlane = activeCamera->nearPlane;
+        perViewData.FarPlane = activeCamera->farPlane;
     }
     
     graphScheduler.updateMaterialEdBuffer( &localMaterialEdData );
