@@ -173,6 +173,7 @@ void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache
     frameComposition->loadCachedResources( *graphicsAssetCache );
     atmosphereRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
     WorldRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
+    screenSpaceReflections->loadCachedResources( *renderDevice, *graphicsAssetCache );
 
     environmentProbeStreaming->createResources( *renderDevice );
     cascadedShadowMapRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
@@ -300,7 +301,9 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
     // Do a depth prepass (and capture normals/roughness at the same time).
     FGHandle prepassTarget = WorldRendering->addDepthPrepass( frameGraph );
 
-    resolvedDepth = AddMSAADepthResolveRenderPass( frameGraph, prepassTarget, msaaSamplerCount );
+    if ( msaaSamplerCount > 1 ) {
+        resolvedDepth = AddMSAADepthResolveRenderPass( frameGraph, prepassTarget, msaaSamplerCount );
+    }
 
     // Rescale the main render target for post-fx (if SSAA is used to down/upscale).
     if ( imageQuality != 1.0f ) {
@@ -314,17 +317,20 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
     cascadedShadowMapRendering->captureShadowMap( frameGraph, resolvedDepth, viewportSize, *lightGrid->getDirectionalLightData(), renderWorld );
 
     // Compute Hi-Z as early as possible (we can fire it asynchronously while the geometry is rendering).
-    screenSpaceReflections->computeHiZMips( frameGraph, resolvedDepth, static_cast< u32 >( viewportSize.x ), static_cast< u32 >( viewportSize.y ) );
+    SSRModule::HiZResult hiZMips = screenSpaceReflections->computeHiZMips( frameGraph, resolvedDepth, static_cast< u32 >( viewportSize.x ), static_cast< u32 >( viewportSize.y ) );
 
     // LightPass.
     WorldRenderModule::LightPassOutput primRenderPass = WorldRendering->addPrimitiveLightPass( frameGraph, lightGridData.PerSceneBuffer, prepassTarget, scenario, environmentProbeStreaming->getReadDistantProbeIrradiance(), environmentProbeStreaming->getReadDistantProbeRadiance(), cascadedShadowMapRendering->getGlobalShadowMatrix() );
-    
+
+    // Atmosphere Rendering.
     primRenderPass.OutputRenderTarget = atmosphereRendering->renderAtmosphere( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
 
     // AntiAliasing resolve. (we merge both TAA and MSAA in a single pass to avoid multiple dispatch).
     FGHandle resolvedColor = primRenderPass.OutputRenderTarget;
+    FGHandle resolvedGbuffer = primRenderPass.OutputThinGBufferTarget;
     if ( msaaSamplerCount > 1 || EnableTAA ) {
         resolvedColor = AddMSAAResolveRenderPass( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputVelocityTarget, primRenderPass.OutputDepthTarget, msaaSamplerCount, EnableTAA );
+        resolvedGbuffer = AddCheapMSAAResolveRenderPass( frameGraph, primRenderPass.OutputThinGBufferTarget, msaaSamplerCount );
     }
 
     if ( EnableTAA ) {
@@ -334,11 +340,14 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
     // Rescale the main render target for post-fx (if SSAA is used to down/upscale).
     if ( imageQuality != 1.0f ) {
         resolvedColor = AddSSAAResolveRenderPass( frameGraph, resolvedColor, false );
+        resolvedGbuffer = AddSSAAResolveRenderPass( frameGraph, resolvedGbuffer, false );
     }
 
-    // Atmosphere Rendering.
     FGHandle presentRt = resolvedColor;
 
+    // SSR Rendering.
+    screenSpaceReflections->rayTraceHiZ( frameGraph, resolvedDepth, resolvedGbuffer, hiZMips, static_cast< u32 >( viewportSize.x ), static_cast< u32 >( viewportSize.y ) );
+    
     // Glare Rendering.
     FFTPassOutput frequencyDomainRt = AddFFTComputePass( frameGraph, presentRt, viewportSize.x, viewportSize.y );
     FFTPassOutput convolutedFFT = glareRendering->addGlareComputePass( frameGraph, frequencyDomainRt );

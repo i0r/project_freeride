@@ -171,6 +171,7 @@ void Material::bindForScenario( const RenderScenario scenario, CommandList* cmdL
 
         DefaultPipelineState.FramebufferLayout.declareRTV( 0, VIEW_FORMAT_R16G16B16A16_FLOAT );
         DefaultPipelineState.FramebufferLayout.declareRTV( 1, VIEW_FORMAT_R16G16_FLOAT );
+        DefaultPipelineState.FramebufferLayout.declareRTV( 2, VIEW_FORMAT_R11G11B10_FLOAT );
         DefaultPipelineState.FramebufferLayout.declareDSV( VIEW_FORMAT_D32_FLOAT );
 
         DefaultPipelineState.samplerCount = samplerCount;

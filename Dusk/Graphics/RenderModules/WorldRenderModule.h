@@ -21,12 +21,14 @@ public:
 	{
 		FGHandle	OutputRenderTarget;
 		FGHandle	OutputDepthTarget;
-		FGHandle	OutputVelocityTarget;
+        FGHandle	OutputVelocityTarget;
+        FGHandle	OutputThinGBufferTarget;
 
 		LightPassOutput()
 			: OutputRenderTarget( FGHandle::Invalid )
 			, OutputDepthTarget( FGHandle::Invalid )
 			, OutputVelocityTarget( FGHandle::Invalid )
+			, OutputThinGBufferTarget( FGHandle::Invalid )
 		{
 
 		}
@@ -35,9 +37,8 @@ public:
 public:
 	// Return picked entity id (or Entity::INVALID_ID if no entity is picked/picking has not been
 	// requested by the application).
-	DUSK_INLINE u32 getAndConsumePickedEntityId() { isResultAvailable = false; return pickedEntityId; }
-
-	DUSK_INLINE const bool isPickingResultAvailable() const { return isResultAvailable; }
+	DUSK_INLINE u32			getAndConsumePickedEntityId()		{ isResultAvailable = false; return pickedEntityId; }
+	DUSK_INLINE const bool	isPickingResultAvailable() const	{ return isResultAvailable; }
 
 public:
                         WorldRenderModule();

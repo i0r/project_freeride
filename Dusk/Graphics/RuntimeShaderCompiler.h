@@ -12,6 +12,7 @@ class RuntimeInclude;
 
 class RuntimeShaderCompiler {
 public:
+    // RAI object holding shader bytecode (for a given shader model).
     struct GeneratedBytecode 
     {
         GeneratedBytecode( BaseAllocator* blobAllocator, u8* bytecode, const size_t bytecodeLength )

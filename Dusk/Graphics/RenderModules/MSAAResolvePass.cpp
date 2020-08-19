@@ -364,6 +364,34 @@ FGHandle AddMSAAResolveRenderPass(
     }
 }
 
+FGHandle AddCheapMSAAResolveRenderPass( FrameGraph& frameGraph, FGHandle inputImage, const u32 sampleCount )
+{
+    struct PassData {
+        FGHandle Input;
+        FGHandle Output;
+    };
+
+    PassData passData = frameGraph.addRenderPass<PassData>(
+        "AntiAliasing::CheapMSAAResolve",
+        [&]( FrameGraphBuilder& builder, PassData& passData ) {
+            passData.Input = builder.readReadOnlyImage( inputImage );
+
+            passData.Output = builder.copyImage( inputImage, nullptr, FrameGraphBuilder::eImageFlags::NO_MULTISAMPLE
+                                                 | FrameGraphBuilder::eImageFlags::USE_PIPELINE_DIMENSIONS );
+        },
+        [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+            Image* input = resources->getImage( passData.Input );
+            Image* output = resources->getImage( passData.Output );
+
+            cmdList->pushEventMarker( DUSK_STRING( "AntiAliasing::CheapMSAAResolve" ) );
+            cmdList->resolveImage( *input, *output );
+            cmdList->popEventMarker();
+        }
+    );
+
+    return passData.Output;
+}
+
 FGHandle AddMSAADepthResolveRenderPass( FrameGraph& frameGraph, FGHandle inputDepthImage, const u32 sampleCount )
 {
     switch ( sampleCount ) {

@@ -1,27 +1,14 @@
 lib SSR {
     properties {
         uint2 OutputSize;
-        float2 HamiltonSequenceSample;
+        float2 HaltonOffset;
     }
     
     resources {
-        RWTexture2D OutputRenderTarget {
-            swizzle = float4;
-        }
-        
-        Texture2D InputRenderTarget {
-            swizzle = float4;
-        }
-        
         sampler LinearSampler {
             format = LinearClampEdge;
         }
         
-        sampler PointSampler {
-            format = PointClampEdge;
-        }
-        
-        // RayTrace resources
         RWTexture2D RayHitTarget {
             swizzle = float4;
         }
@@ -34,35 +21,16 @@ lib SSR {
             swizzle = float;
         }
         
-        Texture2DArray HiZDepthBuffer {
+        Texture2D HiZDepthBuffer {
             swizzle = float;
         }
         
-        // RG: Encoded normals
-        // B : Roughness;
-        // A : Reserved
         Texture2D ThinGBuffer {
-            swizzle = float4;
-        }
-        
-        Texture2D ColorBuffer {
             swizzle = float4;
         }
         
         Texture2D BlueNoise {
             swizzle = float2;
-        }
-        
-        Texture2D RayTraceBuffer {
-            swizzle = float4;
-        }
-        
-        Texture2D PreviousFrameResult {
-            swizzle = float4;
-        }
-        
-        RWTexture2D TemporalResultTarget {
-            swizzle = float4;
         }
     }
    
@@ -148,7 +116,9 @@ lib SSR {
 
         float minimum_depth_plane(float2 ray, float level, float2 cell_count)
         {
-            return HiZDepthBuffer.Load( int4( ( ray * cell_count ), max( level, 0 ), 0) ).r;
+            uint mipLevel = max( level, 0 );
+            uint2 samplePos = ( ray * cell_count );
+            return HiZDepthBuffer.mips[mipLevel][samplePos].r;
         }
         
         float4 RayTrace(int HiZ_Max_Level, int HiZ_Start_Level, int HiZ_Stop_Level, int NumSteps, float Thickness, float2 screenSize, float3 rayOrigin, float3 rayDir)
@@ -295,25 +265,6 @@ lib SSR {
         }
     }
     
-    shader PrefilterCS {
-        float2 PixelCoordinates = float2( $SV_DispatchThreadId.xy ) + float2( 0.5f, 0.5f );
-        float2 UvCoordinates = PixelCoordinates / OutputSize;
-       
-        static const int3 SampleOffset = int3(-1, 0, 1);
-
-        float3 color = InputRenderTarget.SampleLevel(LinearSampler, UvCoordinates, 0.0f, SampleOffset.xx).rgb * Weight[0]
-                        + InputRenderTarget.SampleLevel(LinearSampler, UvCoordinates, 0.0f, SampleOffset.xy).rgb * Weight[1]
-                        + InputRenderTarget.SampleLevel(LinearSampler, UvCoordinates, 0.0f, SampleOffset.xz).rgb * Weight[2]
-                        + InputRenderTarget.SampleLevel(LinearSampler, UvCoordinates, 0.0f, SampleOffset.yx).rgb * Weight[3]
-                        + InputRenderTarget.SampleLevel(LinearSampler, UvCoordinates, 0.0f, SampleOffset.yy).rgb * Weight[4]
-                        + InputRenderTarget.SampleLevel(LinearSampler, UvCoordinates, 0.0f, SampleOffset.yz).rgb * Weight[5]
-                        + InputRenderTarget.SampleLevel(LinearSampler, UvCoordinates, 0.0f, SampleOffset.zx).rgb * Weight[6]
-                        + InputRenderTarget.SampleLevel(LinearSampler, UvCoordinates, 0.0f, SampleOffset.zy).rgb * Weight[7]
-                        + InputRenderTarget.SampleLevel(LinearSampler, UvCoordinates, 0.0f, SampleOffset.zz).rgb * Weight[8];
-
-        OutputRenderTarget[$SV_DispatchThreadId.xy] = float4( color, 1.0f );
-    }
-    
     shader HiZTraceCS {
         float2 PixelCoordinates = float2( $SV_DispatchThreadId.xy ) + float2( 0.5f, 0.5f );
         float2 UvCoordinates = PixelCoordinates / g_ScreenSize;
@@ -326,7 +277,7 @@ lib SSR {
         float  roughness = ThinGBufferSample.b;
         float  depth = DepthBuffer.SampleLevel( LinearSampler, UvCoordinates, 0.0f );
             
-        float2 Hash = BlueNoise.SampleLevel(LinearSampler, (UvCoordinates + HamiltonSequenceSample.xy) * (OutputSize.xy * 0.5f) / float2(BLUE_NOISE_SIZE, BLUE_NOISE_SIZE), 0.0f).rg;
+        float2 Hash = BlueNoise.SampleLevel(LinearSampler, (UvCoordinates + HaltonOffset.xy) * (OutputSize.xy * 0.5f) / float2(BLUE_NOISE_SIZE, BLUE_NOISE_SIZE), 0.0f).rg;
         Hash.y = lerp(Hash.y, 0.0, BRDF_BIAS);
     
         float3 screenPos = GetScreenPos( UvCoordinates, depth );
@@ -354,58 +305,9 @@ lib SSR {
         RayHitTarget[$SV_DispatchThreadId.xy] = float4(rayTrace.xyz, H.a);
         MaskTarget[$SV_DispatchThreadId.xy] = rayTrace.a * rayTrace.a;
     }
-    
-    shader ResolveTraceCS {
-        
-    }
-    
-    shader TemporalResolveCS {
-        float2 PixelCoordinates = float2( $SV_DispatchThreadId.xy ) + float2( 0.5f, 0.5f );
-        float2 UvCoordinates = PixelCoordinates / OutputSize;
-           
-        float hitZ = RayTraceBuffer.SampleLevel(LinearSampler, UvCoordinates, 0).b;
-        float2 Velocity = CalculateMotion(UvCoordinates, hitZ); // Reflection Depth derived motion. Removes smudghing cause by screen motion vectors.
-        
-        // Get AABB ClipBox.
-        float variance = 0;
-        float4 currColor = 0;
-        float4 minColor;
-        float4 maxColor;
 
-        ResolveAABB(
-            InputRenderTarget,
-            TEMPORAL_CLAMP_SCALE,
-            UvCoordinates,
-            OutputSize.xy,
-            variance,
-            minColor,
-            maxColor,
-            currColor
-        );
-
-        // Clamp.
-        float4 prevColor = PreviousFrameResult.SampleLevel(LinearSampler, UvCoordinates - Velocity, 0);
-        prevColor = clamp(prevColor, minColor, maxColor);
-
-        // Combine.
-        float temporalBlendWeight = saturate(TEMPORAL_WEIGHT * (1 - length(Velocity) * 8.0f));
-        float4 color = lerp(currColor, prevColor, temporalBlendWeight);
-
-        TemporalResultTarget[$SV_DispatchThreadId.xy] = color;
-    }
-    
-    pass Prefilter {
-        compute = PrefilterCS;
-        dispatch = { 16, 16, 1 };
-    }
-    
     pass HiZTrace {
         compute = HiZTraceCS;
-        dispatch = { 16, 16, 1 };
-    }
-    
-    pass TemporalResolve {
-        compute = TemporalResolveCS;
         dispatch = { 16, 16, 1 };
     }
 }

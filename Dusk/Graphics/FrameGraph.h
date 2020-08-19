@@ -116,7 +116,7 @@ private:
     u32 identifier;
 
 public:
-    FGHandle( const u32 id )
+    FGHandle( const u32 id = FGHandle::Invalid )
         : identifier( id )
     {
 

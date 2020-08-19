@@ -24,6 +24,13 @@ lib PrimitiveLighting {
             swizzle = float4;
         }
         
+        // RG: Encoded normals
+        // B : Roughness;
+        // A : Reserved
+        Texture2D OutputThinGBuffer {
+            swizzle = float4;
+        }
+        
         Buffer InstanceVectorBuffer {
             swizzle = float4;
         }
@@ -70,6 +77,7 @@ lib PrimitiveLighting {
     
     shared {
         #include <Material.hlsli>
+        #include <GeometryUtils.hlsli>
         
         #ifdef $MaterialEditor
         
@@ -495,6 +503,11 @@ lib PrimitiveLighting {
         $SV_TARGET1 = ComputeScreenSpaceVelocity( $POSITION1, $SV_POSITION ).rgrg;      
 #endif
 
+        float2 encodedNormals = EncodeNormals( N.xyz );
+        
+        float4 gbufferData = float4( encodedNormals, BlendedMaterial.Roughness, 0.0f );
+        $SV_TARGET2 = gbufferData;
+
 #ifdef $DoPickingCheck
         UpdatePickingBuffer( (uint2)$SV_POSITION.xy, identity, $SV_POSITION.z, 1.0f );
 #endif
@@ -519,7 +532,7 @@ lib PrimitiveLighting {
         MaterialEditor = false;
         DoPickingCheck = false;
         DUSK_COMPILE_TIME_FLAGS;     
-        rendertargets = { OutputRenderTarget, OutputVelocity };
+        rendertargets = { OutputRenderTarget, OutputVelocity, OutputThinGBuffer };
         depthStencil = OutputDepthTarget;
     }
     
@@ -529,7 +542,7 @@ lib PrimitiveLighting {
         MaterialEditor = true;
         DoPickingCheck = false;
         DUSK_COMPILE_TIME_FLAGS;     
-        rendertargets = { OutputRenderTarget, OutputVelocity };
+        rendertargets = { OutputRenderTarget, OutputVelocity, OutputThinGBuffer };
         depthStencil = OutputDepthTarget;
     }
     
@@ -539,7 +552,7 @@ lib PrimitiveLighting {
         MaterialEditor = false;
         DoPickingCheck = true;
         DUSK_COMPILE_TIME_FLAGS;
-        rendertargets = { OutputRenderTarget, OutputVelocity };
+        rendertargets = { OutputRenderTarget, OutputVelocity, OutputThinGBuffer };
         depthStencil = OutputDepthTarget;
     }
     
@@ -549,7 +562,7 @@ lib PrimitiveLighting {
         MaterialEditor = true;
         DoPickingCheck = true;
         DUSK_COMPILE_TIME_FLAGS;
-        rendertargets = { OutputRenderTarget, OutputVelocity };
+        rendertargets = { OutputRenderTarget, OutputVelocity, OutputThinGBuffer };
         depthStencil = OutputDepthTarget;
     }
 }

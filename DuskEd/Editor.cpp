@@ -574,7 +574,7 @@ void BuildThisFrameGraph( FrameGraph& frameGraph, const Material::RenderScenario
 
     // TODO Make a separate EditorRenderer or something like that
 #if DUSK_USE_IMGUI
-        // ImGui Editor GUI.
+    // ImGui Editor GUI.
     frameGraph.savePresentRenderTarget( presentRt );
 
     presentRt = g_ImGuiRenderModule->render( frameGraph, presentRt );

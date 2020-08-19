@@ -104,6 +104,7 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
         FGHandle output;
         FGHandle velocityBuffer;
         FGHandle depthBuffer;
+        FGHandle GBuffer;
         FGHandle PerPassBuffer;
         FGHandle PerViewBuffer;
         FGHandle PerSceneBuffer;
@@ -132,6 +133,14 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
             rtDesc.bindFlags = RESOURCE_BIND_RENDER_TARGET_VIEW | RESOURCE_BIND_SHADER_RESOURCE;
 
             passData.output = builder.allocateImage( rtDesc, FrameGraphBuilder::USE_PIPELINE_DIMENSIONS | FrameGraphBuilder::USE_PIPELINE_SAMPLER_COUNT );
+
+            ImageDesc gbufferDesc;
+            gbufferDesc.dimension = ImageDesc::DIMENSION_2D;
+            gbufferDesc.format = eViewFormat::VIEW_FORMAT_R11G11B10_FLOAT;
+            gbufferDesc.usage = RESOURCE_USAGE_DEFAULT;
+            gbufferDesc.bindFlags = RESOURCE_BIND_RENDER_TARGET_VIEW | RESOURCE_BIND_SHADER_RESOURCE;
+
+            passData.GBuffer = builder.allocateImage( gbufferDesc, FrameGraphBuilder::USE_PIPELINE_DIMENSIONS | FrameGraphBuilder::USE_PIPELINE_SAMPLER_COUNT );
 
             passData.depthBuffer = builder.readReadOnlyImage( depthPrepassBuffer );
 
@@ -188,6 +197,8 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
             Image* outputTarget = resources->getImage( passData.output );
             Image* velocityTarget = resources->getImage( passData.velocityBuffer );
             Image* zbufferTarget = resources->getImage( passData.depthBuffer );
+            Image* gbufferTarget = resources->getImage( passData.GBuffer );
+
             Image* sliceShadow = resources->getPersitentImage( passData.CSMSlices );
 
             Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
@@ -201,11 +212,19 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
 
             cmdList->pushEventMarker( DUSK_STRING( "Forward+ Light Pass" ) );
 
-            // Clear render targets at the begining of the pass.
+            // Clear render targets at the beginning of the pass.
             constexpr f32 ClearValue[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-            Image* Framebuffer[2] = { outputTarget, velocityTarget };
-            FramebufferAttachment FramebufferAttachments[2] = { FramebufferAttachment( outputTarget ), FramebufferAttachment( velocityTarget ) };
-            cmdList->clearRenderTargets( Framebuffer, 2u, ClearValue );
+            Image* Framebuffer[3] = { 
+                outputTarget, 
+                velocityTarget, 
+                gbufferTarget 
+            };
+            FramebufferAttachment FramebufferAttachments[3] = { 
+                FramebufferAttachment( outputTarget ), 
+                FramebufferAttachment( velocityTarget ), 
+                FramebufferAttachment( gbufferTarget ) 
+            };
+            cmdList->clearRenderTargets( Framebuffer, 3u, ClearValue );
 
             // Update viewport (using image quality scaling)
             const CameraData* camera = resources->getMainCamera();
@@ -328,6 +347,7 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
     output.OutputRenderTarget = data.output;
     output.OutputDepthTarget = data.depthBuffer;
     output.OutputVelocityTarget = data.velocityBuffer;
+    output.OutputThinGBufferTarget = data.GBuffer;
 
     return output;
 }

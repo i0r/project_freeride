@@ -19,6 +19,21 @@ namespace
 
         return static_cast< f32 >( bitsShifted ) * 2.3283064365386963e-10f; // / 0x100000000
     }
+
+    static constexpr f32 GetHaltonValue( i32 index, const i32 radix )
+    {
+        f32 fraction = 1.0f / static_cast< f32 >( radix );
+        
+        f32 result = 0.0f;
+        while ( index > 0 ) {
+            result += static_cast< f32 >( index % radix ) * fraction;
+
+            index /= radix;
+            fraction /= static_cast< f32 >( radix );
+        }
+
+        return result;
+    }
 }
 
 namespace dk
@@ -92,6 +107,22 @@ namespace dk
         static DUSK_INLINE constexpr dkVec2f CarthesianToSphericalCoordinates( const dkVec3f& coords )
         {
             return dkVec2f( atan2( coords.x, coords.y ), atan2( hypot( coords.x, coords.y ), coords.z ) );
+        }
+
+        // Generate and return a two-dimensional random halton offset.
+        static DUSK_INLINE dkVec2f HaltonOffset2D()
+        {
+            constexpr i32 SAMPLE_COUNT = 64;
+            static i32 SampleIndex = 0;
+
+            dkVec2f offset = dkVec2f(
+                GetHaltonValue( SampleIndex & 1023, 2 ),
+                GetHaltonValue( SampleIndex & 1023, 3 )
+            );
+
+            SampleIndex = ++SampleIndex % SAMPLE_COUNT;
+
+            return offset;
         }
     }
 }
