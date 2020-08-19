@@ -186,6 +186,23 @@ namespace CommandPacket
         u8                      ClearStencil;
         u8                      ClearStencilValue;
     };
+    
+    struct CopyImage
+    {
+        u32                     Identifier;
+        u32                     SourceResourceIndex;
+        ID3D11Resource*         SourceImage;
+        ID3D11Resource*         DestImage;
+        u32                     DestResourceIndex;
+    };
+
+    struct ResolveImage 
+    {
+        u32                     Identifier;
+        DXGI_FORMAT             Format;
+        ID3D11Resource*         SourceImage;
+        ID3D11Resource*         DestImage;
+    };
 
     struct ArgumentLessPacket
     {
@@ -261,6 +278,11 @@ enum CommandPacketIdentifier
     // Bind a sampler state.
     CPI_BIND_SAMPLER,
 
+    // Copy Image (src to dst).
+    CPI_COPY_IMAGE,
+
+    // Perform an hardware resource resolve.
+    CPI_RESOLVE_IMAGE,
 
     CPI_MULTI_DRAW_INDEXED_INSTANCED_INDIRECT,
 

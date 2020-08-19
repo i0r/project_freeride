@@ -188,6 +188,7 @@ public:
     void                            popEventMarker();
 
     void                            copyBuffer( Buffer* sourceBuffer, Buffer* destBuffer );
+    void                            copyImage( Image& src, Image& dst, const ImageViewDesc& infos = ImageViewDesc(), const ImageViewDesc& infosDst = ImageViewDesc() );
 
     // NOTE Transition should be handled by higher level APIs (RenderGraph, etc.)
     // Use explicit transition for special cases only
@@ -195,6 +196,7 @@ public:
     void                            transitionBuffer( Buffer& buffer, const eResourceState state );
 
     void                            insertComputeBarrier( Image& image );
+    void                            resolveImage( Image& src, Image& dst );
 
 private:
     NativeCommandList*              nativeCommandList;

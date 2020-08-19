@@ -506,6 +506,23 @@ void RenderDevice::createImageView( Image& image, const ImageViewDesc& viewDescr
     }
 }
 
+void CommandList::copyImage( Image& src, Image& dst, const ImageViewDesc& infosSrc, const ImageViewDesc& infosDst )
+{
+    CommandPacket::CopyImage* commandPacket = dk::core::allocate<CommandPacket::CopyImage>( nativeCommandList->CommandPacketAllocator );
+    memset( commandPacket, 0, sizeof( CommandPacket::CopyImage ) );
+
+    commandPacket->Identifier = CPI_COPY_IMAGE;
+    commandPacket->SourceImage = src.textureResource;
+    commandPacket->DestImage = dst.textureResource;
+
+    const UINT sourceResource = D3D11CalcSubresource( infosSrc.StartMipIndex, infosSrc.StartImageIndex, infosSrc.MipCount );
+    const UINT destResource = D3D11CalcSubresource( infosDst.StartMipIndex, infosDst.StartImageIndex, infosDst.MipCount );
+    commandPacket->SourceResourceIndex = sourceResource;
+    commandPacket->DestResourceIndex = destResource;
+
+    nativeCommandList->Commands.push( reinterpret_cast< u32* >( commandPacket ) );
+}
+
 void RenderDevice::destroyImage( Image* image )
 {
 #define RELEASE_IF_ALLOCATED( obj ) if ( obj != nullptr ) { obj->Release(); obj = nullptr; }
@@ -562,6 +579,20 @@ void CommandList::transitionImage( Image& image, const eResourceState state, con
 void CommandList::insertComputeBarrier( Image& image )
 {
 
+}
+
+void CommandList::resolveImage( Image& src, Image& dst )
+{
+    CommandPacket::ResolveImage* commandPacket = dk::core::allocate<CommandPacket::ResolveImage>( nativeCommandList->CommandPacketAllocator );
+    memset( commandPacket, 0, sizeof( CommandPacket::ResolveImage ) );
+
+    DXGI_FORMAT imageFormat = static_cast< DXGI_FORMAT >( src.Description.format );
+    commandPacket->Identifier = CPI_RESOLVE_IMAGE;
+    commandPacket->Format = imageFormat;
+    commandPacket->SourceImage = src.textureResource;
+    commandPacket->DestImage = dst.textureResource;
+
+    nativeCommandList->Commands.push( reinterpret_cast< u32* >( commandPacket ) );
 }
 
 void CommandList::setupFramebuffer( FramebufferAttachment* renderTargetViews, FramebufferAttachment depthStencilView )

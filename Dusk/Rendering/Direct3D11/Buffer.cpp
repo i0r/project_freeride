@@ -131,6 +131,8 @@ void CommandList::bindIndiceBuffer( const Buffer* buffer, const bool use32bitsIn
 
 void CommandList::updateBuffer( Buffer& buffer, const void* data, const size_t dataSize )
 {
+    DUSK_DEV_ASSERT( buffer.BufferObject, "Buffer IS NULL!" );
+
     CommandPacket::UpdateBuffer* commandPacket = dk::core::allocate<CommandPacket::UpdateBuffer>( nativeCommandList->CommandPacketAllocator );
     commandPacket->Identifier = CPI_UPDATE_BUFFER;
     commandPacket->BufferObject = buffer.BufferObject;

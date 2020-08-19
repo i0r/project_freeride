@@ -684,6 +684,20 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
             }
 			break;
         }
+
+        case CPI_COPY_IMAGE:
+        {
+            CommandPacket::CopyImage cmdPacket = *( CommandPacket::CopyImage* )bufferPointer;
+            renderContext->ImmediateContext->CopySubresourceRegion( cmdPacket.DestImage, cmdPacket.DestResourceIndex, 0, 0, 0, cmdPacket.SourceImage, cmdPacket.SourceResourceIndex, nullptr );
+            break;
+        }
+
+        case CPI_RESOLVE_IMAGE:
+        {
+            CommandPacket::ResolveImage cmdPacket = *( CommandPacket::ResolveImage* )bufferPointer;
+            renderContext->ImmediateContext->ResolveSubresource( cmdPacket.DestImage, 0, cmdPacket.SourceImage, 0, cmdPacket.Format );
+            break;
+        }
         };
     }
 }
