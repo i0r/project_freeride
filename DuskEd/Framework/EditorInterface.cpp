@@ -61,7 +61,7 @@ EditorInterface::EditorInterface( BaseAllocator* allocator )
 	, renderDocWidget( dk::core::allocate<RenderDocHelperWidget>( memoryAllocator, g_RenderDocHelper ) )
 #endif
 	, menuBarHeight( 0.0f )  
-	, isResizing( false )
+	, isResizing( true )
 {
 
 }
