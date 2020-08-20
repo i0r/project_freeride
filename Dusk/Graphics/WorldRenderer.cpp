@@ -215,7 +215,7 @@ void WorldRenderer::drawDebugSphere( CommandList& cmdList )
 {
     const PrimitiveCache::Entry& sphere = primitiveCache->getSphereEntry();
 
-    cmdList.bindVertexBuffer( (const Buffer**)sphere.vertexBuffers, 3 );
+    cmdList.bindVertexBuffer( (const Buffer**)sphere.vertexBuffers, nullptr, 3 );
     cmdList.bindIndiceBuffer( sphere.indiceBuffer );
     cmdList.drawIndexed( sphere.indiceCount, 1 );
 }
@@ -243,24 +243,24 @@ DrawCmd& WorldRenderer::allocateDrawCmd()
 {
     return *dk::core::allocate<DrawCmd>( drawCmdAllocator );
 }
-
-DrawCmd& WorldRenderer::allocateSpherePrimitiveDrawCmd()
-{
-    DrawCmd& cmd = allocateDrawCmd();
-
-    const PrimitiveCache::Entry& sphere = primitiveCache->getSphereEntry();
-
-    DrawCommandInfos& infos = cmd.infos;
-    infos.vertexBuffers = (const Buffer**)sphere.vertexBuffers;
-    infos.indiceBuffer = sphere.indiceBuffer;
-    infos.indiceBufferOffset = sphere.indiceBufferOffset;
-    infos.indiceBufferCount = sphere.indiceCount;
-    infos.vertexBufferCount = 3;
-    infos.alphaDitheringValue = 1.0f;
-    infos.useShortIndices = true;
-
-    return cmd;
-}
+//
+//DrawCmd& WorldRenderer::allocateSpherePrimitiveDrawCmd()
+//{
+//    DrawCmd& cmd = allocateDrawCmd();
+//
+//    const PrimitiveCache::Entry& sphere = primitiveCache->getSphereEntry();
+//
+//    DrawCommandInfos& infos = cmd.infos;
+//    infos.vertexBuffers = ( const Buffer** )sphere.vertexBuffers;
+//    infos.indiceBuffer = sphere.indiceBuffer;
+//    infos.indiceBufferOffset = sphere.indiceBufferOffset;
+//    infos.indiceBufferCount = sphere.indiceCount;
+//    infos.vertexBufferCount = 3;
+//    infos.alphaDitheringValue = 1.0f;
+//    infos.useShortIndices = true;
+//
+//    return cmd;
+//}
 
 GPUShadowDrawCmd& WorldRenderer::allocateGPUShadowCullDrawCmd()
 {

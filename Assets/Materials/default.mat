@@ -7,23 +7,23 @@ material "default" {
 	isDoubleFace = false;
 	isShadeless = false;
 	scenario "Default" {
-		vertex = "e5af556c12334aa715c265a409fe3d8f";
-		pixel = "efce1d6cb5543daba890e788f5b629ea";
+		vertex = "aa6d6d5ba3580227453515fb1c065b46";
+		pixel = "b72cb4ed1e2c8d04aa1fff867ab9b410";
 	}
 	scenario "Editor_Default" {
-		vertex = "d7dd6a229530fcc32c06f59eda0932b3";
-		pixel = "b9e70f6fa8d1e2f1639a829d5d30c8a8";
+		vertex = "d696211af1a9cd19b47d0baf3708dc57";
+		pixel = "e087178f00dc3ef1288b5a7ff4ddfebf";
 	}
 	scenario "Default_Picking" {
-		vertex = "9644d7c6700905c091f4255fe5ed795d";
-		pixel = "60e0605d1ca7ec09970e275853280db4";
+		vertex = "66ce0e8abdef59ed85baea2a6f214fbd";
+		pixel = "182cd078ee2d6d1c16bad724f6658551";
 	}
 	scenario "Editor_Default_Picking" {
-		vertex = "7ead57e5b8cc77adc94add931b74e8b9";
-		pixel = "ad61623f84e7cd01ae066ab7c61db89e";
+		vertex = "2cf17cd96e3f22e13428e1c483db955b";
+		pixel = "554c62c7d95ffb074498b30bb4b0a5a3";
 	}
 	scenario "Depth_Only" {
-		vertex = "46ed7d71e589f9c02f78e3232c2f86d7";
+		vertex = "f06df78da23943fead240d654c516094";
 		pixel = "";
 	}
 }

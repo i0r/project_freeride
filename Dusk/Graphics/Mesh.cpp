@@ -7,7 +7,7 @@
 
 Mesh::Mesh()
     : RenderMaterial( nullptr )
-    , IndexBuffer( nullptr )
+    , IndexBuffer()
     , IndiceBufferOffset( 0 )
     , VertexAttributeBufferOffset( 0 )
     , IndiceCount( 0 )
@@ -16,10 +16,8 @@ Mesh::Mesh()
     , PositionVertices( nullptr )
     , MemoryAllocator( nullptr )
     , Indices( nullptr )
-    , ShadowGPUBatchEntryIndex( 0u )
+    , RenderWorldIndex( 0u )
 {
-    memset( AttributeBuffers, 0, sizeof( Buffer* ) * ToUnderlyingType( eMeshAttribute::Count ) );
-
 #if DUSK_DEVBUILD
     Name = "Mesh_No_Name";
 #endif

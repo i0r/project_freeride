@@ -6,6 +6,8 @@
 
 class Material;
 
+#include "Mesh.h"
+
 struct DrawCommandKey
 {
     enum Layer : uint8_t
@@ -75,8 +77,8 @@ struct DrawCommandInfos
     };
 
     const Material*             material; // Geom cmd
-    const Buffer* const *       vertexBuffers;
-    const Buffer*               indiceBuffer;
+    const BufferBinding*        vertexBuffers;
+    const BufferBinding*        indiceBuffer;
     u32                         indiceBufferOffset; // unused if indice buffer is null
     u32                         indiceBufferCount; // same as above
     u32                         vertexBufferCount;

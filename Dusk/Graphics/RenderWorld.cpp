@@ -129,11 +129,13 @@ Model* RenderWorld::addAndCommitParsedDynamicModel( RenderDevice* renderDevice, 
             Mesh& mesh = lod.MeshArray[j];
             mesh.RenderMaterial = defaultMaterial;
             
-            const bool meshCanCastShadows = ( mesh.PositionVertices != nullptr && mesh.Indices != nullptr );
-			if ( mesh.RenderMaterial->castShadow() && meshCanCastShadows ) {
+            const bool isValidMesh = ( mesh.PositionVertices != nullptr && mesh.Indices != nullptr );
+			if ( isValidMesh ) {
 				// Allocate data for GPU-driven shadow rendering.
                 MeshConstants meshInfos;
-                mesh.ShadowGPUBatchEntryIndex = allocateGpuMeshInfos( meshInfos, mesh.VertexCount * 3, mesh.FaceCount, mesh.IndiceCount );
+                mesh.RenderWorldIndex = allocateGpuMeshInfos( meshInfos, mesh.VertexCount * 3, mesh.FaceCount, mesh.IndiceCount );
+
+                mesh.AttributeBuffers[eMeshAttribute::Position] = BufferBinding( shadowCasterVertexBuffer, meshInfos.VertexOffset );
 
                 // Update CPU Buffers and mark dirty ranges for the next GPU buffers update.
                 u32 vertexOffsetInElements = meshInfos.VertexOffset / sizeof( f32 );
@@ -149,7 +151,7 @@ Model* RenderWorld::addAndCommitParsedDynamicModel( RenderDevice* renderDevice, 
 				indiceBufferDirtyLength = Max( indiceBufferDirtyLength, indiceBufferDirtyOffset + mesh.IndiceCount );
             
                 // Create clusters for this mesh.
-                createMeshClusters( mesh.ShadowGPUBatchEntryIndex, mesh.IndiceCount, mesh.PositionVertices, mesh.Indices );
+                createMeshClusters( mesh.RenderWorldIndex, mesh.IndiceCount, mesh.PositionVertices, mesh.Indices );
             }
         }
     }

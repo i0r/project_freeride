@@ -125,12 +125,12 @@ isMaterialDirty = true;\
         // Material Description.
         ImGui::InputText( "Name", editedMaterial.Name, DUSK_MAX_PATH );
 
-        constexpr const char* ShadingModelString[ShadingModel::Count] = {
+        constexpr const char* ShadingModelString[ShadingModel::ShadingModel_Count] = {
             "Default",
             "Clear Coat"
         };
 
-        isMaterialDirty = ImGui::Combo( "Shading Model", reinterpret_cast< i32* >( &editedMaterial.SModel ), ShadingModelString, ShadingModel::Count );
+        isMaterialDirty = ImGui::Combo( "Shading Model", reinterpret_cast< i32* >( &editedMaterial.SModel ), ShadingModelString, ShadingModel::ShadingModel_Count );
         
         // Material Flags.
         DUSK_DISPLAY_MATERIAL_FLAG( IsDoubleFace );
@@ -211,7 +211,7 @@ isMaterialDirty = true;\
                 }
 
                 if ( canBlendLayer ) {
-                    constexpr const char* BlendModeString[ShadingModel::Count] = {
+                    constexpr const char* BlendModeString[ShadingModel::ShadingModel_Count] = {
                         "Additive",
                         "Multiplicative"
                     };

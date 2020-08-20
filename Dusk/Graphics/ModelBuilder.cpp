@@ -140,12 +140,12 @@ void dk::graphics::BuildParsedModel( Model* builtModel, BaseAllocator* memoryAll
     Buffer* indice = CreateIfNonEmpty<i32, eResourceBind::RESOURCE_BIND_INDICE_BUFFER>( renderDevice, indices, 1 );
 
     for ( Mesh* builtMesh : builtMeshes ) {
-        builtMesh->AttributeBuffers[eMeshAttribute::Position] = pos;
-        builtMesh->AttributeBuffers[eMeshAttribute::UvMap_0] = uv0;
-        builtMesh->AttributeBuffers[eMeshAttribute::Normal] = normal;
-        builtMesh->AttributeBuffers[eMeshAttribute::Color_0] = colors0;
+        builtMesh->AttributeBuffers[eMeshAttribute::Position] = BufferBinding();
+        builtMesh->AttributeBuffers[eMeshAttribute::UvMap_0] = BufferBinding( uv0 );
+        builtMesh->AttributeBuffers[eMeshAttribute::Normal] = BufferBinding( normal );
+        builtMesh->AttributeBuffers[eMeshAttribute::Color_0] = BufferBinding( colors0 );
 
-        builtMesh->IndexBuffer = indice;
+        builtMesh->IndexBuffer = BufferBinding( indice );
     }
 
     // Recompute AABB/Bounding Sphere.

@@ -370,7 +370,8 @@ void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, FGHan
 
                     // Bind vertex buffers
                     bufferList[1] = batchChunk.InstanceIdBuffer;
-                    cmdList->bindVertexBuffer( ( const Buffer** )bufferList, 2, 0 );
+
+                    cmdList->bindVertexBuffer( ( const Buffer** )bufferList, nullptr, 2, 0 );
                     cmdList->bindIndiceBuffer( batchChunk.FilteredIndiceBuffer, true );
 
                     cmdList->bindBuffer( ShadowRendering::DirectionalShadowRendering_DrawConstants_Hashcode, batchChunk.DrawCallArgsBuffer );

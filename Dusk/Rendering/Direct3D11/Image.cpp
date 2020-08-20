@@ -646,8 +646,19 @@ void SetupFramebuffer_Replay( RenderContext* renderContext, FramebufferAttachmen
         renderContext->FramebufferDepthBuffer = nullptr;
     }
 
+    bool needUavFlush = false;
+    bool needSrvFlush = false;
+
     Image* dsvImage = depthStencilView.ImageAttachment;
     if ( dsvImage != nullptr ) {
+        if ( ClearImageUAVRegister( renderContext, dsvImage ) ) {
+            needUavFlush = true;
+        }
+
+        if ( ClearImageSRVRegister( renderContext, dsvImage ) ) {
+            needSrvFlush = true;
+        }
+
         const u64 viewKey = depthStencilView.ViewDescription.SortKey;
         DepthStencilView = ( viewKey != 0ull ) ? dsvImage->RTVs[viewKey].DepthStencilView : dsvImage->DefaultDepthStencilView;
 
@@ -659,9 +670,6 @@ void SetupFramebuffer_Replay( RenderContext* renderContext, FramebufferAttachmen
     const i32 rtvCount = bindedPipelineState->rtvCount;
 
     ID3D11DeviceContext* immediateCtx = renderContext->ImmediateContext;
-
-    bool needUavFlush = false;
-    bool needSrvFlush = false;
 
     i32 attachmentIdx = 0;
     for ( ; attachmentIdx < rtvCount; attachmentIdx++ ) {

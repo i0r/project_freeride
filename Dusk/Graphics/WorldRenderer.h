@@ -83,7 +83,7 @@ public:
 
     DrawCmd&            allocateDrawCmd();
 
-    DrawCmd&            allocateSpherePrimitiveDrawCmd();
+    //DrawCmd&            allocateSpherePrimitiveDrawCmd();
 
     GPUShadowDrawCmd&   allocateGPUShadowCullDrawCmd();
 

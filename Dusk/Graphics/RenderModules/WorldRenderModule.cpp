@@ -303,14 +303,20 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
                 cmdList->prepareAndBindResourceList();
 
                 const Buffer* bufferList[3] = { 
-                    cmdInfos.vertexBuffers[eMeshAttribute::Position],
-                    cmdInfos.vertexBuffers[eMeshAttribute::Normal],
-                    cmdInfos.vertexBuffers[eMeshAttribute::UvMap_0]
+                    cmdInfos.vertexBuffers[eMeshAttribute::Position].BufferObject,
+                    cmdInfos.vertexBuffers[eMeshAttribute::Normal].BufferObject,
+                    cmdInfos.vertexBuffers[eMeshAttribute::UvMap_0].BufferObject
+                };
+
+                const u32 bufferOffsets[3] = {
+                    cmdInfos.vertexBuffers[eMeshAttribute::Position].OffsetInBytes,
+                    0u,
+                    0u
                 };
 
                 // Bind vertex buffers
-                cmdList->bindVertexBuffer( ( const Buffer** )bufferList, 3, 0);
-                cmdList->bindIndiceBuffer( cmdInfos.indiceBuffer, !cmdInfos.useShortIndices );
+                cmdList->bindVertexBuffer( ( const Buffer** )bufferList, bufferOffsets, 3, 0);
+                cmdList->bindIndiceBuffer( cmdInfos.indiceBuffer->BufferObject, !cmdInfos.useShortIndices );
 
 				cmdList->drawIndexed( cmdInfos.indiceBufferCount, cmdInfos.instanceCount, cmdInfos.indiceBufferOffset );
 
@@ -450,12 +456,16 @@ FGHandle WorldRenderModule::addDepthPrepass( FrameGraph& frameGraph )
                 cmdList->prepareAndBindResourceList();
 
                 const Buffer* bufferList[1] = { 
-                    cmdInfos.vertexBuffers[eMeshAttribute::Position]
+                    cmdInfos.vertexBuffers[eMeshAttribute::Position].BufferObject
+                };
+
+                const u32 bufferOffsets[1] = {
+                    cmdInfos.vertexBuffers[eMeshAttribute::Position].OffsetInBytes
                 };
 
                 // Bind vertex buffers
-                cmdList->bindVertexBuffer( ( const Buffer** )bufferList, 1, 0);
-                cmdList->bindIndiceBuffer( cmdInfos.indiceBuffer, !cmdInfos.useShortIndices );
+                cmdList->bindVertexBuffer( ( const Buffer** )bufferList, bufferOffsets );
+                cmdList->bindIndiceBuffer( cmdInfos.indiceBuffer->BufferObject, !cmdInfos.useShortIndices );
 
 				cmdList->drawIndexed( cmdInfos.indiceBufferCount, cmdInfos.instanceCount, cmdInfos.indiceBufferOffset );
 

@@ -28,14 +28,36 @@ enum eMeshAttribute : i32
     Count,
 };
 
+struct BufferBinding 
+{
+    // The buffer holding the data for this binding.
+    const Buffer*   BufferObject;
+    
+    // Offset in bytes at which the data starts in BufferObject.
+    u32             OffsetInBytes;
+   
+    // Custom stride to reinterpret the given BufferObject content.
+    // If 0, this parameter is ignored.
+    u32             StrideOverrideInBytes;
+
+    BufferBinding( const Buffer* buffer = nullptr, const u32 offset = 0u, const u32 stride = 0u )
+        : BufferObject( buffer )
+        , OffsetInBytes( offset )
+        , StrideOverrideInBytes( stride )
+    {
+
+    }
+};
+
 // A container holding informations to render geometry.
 struct Mesh
 {
     // Array holding buffers for each eMeshAttribute. The Mesh instance should not have
     // the ownership of those buffers.
-    const Buffer*           AttributeBuffers[eMeshAttribute::Count];
+    BufferBinding     AttributeBuffers[eMeshAttribute::Count];
 
-    const Buffer*           IndexBuffer;
+    // Buffer holding indexes for this mesh (if the mesh is indexed).
+    BufferBinding     IndexBuffer;
 
     // The material used to draw this mesh. The mesh instance should not have the ownership
     // of the material instance.
@@ -72,7 +94,7 @@ struct Mesh
 
     // GPU Batch Entry index allocated by the RenderWorld (required during GPU-driven
     // culling).
-    u32                     ShadowGPUBatchEntryIndex;
+    u32                     RenderWorldIndex;
 
                             Mesh();
                             ~Mesh();

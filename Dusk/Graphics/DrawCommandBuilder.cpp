@@ -205,7 +205,7 @@ void DrawCommandBuilder::buildShadowGPUDrivenCullCmds( WorldRenderer* worldRende
 
 			GPUShadowDrawCmd& shadowCullCmd = worldRenderer->allocateGPUShadowCullDrawCmd();
 			shadowCullCmd.InstancesData = batch.Instances;
-            shadowCullCmd.ShadowMeshBatchIndex = mesh.ShadowGPUBatchEntryIndex;
+            shadowCullCmd.ShadowMeshBatchIndex = mesh.RenderWorldIndex;
             shadowCullCmd.InstanceCount = batch.InstanceCount;
 		}
 	}
@@ -237,7 +237,7 @@ void AddCommand( WorldRenderer* worldRenderer, const LODBatch& batch, const u8 c
     DrawCommandInfos& infos = drawCmd.infos;
     infos.material = material;
     infos.vertexBuffers = mesh.AttributeBuffers;
-    infos.indiceBuffer = mesh.IndexBuffer;
+    infos.indiceBuffer = &mesh.IndexBuffer;
     infos.indiceBufferOffset = mesh.IndiceBufferOffset;
     infos.indiceBufferCount = mesh.IndiceCount;
     infos.alphaDitheringValue = 1.0f;

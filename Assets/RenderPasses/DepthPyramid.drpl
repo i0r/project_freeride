@@ -85,6 +85,10 @@ lib DepthPyramid {
         float minDepth = CurrentDepthMip[samplePos].x;
         float maxDepth = CurrentDepthMip[samplePos].y;
 
+        if ( maxDepth == 1.0f ) {
+            maxDepth = 0.0f;
+        }
+        
         // Store in shared memory
         depthSamples[$SV_GroupIndex] = float2( minDepth, maxDepth );
         GroupMemoryBarrierWithGroupSync();

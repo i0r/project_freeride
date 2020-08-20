@@ -149,7 +149,7 @@ public:
     void                            begin();
     void                            end();
 
-    void                            bindVertexBuffer( const Buffer** buffers, const u32 bufferCount = 1, const u32 startBindIndex = 0 );
+    void                            bindVertexBuffer( const Buffer** buffers, const u32* offsets = nullptr, const u32 bufferCount = 1, const u32 startBindIndex = 0 );
     void                            bindIndiceBuffer( const Buffer* buffer, const bool use32bitsIndices = false );
 
     void                            setupFramebuffer( FramebufferAttachment* renderTargetViews, FramebufferAttachment depthStencilView = NO_ATTACHMENT );

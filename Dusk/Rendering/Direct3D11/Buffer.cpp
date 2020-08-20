@@ -97,11 +97,9 @@ void CommandList::copyBuffer( Buffer* sourceBuffer, Buffer* destBuffer )
 	nativeCommandList->Commands.push( reinterpret_cast< u32* >( commandPacket ) );
 }
 
-void CommandList::bindVertexBuffer( const Buffer** buffers, const u32 bufferCount, const u32 startBindIndex )
+template<bool HasCustomOffsets>
+DUSK_INLINE void BuildBindVertexBufferPacket( CommandPacket::BindVertexBuffer* commandPacket, const Buffer** buffers, const u32* offsets, const u32 bufferCount, const u32 startBindIndex )
 {
-    CommandPacket::BindVertexBuffer* commandPacket = dk::core::allocate<CommandPacket::BindVertexBuffer>( nativeCommandList->CommandPacketAllocator );
-    memset( commandPacket, 0, sizeof( CommandPacket::BindVertexBuffer ) );
-
     commandPacket->Identifier = CPI_BIND_VERTEX_BUFFER;
     commandPacket->BufferCount = bufferCount;
     commandPacket->StartBindIndex = startBindIndex;
@@ -109,7 +107,19 @@ void CommandList::bindVertexBuffer( const Buffer** buffers, const u32 bufferCoun
     for ( u32 i = 0; i < bufferCount; i++ ) {
         commandPacket->Buffers[i] = buffers[i]->BufferObject;
         commandPacket->Strides[i] = buffers[i]->Stride;
-        commandPacket->Offsets[i] = 0;
+        commandPacket->Offsets[i] = ( HasCustomOffsets ) ? offsets[i] : 0u;
+    }
+}
+
+void CommandList::bindVertexBuffer( const Buffer** buffers, const u32* offsets, const u32 bufferCount, const u32 startBindIndex )
+{
+    CommandPacket::BindVertexBuffer* commandPacket = dk::core::allocate<CommandPacket::BindVertexBuffer>( nativeCommandList->CommandPacketAllocator );
+    memset( commandPacket, 0, sizeof( CommandPacket::BindVertexBuffer ) );
+
+    if ( offsets == nullptr ) {
+        BuildBindVertexBufferPacket<false>( commandPacket, buffers, nullptr, bufferCount, startBindIndex );
+    } else {
+        BuildBindVertexBufferPacket<true>( commandPacket, buffers, offsets, bufferCount, startBindIndex );
     }
 
     nativeCommandList->Commands.push( reinterpret_cast<u32*>( commandPacket ) );

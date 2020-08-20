@@ -13,7 +13,7 @@ enum ShadingModel : i32 {
     Default = 0,
     ClearCoat,
 
-    Count,
+    ShadingModel_Count,
 };
 
 enum LayerBlendMode : i32 {
