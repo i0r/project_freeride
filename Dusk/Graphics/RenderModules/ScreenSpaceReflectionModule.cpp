@@ -37,7 +37,7 @@ SSRModule::HiZResult SSRModule::computeHiZMips( FrameGraph& frameGraph, FGHandle
 		FGHandle	DepthMipChain;
 	};
 
-	PassData HiZCompute = frameGraph.addRenderPass<PassData>(
+	PassData data = frameGraph.addRenderPass<PassData>(
 		DepthPyramid::DepthDownsample_Name,
 		[&]( FrameGraphBuilder& builder, PassData& passData ) {
 			builder.useAsyncCompute();
@@ -153,16 +153,16 @@ SSRModule::HiZResult SSRModule::computeHiZMips( FrameGraph& frameGraph, FGHandle
 	);
 
 	HiZResult result;
-	result.HiZMerged = HiZCompute.DepthMipChain;
+	result.HiZMerged = data.DepthMipChain;
 
-	for ( i32 i = 0; i < HiZCompute.HiZMipCount; i++ ) {
-		result.HiZMips[i] = HiZCompute.DepthMips[i];
+	for ( i32 i = 0; i < data.HiZMipCount; i++ ) {
+		result.HiZMips[i] = data.DepthMips[i];
 	}
 
 	return result;
 }
 
-void SSRModule::rayTraceHiZ( FrameGraph& frameGraph, FGHandle resolvedDepthBuffer, FGHandle resolveThinGbuffer, const HiZResult& hiZBuffer, const u32 width, const u32 height )
+SSRModule::TraceResult SSRModule::rayTraceHiZ( FrameGraph& frameGraph, FGHandle resolvedDepthBuffer, FGHandle resolveThinGbuffer, const HiZResult& hiZBuffer, const u32 width, const u32 height )
 {
     struct PassData {
         FGHandle	PerPassBuffer;
@@ -173,7 +173,7 @@ void SSRModule::rayTraceHiZ( FrameGraph& frameGraph, FGHandle resolvedDepthBuffe
 		FGHandle	HiZBuffer;
     };
 
-	PassData HiZCompute = frameGraph.addRenderPass<PassData>(
+	PassData data = frameGraph.addRenderPass<PassData>(
 		SSR::HiZTrace_Name,
 		[&]( FrameGraphBuilder& builder, PassData& passData ) {
 			builder.useAsyncCompute();
@@ -246,6 +246,97 @@ void SSRModule::rayTraceHiZ( FrameGraph& frameGraph, FGHandle resolvedDepthBuffe
 			cmdList->popEventMarker();
 		} 
 	);
+
+	TraceResult result;
+	result.TraceBuffer = data.RayHitBuffer;
+	result.MaskBuffer = data.MaskBuffer;
+
+	return result;
+}
+
+FGHandle SSRModule::resolveRaytrace( FrameGraph& frameGraph, const TraceResult& traceResult, FGHandle depthBuffer, FGHandle colorBuffer, FGHandle resolvedThinGbuffer, const u32 width, const u32 height )
+{
+    struct PassData {
+        FGHandle	PerPassBuffer;
+        FGHandle	DepthBuffer;
+        FGHandle	ThinGBuffer;
+        FGHandle	ColorBuffer;
+        FGHandle	MaskBuffer;
+        FGHandle	HitBuffer;
+        FGHandle	ResolvedBuffer;
+    };
+
+	PassData data = frameGraph.addRenderPass<PassData>(
+		SSR::ResolveTrace_Name,
+		[&]( FrameGraphBuilder& builder, PassData& passData ) {
+			builder.useAsyncCompute();
+			builder.setUncullablePass();
+
+			// Per pass buffer.
+			BufferDesc perPassDesc;
+			perPassDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
+			perPassDesc.SizeInBytes = sizeof( SSR::ResolveTraceRuntimeProperties );
+            perPassDesc.Usage = RESOURCE_USAGE_DYNAMIC;
+            passData.PerPassBuffer = builder.allocateBuffer( perPassDesc, SHADER_STAGE_COMPUTE );
+
+			ImageDesc resolvedTargetDesc;
+			resolvedTargetDesc.dimension = ImageDesc::DIMENSION_2D;
+			resolvedTargetDesc.format = VIEW_FORMAT_R16G16B16A16_FLOAT;
+			resolvedTargetDesc.bindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
+			resolvedTargetDesc.usage = RESOURCE_USAGE_DEFAULT;
+			resolvedTargetDesc.width = width;
+			resolvedTargetDesc.height = height;
+
+            passData.ResolvedBuffer = builder.allocateImage( resolvedTargetDesc );
+
+            passData.DepthBuffer = builder.readReadOnlyImage( depthBuffer );
+            passData.ThinGBuffer = builder.readReadOnlyImage( resolvedThinGbuffer );
+            passData.ColorBuffer = builder.readReadOnlyImage( colorBuffer );
+            passData.MaskBuffer = builder.readReadOnlyImage( traceResult.MaskBuffer );
+            passData.HitBuffer = builder.readReadOnlyImage( traceResult.TraceBuffer );
+		},
+		[=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+			Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
+
+            Image* resolvedBuffer = resources->getImage( passData.ResolvedBuffer );
+
+            Image* depthBuffer = resources->getImage( passData.DepthBuffer );
+            Image* thinGBuffer = resources->getImage( passData.ThinGBuffer );
+            Image* colorBuffer = resources->getImage( passData.ColorBuffer );
+            Image* rayHitBuffer = resources->getImage( passData.HitBuffer );
+            Image* maskBuffer = resources->getImage( passData.MaskBuffer );
+
+			PipelineStateDesc psoDesc( PipelineStateDesc::COMPUTE );
+			psoDesc.addStaticSampler( RenderingHelpers::S_BilinearClampEdge );
+
+			PipelineState* pipelineState = psoCache->getOrCreatePipelineState( psoDesc, SSR::ResolveTrace_ShaderBinding );
+			cmdList->pushEventMarker( SSR::ResolveTrace_EventName );
+
+			SSR::ResolveTraceProperties.HaltonOffset = dk::maths::HaltonOffset2D();
+            SSR::ResolveTraceProperties.OutputSize.x = width;
+            SSR::ResolveTraceProperties.OutputSize.y = height;
+            cmdList->updateBuffer( *perPassBuffer, &SSR::ResolveTraceProperties, sizeof( SSR::ResolveTraceRuntimeProperties ) );
+
+			cmdList->bindPipelineState( pipelineState );
+            cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
+            cmdList->bindImage( SSR::ResolveTrace_ResolvedOutput_Hashcode, resolvedBuffer );
+            cmdList->bindImage( SSR::ResolveTrace_DepthBuffer_Hashcode, depthBuffer );
+            cmdList->bindImage( SSR::ResolveTrace_ThinGBuffer_Hashcode, thinGBuffer );
+            cmdList->bindImage( SSR::ResolveTrace_ColorBuffer_Hashcode, colorBuffer );
+            cmdList->bindImage( SSR::ResolveTrace_RayTraceBuffer_Hashcode, rayHitBuffer );
+            cmdList->bindImage( SSR::ResolveTrace_MaskBuffer_Hashcode, maskBuffer );
+            cmdList->bindImage( SSR::ResolveTrace_BlueNoise_Hashcode, blueNoise );
+            cmdList->prepareAndBindResourceList();
+
+            u32 ThreadGroupX = Max( 1u, SSR::HiZTraceProperties.OutputSize.x / SSR::HiZTrace_DispatchX );
+            u32 ThreadGroupY = Max( 1u, SSR::HiZTraceProperties.OutputSize.y / SSR::HiZTrace_DispatchY );
+            cmdList->dispatchCompute( ThreadGroupX, ThreadGroupY, SSR::HiZTrace_DispatchZ );
+
+			cmdList->popEventMarker();
+		} 
+	);
+
+	return data.ResolvedBuffer;
 }
 
 void SSRModule::destroy( RenderDevice& renderDevice )

@@ -29,6 +29,19 @@ public:
         }
     };
 
+    struct TraceResult {
+        FGHandle TraceBuffer;
+
+        FGHandle MaskBuffer;
+
+        TraceResult()
+            : TraceBuffer( FGHandle::Invalid )
+            , MaskBuffer( FGHandle::Invalid )
+        {
+
+        }
+    };
+
 public:
                                 SSRModule();
                                 SSRModule( SSRModule& ) = delete;
@@ -37,7 +50,9 @@ public:
 
     HiZResult                   computeHiZMips( FrameGraph& frameGraph, FGHandle resolvedDepthBuffer, const u32 width, const u32 height );
     
-    void                        rayTraceHiZ( FrameGraph& frameGraph, FGHandle resolvedDepthBuffer, FGHandle resolveThinGbuffer, const HiZResult& hiZBuffer, const u32 width, const u32 height );
+    TraceResult                 rayTraceHiZ( FrameGraph& frameGraph, FGHandle resolvedDepthBuffer, FGHandle resolveThinGbuffer, const HiZResult& hiZBuffer, const u32 width, const u32 height );
+
+    FGHandle                    resolveRaytrace( FrameGraph& frameGraph, const TraceResult& traceResult, FGHandle depthBuffer, FGHandle colorBuffer, FGHandle resolvedThinGbuffer, const u32 width, const u32 height );
 
     // Release and destroy persistent resources created by this module.
     void                        destroy( RenderDevice& renderDevice );

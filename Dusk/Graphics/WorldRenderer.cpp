@@ -346,8 +346,9 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
     FGHandle presentRt = resolvedColor;
 
     // SSR Rendering.
-    screenSpaceReflections->rayTraceHiZ( frameGraph, resolvedDepth, resolvedGbuffer, hiZMips, static_cast< u32 >( viewportSize.x ), static_cast< u32 >( viewportSize.y ) );
-    
+    SSRModule::TraceResult ssrTrace = screenSpaceReflections->rayTraceHiZ( frameGraph, resolvedDepth, resolvedGbuffer, hiZMips, static_cast< u32 >( viewportSize.x ), static_cast< u32 >( viewportSize.y ) );
+    FGHandle ssrResolved = screenSpaceReflections->resolveRaytrace( frameGraph, ssrTrace, resolvedDepth, resolvedColor, resolvedGbuffer, static_cast< u32 >( viewportSize.x ), static_cast< u32 >( viewportSize.y ) );
+
     // Glare Rendering.
     FFTPassOutput frequencyDomainRt = AddFFTComputePass( frameGraph, presentRt, viewportSize.x, viewportSize.y );
     FFTPassOutput convolutedFFT = glareRendering->addGlareComputePass( frameGraph, frequencyDomainRt );

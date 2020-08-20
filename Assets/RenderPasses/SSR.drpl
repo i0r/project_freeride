@@ -32,10 +32,32 @@ lib SSR {
         Texture2D BlueNoise {
             swizzle = float2;
         }
+        
+        // Resolve Pass
+        Texture2D ColorBuffer {
+            swizzle = float4;
+        }
+        
+        Texture2D RayTraceBuffer {
+            swizzle = float4;
+        }
+        
+        Texture2D MaskBuffer {
+            swizzle = float;
+        }
+        
+        RWTexture2D DebugOutput {
+            swizzle = float4;
+        }
+        
+        RWTexture2D ResolvedOutput {
+            swizzle = float4;
+        }
     }
    
     shared {
         #include <GeometryUtils.hlsli>
+        #include <Photometry.hlsli>
         
         static const float Weight[9] = {
             1.0f / 16,
@@ -48,7 +70,15 @@ lib SSR {
             1.0f / 8,
             1.0f / 16
         };
-                
+                        
+        static const float2 Offset[4] =
+        {
+            float2(0, 0),
+            float2(2, -2),
+            float2(-2, -2),
+            float2(0, 2)
+        };
+        
         static const int NUM_STEPS = 300;
         static const float BRDF_BIAS = 0.7f;
         static const float RAY_BIAS = 0.05f;
@@ -59,6 +89,7 @@ lib SSR {
         static const float TEMPORAL_WEIGHT = 0.99f;
         static const float TEMPORAL_CLAMP_SCALE = 3.00f;
         static const float EXPOSURE = 1.0f;
+        static const int NUM_RESOLVE = 4;
 
         float4 ImportanceSampleGGX(float2 Xi, float Roughness) {
             float m = Roughness * Roughness;
@@ -214,6 +245,37 @@ lib SSR {
             return vPosCur - vPosPrev;
         }
         
+        inline half SmithJointGGXVisibilityTerm(half NdotL, half NdotV, half roughness)
+        {
+            half a = roughness;
+            half lambdaV = NdotL * (NdotV * (1 - a) + a);
+            half lambdaL = NdotV * (NdotL * (1 - a) + a);
+
+            return (0.5f / (lambdaV + lambdaL + 1e-5f));
+        }
+
+        inline float GGXTerm(float NdotH, float roughness)
+        {
+            float a2 = roughness * roughness;
+            float d = (NdotH * a2 - NdotH) * NdotH + 1.0f; // 2 mad
+            return a2 / (PI * (d * d + 1e-7f)); // This function is not intended to be running on Mobile,
+            // therefore epsilon is smaller than what can be represented by half
+        }
+
+        float BRDF_Weight(float3 V, float3 L, float3 N, float Roughness)
+        {
+            float3 H = normalize(L + V);
+
+            float NdotH = saturate(dot(N, H));
+            float NdotL = saturate(dot(N, L));
+            float NdotV = saturate(dot(N, V));
+
+            half G = SmithJointGGXVisibilityTerm(NdotL, NdotV, Roughness);
+            half D = GGXTerm(NdotH, Roughness);
+
+            return (D * G) * (PI / 4.0);
+        }
+
         void ResolveAABB
         (
             Texture2D currColor,
@@ -267,7 +329,7 @@ lib SSR {
     
     shader HiZTraceCS {
         float2 PixelCoordinates = float2( $SV_DispatchThreadId.xy ) + float2( 0.5f, 0.5f );
-        float2 UvCoordinates = PixelCoordinates / g_ScreenSize;
+        float2 UvCoordinates = PixelCoordinates / OutputSize;
         
         float4 ThinGBufferSample = ThinGBuffer.SampleLevel( LinearSampler, UvCoordinates, 0.0f );
         
@@ -306,8 +368,86 @@ lib SSR {
         MaskTarget[$SV_DispatchThreadId.xy] = rayTrace.a * rayTrace.a;
     }
 
+    shader HitTraceDebugCS {
+        float2 PixelCoordinates = float2( $SV_DispatchThreadId.xy ) + float2( 0.5f, 0.5f );
+        float2 UvCoordinates = PixelCoordinates / OutputSize;
+        float4 testHitPacked = RayTraceBuffer.SampleLevel( LinearSampler, UvCoordinates, 0.0f );
+        float hitMask = MaskBuffer.SampleLevel(LinearSampler, UvCoordinates, 0.0f).r;
+        
+        DebugOutput[$SV_DispatchThreadId.xy] = (hitMask >= 0.5f) ? ColorBuffer.SampleLevel(LinearSampler, testHitPacked.xy, 0.0f) : float4( 0, 0, 0, 1 );
+    }
+    
+    shader ResolveCS {
+        float2 PixelCoordinates = float2( $SV_DispatchThreadId.xy ) + float2( 0.5f, 0.5f );
+        float2 UvCoordinates = PixelCoordinates / OutputSize;
+        
+        float4 ThinGBufferSample = ThinGBuffer.SampleLevel( LinearSampler, UvCoordinates, 0.0f );
+        
+        float3 Normals = DecodeNormals( ThinGBufferSample.rg );
+        float3 NormalsViewSpace = normalize( mul( Normals, (float3x3)g_ViewMatrix ) );
+        
+        float  roughness = ThinGBufferSample.b;
+        float  depth = DepthBuffer.SampleLevel( LinearSampler, UvCoordinates, 0.0f );
+            
+        float2 Hash = BlueNoise.SampleLevel(LinearSampler, (UvCoordinates + HaltonOffset.xy) * OutputSize.xy / float2(BLUE_NOISE_SIZE, BLUE_NOISE_SIZE), 0.0f).rg * 2.0 - 1.0;
+        float2x2 offsetRotationMatrix = float2x2(Hash.x, Hash.y, -Hash.y, Hash.x);
+
+        float3 screenPos = GetScreenPos( UvCoordinates, depth );
+        float3 worldPos = ReconstructWorldPos( UvCoordinates, depth );
+        float3 viewPos = GetViewPos( screenPos );
+        float3 viewDir = GetViewDir( worldPos );
+        
+        float NdotV = saturate(dot(NormalsViewSpace, -viewDir));
+        float coneTangent = lerp(0.0, roughness * (1.0 - BRDF_BIAS), NdotV * sqrt(roughness));
+
+        float maxMipLevel = (float)SSR_MAX_MIP_LEVEL - 1.0;
+
+        float4 result = 0.0;
+        float weightSum = 0.0;
+        for (int i = 1; i < NUM_RESOLVE; i++)
+        {
+            float2 offsetUV = Offset[i] * (1.0f / OutputSize);
+            offsetUV = mul(offsetUV, offsetRotationMatrix);
+            
+            float2 neighborUv = UvCoordinates + offsetUV;
+
+            float4 hitPacked = RayTraceBuffer.SampleLevel(LinearSampler, neighborUv, 0.0f);
+            float2 hitUv = hitPacked.xy;
+            float hitZ = hitPacked.z;
+            float hitPDF = hitPacked.w;
+            float hitMask = MaskBuffer.SampleLevel(LinearSampler, neighborUv, 0.0f).r;
+
+            float3 hitViewPos = GetViewPos(GetScreenPos(hitUv, hitZ));
+
+            float weight = BRDF_Weight(normalize(-viewPos) /*V*/, normalize(hitViewPos - viewPos) /*L*/, NormalsViewSpace /*N*/, roughness) / max(1e-5, hitPDF);
+
+            float4 sampleColor = float4(0.0, 0.0, 0.0, 1.0);
+            sampleColor = ColorBuffer.SampleLevel(LinearSampler, hitUv, 0.0f);
+            sampleColor.a = hitMask;
+            sampleColor.rgb /= 1 + RGBToLuminance(sampleColor.rgb);
+            
+            result += sampleColor * weight;
+            weightSum += weight;
+        }
+        result /= weightSum;
+
+        result.rgb /= 1 - RGBToLuminance(result.rgb);
+
+        ResolvedOutput[$SV_DispatchThreadId.xy] = (result.a > 0.01f) ? max(result, 1e-5) : float4(0.0f, 0.0f, 0.0f, 0.0f);
+    }
+    
     pass HiZTrace {
         compute = HiZTraceCS;
+        dispatch = { 16, 16, 1 };
+    }
+    
+    pass TraceDebug {
+        compute = HitTraceDebugCS;
+        dispatch = { 16, 16, 1 };
+    }
+    
+    pass ResolveTrace {
+        compute = ResolveCS;
         dispatch = { 16, 16, 1 };
     }
 }
