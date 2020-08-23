@@ -390,17 +390,17 @@ FGHandle SSRModule::temporalRebuild( FrameGraph& frameGraph, FGHandle rayTraceOu
 			PipelineState* pipelineState = psoCache->getOrCreatePipelineState( psoDesc, SSR::TemporalRebuild_ShaderBinding );
 			cmdList->pushEventMarker( SSR::TemporalRebuild_EventName );
 
-			SSR::ResolveTraceProperties.HaltonOffset = dk::maths::HaltonOffset2D();
-            SSR::ResolveTraceProperties.OutputSize.x = width;
-            SSR::ResolveTraceProperties.OutputSize.y = height;
+			SSR::TemporalRebuildProperties.HaltonOffset = dk::maths::HaltonOffset2D();
+            SSR::TemporalRebuildProperties.OutputSize.x = width;
+            SSR::TemporalRebuildProperties.OutputSize.y = height;
             cmdList->updateBuffer( *perPassBuffer, &SSR::TemporalRebuildProperties, sizeof( SSR::TemporalRebuildRuntimeProperties ) );
 
 			cmdList->bindPipelineState( pipelineState );
             cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
             cmdList->bindImage( SSR::TemporalRebuild_RayTraceBuffer_Hashcode, rayTraceBuffer );
-            cmdList->bindImage( SSR::TemporalRebuild_TemporalResultTarget_Hashcode, temporalOutput );
-            cmdList->bindImage( SSR::TemporalRebuild_ResolvedTraceBuffer_Hashcode, resolvedBuffer );
-            cmdList->bindImage( SSR::TemporalRebuild_PreviousFrameResult_Hashcode, previousFrameBuffer );
+			cmdList->bindImage( SSR::TemporalRebuild_PreviousFrameResult_Hashcode, previousFrameBuffer );
+			cmdList->bindImage( SSR::TemporalRebuild_ResolvedTraceBuffer_Hashcode, resolvedBuffer );
+			cmdList->bindImage( SSR::TemporalRebuild_TemporalResultTarget_Hashcode, temporalOutput );
             cmdList->prepareAndBindResourceList();
 
             u32 ThreadGroupX = Max( 1u, SSR::TemporalRebuildProperties.OutputSize.x / SSR::TemporalRebuild_DispatchX );

@@ -246,8 +246,8 @@ lib SSR {
         {
             float4 worldPos = float4(inUV, rawDepth, 1.0f);
 
-            float4 prevClipPos = mul(worldPos, g_PreviousViewProjectionMatrix);
-            float4 curClipPos = mul(worldPos, g_ViewProjectionMatrix);
+            float4 prevClipPos = mul(g_PreviousViewProjectionMatrix, worldPos);
+            float4 curClipPos = mul(g_ViewProjectionMatrix, worldPos);
 
             float2 prevHPos = prevClipPos.xy / prevClipPos.w;
             float2 curHPos = curClipPos.xy / curClipPos.w;
@@ -454,7 +454,8 @@ lib SSR {
         float2 UvCoordinates = PixelCoordinates / OutputSize;
            
         float hitZ = RayTraceBuffer.SampleLevel(LinearSampler, UvCoordinates, 0).b;
-        float2 Velocity = CalculateMotion(UvCoordinates, hitZ); // Reflection Depth derived motion. Removes smudghing cause by screen motion vectors.
+        // Reflection Depth derived motion. Removes smudghing cause by screen motion vectors.
+        float2 Velocity = CalculateMotion(UvCoordinates, hitZ); 
         
         // Get AABB ClipBox.
         float variance = 0;

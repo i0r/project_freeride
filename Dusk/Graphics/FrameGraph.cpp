@@ -176,7 +176,7 @@ void FrameGraphBuilder::ApplyImageDescriptionFlags( ImageDesc& description, cons
 
 FGHandle FrameGraphBuilder::allocateImage( ImageDesc& description, const u32 imageFlags )
 {
-    DUSK_RAISE_FATAL_ERROR( imageCount + 1 == MAX_RESOURCES_HANDLE_PER_FRAME, "Limit reached!" );
+    DUSK_RAISE_FATAL_ERROR( imageCount + 1 < MAX_RESOURCES_HANDLE_PER_FRAME, "Limit reached!" );
 
     const FrameGraphRenderPass::Handle_t requesterHandle = ( renderPassCount - 1 );
 

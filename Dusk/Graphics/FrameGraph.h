@@ -420,7 +420,7 @@ public:
     };
 
     // Maximum of RenderPass count (per frame).
-    static constexpr i32 MAX_RENDER_PASS_COUNT          = 48;
+    static constexpr i32 MAX_RENDER_PASS_COUNT          = 64;
 
     // Maximum number of a single resource type allocable per frame.
     static constexpr i32 MAX_RESOURCES_HANDLE_PER_FRAME = 64;
@@ -771,6 +771,8 @@ public:
         static_assert( sizeof( T ) <= sizeof( FGHandle ) * 128, "Pass data 128 resource limit hit!" );
         static_assert( sizeof( execute ) <= 1024 * 1024, "Execute lambda should be < 1ko!" );
 
+        DUSK_RAISE_FATAL_ERROR( renderPassCount < FrameGraphBuilder::MAX_RENDER_PASS_COUNT, "RenderPass limit reached!" );
+
         FrameGraphRenderPass::Handle_t renderPassHandle = renderPassCount;
         
         FrameGraphRenderPass& renderPass = renderPasses[renderPassHandle];
@@ -807,7 +809,7 @@ public:
 private:
     BaseAllocator*                      memoryAllocator;
 
-    FrameGraphRenderPass                renderPasses[48];
+    FrameGraphRenderPass                renderPasses[FrameGraphBuilder::MAX_RENDER_PASS_COUNT];
 
     i32                                 renderPassCount;
     f32                                 pipelineImageQuality;
