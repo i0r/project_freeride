@@ -17,6 +17,7 @@ static constexpr dkStringHash_t SWAPCHAIN_BUFFER_RESOURCE_HASHCODE = DUSK_STRING
 static constexpr dkStringHash_t PERVIEW_BUFFER_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__PerViewBuffer__" );
 static constexpr dkStringHash_t PRESENT_IMAGE_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__PresentRenderTarget__" );
 static constexpr dkStringHash_t LAST_FRAME_IMAGE_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__LastFrameRenderTarget__" );
+static constexpr dkStringHash_t SSR_LAST_FRAME_IMAGE_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__SSR_LastFrameRenderTarget__" ); // TODO Should be per module allocable...
 static constexpr dkStringHash_t MATERIALED_BUFFER_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__MaterialEditorBuffer__" );
 static constexpr dkStringHash_t VECTORDATA_BUFFER_RESOURCE_HASHCODE = DUSK_STRING_HASH( "__VectorDataBuffer__" );
 
@@ -175,6 +176,8 @@ void FrameGraphBuilder::ApplyImageDescriptionFlags( ImageDesc& description, cons
 
 FGHandle FrameGraphBuilder::allocateImage( ImageDesc& description, const u32 imageFlags )
 {
+    DUSK_RAISE_FATAL_ERROR( imageCount + 1 == MAX_RESOURCES_HANDLE_PER_FRAME, "Limit reached!" );
+
     const FrameGraphRenderPass::Handle_t requesterHandle = ( renderPassCount - 1 );
 
     ApplyImageDescriptionFlags( description, imageFlags );
@@ -294,6 +297,12 @@ FGHandle FrameGraphBuilder::retrievePresentImage()
 FGHandle FrameGraphBuilder::retrieveLastFrameImage()
 {
     persitentImages[persitentImageCount] = LAST_FRAME_IMAGE_RESOURCE_HASHCODE;
+    return persitentImageCount++;
+}
+
+FGHandle FrameGraphBuilder::retrieveSSRLastFrameImage()
+{
+    persitentImages[persitentImageCount] = SSR_LAST_FRAME_IMAGE_RESOURCE_HASHCODE;
     return persitentImageCount++;
 }
 
@@ -679,6 +688,7 @@ FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevi
     , activeCamera( nullptr )
     , hasViewportChanged( false )
     , lastFrameRenderTarget( nullptr )
+    , ssrLastFrameRenderTarget( nullptr )
     , presentRenderTarget( nullptr )
     , graphResources( allocator )
     , graphBuilder()
@@ -731,6 +741,10 @@ void FrameGraph::destroy( RenderDevice* renderDevice )
         renderDevice->destroyImage( lastFrameRenderTarget );
     }
 
+    if ( ssrLastFrameRenderTarget != nullptr ) {
+        renderDevice->destroyImage( ssrLastFrameRenderTarget );
+    }
+
     if ( presentRenderTarget != nullptr ) {
         renderDevice->destroyImage( presentRenderTarget );
     }
@@ -764,6 +778,7 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
     graphResources.importPersistentImage( SWAPCHAIN_BUFFER_RESOURCE_HASHCODE, renderDevice->getSwapchainBuffer() );
     graphResources.importPersistentBuffer( PERVIEW_BUFFER_RESOURCE_HASHCODE, graphScheduler.getPerViewPersistentBuffer() );
     graphResources.importPersistentImage( LAST_FRAME_IMAGE_RESOURCE_HASHCODE, lastFrameRenderTarget );
+    graphResources.importPersistentImage( SSR_LAST_FRAME_IMAGE_RESOURCE_HASHCODE, ssrLastFrameRenderTarget );
     graphResources.importPersistentImage( PRESENT_IMAGE_RESOURCE_HASHCODE, presentRenderTarget );
 	graphResources.importPersistentBuffer( MATERIALED_BUFFER_RESOURCE_HASHCODE, graphScheduler.getMaterialEdPersistentBuffer() );
 	graphResources.importPersistentBuffer( VECTORDATA_BUFFER_RESOURCE_HASHCODE, graphScheduler.getVectorDataBuffer() );
@@ -892,7 +907,8 @@ void FrameGraph::importPersistentBuffer( const dkStringHash_t resourceHashcode, 
 enum class CopyImageTarget  
 {
     LastFrameImage,
-    PresentImage
+    PresentImage,
+    SSRLastFrame
 };
 
 // Copy a FrameGraph image to a persistent image owned by the same FrameGraph (see CopyImageTarget or extend it
@@ -928,6 +944,9 @@ DUSK_INLINE void AddCopyImagePass( FrameGraph& frameGraph, FGHandle inputRenderT
                 break;
             case CopyImageTarget::PresentImage:
                 passData.outputImage = builder.retrievePresentImage();
+                break;
+            case CopyImageTarget::SSRLastFrame:
+                passData.outputImage = builder.retrieveSSRLastFrameImage();
                 break;
             };
         },
@@ -987,6 +1006,11 @@ void FrameGraph::saveLastFrameRenderTarget( FGHandle inputRenderTarget )
     AddCopyImagePass<CopyImageTarget::LastFrameImage>( *this, inputRenderTarget );
 }
 
+void FrameGraph::saveLastFrameSSRRenderTarget( FGHandle inputRenderTarget )
+{
+    AddCopyImagePass<CopyImageTarget::SSRLastFrame>( *this, inputRenderTarget );
+}
+
 #if DUSK_DEVBUILD
 const char* FrameGraph::getProfilingSummary() const
 {
@@ -1038,6 +1062,24 @@ void FrameGraph::recreatePersistentResources( RenderDevice* renderDevice )
     postPostFxDesc.bindFlags = RESOURCE_BIND_RENDER_TARGET_VIEW | RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
 
     presentRenderTarget = renderDevice->createImage( postPostFxDesc );
+
+    // SSR Last Frame Render Target
+    if ( ssrLastFrameRenderTarget != nullptr ) {
+        renderDevice->destroyImage( ssrLastFrameRenderTarget );
+    }
+
+    ImageDesc ssrDesc = {};
+    ssrDesc.dimension = ImageDesc::DIMENSION_2D;
+    ssrDesc.format = eViewFormat::VIEW_FORMAT_R16G16B16A16_FLOAT;
+    ssrDesc.width = static_cast< uint32_t >( activeViewport.Width );
+    ssrDesc.height = static_cast< uint32_t >( activeViewport.Height );
+    ssrDesc.depth = 1;
+    ssrDesc.mipCount = 1;
+    ssrDesc.samplerCount = 1;
+    ssrDesc.usage = RESOURCE_USAGE_DEFAULT;
+    ssrDesc.bindFlags = RESOURCE_BIND_RENDER_TARGET_VIEW | RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
+
+    ssrLastFrameRenderTarget = renderDevice->createImage( ssrDesc );
 }
 
 FrameGraphScheduler::FrameGraphScheduler( BaseAllocator* allocator, RenderDevice* renderDevice, VirtualFileSystem* virtualFileSys )

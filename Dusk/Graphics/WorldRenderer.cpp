@@ -291,6 +291,9 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
     f32 imageQuality = frameGraph.getImageQuality();
     u32 msaaSamplerCount = frameGraph.getMSAASamplerCount();
 
+    u32 viewportWidth = static_cast< u32 >( viewportSize.x );
+    u32 viewportHeight = static_cast< u32 >( viewportSize.y );
+
     automaticExposure->importResourcesToGraph( frameGraph );
 
     environmentProbeStreaming->updateProbeCapture( frameGraph, atmosphereRendering );
@@ -317,7 +320,7 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
     cascadedShadowMapRendering->captureShadowMap( frameGraph, resolvedDepth, viewportSize, *lightGrid->getDirectionalLightData(), renderWorld );
 
     // Compute Hi-Z as early as possible (we can fire it asynchronously while the geometry is rendering).
-    SSRModule::HiZResult hiZMips = screenSpaceReflections->computeHiZMips( frameGraph, resolvedDepth, static_cast< u32 >( viewportSize.x ), static_cast< u32 >( viewportSize.y ) );
+    SSRModule::HiZResult hiZMips = screenSpaceReflections->computeHiZMips( frameGraph, resolvedDepth, viewportWidth, viewportHeight );
 
     // LightPass.
     WorldRenderModule::LightPassOutput primRenderPass = WorldRendering->addPrimitiveLightPass( frameGraph, lightGridData.PerSceneBuffer, prepassTarget, scenario, environmentProbeStreaming->getReadDistantProbeIrradiance(), environmentProbeStreaming->getReadDistantProbeRadiance(), cascadedShadowMapRendering->getGlobalShadowMatrix() );
@@ -346,8 +349,10 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
     FGHandle presentRt = resolvedColor;
 
     // SSR Rendering.
-    SSRModule::TraceResult ssrTrace = screenSpaceReflections->rayTraceHiZ( frameGraph, resolvedDepth, resolvedGbuffer, hiZMips, static_cast< u32 >( viewportSize.x ), static_cast< u32 >( viewportSize.y ) );
-    FGHandle ssrResolved = screenSpaceReflections->resolveRaytrace( frameGraph, ssrTrace, resolvedDepth, resolvedColor, resolvedGbuffer, static_cast< u32 >( viewportSize.x ), static_cast< u32 >( viewportSize.y ) );
+    SSRModule::TraceResult ssrTrace = screenSpaceReflections->rayTraceHiZ( frameGraph, resolvedDepth, resolvedGbuffer, hiZMips, viewportWidth, viewportHeight );
+    FGHandle ssrResolved = screenSpaceReflections->resolveRaytrace( frameGraph, ssrTrace, resolvedDepth, resolvedColor, resolvedGbuffer, viewportWidth, viewportHeight );
+    FGHandle ssrTemporalResolved = screenSpaceReflections->temporalRebuild( frameGraph, ssrTrace.TraceBuffer, ssrResolved, viewportWidth, viewportHeight );
+    frameGraph.saveLastFrameSSRRenderTarget( ssrTemporalResolved );
 
     // Glare Rendering.
     FFTPassOutput frequencyDomainRt = AddFFTComputePass( frameGraph, presentRt, viewportSize.x, viewportSize.y );
@@ -355,7 +360,7 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
     FGHandle inverseFFT = AddInverseFFTComputePass( frameGraph, convolutedFFT, viewportSize.x, viewportSize.y );
 
     // Automatic Exposure.
-    automaticExposure->computeExposure( frameGraph, presentRt, dkVec2u( static_cast< u32 >( viewportSize.x ), static_cast< u32 >( viewportSize.y ) ) );
+    automaticExposure->computeExposure( frameGraph, presentRt, dkVec2u( viewportWidth, viewportHeight ) );
 
     // Frame composition.
     FGHandle composedFrame = frameComposition->addFrameCompositionPass( frameGraph, presentRt, inverseFFT );

@@ -24,9 +24,9 @@ float3 ReconstructWorldPos( float2 uv, float depth )
 {
     float ndcX = uv.x * 2 - 1;
     float ndcY = 1 - uv.y * 2;
-    float4 viewPos = mul( float4( ndcX, ndcY, depth, 1.0f ), g_InverseProjectionMatrix );
+    float4 viewPos = mul( g_InverseProjectionMatrix, float4( ndcX, ndcY, depth, 1.0f ) );
     viewPos = viewPos / viewPos.w;
-    return mul( viewPos, g_InverseViewMatrix ).xyz;
+    return mul( g_InverseViewMatrix, viewPos ).xyz;
 }
 
 float3 GetViewDir( float3 worldPos ) 
@@ -36,7 +36,7 @@ float3 GetViewDir( float3 worldPos )
 
 float3 GetViewPos( float3 screenPos ) 
 {
-    float4 viewPos = mul( float4( screenPos, 1.0f ), g_InverseProjectionMatrix );
+    float4 viewPos = mul( g_InverseProjectionMatrix, float4( screenPos, 1.0f ) );
     return viewPos.xyz / viewPos.w;
 }
 

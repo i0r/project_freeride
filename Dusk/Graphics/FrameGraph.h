@@ -499,6 +499,9 @@ public:
     // Retrieve last frame image (pre post-fx and post resolve).
     FGHandle retrieveLastFrameImage();
 
+    // Retrieve last frame SSR image (pre post-fx and post resolve).
+    FGHandle retrieveSSRLastFrameImage();
+
     // Retrieve the PerView buffer for the current frame being recorded.
     // The data should be immutable (the buffer is updated at the beginning of the frame once).
     FGHandle retrievePerViewBuffer();
@@ -758,6 +761,9 @@ public:
     // Copy the input rendertarget and store it in a given persistent resource.
     void    saveLastFrameRenderTarget( FGHandle inputRenderTarget );
 
+    // Copy the input rendertarget and store it in a given persistent resource.
+    void    saveLastFrameSSRRenderTarget( FGHandle inputRenderTarget );
+
     // Add a renderpass to this framegraph. T should be the datatype used to forward resource handles (or misc data) from
     // the setup step to the execution step.
     template<typename T>
@@ -819,6 +825,9 @@ private:
     // Last Frame (pre post-fx) render target. This is a persistent resource valid across the frames. There is no guarantee
     // of the content correctness.
     Image*                              lastFrameRenderTarget;
+
+    // Last Frame SSR post resolve render target.
+    Image*                              ssrLastFrameRenderTarget;
 
     // Current frame (post post-fx) render target. This is a persistent resource updated each frame.
     Image*                              presentRenderTarget;

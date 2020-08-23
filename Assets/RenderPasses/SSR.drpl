@@ -53,6 +53,19 @@ lib SSR {
         RWTexture2D ResolvedOutput {
             swizzle = float4;
         }
+        
+        // Temporal Pass
+        Texture2D PreviousFrameResult {
+            swizzle = float4;
+        }
+        
+        Texture2D ResolvedTraceBuffer {
+            swizzle = float4;
+        }
+        
+        RWTexture2D TemporalResultTarget {
+            swizzle = float4;
+        }
     }
    
     shared {
@@ -339,7 +352,7 @@ lib SSR {
         float  roughness = ThinGBufferSample.b;
         float  depth = DepthBuffer.SampleLevel( LinearSampler, UvCoordinates, 0.0f );
             
-        float2 Hash = BlueNoise.SampleLevel(LinearSampler, (UvCoordinates + HaltonOffset.xy) * (OutputSize.xy * 0.5f) / float2(BLUE_NOISE_SIZE, BLUE_NOISE_SIZE), 0.0f).rg;
+        float2 Hash = BlueNoise.SampleLevel(LinearSampler, (UvCoordinates + HaltonOffset.xy) * (OutputSize.xy) / float2(BLUE_NOISE_SIZE, BLUE_NOISE_SIZE), 0.0f).rg;
         Hash.y = lerp(Hash.y, 0.0, BRDF_BIAS);
     
         float3 screenPos = GetScreenPos( UvCoordinates, depth );
@@ -360,7 +373,7 @@ lib SSR {
         float3 rayDir = normalize((rayProj.xyz / rayProj.w) - screenPos);
         rayDir.xy *= float2(0.5f, -0.5f);
 
-        float4 rayTrace = RayTrace(SSR_MAX_MIP_LEVEL, HIZ_START_LEVEL, HIZ_STOP_LEVEL, NUM_STEPS, THICKNESS, OutputSize * 0.5f, rayStart, rayDir);
+        float4 rayTrace = RayTrace(SSR_MAX_MIP_LEVEL, HIZ_START_LEVEL, HIZ_STOP_LEVEL, NUM_STEPS, THICKNESS, OutputSize, rayStart, rayDir);
         float4 outRayCast = rayTrace;
         float rayMask = rayTrace.w;
         
@@ -436,6 +449,86 @@ lib SSR {
         ResolvedOutput[$SV_DispatchThreadId.xy] = (result.a > 0.01f) ? max(result, 1e-5) : float4(0.0f, 0.0f, 0.0f, 0.0f);
     }
     
+    shader TemporalResolveCS {
+        float2 PixelCoordinates = float2( $SV_DispatchThreadId.xy ) + float2( 0.5f, 0.5f );
+        float2 UvCoordinates = PixelCoordinates / OutputSize;
+           
+        float hitZ = RayTraceBuffer.SampleLevel(LinearSampler, UvCoordinates, 0).b;
+        float2 Velocity = CalculateMotion(UvCoordinates, hitZ); // Reflection Depth derived motion. Removes smudghing cause by screen motion vectors.
+        
+        // Get AABB ClipBox.
+        float variance = 0;
+        float4 currColor = 0;
+        float4 minColor;
+        float4 maxColor;
+
+        ResolveAABB(
+            ResolvedTraceBuffer,
+            TEMPORAL_CLAMP_SCALE,
+            UvCoordinates,
+            OutputSize.xy,
+            variance,
+            minColor,
+            maxColor,
+            currColor
+        );
+
+        // Clamp.
+        float4 prevColor = PreviousFrameResult.SampleLevel(LinearSampler, UvCoordinates - Velocity, 0);
+        prevColor = clamp(prevColor, minColor, maxColor);
+
+        // Combine.
+        float temporalBlendWeight = saturate(TEMPORAL_WEIGHT * (1 - length(Velocity) * 8.0f));
+        float4 color = lerp(currColor, prevColor, temporalBlendWeight);
+
+        TemporalResultTarget[$SV_DispatchThreadId.xy] = color;
+    }
+    
+    shader CombineCS {
+        float2 PixelCoordinates = float2( $SV_DispatchThreadId.xy ) + float2( 0.5f, 0.5f );
+        float2 UvCoordinates = PixelCoordinates / OutputSize;
+        
+        float4 ThinGBufferSample = ThinGBuffer.SampleLevel( LinearSampler, UvCoordinates, 0.0f );
+        
+        float3 Normals = DecodeNormals( ThinGBufferSample.rg );
+        float3 NormalsViewSpace = normalize( mul( Normals, (float3x3)g_ViewMatrix ) );
+        
+        float  roughness = ThinGBufferSample.b;
+        float  depth = DepthBuffer.SampleLevel( LinearSampler, UvCoordinates, 0.0f );
+            
+        float2 Hash = BlueNoise.SampleLevel(LinearSampler, (UvCoordinates + HaltonOffset.xy) * OutputSize.xy / float2(BLUE_NOISE_SIZE, BLUE_NOISE_SIZE), 0.0f).rg * 2.0 - 1.0;
+        float2x2 offsetRotationMatrix = float2x2(Hash.x, Hash.y, -Hash.y, Hash.x);
+
+        float3 screenPos = GetScreenPos( UvCoordinates, depth );
+        float3 worldPos = ReconstructWorldPos( UvCoordinates, depth );
+        float3 viewPos = GetViewPos( screenPos );
+        float3 viewDir = GetViewDir( worldPos );
+        
+        float NoV = saturate(dot(NormalsViewSpace, -viewDir));
+
+        // // Rebuild DFG function.
+        // float2 f_ab = BrdfDfgLut.Sample( BilinearSampler, float2( NoV, roughness ) );
+        // float Ems = (1.0 - (f_ab.x + f_ab.y));
+        // float3 F_avg = F0 + (1.0 - F0) / 21.0;
+        // float3 FmsEms = Ems * FssEss * F_avg / (1.0 - F_avg * Ems);
+        // float3 k_D = albedo * (1.0 - FssEss - FmsEms);
+        // float3 iblContribution = FssEss * radiance + (FmsEms + k_D) * irradiance;
+        // half3 PreintegratedGF = PreintegratedDGF_LUT(albedo, worldNormal, metalness, roughness, NdotV, -viewDir);
+
+        // half ReflectionOcclusion = saturate(gOcclusionTexture.SampleLevel(linearClampSampler, uv, 0.0f).g);
+        // //ReflectionOcclusion = ReflectionOcclusion == 0.5 ? 1 : ReflectionOcclusion;
+        // //half ReflectionOcclusion = 1;
+
+        // half3 SceneColor = gSceneColor.SampleLevel(linearClampSampler, uv, 0.0f).rgb;
+        // half4 AmbientSpecularColor = gAmbientSpecular.SampleLevel(linearClampSampler, jitteredUV, 0.0f);
+
+        // half4 SSRColor = gSsrColor.SampleLevel(linearClampSampler, uv, 0.0f);
+        // //half SSRMask = SSRColor.a * SSRColor.a;
+        // half SSRMask = lerp(SSRColor.a * SSRColor.a, 0.0f, smoothstep(0.6f, 1.2f, roughness));
+        // half3 ReflectionColor = (AmbientSpecularColor.rgb * (-SSRMask) + SSRColor.rgb * PreintegratedGF * SSRMask;
+
+    }
+    
     pass HiZTrace {
         compute = HiZTraceCS;
         dispatch = { 16, 16, 1 };
@@ -445,9 +538,18 @@ lib SSR {
         compute = HitTraceDebugCS;
         dispatch = { 16, 16, 1 };
     }
-    
+
     pass ResolveTrace {
         compute = ResolveCS;
         dispatch = { 16, 16, 1 };
+    }
+    
+    pass TemporalRebuild {
+        compute = TemporalResolveCS;
+        dispatch = { 16, 16, 1 };
+    }
+    
+    pass Combine {
+        
     }
 }

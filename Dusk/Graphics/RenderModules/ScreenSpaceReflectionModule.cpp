@@ -339,6 +339,81 @@ FGHandle SSRModule::resolveRaytrace( FrameGraph& frameGraph, const TraceResult& 
 	return data.ResolvedBuffer;
 }
 
+FGHandle SSRModule::temporalRebuild( FrameGraph& frameGraph, FGHandle rayTraceOutput, FGHandle resolvedOutput, const u32 width, const u32 height )
+{
+    struct PassData {
+        FGHandle	PerPassBuffer;
+        FGHandle	RayTraceOutput;
+        FGHandle	ResolveOutput;
+        FGHandle	PreviousFrameResult;
+        FGHandle	TemporalFrameResult;
+    };
+
+	PassData data = frameGraph.addRenderPass<PassData>(
+		SSR::TemporalRebuild_Name,
+		[&]( FrameGraphBuilder& builder, PassData& passData ) {
+			builder.useAsyncCompute();
+			builder.setUncullablePass();
+
+			// Per pass buffer.
+			BufferDesc perPassDesc;
+			perPassDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
+			perPassDesc.SizeInBytes = sizeof( SSR::TemporalRebuildRuntimeProperties );
+            perPassDesc.Usage = RESOURCE_USAGE_DYNAMIC;
+            passData.PerPassBuffer = builder.allocateBuffer( perPassDesc, SHADER_STAGE_COMPUTE );
+
+            passData.RayTraceOutput = builder.readReadOnlyImage( rayTraceOutput );
+            passData.ResolveOutput = builder.readReadOnlyImage( resolvedOutput );
+            passData.PreviousFrameResult = builder.retrieveSSRLastFrameImage();
+
+            ImageDesc resolvedTargetDesc;
+            resolvedTargetDesc.dimension = ImageDesc::DIMENSION_2D;
+            resolvedTargetDesc.format = VIEW_FORMAT_R16G16B16A16_FLOAT;
+            resolvedTargetDesc.bindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
+            resolvedTargetDesc.usage = RESOURCE_USAGE_DEFAULT;
+            resolvedTargetDesc.width = width;
+            resolvedTargetDesc.height = height;
+
+            passData.TemporalFrameResult = builder.allocateImage( resolvedTargetDesc );
+		},
+		[=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+			Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
+
+            Image* rayTraceBuffer = resources->getImage( passData.RayTraceOutput );
+            Image* resolvedBuffer = resources->getImage( passData.ResolveOutput );
+            Image* previousFrameBuffer = resources->getPersitentImage( passData.PreviousFrameResult );
+            Image* temporalOutput = resources->getImage( passData.TemporalFrameResult );
+
+			PipelineStateDesc psoDesc( PipelineStateDesc::COMPUTE );
+			psoDesc.addStaticSampler( RenderingHelpers::S_BilinearClampEdge );
+
+			PipelineState* pipelineState = psoCache->getOrCreatePipelineState( psoDesc, SSR::TemporalRebuild_ShaderBinding );
+			cmdList->pushEventMarker( SSR::TemporalRebuild_EventName );
+
+			SSR::ResolveTraceProperties.HaltonOffset = dk::maths::HaltonOffset2D();
+            SSR::ResolveTraceProperties.OutputSize.x = width;
+            SSR::ResolveTraceProperties.OutputSize.y = height;
+            cmdList->updateBuffer( *perPassBuffer, &SSR::TemporalRebuildProperties, sizeof( SSR::TemporalRebuildRuntimeProperties ) );
+
+			cmdList->bindPipelineState( pipelineState );
+            cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
+            cmdList->bindImage( SSR::TemporalRebuild_RayTraceBuffer_Hashcode, rayTraceBuffer );
+            cmdList->bindImage( SSR::TemporalRebuild_TemporalResultTarget_Hashcode, temporalOutput );
+            cmdList->bindImage( SSR::TemporalRebuild_ResolvedTraceBuffer_Hashcode, resolvedBuffer );
+            cmdList->bindImage( SSR::TemporalRebuild_PreviousFrameResult_Hashcode, previousFrameBuffer );
+            cmdList->prepareAndBindResourceList();
+
+            u32 ThreadGroupX = Max( 1u, SSR::TemporalRebuildProperties.OutputSize.x / SSR::TemporalRebuild_DispatchX );
+            u32 ThreadGroupY = Max( 1u, SSR::TemporalRebuildProperties.OutputSize.y / SSR::TemporalRebuild_DispatchY );
+            cmdList->dispatchCompute( ThreadGroupX, ThreadGroupY, SSR::TemporalRebuild_DispatchZ);
+
+			cmdList->popEventMarker();
+		} 
+	);
+
+	return data.TemporalFrameResult;
+}
+
 void SSRModule::destroy( RenderDevice& renderDevice )
 {
 

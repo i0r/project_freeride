@@ -54,10 +54,12 @@ public:
 
     FGHandle                    resolveRaytrace( FrameGraph& frameGraph, const TraceResult& traceResult, FGHandle depthBuffer, FGHandle colorBuffer, FGHandle resolvedThinGbuffer, const u32 width, const u32 height );
 
+    FGHandle                    temporalRebuild( FrameGraph& frameGraph, FGHandle rayTraceOutput, FGHandle resolvedOutput, const u32 width, const u32 height );
+
     // Release and destroy persistent resources created by this module.
     void                        destroy( RenderDevice& renderDevice );
 
-    // Load cached resource from the harddrive and pre-allocate resources for this module.
+    // Load cached resource from the hard drive and pre-allocate resources for this module.
     void                        loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache );
 
 private:
