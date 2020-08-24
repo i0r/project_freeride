@@ -314,6 +314,72 @@ void EntityEditor::displayStaticGeometrySection()
 		if ( assignedModel != nullptr ) {
             ImGui::SameLine();
 			ImGui::Text( assignedModel->getResourcedPath().c_str() );
+
+            const i32 lodCount = assignedModel->getLevelOfDetailCount();
+
+            if ( ImGui::TreeNode( ICON_MD_ADD_BOX "Level Of Details" ) ) {
+                constexpr const char* LOD_LABELS[Model::MAX_LOD_COUNT] = {
+                    "LOD 0",
+                    "LOD 1",
+                    "LOD 2",
+                    "LOD 3"
+                };
+
+                for ( i32 lodIdx = 0; lodIdx < lodCount; lodIdx++ ) {
+                    const Model::LevelOfDetail& lod = assignedModel->getLevelOfDetailByIndex( lodIdx );
+                    const i32 lodMeshCount = lod.MeshCount;
+
+                    if ( ImGui::TreeNode( LOD_LABELS[lodIdx] ) ) {
+                        for ( i32 meshIdx = 0; meshIdx < lodMeshCount; meshIdx++ ) {
+                            Mesh& mesh = lod.MeshArray[meshIdx];
+
+                            ImGui::Text( mesh.Name.c_str() );
+                            ImGui::PushID( mesh.Name.c_str() );
+
+                            ImGui::Button( "PLACEHOLDER", ImVec2( 64, 64 ) );
+                            if ( ImGui::Button( "..." ) ) {
+                                static constexpr dkChar_t* DefaultMaterialFilter = DUSK_STRING( "Dusk Engine Baked Material (*.mat)\0*.mat\0" );
+
+                                // TODO Legacy shit. Should be removed once the asset browser is implemented.
+                                dkString_t fullPathToAsset;
+                                if ( dk::core::DisplayFileSelectionPrompt( fullPathToAsset,
+                                                                            dk::core::SelectionType::OpenFile,
+                                                                            DefaultMaterialFilter ) ) {
+                                    dk::core::SanitizeFilepathSlashes( fullPathToAsset ); 
+
+                                    dkString_t workingDirectory;
+                                    dk::core::RetrieveWorkingDirectory( workingDirectory );
+                                    dk::core::RemoveWordFromString( workingDirectory, DUSK_STRING( "build/bin/" ) );
+
+                                    dkString_t vfsMaterialPath;
+                                    if ( !dk::core::ContainsString( fullPathToAsset, workingDirectory ) ) {
+                                        // TODO Copy resource to the working directory.
+                                    } else {
+                                        dk::core::RemoveWordFromString( fullPathToAsset, workingDirectory );
+                                        dk::core::RemoveWordFromString( fullPathToAsset, DUSK_STRING( "data/" ) );
+                                        dk::core::RemoveWordFromString( fullPathToAsset, DUSK_STRING( "Assets/" ) );
+
+                                        vfsMaterialPath = dkString_t( DUSK_STRING( "GameData/" ) ) + fullPathToAsset;
+                                    }
+
+                                    mesh.RenderMaterial = graphicsAssetCache->getMaterial( vfsMaterialPath.c_str() );
+                                }
+                            }
+
+                            if ( mesh.RenderMaterial != nullptr ) {
+                                ImGui::SameLine();
+                                ImGui::Text( mesh.RenderMaterial->getName() );
+                            }
+
+                            ImGui::PopID();
+                        }
+
+                        ImGui::TreePop();
+                    }
+                }
+
+                ImGui::TreePop();
+            }
 		}
 
 		ImGui::TreePop();
