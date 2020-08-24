@@ -7,23 +7,23 @@ material "wireframe" {
 	isDoubleFace = true;
 	isShadeless = true;
 	scenario "Default" {
-		vertex = "03d1bb7db62e17f27175eaa369cf1875";
-		pixel = "dc48c981da064dad59f880e2b3dad991";
+		vertex = "8e377d0022a622ee9caf2e7576fb0c44";
+		pixel = "b9f0cfcf1dd2554f0a046b4a507ea295";
 	}
 	scenario "Editor_Default" {
-		vertex = "b12cce78062bce1b28b4a8cd6b40da44";
-		pixel = "10cb8d34a1bac370c12087c79dba9afd";
+		vertex = "d335d26f6772ffaa5eb0dd2548fc9b13";
+		pixel = "0e361b8097a05fde7beed17ca0efe6a5";
 	}
 	scenario "Default_Picking" {
-		vertex = "dfb5e66984eb0b4e66f5b9684161e43a";
-		pixel = "1323984d59facf6a66ed31ab0c90b964";
+		vertex = "7d96de2c72edc60948e46a0cdf9da081";
+		pixel = "ef3f0f58299e7b53615f5e1f631e5290";
 	}
 	scenario "Editor_Default_Picking" {
-		vertex = "dedc358b0bc3cd97ed89dfdeedbcb106";
-		pixel = "3f1379f3d9aa70eba2822d7e01424a23";
+		vertex = "3756f3f5fc8fbbb238ffcd690d3d92b4";
+		pixel = "f38afa539d6290bdcc1b28fef86137db";
 	}
 	scenario "Depth_Only" {
-		vertex = "800d0239a79798abdbb30ce8d7921324";
+		vertex = "f97229447cc6eae7d0f68ac25cb1d913";
 		pixel = "";
 	}
 }

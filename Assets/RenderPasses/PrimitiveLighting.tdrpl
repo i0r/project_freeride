@@ -26,7 +26,7 @@ lib PrimitiveLighting {
         
         // RG: Encoded normals
         // B : Roughness;
-        // A : Reserved
+        // A : F0 (or one if the BRDF doesnt use Fresnel)
         Texture2D OutputThinGBuffer {
             swizzle = float4;
         }
@@ -463,6 +463,8 @@ lib PrimitiveLighting {
         
 #ifdef $IsShadeless
         LightContribution.rgb = BlendedMaterial.BaseColor;
+        
+        static const float3 F0 = float3( 1, 1, 1 );
 #else             
         float BaseColorLuminance = RGBToLuminance( BlendedMaterial.BaseColor );  
         float3 F0 = lerp( ( 0.16f * ( BlendedMaterial.Reflectance * BlendedMaterial.Reflectance ) ), BaseColorLuminance, BlendedMaterial.Metalness );  
@@ -503,9 +505,12 @@ lib PrimitiveLighting {
         $SV_TARGET1 = ComputeScreenSpaceVelocity( $POSITION1, $SV_POSITION ).rgrg;      
 #endif
 
-        float2 encodedNormals = EncodeNormals( N.xyz );
-        
-        float4 gbufferData = float4( encodedNormals, BlendedMaterial.Roughness, 0.0f );
+        float2 encodedNormals = EncodeNormals( N.xyz );        
+        // Thin GBuffer 1
+        //  xy  - Encoded Normals
+        //  z   - Roughness
+        //  w   - F0 (required BRDF DFG function rebuild)
+        float4 gbufferData = float4( encodedNormals, BlendedMaterial.Roughness, F0.r );
         $SV_TARGET2 = gbufferData;
 
 #ifdef $DoPickingCheck

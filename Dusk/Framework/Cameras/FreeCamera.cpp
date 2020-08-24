@@ -179,7 +179,8 @@ void FreeCamera::setProjectionMatrix( const f32 fieldOfView, const f32 screenWid
     data.farPlane = data.depthFarPlane;
 
     // Required for anything requiring a projection with a finite far plane (e.g. Guizmo rendering).
-	data.finiteProjectionMatrix = MakeFovProj( fov, aspectRatio, nearPlane, data.depthFarPlane );
+    data.finiteProjectionMatrix = MakeFovProj( fov, aspectRatio, nearPlane, data.depthFarPlane );
+    data.inverseFiniteProjectionMatrix = data.finiteProjectionMatrix.inverse();
 }
 
 void FreeCamera::updateMouse( const f32 frameTime, const double mouseDeltaX, const double mouseDeltaY ) noexcept

@@ -56,6 +56,8 @@ public:
 
     FGHandle                    temporalRebuild( FrameGraph& frameGraph, FGHandle rayTraceOutput, FGHandle resolvedOutput, const u32 width, const u32 height );
 
+    FGHandle                    combineResult( FrameGraph& frameGraph, FGHandle temporalRebuiltBuffer, FGHandle sceneColor, FGHandle depthBuffer, FGHandle thinGbuffer, const u32 width, const u32 height );
+
     // Release and destroy persistent resources created by this module.
     void                        destroy( RenderDevice& renderDevice );
 
@@ -65,4 +67,7 @@ public:
 private:
     // Offline-generated blue noise texture for stochastic ray tracing.
     Image*                      blueNoise;
+
+    // Default BRDF DFG LUT (used for dielectric/metallic surfaces). 
+    Image*                      brdfDfgLut;
 };

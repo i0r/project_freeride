@@ -66,6 +66,28 @@ lib SSR {
         RWTexture2D TemporalResultTarget {
             swizzle = float4;
         }
+        
+        
+        // Composition Pass
+        Texture2D BrdfDfgLut {
+            swizzle = float2;
+        }
+        
+        Texture2D SceneColorBuffer {
+            swizzle = float4;
+        }
+        
+        Texture2D SSRCompositionInput {
+            swizzle = float4;
+        } 
+        
+        RWTexture2D CombinedResultTarget {
+            swizzle = float4;
+        }
+        
+        Texture2D LinearDepthBuffer {
+            swizzle = float;
+        }
     }
    
     shared {
@@ -255,14 +277,15 @@ lib SSR {
             // V is the viewport position at this pixel in the range 0 to 1.
             float2 vPosPrev = prevHPos.xy / float2(2.0f, -2.0f) + float2(0.5f, 0.5f);
             float2 vPosCur = curHPos.xy / float2(2.0f, -2.0f) + float2(0.5f, 0.5f);
+            
             return vPosCur - vPosPrev;
         }
         
-        inline half SmithJointGGXVisibilityTerm(half NdotL, half NdotV, half roughness)
+        inline float SmithJointGGXVisibilityTerm(float NdotL, float NdotV, float roughness)
         {
-            half a = roughness;
-            half lambdaV = NdotL * (NdotV * (1 - a) + a);
-            half lambdaL = NdotV * (NdotL * (1 - a) + a);
+            float a = roughness;
+            float lambdaV = NdotL * (NdotV * (1 - a) + a);
+            float lambdaL = NdotV * (NdotL * (1 - a) + a);
 
             return (0.5f / (lambdaV + lambdaL + 1e-5f));
         }
@@ -272,7 +295,7 @@ lib SSR {
             float a2 = roughness * roughness;
             float d = (NdotH * a2 - NdotH) * NdotH + 1.0f; // 2 mad
             return a2 / (PI * (d * d + 1e-7f)); // This function is not intended to be running on Mobile,
-            // therefore epsilon is smaller than what can be represented by half
+            // therefore epsilon is smaller than what can be represented by float
         }
 
         float BRDF_Weight(float3 V, float3 L, float3 N, float Roughness)
@@ -283,8 +306,8 @@ lib SSR {
             float NdotL = saturate(dot(N, L));
             float NdotV = saturate(dot(N, V));
 
-            half G = SmithJointGGXVisibilityTerm(NdotL, NdotV, Roughness);
-            half D = GGXTerm(NdotH, Roughness);
+            float G = SmithJointGGXVisibilityTerm(NdotL, NdotV, Roughness);
+            float D = GGXTerm(NdotH, Roughness);
 
             return (D * G) * (PI / 4.0);
         }
@@ -292,9 +315,8 @@ lib SSR {
         void ResolveAABB
         (
             Texture2D currColor,
-            float AABBScale,
             float2 uv,
-            float2 ScreenSize,
+            float AABBScale,
             inout float Variance,
             inout float4 MinColor,
             inout float4 MaxColor,
@@ -317,19 +339,19 @@ lib SSR {
 
             for (uint i = 0; i < 9; i++)
             {
-                SampleColors[i] = currColor.Load(int3( uv + (SampleOffset[i] / ScreenSize), 0 ) );
+                SampleColors[i] = currColor.Load(int3( uv + SampleOffset[i], 0 ) );
             }
 
-            half4 m1 = 0.0;
-            half4 m2 = 0.0;
+            float4 m1 = 0.0;
+            float4 m2 = 0.0;
             for (uint x = 0; x < 9; x++)
             {
                 m1 += SampleColors[x];
                 m2 += SampleColors[x] * SampleColors[x];
             }
 
-            half4 mean = m1 / 9.0;
-            half4 stddev = sqrt((m2 / 9.0) - mean * mean);
+            float4 mean = m1 / 9.0;
+            float4 stddev = sqrt((m2 / 9.0) - mean * mean);
 
             MinColor = mean - AABBScale * stddev;
             MaxColor = mean + AABBScale * stddev;
@@ -351,7 +373,7 @@ lib SSR {
         
         float  roughness = ThinGBufferSample.b;
         float  depth = DepthBuffer.SampleLevel( LinearSampler, UvCoordinates, 0.0f );
-            
+           
         float2 Hash = BlueNoise.SampleLevel(LinearSampler, (UvCoordinates + HaltonOffset.xy) * (OutputSize.xy) / float2(BLUE_NOISE_SIZE, BLUE_NOISE_SIZE), 0.0f).rg;
         Hash.y = lerp(Hash.y, 0.0, BRDF_BIAS);
     
@@ -360,7 +382,7 @@ lib SSR {
         float3 viewPos = GetViewPos( screenPos );
         float3 viewDir = GetViewDir( worldPos );
         
-        bool IsMirror = ( roughness > 0.1f );
+        bool IsMirror = ( roughness < 0.1f );
         
         // Use a stochastic approach for rough surfaces. If roughness is below the threshold; assume the surface
         // is mirror like and should reflect as is.
@@ -465,9 +487,8 @@ lib SSR {
 
         ResolveAABB(
             ResolvedTraceBuffer,
+            PixelCoordinates,
             TEMPORAL_CLAMP_SCALE,
-            UvCoordinates,
-            OutputSize.xy,
             variance,
             minColor,
             maxColor,
@@ -495,11 +516,8 @@ lib SSR {
         float3 NormalsViewSpace = normalize( mul( Normals, (float3x3)g_ViewMatrix ) );
         
         float  roughness = ThinGBufferSample.b;
-        float  depth = DepthBuffer.SampleLevel( LinearSampler, UvCoordinates, 0.0f );
+        float  depth = LinearDepthBuffer.SampleLevel( LinearSampler, UvCoordinates, 0.0f );
             
-        float2 Hash = BlueNoise.SampleLevel(LinearSampler, (UvCoordinates + HaltonOffset.xy) * OutputSize.xy / float2(BLUE_NOISE_SIZE, BLUE_NOISE_SIZE), 0.0f).rg * 2.0 - 1.0;
-        float2x2 offsetRotationMatrix = float2x2(Hash.x, Hash.y, -Hash.y, Hash.x);
-
         float3 screenPos = GetScreenPos( UvCoordinates, depth );
         float3 worldPos = ReconstructWorldPos( UvCoordinates, depth );
         float3 viewPos = GetViewPos( screenPos );
@@ -507,27 +525,27 @@ lib SSR {
         
         float NoV = saturate(dot(NormalsViewSpace, -viewDir));
 
-        // // Rebuild DFG function.
-        // float2 f_ab = BrdfDfgLut.Sample( BilinearSampler, float2( NoV, roughness ) );
-        // float Ems = (1.0 - (f_ab.x + f_ab.y));
-        // float3 F_avg = F0 + (1.0 - F0) / 21.0;
-        // float3 FmsEms = Ems * FssEss * F_avg / (1.0 - F_avg * Ems);
-        // float3 k_D = albedo * (1.0 - FssEss - FmsEms);
-        // float3 iblContribution = FssEss * radiance + (FmsEms + k_D) * irradiance;
-        // half3 PreintegratedGF = PreintegratedDGF_LUT(albedo, worldNormal, metalness, roughness, NdotV, -viewDir);
-
-        // half ReflectionOcclusion = saturate(gOcclusionTexture.SampleLevel(linearClampSampler, uv, 0.0f).g);
-        // //ReflectionOcclusion = ReflectionOcclusion == 0.5 ? 1 : ReflectionOcclusion;
-        // //half ReflectionOcclusion = 1;
-
-        // half3 SceneColor = gSceneColor.SampleLevel(linearClampSampler, uv, 0.0f).rgb;
-        // half4 AmbientSpecularColor = gAmbientSpecular.SampleLevel(linearClampSampler, jitteredUV, 0.0f);
-
-        // half4 SSRColor = gSsrColor.SampleLevel(linearClampSampler, uv, 0.0f);
-        // //half SSRMask = SSRColor.a * SSRColor.a;
-        // half SSRMask = lerp(SSRColor.a * SSRColor.a, 0.0f, smoothstep(0.6f, 1.2f, roughness));
-        // half3 ReflectionColor = (AmbientSpecularColor.rgb * (-SSRMask) + SSRColor.rgb * PreintegratedGF * SSRMask;
-
+        // Rebuild DFG function.
+        float F0 = ThinGBufferSample.aaa;
+        float smoothness = 1.0f - roughness;
+        
+        float2 f_ab = BrdfDfgLut.SampleLevel( LinearSampler, float2( NoV, roughness ), 0.0f );
+        float3 Fr = max(float3( smoothness, smoothness, smoothness ), F0) - F0;
+        float3 k_S = F0 + Fr * Pow5(1.0 - NoV);
+        
+        float3 FssEss = k_S * f_ab.x + f_ab.y;
+        
+        float Ems = (1.0 - (f_ab.x + f_ab.y));
+        float3 F_avg = F0 + (1.0 - F0) / 21.0;
+        float3 FmsEms = Ems * FssEss * F_avg / (1.0 - F_avg * Ems);
+        
+        float3 sceneColor = SceneColorBuffer[$SV_DispatchThreadId.xy];
+        
+        float4 ssrColor = SSRCompositionInput[$SV_DispatchThreadId.xy];
+        float mask = lerp(ssrColor.a * ssrColor.a, 0.0f, smoothstep(0.6f, 1.2f, roughness));
+        float3 reflectionColor = ( FmsEms + (ssrColor.rgb * (1.0 - FssEss - FmsEms)) ) * mask;
+        
+        CombinedResultTarget[$SV_DispatchThreadId.xy] = float4( sceneColor + reflectionColor, 1.0f );
     }
     
     pass HiZTrace {
@@ -551,6 +569,7 @@ lib SSR {
     }
     
     pass Combine {
-        
+        compute = CombineCS;
+        dispatch = { 16, 16, 1 };
     }
 }

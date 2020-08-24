@@ -798,7 +798,7 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
         perViewData.OrthoProjectionMatrix = dk::maths::MakeOrtho( 0.0f, activeCamera->viewportSize.x, activeCamera->viewportSize.y, 0.0f, -1.0f, 1.0f );
         perViewData.ViewMatrix = activeCamera->viewMatrix;
         perViewData.ProjectionMatrix = activeCamera->projectionMatrix;
-        perViewData.InverseProjectionMatrix = activeCamera->inverseProjectionMatrix;
+        perViewData.InverseProjectionMatrix = activeCamera->inverseFiniteProjectionMatrix;
         perViewData.InverseViewMatrix = activeCamera->inverseViewMatrix;
         perViewData.ViewportSize = activeCamera->viewportSize;
         perViewData.InverseViewportSize = activeCamera->inverseViewportSize;

@@ -15,7 +15,8 @@ struct CameraData
 {
     dkMat4x4f  viewMatrix;
 	dkMat4x4f  projectionMatrix;
-	dkMat4x4f  finiteProjectionMatrix;
+    dkMat4x4f  finiteProjectionMatrix;
+    dkMat4x4f  inverseFiniteProjectionMatrix;
     dkMat4x4f  inverseViewMatrix;
     dkMat4x4f  inverseProjectionMatrix;
     dkMat4x4f  viewProjectionMatrix;

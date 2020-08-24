@@ -16,6 +16,7 @@
 
 SSRModule::SSRModule()
 	: blueNoise( nullptr )
+	, brdfDfgLut( nullptr )
 {
 
 }
@@ -23,6 +24,7 @@ SSRModule::SSRModule()
 SSRModule::~SSRModule()
 {
 	blueNoise = nullptr;
+	brdfDfgLut = nullptr;
 }
 
 SSRModule::HiZResult SSRModule::computeHiZMips( FrameGraph& frameGraph, FGHandle resolvedDepthBuffer, const u32 width, const u32 height )
@@ -95,8 +97,8 @@ SSRModule::HiZResult SSRModule::computeHiZMips( FrameGraph& frameGraph, FGHandle
 
 			// TODO Merge all downsampling step into a single shader
 			// Should be doable in SM6.0; might be more tricky in SM5.0
-			u32 mipWidth = passData.Mip0Width >> 1;
-			u32 mipHeight = passData.Mip0Height >> 1;
+			u32 mipWidth = passData.Mip0Width;
+			u32 mipHeight = passData.Mip0Height;
 
 			PipelineState* pipelineState = psoCache->getOrCreatePipelineState( psoDesc, DepthPyramid::DepthDownsample_ShaderBinding );
 			cmdList->pushEventMarker( DepthPyramid::DepthDownsample_EventName );
@@ -105,8 +107,8 @@ SSRModule::HiZResult SSRModule::computeHiZMips( FrameGraph& frameGraph, FGHandle
 			cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
 
 			for ( i32 mipIdx = 0; mipIdx < passData.HiZMipCount; mipIdx++ ) {
-				DepthPyramid::DepthDownsampleProperties.TextureSize.x = mipWidth;
-				DepthPyramid::DepthDownsampleProperties.TextureSize.y = mipHeight;
+				DepthPyramid::DepthDownsampleProperties.TextureSize.x = mipWidth >> 1;
+				DepthPyramid::DepthDownsampleProperties.TextureSize.y = mipHeight >> 1;
 
 				cmdList->updateBuffer( *perPassBuffer, &DepthPyramid::DepthDownsampleProperties, sizeof( DepthPyramid::DepthDownsampleRuntimeProperties ) );
 
@@ -119,10 +121,10 @@ SSRModule::HiZResult SSRModule::computeHiZMips( FrameGraph& frameGraph, FGHandle
 
 				u32 ThreadGroupX = Max( 1u, mipWidth / DepthPyramid::DepthDownsample_DispatchX );
 				u32 ThreadGroupY = Max( 1u, mipHeight / DepthPyramid::DepthDownsample_DispatchY );
-				cmdList->dispatchCompute( ThreadGroupX, ThreadGroupY, 1u );
+                cmdList->dispatchCompute( ThreadGroupX, ThreadGroupY, 1u );
 
-				mipWidth >>= 1;
-				mipHeight >>= 1;
+                mipWidth >>= 1;
+                mipHeight >>= 1;
 			}
 
 			// Replace this with caps ifdef (like the async compute one).
@@ -414,6 +416,86 @@ FGHandle SSRModule::temporalRebuild( FrameGraph& frameGraph, FGHandle rayTraceOu
 	return data.TemporalFrameResult;
 }
 
+FGHandle SSRModule::combineResult( FrameGraph& frameGraph, FGHandle temporalRebuiltBuffer, FGHandle sceneColor, FGHandle depthBuffer, FGHandle thinGbuffer, const u32 width, const u32 height )
+{
+    struct PassData {
+        FGHandle	PerPassBuffer;
+        FGHandle	RebuiltBuffer;
+        FGHandle	SceneColor;
+        FGHandle	DepthBuffer;
+        FGHandle	ThinGBuffer;
+        FGHandle	CombinedBuffer;
+    };
+
+	PassData data = frameGraph.addRenderPass<PassData>(
+		SSR::Combine_Name,
+		[&]( FrameGraphBuilder& builder, PassData& passData ) {
+			builder.useAsyncCompute();
+			builder.setUncullablePass();
+
+			// Per pass buffer.
+			BufferDesc perPassDesc;
+			perPassDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
+			perPassDesc.SizeInBytes = sizeof( SSR::CombineRuntimeProperties );
+            perPassDesc.Usage = RESOURCE_USAGE_DYNAMIC;
+            passData.PerPassBuffer = builder.allocateBuffer( perPassDesc, SHADER_STAGE_COMPUTE );
+
+            passData.RebuiltBuffer = builder.readReadOnlyImage( temporalRebuiltBuffer );
+            passData.SceneColor = builder.readReadOnlyImage( sceneColor );
+            passData.DepthBuffer = builder.readReadOnlyImage( depthBuffer );
+            passData.ThinGBuffer = builder.readReadOnlyImage( thinGbuffer );
+
+            ImageDesc combinedTargetDesc;
+            combinedTargetDesc.dimension = ImageDesc::DIMENSION_2D;
+            combinedTargetDesc.format = VIEW_FORMAT_R16G16B16A16_FLOAT;
+            combinedTargetDesc.bindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
+            combinedTargetDesc.usage = RESOURCE_USAGE_DEFAULT;
+            combinedTargetDesc.width = width;
+            combinedTargetDesc.height = height;
+
+            passData.CombinedBuffer = builder.allocateImage( combinedTargetDesc );
+		},
+		[=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+			Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
+
+            Image* combinedResult = resources->getImage( passData.CombinedBuffer );
+            Image* temporalRebuiltBuffer = resources->getImage( passData.RebuiltBuffer );
+            Image* sceneColorBuffer = resources->getImage( passData.SceneColor );
+            Image* depthBuffer = resources->getImage( passData.DepthBuffer );
+            Image* thinGBuffer = resources->getImage( passData.ThinGBuffer );
+
+			PipelineStateDesc psoDesc( PipelineStateDesc::COMPUTE );
+			psoDesc.addStaticSampler( RenderingHelpers::S_BilinearClampEdge );
+
+			PipelineState* pipelineState = psoCache->getOrCreatePipelineState( psoDesc, SSR::Combine_ShaderBinding );
+			cmdList->pushEventMarker( SSR::Combine_EventName );
+
+			SSR::CombineProperties.HaltonOffset = dk::maths::HaltonOffset2D();
+            SSR::CombineProperties.OutputSize.x = width;
+            SSR::CombineProperties.OutputSize.y = height;
+            cmdList->updateBuffer( *perPassBuffer, &SSR::CombineProperties, sizeof( SSR::CombineRuntimeProperties ) );
+
+			cmdList->bindPipelineState( pipelineState );
+            cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
+            cmdList->bindImage( SSR::Combine_ThinGBuffer_Hashcode, thinGBuffer );
+            cmdList->bindImage( SSR::Combine_BrdfDfgLut_Hashcode, brdfDfgLut );
+            cmdList->bindImage( SSR::Combine_SceneColorBuffer_Hashcode, sceneColorBuffer );
+            cmdList->bindImage( SSR::Combine_SSRCompositionInput_Hashcode, temporalRebuiltBuffer );
+            cmdList->bindImage( SSR::Combine_LinearDepthBuffer_Hashcode, depthBuffer );
+            cmdList->bindImage( SSR::Combine_CombinedResultTarget_Hashcode, combinedResult );
+            cmdList->prepareAndBindResourceList();
+
+            u32 ThreadGroupX = Max( 1u, SSR::CombineProperties.OutputSize.x / SSR::Combine_DispatchX );
+            u32 ThreadGroupY = Max( 1u, SSR::CombineProperties.OutputSize.y / SSR::Combine_DispatchY );
+            cmdList->dispatchCompute( ThreadGroupX, ThreadGroupY, SSR::Combine_DispatchZ );
+
+			cmdList->popEventMarker();
+		} 
+	);
+
+	return data.CombinedBuffer;
+}
+
 void SSRModule::destroy( RenderDevice& renderDevice )
 {
 
@@ -421,5 +503,6 @@ void SSRModule::destroy( RenderDevice& renderDevice )
 
 void SSRModule::loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache )
 {
-	blueNoise = graphicsAssetCache.getImage( DUSK_STRING( "GameData/textures/bluenoise.dds" ) );
+    blueNoise = graphicsAssetCache.getImage( DUSK_STRING( "GameData/textures/bluenoise.dds" ) );
+    brdfDfgLut = graphicsAssetCache.getImage( DUSK_STRING( "GameData/textures/BRDF_DFG_Default.dds" ) );
 }

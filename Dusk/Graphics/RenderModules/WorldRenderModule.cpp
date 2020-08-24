@@ -136,7 +136,7 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
 
             ImageDesc gbufferDesc;
             gbufferDesc.dimension = ImageDesc::DIMENSION_2D;
-            gbufferDesc.format = eViewFormat::VIEW_FORMAT_R11G11B10_FLOAT;
+            gbufferDesc.format = eViewFormat::VIEW_FORMAT_R16G16B16A16_FLOAT;
             gbufferDesc.usage = RESOURCE_USAGE_DEFAULT;
             gbufferDesc.bindFlags = RESOURCE_BIND_RENDER_TARGET_VIEW | RESOURCE_BIND_SHADER_RESOURCE;
 

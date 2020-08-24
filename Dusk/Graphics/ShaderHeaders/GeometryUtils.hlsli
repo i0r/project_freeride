@@ -1,17 +1,25 @@
 #ifndef __GEO_UTILS_H__
 #define __GEO_UTILS_H__ 1
-float2 EncodeNormals( float3 normalizedNormal )
+float2 EncodeNormals( float3 n )
 {
-    float2 enc = normalize( normalizedNormal.xy ) * sqrt( -normalizedNormal.z * 0.5f + 0.5f );
-    return enc * 0.5f + 0.5f;
+    static const float scale = 1.7777f;
+    
+    float2 enc = n.xy / (n.z+1);
+    enc /= scale;
+    enc = enc*0.5+0.5;
+    return enc;
 }
 
-float3 DecodeNormals( float2 encodedNormals )
+float3 DecodeNormals( float2 enc )
 {
-    float2 fenc = encodedNormals * 4 - 2;
-    float f = dot( fenc, fenc );
-    float g = sqrt( 1 - f / 4 );
-    float3 n = float3( fenc * g, 1 - f / 2 );
+    static const float scale = 1.7777f;
+    
+    float3 nn = enc.rgr * float3(2*scale,2*scale,0) + float3(-scale,-scale,1);
+    float g = 2.0f / dot(nn.xyz,nn.xyz);
+    
+    float3 n;
+    n.xy = g*nn.xy;
+    n.z = g-1;
     return n;
 }
         
@@ -24,9 +32,9 @@ float3 ReconstructWorldPos( float2 uv, float depth )
 {
     float ndcX = uv.x * 2 - 1;
     float ndcY = 1 - uv.y * 2;
-    float4 viewPos = mul( g_InverseProjectionMatrix, float4( ndcX, ndcY, depth, 1.0f ) );
+    float4 viewPos = mul( float4( ndcX, ndcY, depth, 1.0f ), g_InverseProjectionMatrix );
     viewPos = viewPos / viewPos.w;
-    return mul( g_InverseViewMatrix, viewPos ).xyz;
+    return mul( viewPos, g_InverseViewMatrix ).xyz;
 }
 
 float3 GetViewDir( float3 worldPos ) 
@@ -36,7 +44,7 @@ float3 GetViewDir( float3 worldPos )
 
 float3 GetViewPos( float3 screenPos ) 
 {
-    float4 viewPos = mul( g_InverseProjectionMatrix, float4( screenPos, 1.0f ) );
+    float4 viewPos = mul( float4( screenPos, 1.0f ), g_InverseProjectionMatrix );
     return viewPos.xyz / viewPos.w;
 }
 

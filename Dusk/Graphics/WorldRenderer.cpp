@@ -352,7 +352,9 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
     SSRModule::TraceResult ssrTrace = screenSpaceReflections->rayTraceHiZ( frameGraph, resolvedDepth, resolvedGbuffer, hiZMips, viewportWidth, viewportHeight );
     FGHandle ssrResolved = screenSpaceReflections->resolveRaytrace( frameGraph, ssrTrace, resolvedDepth, resolvedColor, resolvedGbuffer, viewportWidth, viewportHeight );
     FGHandle ssrTemporalResolved = screenSpaceReflections->temporalRebuild( frameGraph, ssrTrace.TraceBuffer, ssrResolved, viewportWidth, viewportHeight );
-    frameGraph.saveLastFrameSSRRenderTarget( ssrTemporalResolved );
+    frameGraph.saveLastFrameSSRRenderTarget( ssrResolved );
+
+    presentRt = screenSpaceReflections->combineResult(frameGraph, ssrTemporalResolved, presentRt, resolvedDepth, resolvedGbuffer, viewportWidth, viewportHeight );
 
     // Glare Rendering.
     FFTPassOutput frequencyDomainRt = AddFFTComputePass( frameGraph, presentRt, viewportSize.x, viewportSize.y );
