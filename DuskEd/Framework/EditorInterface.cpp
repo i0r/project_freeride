@@ -42,6 +42,9 @@
 extern RenderDocHelper* g_RenderDocHelper;
 #endif
 
+#include "Framework/EditorWidgets/FrameGraphDebug.h"
+
+// TODO Refactor this to avoid weird dependencies
 extern MaterialEditor* g_MaterialEditor;
 extern WorldRenderer* g_WorldRenderer;
 extern World* g_World;
@@ -60,6 +63,7 @@ EditorInterface::EditorInterface( BaseAllocator* allocator )
 #if DUSK_USE_RENDERDOC
 	, renderDocWidget( dk::core::allocate<RenderDocHelperWidget>( memoryAllocator, g_RenderDocHelper ) )
 #endif
+	, frameGraphWidget( dk::core::allocate<FrameGraphDebugWidget>( memoryAllocator ) )
 	, menuBarHeight( 0.0f )  
 	, isResizing( true )
 {
@@ -71,6 +75,8 @@ EditorInterface::~EditorInterface()
 #if DUSK_USE_RENDERDOC
 	dk::core::free( memoryAllocator, renderDocWidget );
 #endif
+
+	dk::core::free( memoryAllocator, frameGraphWidget );
 }
 
 void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* renderModule )
@@ -108,6 +114,7 @@ void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* render
 		ImGui::DockBuilderDockWindow( "Console", dock_id_bottom );
 		ImGui::DockBuilderDockWindow( "Inspector", dock_id_prop );
 		ImGui::DockBuilderDockWindow( "RenderDoc", dock_id_prop );
+		ImGui::DockBuilderDockWindow( "FrameGraph Debug", dock_id_prop );
 		ImGui::DockBuilderFinish( dockspaceID );
 	}
 	ImGui::DockSpace( dockspaceID );
@@ -122,6 +129,9 @@ void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* render
 
 	ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
 	g_MaterialEditor->displayEditorWindow();
+
+	ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
+	frameGraphWidget->displayEditorWindow( &frameGraph );
 
 	ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
 	if ( ImGui::Begin( ICON_MD_ACCESS_TIME " Time Of Day" ) ) {
@@ -332,6 +342,11 @@ void EditorInterface::displayWindowMenu()
 
 		if ( ImGui::MenuItem( ICON_MD_ZOOM_IN " Inspector" ) ) {
 			g_EntityEditor->openEditorWindow();
+		}
+
+
+		if ( ImGui::MenuItem( "FrameGraph Debug" ) ) {
+			frameGraphWidget->openWindow();
 		}
 
 		ImGui::EndMenu();

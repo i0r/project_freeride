@@ -572,7 +572,6 @@ void BuildThisFrameGraph( FrameGraph& frameGraph, const Material::RenderScenario
     // Render HUD.
     presentRt = g_HUDRenderer->buildDefaultGraph( frameGraph, presentRt );
 
-    // TODO Make a separate EditorRenderer or something like that
 #if DUSK_USE_IMGUI
     // ImGui Editor GUI.
     frameGraph.savePresentRenderTarget( presentRt );
@@ -672,7 +671,6 @@ void MainLoop()
             accumulator -= LOGIC_DELTA;
         }
 
-
         // Convert screenspace cursor position to viewport space.
 		shiftedMouseX = dk::maths::clamp( static_cast< i32 >( g_CursorPosition.x - g_ViewportWindowPosition.x ), 0, vp.Width );
 		shiftedMouseY = dk::maths::clamp( static_cast< i32 >( g_CursorPosition.y - g_ViewportWindowPosition.y ), 0, vp.Height );
@@ -692,10 +690,6 @@ void MainLoop()
 
 		g_DrawCommandBuilder->addWorldCameraToRender( &g_FreeCamera->getData() );
 		g_DrawCommandBuilder->prepareAndDispatchCommands( g_WorldRenderer );
-
-#if DUSK_USE_IMGUI
-        g_EditorInterface->display( frameGraph, g_ImGuiRenderModule );
-#endif
 
         // Rendering
 
@@ -740,7 +734,11 @@ void MainLoop()
 
         // Build this frame FrameGraph
         BuildThisFrameGraph( frameGraph, scenario, viewportSize );
-        
+
+#if DUSK_USE_IMGUI
+		g_EditorInterface->display( frameGraph, g_ImGuiRenderModule );
+#endif
+
         // TODO Should be renamed (this is simply a dispatch call for frame graph passes...).
         g_WorldRenderer->drawWorld( g_RenderDevice, frameTime );
     }

@@ -906,7 +906,7 @@ void ImDrawList::PathArcToFast(const ImVec2& center, float radius, int a_min_of_
     }
 
     // For legacy reason the PathArcToFast() always takes angles where 2*PI is represented by 12,
-    // but it is possible to set IM_DRAWLIST_ARCFAST_TESSELATION_MULTIPLIER to a higher value. This should compile to a no-op otherwise.
+    // but it is possible to set IM_DRAWLIST_ARCFAST_TESSELLATION_MULTIPLIER to a higher value. This should compile to a no-op otherwise.
 #if IM_DRAWLIST_ARCFAST_TESSELLATION_MULTIPLIER != 1
     a_min_of_12 *= IM_DRAWLIST_ARCFAST_TESSELLATION_MULTIPLIER;
     a_max_of_12 *= IM_DRAWLIST_ARCFAST_TESSELLATION_MULTIPLIER;

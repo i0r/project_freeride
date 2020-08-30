@@ -23,8 +23,10 @@ public:
     // Return the name of a given entity. Return null if the entity is invalid or does not exist.
     const char*     getName( const Entity& entity ) const;
 
+#if DUSKED
     // Return a pointer to the name buffer for a given entity. Should be editor only (once the editor only guard is created).
 	char*           getNameBuffer( const Entity& entity );
+#endif
 
     // Return true if the hashcode exist; false otherwise.
     bool            exist( const dkStringHash_t hashcode ) const;

@@ -39,10 +39,12 @@ void EntityNameRegister::setName( const Entity& entity, const char* name )
     nameHashmap[nameHashcode] = entity;
 }
 
+#if DUSKED
 char* EntityNameRegister::getNameBuffer( const Entity& entity )
 {
 	return &names[entity.extractIndex() * Entity::MAX_NAME_LENGTH];
 }
+#endif
 
 const char* EntityNameRegister::getName( const Entity& entity ) const
 {

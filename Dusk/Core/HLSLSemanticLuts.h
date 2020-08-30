@@ -547,16 +547,16 @@ static constexpr i32 SEMANTIC_ACCESS[SEMANTIC_COUNT] = {
 // Pass Input Struct (data received from vbo or previous stage binded in the pipeline)
 static constexpr const char* STAGE_INPUT_NAME_LUT[5] = {
     "VertexInput",
-    "TesselationControlInput",
-    "TesselationEvalInput",
+    "TessellationControlInput",
+    "TessellationEvalInput",
     "PixelInput",
     "ComputeInput"
 };
 
 static constexpr const char* STAGE_NAME_LUT[5] = {
     "Vertex",
-    "TesselationControl",
-    "TesselationEval",
+    "TessellationControl",
+    "TessellationEval",
     "Pixel",
     "Compute"
 };
@@ -564,8 +564,8 @@ static constexpr const char* STAGE_NAME_LUT[5] = {
 // Pass Output Struct (data sent to the stage binded in the pipeline)
 static constexpr const char* STAGE_OUTPUT_NAME_LUT[5] = {
     "VertexOuput",
-    "TesselationControlOutput",
-    "TesselationEvalOutput",
+    "TessellationControlOutput",
+    "TessellationEvalOutput",
     "PixelOutput",
     "void" // Compute kernels have no return type!
 };

@@ -8,9 +8,10 @@
 #include "Parser.h"
 #include "HLSLSemanticLuts.h"
 
-#include <Core/StringHelpers.h>
-#include <Core/Hashing/MurmurHash3.h>
-#include <Core/Hashing/Helpers.h>
+#include "Core/StringHelpers.h"
+#include "Core/Hashing/MurmurHash3.h"
+#include "Core/Hashing/Helpers.h"
+#include "Core/Hashing/HashingSeeds.h"
 
 DUSK_INLINE void StorePassStage( std::string* stageShaderNames, const i32 stageIdx, const Token::StreamRef& paramValue )
 {
@@ -563,16 +564,16 @@ static void WritePassInOutData( const std::unordered_map<dkStringHash_t, std::st
 
 constexpr eShaderStage SHADER_STAGE_LUT[eShaderStage::SHADER_STAGE_COUNT] = {
     SHADER_STAGE_VERTEX,
-    SHADER_STAGE_TESSELATION_CONTROL,
-    SHADER_STAGE_TESSELATION_EVALUATION,
+    SHADER_STAGE_TESSELLATION_CONTROL,
+    SHADER_STAGE_TESSELLATION_EVALUATION,
     SHADER_STAGE_PIXEL,
     SHADER_STAGE_COMPUTE
 };
 
 constexpr const char* SHADER_STAGE_NAME_LUT[eShaderStage::SHADER_STAGE_COUNT] = {
     "vertex",
-    "tesselationControl",
-    "tesselationEvaluation",
+    "tessellationControl",
+    "tessellationEvaluation",
     "pixel",
     "compute"
 };
@@ -1039,8 +1040,7 @@ void RenderLibraryGenerator::processShaderStage( const i32 stageIndex, const std
     
     // Hash the final name.
     Hash128 permutationHashcode;
-    // TODO Keep the hashing key somewhere shared (atm it's hardcoded in multiple files...).
-    MurmurHash3_x64_128( passInfos.StageShaderNames[stageIndex].c_str(), static_cast< int >( passInfos.StageShaderNames[stageIndex].size() ), 19081996, &permutationHashcode );
+    MurmurHash3_x64_128( passInfos.StageShaderNames[stageIndex].c_str(), static_cast< int >( passInfos.StageShaderNames[stageIndex].size() ), dk::core::SeedFileSystemObject, &permutationHashcode );
     dkString_t filenameWithExtension = dk::core::GetHashcodeDigest128( permutationHashcode );
 
     // Create our generated shader output.
@@ -1150,6 +1150,7 @@ void RenderLibraryGenerator::appendSharedShaderHeader( std::string& hlslSource )
 	hlslSource.append( "\tfloat4x4         g_OrthoProjectionMatrix;\n" );
 	hlslSource.append( "\tfloat4x4         g_ViewMatrix;\n" );
 	hlslSource.append( "\tfloat4x4         g_ProjectionMatrix;\n" );
+	hlslSource.append( "\tfloat4x4         g_FiniteProjectionMatrix;\n" );
 	hlslSource.append( "\tfloat4x4         g_InverseProjectionMatrix;\n" );
 	hlslSource.append( "\tfloat4x4         g_InverseViewMatrix;\n" );
     hlslSource.append( "\tfloat2           g_ScreenSize;\n" );

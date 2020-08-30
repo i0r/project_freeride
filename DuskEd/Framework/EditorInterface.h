@@ -9,6 +9,7 @@ class RenderDocHelperWidget;
 class BaseAllocator;
 class GraphicsAssetCache;
 class FrameGraph;
+class FrameGraphDebugWidget;
 
 class EditorInterface
 {
@@ -31,6 +32,9 @@ private:
     // Widget for RenderDoc capture.
     RenderDocHelperWidget* renderDocWidget;
 #endif
+
+    // Widget for FrameGraph debugging.
+    FrameGraphDebugWidget* frameGraphWidget;
 
     // Height of the main menubar (0 if the bar is disabled).
     f32             menuBarHeight;

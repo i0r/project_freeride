@@ -14,6 +14,7 @@
 #include "Core/Allocators/LinearAllocator.h"
 
 #include "Core/Hashing/MurmurHash3.h"
+#include "Core/Hashing/HashingSeeds.h"
 
 #include <Core/Lexer.h>
 #include <Core/Parser.h>
@@ -156,7 +157,7 @@ void dk::baker::Start( const char* cmdLineArgs )
 
         // Check library dirtiness.
 		u32 contentHashcode;
-        MurmurHash3_x86_32( assetStr.c_str(), static_cast< i32 >( assetStr.size() ), 19081996, &contentHashcode );
+        MurmurHash3_x86_32( assetStr.c_str(), static_cast< i32 >( assetStr.size() ), dk::core::SeedFileSystemObject, &contentHashcode );
 
         dkStringHash_t fileHashcode = file->getHashcode();
         if ( !cache.isEntryDirty( fileHashcode, contentHashcode ) ) {

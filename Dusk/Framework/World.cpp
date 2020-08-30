@@ -45,10 +45,12 @@ void World::collectRenderables( DrawCommandBuilder* drawCmdBuilder ) const
 		const Model* model = staticGeometryDatabase->getModel( staticGeometryDatabase->lookup( geom ) );
         const dkMat4x4f& modelMatrix = transformDatabase->getWorldMatrix( transformDatabase->lookup( geom ) );
 
+#ifdef DUSKED
         // This is a editor only case; the client should always have a model binded.
         if ( model == nullptr ) {
             continue;
         }
+#endif
 
         drawCmdBuilder->addStaticModelInstance( model, modelMatrix, geom.getIdentifier() );
     }
