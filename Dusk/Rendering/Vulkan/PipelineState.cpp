@@ -127,11 +127,11 @@ DUSK_INLINE VkShaderStageFlags GetDescriptorStageFlags( const uint32_t shaderSta
     }
 
     if ( shaderStageBindBitfield & SHADER_STAGE_TESSELATION_CONTROL ) {
-        bindFlags |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+        bindFlags |= VK_SHADER_STAGE_TESSELATION_CONTROL_BIT;
     }
 
     if ( shaderStageBindBitfield & SHADER_STAGE_TESSELATION_EVALUATION ) {
-        bindFlags |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+        bindFlags |= VK_SHADER_STAGE_TESSELATION_EVALUATION_BIT;
     }
 
     if ( shaderStageBindBitfield & SHADER_STAGE_PIXEL ) {
@@ -151,9 +151,9 @@ DUSK_INLINE VkShaderStageFlagBits GetVkStageFlags( const eShaderStage shaderStag
     case SHADER_STAGE_VERTEX:
         return VK_SHADER_STAGE_VERTEX_BIT;
     case SHADER_STAGE_TESSELATION_CONTROL:
-        return VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+        return VK_SHADER_STAGE_TESSELATION_CONTROL_BIT;
     case SHADER_STAGE_TESSELATION_EVALUATION:
-        return VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+        return VK_SHADER_STAGE_TESSELATION_EVALUATION_BIT;
     case SHADER_STAGE_PIXEL:
         return VK_SHADER_STAGE_FRAGMENT_BIT;
     case SHADER_STAGE_COMPUTE:
@@ -265,11 +265,11 @@ void CreateShaderStageDescriptor( VkPipelineShaderStageCreateInfo& shaderStageIn
         shaderStageInfos.pName = "EntryPointPS";
         break;
     case eShaderStage::SHADER_STAGE_TESSELATION_CONTROL:
-        shaderStageInfos.stage = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+        shaderStageInfos.stage = VK_SHADER_STAGE_TESSELATION_CONTROL_BIT;
         shaderStageInfos.pName = "EntryPointDS";
         break;
     case eShaderStage::SHADER_STAGE_TESSELATION_EVALUATION:
-        shaderStageInfos.stage = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+        shaderStageInfos.stage = VK_SHADER_STAGE_TESSELATION_EVALUATION_BIT;
         shaderStageInfos.pName = "EntryPointHS";
         break;
     default:
@@ -527,8 +527,8 @@ void CreatePipelineLayout( VkDevice device, const PipelineStateDesc& description
     // Build DescriptorSet binding layout using Reflection infos
     if ( description.PipelineType == PipelineStateDesc::GRAPHICS ) {
         BuildStageDescriptorBinding( description.vertexShader, VK_SHADER_STAGE_VERTEX_BIT, descriptorSetBindings, descriptorSetCount, descriptorBindingCount, pipelineState.bindingSet, pipelineState.immutableSamplers );
-        BuildStageDescriptorBinding( description.tesselationControlShader, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, descriptorSetBindings, descriptorSetCount, descriptorBindingCount, pipelineState.bindingSet, pipelineState.immutableSamplers );
-        BuildStageDescriptorBinding( description.tesselationEvalShader, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, descriptorSetBindings, descriptorSetCount, descriptorBindingCount, pipelineState.bindingSet, pipelineState.immutableSamplers );
+        BuildStageDescriptorBinding( description.tesselationControlShader, VK_SHADER_STAGE_TESSELATION_CONTROL_BIT, descriptorSetBindings, descriptorSetCount, descriptorBindingCount, pipelineState.bindingSet, pipelineState.immutableSamplers );
+        BuildStageDescriptorBinding( description.tesselationEvalShader, VK_SHADER_STAGE_TESSELATION_EVALUATION_BIT, descriptorSetBindings, descriptorSetCount, descriptorBindingCount, pipelineState.bindingSet, pipelineState.immutableSamplers );
         BuildStageDescriptorBinding( description.pixelShader, VK_SHADER_STAGE_FRAGMENT_BIT, descriptorSetBindings, descriptorSetCount, descriptorBindingCount, pipelineState.bindingSet, pipelineState.immutableSamplers );
     } else if ( description.PipelineType == PipelineStateDesc::COMPUTE ) {
         BuildStageDescriptorBinding( description.computeShader, VK_SHADER_STAGE_COMPUTE_BIT, descriptorSetBindings, descriptorSetCount, descriptorBindingCount, pipelineState.bindingSet, pipelineState.immutableSamplers );
@@ -897,12 +897,12 @@ DUSK_INLINE PipelineState* CreateGraphicsPso(VkDevice device, BaseAllocator* mem
 
     if ( description.tesselationEvalShader != nullptr ) {
         CreateShaderStageDescriptor( pipelineStages[pipelineStageCount++], eShaderStage::SHADER_STAGE_TESSELATION_EVALUATION, description.tesselationEvalShader );
-        pipelineState->stageFlags |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+        pipelineState->stageFlags |= VK_SHADER_STAGE_TESSELATION_EVALUATION_BIT;
     }
 
     if ( description.tesselationControlShader != nullptr ) {
         CreateShaderStageDescriptor( pipelineStages[pipelineStageCount++], eShaderStage::SHADER_STAGE_TESSELATION_CONTROL, description.tesselationControlShader );
-        pipelineState->stageFlags |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+        pipelineState->stageFlags |= VK_SHADER_STAGE_TESSELATION_CONTROL_BIT;
     }
 
     if ( description.pixelShader != nullptr ) {

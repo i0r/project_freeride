@@ -140,7 +140,7 @@ Shader* ShaderCache::getOrUploadStageDynamic( const char* shadernameWithPermutat
     };
 
     Hash128 permutationHashcode;
-    MurmurHash3_x64_128( permutationFullname.c_str(), static_cast< i32 >( permutationFullname.size() ), 19081996, &permutationHashcode );
+    MurmurHash3_x64_128( permutationFullname.c_str(), static_cast< i32 >( permutationFullname.size() ), dk::core::SeedFileSystemObject, &permutationHashcode );
     dkString_t filenameWithExtension = dk::core::GetHashcodeDigest128( permutationHashcode );
 
     return getOrUploadStage<stageType>( filenameWithExtension.c_str(), forceReload );

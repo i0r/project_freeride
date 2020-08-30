@@ -56,8 +56,8 @@ static DUSK_INLINE std::string BuildStageBindingString( const u32 bindFlags )
 	std::string bindFlagsString;
 
 	TestAndAppendFlagToString<eShaderStage::SHADER_STAGE_VERTEX>( bindFlagsString, bindFlags, "SHADER_STAGE_VERTEX" );
-	TestAndAppendFlagToString<eShaderStage::SHADER_STAGE_TESSELLATION_CONTROL>( bindFlagsString, bindFlags, "SHADER_STAGE_TESSELLATION_CONTROL" );
-	TestAndAppendFlagToString<eShaderStage::SHADER_STAGE_TESSELLATION_EVALUATION>( bindFlagsString, bindFlags, "SHADER_STAGE_TESSELLATION_EVALUATION" );
+	TestAndAppendFlagToString<eShaderStage::SHADER_STAGE_TESSELATION_CONTROL>( bindFlagsString, bindFlags, "SHADER_STAGE_TESSELATION_CONTROL" );
+	TestAndAppendFlagToString<eShaderStage::SHADER_STAGE_TESSELATION_EVALUATION>( bindFlagsString, bindFlags, "SHADER_STAGE_TESSELATION_EVALUATION" );
 	TestAndAppendFlagToString<eShaderStage::SHADER_STAGE_PIXEL>( bindFlagsString, bindFlags, "SHADER_STAGE_PIXEL" );
 	TestAndAppendFlagToString<eShaderStage::SHADER_STAGE_COMPUTE>( bindFlagsString, bindFlags, "SHADER_STAGE_COMPUTE" );
 

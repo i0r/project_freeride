@@ -564,16 +564,16 @@ static void WritePassInOutData( const std::unordered_map<dkStringHash_t, std::st
 
 constexpr eShaderStage SHADER_STAGE_LUT[eShaderStage::SHADER_STAGE_COUNT] = {
     SHADER_STAGE_VERTEX,
-    SHADER_STAGE_TESSELLATION_CONTROL,
-    SHADER_STAGE_TESSELLATION_EVALUATION,
+    SHADER_STAGE_TESSELATION_CONTROL,
+    SHADER_STAGE_TESSELATION_EVALUATION,
     SHADER_STAGE_PIXEL,
     SHADER_STAGE_COMPUTE
 };
 
 constexpr const char* SHADER_STAGE_NAME_LUT[eShaderStage::SHADER_STAGE_COUNT] = {
     "vertex",
-    "tessellationControl",
-    "tessellationEvaluation",
+    "tesselationControl",
+    "tesselationEvaluation",
     "pixel",
     "compute"
 };
