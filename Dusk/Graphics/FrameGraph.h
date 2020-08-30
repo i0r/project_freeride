@@ -61,6 +61,9 @@ struct PerViewBufferData
 	// Projection Matrix.
 	dkMat4x4f   ProjectionMatrix;
 
+	// Projection Matrix (with finite far).
+	dkMat4x4f   ProjectionMatrixFiniteFar;
+
     // Inverse projection matrix (with finite far).
     dkMat4x4f   InverseProjectionMatrix;
 
@@ -218,6 +221,31 @@ public:
     }
 };
 
+#if DUSK_DEVBUILD
+struct FGBufferInfosEditor
+{
+    // The description for this buffer.
+	BufferDesc  Description;
+
+    // List of stages this buffer is binded to during this frame.
+	u32         ShaderStageBinding;
+
+    // Number of reference for this buffer.
+	u32         ReferenceCount;
+};
+
+struct FGImageInfosEditor
+{
+    ImageDesc   Description;
+
+	u32         GraphFlags;
+	
+    u32         ReferenceCount;
+
+    Image*      AllocatedImage;
+};
+#endif
+
 class FrameGraphRenderThread
 {
 public:
@@ -297,8 +325,10 @@ public:
     // Return a pointer to the PerViewBuffer persistent buffer.
     DUSK_INLINE Buffer*         getPerViewPersistentBuffer() const { return perViewBuffer; }
     
+#if DUSKED
     // Return a pointer to the MaterialEd persistent buffer.
     DUSK_INLINE Buffer*         getMaterialEdPersistentBuffer() const { return materialEditorBuffer; }
+#endif
 
     // Return a pointer to the vector data persistent buffer.
     DUSK_INLINE Buffer*         getVectorDataBuffer() const { return vectorDataBuffer; }
@@ -355,8 +385,10 @@ private:
     // Persistent buffer (matches PerViewBuffer).
     Buffer*                     perViewBuffer;
 
+#if DUSKED
     // Persistent buffer (matches MaterialEditorBuffer).
     Buffer*                     materialEditorBuffer;
+#endif
 
 	// Persistent buffer holding raw vector data.
 	Buffer*                     vectorDataBuffer;
@@ -382,8 +414,10 @@ private:
     // PerViewBufferData for the current frame (this is a copy of FrameGraph data).
     PerViewBufferData           perViewBufferData;
 
+#if DUSKED
     // PerViewBufferData for the current frame (this is a copy of FrameGraph data).
     MaterialEdData              materialEdData;
+#endif
 
 	u8*                         instanceBufferData;
 
@@ -524,6 +558,13 @@ public:
     // NOTE descRef is a WRITE only OPTIONAL parameter to retrieve the copied resource description (for modifications, e.g. modifying the bind flags).
     FGHandle copyImage( const FGHandle resourceToCopy, ImageDesc** descRef, const u32 imageFlags = 0 );
 
+#if DUSKED
+    // Fill a given vector with this frame buffre allocation infos.
+    void fillBufferEditorInfos( std::vector<FGBufferInfosEditor>& bufferInfos ) const;
+
+    void fillImageEditorInfos( std::vector<FGImageInfosEditor>& imageInfos, const FrameGraphResources* graphResources ) const;
+#endif
+
 private:
     // FrameGraph active viewport.
     Viewport        frameViewport;
@@ -660,14 +701,6 @@ public:
 private:
     static constexpr i32    MAX_ALLOCABLE_RESOURCE_TYPE = 96;
 
-    struct ResourceViewKey {
-        u8              StartImageIndex;
-        u8              StartMipIndex;
-        u8              MipCount;
-        u8              ImageCount;
-        eViewFormat     ImageFormat;
-    };
-
 private:
     BaseAllocator*          memoryAllocator;
     DrawCmdBucket           drawCmdBuckets[4][8];
@@ -712,6 +745,14 @@ private:
 class FrameGraph
 {
 public:
+#if DUSKED
+    // Fill a given vector with debug infos for buffers allocated by this graph.
+    DUSK_INLINE void retrieveBufferEditorInfos( std::vector<FGBufferInfosEditor>& infos ) const { graphBuilder.fillBufferEditorInfos( infos ); }
+
+    DUSK_INLINE void retrieveImageEditorInfos( std::vector<FGImageInfosEditor>& infos ) const { graphBuilder.fillImageEditorInfos( infos, &graphResources ); }
+#endif
+
+public:
             FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevice, VirtualFileSystem* activeVfs );
             FrameGraph( FrameGraph& ) = default;
             FrameGraph& operator = ( FrameGraph& ) = default;
@@ -734,8 +775,10 @@ public:
     // Update this application mouse coordinates (upload is deferred to next frame).
     void    updateMouseCoordinates( const dkVec2u& mouseCoordinates );
 
+#ifdef DUSKED
     // (Editor Only) Submit Material Editor data for the current frame (will create a snapshot for the rendering thread).
     void    acquireCurrentMaterialEdData( const MaterialEdData* matEdData );
+#endif
 
     // imageQuality = ( image Quality In Percent / 100.0f )
     // (e.g. 1.0f = 100% image quality)
@@ -800,6 +843,11 @@ public:
 
 #if DUSK_DEVBUILD
     const char* getProfilingSummary() const;
+
+    // Return an estimation of the memory used by the buffer allocated by the graph.
+    // Please note that this is an estimation which doesn't take in account hidden cost
+    // (e.g. internal double buffering, DMA allocations, etc.).
+    u32 getBufferMemoryUsage() const;
 #endif
 
     // Return a const pointer to presentRenderTarget. Required if the viewport is different from the regular client one
@@ -807,22 +855,41 @@ public:
     Image*  getPresentRenderTarget() const;
 
 private:
+    // The memory allocator owning this instance.
     BaseAllocator*                      memoryAllocator;
 
+    // Array of RenderPasses enqueued for this graph.
     FrameGraphRenderPass                renderPasses[FrameGraphBuilder::MAX_RENDER_PASS_COUNT];
 
+    // Number of RenderPass stored in the renderPasses array.
     i32                                 renderPassCount;
+
+    // The active SSAA factor applied for this graph.
     f32                                 pipelineImageQuality;
+
+    // The size of the client screen used by this graph.
     dkVec2u                             graphScreenSize;
+
+    // The number of sample used by any renderpass using MSAA (i.e. any render pass using
+    // the graphics pipeline).
     u32                                 msaaSamplerCount;
 
+    // A pointer to the main camera used by this graph.
     const CameraData*                   activeCamera;
+
+    // The default viewport used by this graph.
     Viewport                            activeViewport;
+
+    // True if the viewport has changed since the last execution of the graph.
     bool                                hasViewportChanged;
 
+    // The local copy for PerView data forwarding (avoids explicit synchronization).
     PerViewBufferData                   perViewData;
 
+#if DUSKED
+    // The local copy for MaterialEd data forwarding (avoids explicit synchronization).
     MaterialEdData                      localMaterialEdData;
+#endif
 
     // Last Frame (pre post-fx) render target. This is a persistent resource valid across the frames. There is no guarantee
     // of the content correctness.
@@ -834,8 +901,13 @@ private:
     // Current frame (post post-fx) render target. This is a persistent resource updated each frame.
     Image*                              presentRenderTarget;
 
+    // The system responsible for resources caching/storing.
     FrameGraphResources                 graphResources;
+
+	// The system responsible for resources allocation/render pass culling/etc...
     FrameGraphBuilder                   graphBuilder;
+
+    // The system responsible for render passes scheduling.
     FrameGraphScheduler                 graphScheduler;
 
     GraphicsProfiler*                   graphicsProfiler;

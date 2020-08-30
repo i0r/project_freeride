@@ -30,6 +30,7 @@
 #include "RenderModules/ScreenSpaceReflectionModule.h"
 
 DUSK_ENV_VAR( EnableTAA, false, bool ); // "Enable Temporal AntiAliasing [false/true]
+DUSK_ENV_VAR( ComputeDFGLUTRuntime, false, bool ); // "Compute BRDF DFG LUT at runtime (don't load from disk) [false/true]"
 
 static constexpr size_t MAX_DRAW_CMD_COUNT = 4096;
 
@@ -181,28 +182,35 @@ void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache
     // Debug resources.
     wireframeMaterial = graphicsAssetCache->getMaterial( DUSK_STRING( "GameData/materials/wireframe.mat" ), true );
 
-    // Create BRDF DFG LUT (TODO allow offline compute to avoid recomputing it each launch).
-    ImageDesc brdfLUTDesc;
-    brdfLUTDesc.dimension = ImageDesc::DIMENSION_2D;
-    brdfLUTDesc.format = eViewFormat::VIEW_FORMAT_R16G16_FLOAT;
-    brdfLUTDesc.width = BRDF_LUT_SIZE;
-    brdfLUTDesc.height = BRDF_LUT_SIZE;
-    brdfLUTDesc.bindFlags = eResourceBind::RESOURCE_BIND_UNORDERED_ACCESS_VIEW | eResourceBind::RESOURCE_BIND_SHADER_RESOURCE;
-    brdfLUTDesc.usage = eResourceUsage::RESOURCE_USAGE_DEFAULT;
+    if ( ComputeDFGLUTRuntime ) {
+		// Create BRDF DFG LUT.
+		ImageDesc brdfLUTDesc;
+		brdfLUTDesc.dimension = ImageDesc::DIMENSION_2D;
+		brdfLUTDesc.format = eViewFormat::VIEW_FORMAT_R16G16_FLOAT;
+		brdfLUTDesc.width = BRDF_LUT_SIZE;
+		brdfLUTDesc.height = BRDF_LUT_SIZE;
+		brdfLUTDesc.bindFlags = eResourceBind::RESOURCE_BIND_UNORDERED_ACCESS_VIEW | eResourceBind::RESOURCE_BIND_SHADER_RESOURCE;
+		brdfLUTDesc.usage = eResourceUsage::RESOURCE_USAGE_DEFAULT;
 
-    brdfDfgLut = renderDevice->createImage( brdfLUTDesc );
+		brdfDfgLut = renderDevice->createImage( brdfLUTDesc );
 
 #ifdef DUSK_DEVBUILD
-    renderDevice->setDebugMarker( *brdfDfgLut, DUSK_STRING( "BRDF LUT (Runtime Computed)" ) );
+		renderDevice->setDebugMarker( *brdfDfgLut, DUSK_STRING( "BRDF LUT (Runtime Computed)" ) );
 #endif
+	} else {
+		brdfDfgLut = graphicsAssetCache->getImage( DUSK_STRING( "GameData/textures/BRDF_DFG_Default.dds" ) );
+    }
 
     // Precompute resources (might worth being done offline?).
     FrameGraph& graph = *frameGraph;
     graph.waitPendingFrameCompletion();
     
     glareRendering->precomputePipelineResources( graph );
-    atmosphereRendering->triggerLutRecompute();
-    AddBrdfDfgLutComputePass( graph, brdfDfgLut );
+	atmosphereRendering->triggerLutRecompute();
+
+    if ( ComputeDFGLUTRuntime ) {
+        AddBrdfDfgLutComputePass( graph, brdfDfgLut );
+    }
 
     // Execute precompute step.
     graph.execute( renderDevice, 0.0f );
@@ -349,12 +357,13 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
     FGHandle presentRt = resolvedColor;
 
     // SSR Rendering.
-    SSRModule::TraceResult ssrTrace = screenSpaceReflections->rayTraceHiZ( frameGraph, resolvedDepth, resolvedGbuffer, hiZMips, viewportWidth, viewportHeight );
-    FGHandle ssrResolved = screenSpaceReflections->resolveRaytrace( frameGraph, ssrTrace, resolvedDepth, resolvedColor, resolvedGbuffer, viewportWidth, viewportHeight );
-    FGHandle ssrTemporalResolved = screenSpaceReflections->temporalRebuild( frameGraph, ssrTrace.TraceBuffer, ssrResolved, viewportWidth, viewportHeight );
-    frameGraph.saveLastFrameSSRRenderTarget( ssrResolved );
+    FGHandle ssrTrace = screenSpaceReflections->rayTraceHiZ( frameGraph, resolvedGbuffer, hiZMips, viewportWidth, viewportHeight );
+    presentRt = screenSpaceReflections->resolveRaytrace( frameGraph, ssrTrace, resolvedColor, resolvedGbuffer, hiZMips, viewportWidth, viewportHeight );
+    
+    /* FGHandle ssrTemporalResolved = screenSpaceReflections->temporalRebuild( frameGraph, ssrTrace.TraceBuffer, ssrResolved, viewportWidth, viewportHeight );
+	 frameGraph.saveLastFrameSSRRenderTarget( ssrResolved );
 
-    presentRt = screenSpaceReflections->combineResult(frameGraph, ssrTemporalResolved, presentRt, resolvedDepth, resolvedGbuffer, viewportWidth, viewportHeight );
+	 presentRt = screenSpaceReflections->combineResult(frameGraph, ssrTemporalResolved, presentRt, resolvedDepth, resolvedGbuffer, viewportWidth, viewportHeight );*/
 
     // Glare Rendering.
     FFTPassOutput frequencyDomainRt = AddFFTComputePass( frameGraph, presentRt, viewportSize.x, viewportSize.y );

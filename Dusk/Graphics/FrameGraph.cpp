@@ -212,6 +212,36 @@ FGHandle FrameGraphBuilder::copyImage( const FGHandle resourceToCopy, ImageDesc*
     return imageCount++;
 }
 
+#if DUSKED
+void FrameGraphBuilder::fillBufferEditorInfos( std::vector<FGBufferInfosEditor>& bufferInfos ) const
+{
+    bufferInfos.resize( bufferCount );
+
+    for ( u32 i = 0u; i < bufferCount; i++ ) {
+        FGBufferInfosEditor& infos = bufferInfos[i];
+        infos.Description = buffers[i].description;
+        infos.ReferenceCount = buffers[i].referenceCount;
+        infos.ShaderStageBinding = buffers[i].shaderStageBinding;
+    }
+}
+
+void FrameGraphBuilder::fillImageEditorInfos( std::vector<FGImageInfosEditor>& imageInfos, const FrameGraphResources* graphResources ) const
+{
+    imageInfos.resize( imageCount );
+
+	for ( u32 i = 0u; i < imageCount; i++ ) {
+		FGImageInfosEditor& infos = imageInfos[i];
+		infos.Description = images[i].description;
+		infos.ReferenceCount = images[i].referenceCount;
+		infos.GraphFlags = images[i].flags;
+
+        if ( graphResources != nullptr ) {
+            infos.AllocatedImage = graphResources->getImage( FGHandle( i ) );
+        }
+	}
+}
+#endif
+
 FGHandle FrameGraphBuilder::allocateBuffer( BufferDesc& description, const u32 shaderStageBinding )
 {
     const FrameGraphRenderPass::Handle_t requesterHandle = ( renderPassCount - 1 );
@@ -704,7 +734,8 @@ FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevi
     perViewData.PreviousViewProjectionMatrix = dkMat4x4f::Identity;
 	perViewData.OrthoProjectionMatrix = dkMat4x4f::Identity;
 	perViewData.ViewMatrix = dkMat4x4f::Identity;
-    perViewData.ProjectionMatrix = dkMat4x4f::Identity;
+	perViewData.ProjectionMatrix = dkMat4x4f::Identity;
+	perViewData.ProjectionMatrixFiniteFar = dkMat4x4f::Identity;
 	perViewData.InverseProjectionMatrix = dkMat4x4f::Identity;
 	perViewData.InverseViewMatrix = dkMat4x4f::Identity;
     perViewData.ViewportSize = dkVec2f( 0.0f, 0.0f );
@@ -779,8 +810,10 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
     graphResources.importPersistentBuffer( PERVIEW_BUFFER_RESOURCE_HASHCODE, graphScheduler.getPerViewPersistentBuffer() );
     graphResources.importPersistentImage( LAST_FRAME_IMAGE_RESOURCE_HASHCODE, lastFrameRenderTarget );
     graphResources.importPersistentImage( SSR_LAST_FRAME_IMAGE_RESOURCE_HASHCODE, ssrLastFrameRenderTarget );
-    graphResources.importPersistentImage( PRESENT_IMAGE_RESOURCE_HASHCODE, presentRenderTarget );
+	graphResources.importPersistentImage( PRESENT_IMAGE_RESOURCE_HASHCODE, presentRenderTarget );
+#if DUSKED
 	graphResources.importPersistentBuffer( MATERIALED_BUFFER_RESOURCE_HASHCODE, graphScheduler.getMaterialEdPersistentBuffer() );
+#endif
 	graphResources.importPersistentBuffer( VECTORDATA_BUFFER_RESOURCE_HASHCODE, graphScheduler.getVectorDataBuffer() );
     
     // Cull & compile
@@ -797,7 +830,8 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
         perViewData.PreviousViewProjectionMatrix = activeCamera->previousViewProjectionMatrix;
         perViewData.OrthoProjectionMatrix = dk::maths::MakeOrtho( 0.0f, activeCamera->viewportSize.x, activeCamera->viewportSize.y, 0.0f, -1.0f, 1.0f );
         perViewData.ViewMatrix = activeCamera->viewMatrix;
-        perViewData.ProjectionMatrix = activeCamera->projectionMatrix;
+		perViewData.ProjectionMatrix = activeCamera->projectionMatrix;
+		perViewData.ProjectionMatrixFiniteFar = activeCamera->finiteProjectionMatrix;
         perViewData.InverseProjectionMatrix = activeCamera->inverseFiniteProjectionMatrix;
         perViewData.InverseViewMatrix = activeCamera->inverseViewMatrix;
         perViewData.ViewportSize = activeCamera->viewportSize;
@@ -815,7 +849,9 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
         perViewData.FarPlane = activeCamera->farPlane;
     }
     
+#ifdef DUSKED
     graphScheduler.updateMaterialEdBuffer( &localMaterialEdData );
+#endif
 
     // Dispatch render passes to rendering threads
     graphScheduler.dispatch( &perViewData, graphResources.getVectorBufferData() );
@@ -862,6 +898,7 @@ void FrameGraph::updateMouseCoordinates( const dkVec2u& mouseCoordinates )
     perViewData.MouseCoordinates = mouseCoordinates;
 }
 
+#ifdef DUSKED
 void FrameGraph::acquireCurrentMaterialEdData( const MaterialEdData* matEdData )
 {
     if ( matEdData == nullptr ) {
@@ -870,6 +907,7 @@ void FrameGraph::acquireCurrentMaterialEdData( const MaterialEdData* matEdData )
 
     memcpy( &localMaterialEdData, matEdData, sizeof( MaterialEdData ) );
 }
+#endif
 
 void FrameGraph::setImageQuality( const f32 imageQuality )
 {
@@ -1018,6 +1056,19 @@ const char* FrameGraph::getProfilingSummary() const
     /*const std::string& proflingString = graphicsProfiler->getProfilingSummaryString();
     return ( !proflingString.empty() ) ? proflingString.c_str() : nullptr;*/
 }
+
+u32 FrameGraph::getBufferMemoryUsage() const
+{
+    std::vector<FGBufferInfosEditor> bufferInfos;
+    graphBuilder.fillBufferEditorInfos( bufferInfos );
+
+    u32 totalBufferSize = 0u;
+    for ( const FGBufferInfosEditor& infos : bufferInfos ) {
+        totalBufferSize += infos.Description.SizeInBytes;
+    }
+
+    return totalBufferSize;
+}
 #endif
 
 Image* FrameGraph::getPresentRenderTarget() const
@@ -1086,7 +1137,9 @@ FrameGraphScheduler::FrameGraphScheduler( BaseAllocator* allocator, RenderDevice
     : memoryAllocator( allocator )
     , renderDevice( renderDevice )
     , perViewBuffer( nullptr )
+#if DUSKED
     , materialEditorBuffer( nullptr )
+#endif
     , enqueuedRenderPassCount( 0u )
     , enqueuedAsyncRenderPassCount( 0u )
     , currentState( SCHEDULER_STATE_READY )
@@ -1098,12 +1151,14 @@ FrameGraphScheduler::FrameGraphScheduler( BaseAllocator* allocator, RenderDevice
 
     perViewBuffer = renderDevice->createBuffer( perViewBufferDesc );
 
+#if DUSKED
 	BufferDesc matEdBufferDesc;
 	matEdBufferDesc.Usage = RESOURCE_USAGE_DYNAMIC;
     matEdBufferDesc.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
     matEdBufferDesc.SizeInBytes = sizeof( MaterialEdData );
 
     materialEditorBuffer = renderDevice->createBuffer( matEdBufferDesc );
+#endif
 
 	BufferDesc vectorDataBufferDesc;
 	vectorDataBufferDesc.BindFlags = RESOURCE_BIND_SHADER_RESOURCE;
@@ -1168,6 +1223,7 @@ void FrameGraphScheduler::addAsyncComputeRenderPass( const FrameGraphRenderPass&
 #endif
 }
 
+#if DUSKED
 void FrameGraphScheduler::updateMaterialEdBuffer( const MaterialEdData* matEdData )
 {
     // Make a local copy of the data (if available).
@@ -1175,6 +1231,7 @@ void FrameGraphScheduler::updateMaterialEdBuffer( const MaterialEdData* matEdDat
         memcpy( &materialEdData, matEdData, sizeof( MaterialEdData ) );
     }
 }
+#endif
 
 void FrameGraphScheduler::dispatch( const PerViewBufferData* perViewData, const void* vectorBufferData )
 {
@@ -1249,7 +1306,9 @@ void FrameGraphScheduler::jobDispatcherThread()
         CommandList& bufferUploadCmdList = renderDevice->allocateCopyCommandList();
         bufferUploadCmdList.begin();
         bufferUploadCmdList.updateBuffer( *perViewBuffer, &perViewBufferData, sizeof( PerViewBufferData ) );
+#if DUSKED
         bufferUploadCmdList.updateBuffer( *materialEditorBuffer, &materialEdData, sizeof( MaterialEdData ) );
+#endif
         bufferUploadCmdList.updateBuffer( *vectorDataBuffer, instanceBufferData, VECTOR_BUFFER_SIZE );
         bufferUploadCmdList.end();
         renderDevice->submitCommandList( bufferUploadCmdList );
