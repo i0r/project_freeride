@@ -247,7 +247,12 @@ Image* GraphicsAssetCache::getImage( const dkChar_t* assetName, const bool force
     }
 
     file->close();
+
+#if DUSK_DEVBUILD
     renderDevice->setDebugMarker( *imageMap[assetHashcode], assetName );
+
+    hashResolveMap[assetHashcode] = assetName;
+#endif
 
     return imageMap[assetHashcode];
 }

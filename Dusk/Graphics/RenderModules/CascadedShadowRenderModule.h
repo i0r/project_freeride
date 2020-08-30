@@ -30,6 +30,11 @@ struct SmallBatchDrawConstants;
 class CascadedShadowRenderModule
 {
 public:
+    // TODO THIS SHOULDNT BE STORED HERE (those constants have nothing to do with CSM)
+	static constexpr i32 BATCH_CHUNK_COUNT = 32; // Number of chunk for batch dispatch. Each chunk can be filled with multiple clusters.
+    static constexpr i32 BATCH_SIZE = 4 * 64; // Should be a multiple of the wavefront size
+    static constexpr i32 BATCH_COUNT = 1 * 384;
+
     static constexpr dkStringHash_t SliceBufferHashcode = DUSK_STRING_HASH( "SliceInfos" );
     static constexpr dkStringHash_t SliceImageHashcode = DUSK_STRING_HASH( "SunShadowMap" );
 
@@ -51,12 +56,11 @@ public:
 
     void                submitGPUShadowCullCmds( GPUShadowDrawCmd* drawCmds, const size_t drawCmdCount );
 
-private:
-    struct CullPassOutput
-	{
-		FGHandle DrawCallsBuffer;
-		FGHandle CulledIndexesBuffer;
-    };
+	void                lockForUpload();
+
+	void                lockForRendering();
+
+	void                unlock();
 
 private:
     void                fillBatchChunks( const CameraData* cameraData, MeshConstants* gpuShadowCasters, const std::vector<MeshCluster>* meshClusters );
@@ -68,11 +72,9 @@ private:
     void                setupParameters( FrameGraph& frameGraph, FGHandle depthMinMax, const DirectionalLightGPU& directionalLight );
 
     // Reduce and extract the min/max of a given depth buffer (assuming the input buffer is reversed).
-    FGHandle         reduceDepthBuffer( FrameGraph& frameGraph, FGHandle depthBuffer, const dkVec2f& depthBufferSize );
+    FGHandle            reduceDepthBuffer( FrameGraph& frameGraph, FGHandle depthBuffer, const dkVec2f& depthBufferSize );
 
-    CullPassOutput      cullShadowCasters( FrameGraph& frameGraph );
-
-    FGHandle         batchDrawCalls( FrameGraph& frameGraph, CullPassOutput& cullPassOutput, const u32 gpuShadowCastersCount, MeshConstants* gpuShadowCasters );
+	bool                acquireLock( const i32 nextState );
 
 private:
     struct BatchChunk {
@@ -114,4 +116,6 @@ private:
     dkMat4x4f           globalShadowMatrix;
 
     BatchChunk*         batchChunks;
+
+	std::atomic<i32>    renderingLock;
 };

@@ -251,8 +251,8 @@ lib SSR {
         float2 ndcCoordinates = float2( 2.0f, -2.0f ) * uvCoordinates + float2( -1.0f, 1.0f );
         
         float4 ThinGBufferSample = ThinGBuffer.SampleLevel( LinearSampler, uvCoordinates, 0.0f );  
-        float3 N = DecodeNormals( ThinGBufferSample.rg );
-        float  roughness = ThinGBufferSample.b;
+        float3 N = ( ThinGBufferSample.rgb );
+        float  roughness = ThinGBufferSample.a;
         float  depth = HiZDepthBuffer.SampleLevel( LinearSampler, uvCoordinates, 0.0f ).r;
         
         float3 screenPos = GetScreenPos( uvCoordinates, depth );
@@ -268,8 +268,8 @@ lib SSR {
         float4 rayHit = RayHitBuffer[pixelCoordinates];
         
         float4 ThinGBufferSample = ThinGBuffer.SampleLevel( LinearSampler, uvCoordinates, 0.0f );  
-        float3 N = DecodeNormals( ThinGBufferSample.rg );
-        float  roughness = ThinGBufferSample.b;
+        float3 N = ( ThinGBufferSample.rgb );
+        float  roughness = ThinGBufferSample.a;
         float  depth = HiZDepthBuffer.SampleLevel( LinearSampler, uvCoordinates, 0.0f ).r;
         
         float3 screenPos = GetScreenPos( uvCoordinates, depth );
@@ -298,7 +298,7 @@ lib SSR {
         float3 reflectedColor = TraceCones(rayHit, uvCoordinates, roughness);
         
         // Rebuild DFG function.
-        float F0 = ThinGBufferSample.aaa;
+        float F0 = 0; //ThinGBufferSample.aaa;
         float smoothness = 1.0f - roughness;
         
         float2 f_ab = BrdfDfgLut.SampleLevel( LinearSampler, float2( NoV, roughness ), 0.0f );

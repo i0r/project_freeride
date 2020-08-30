@@ -34,9 +34,12 @@
 
 DUSK_ENV_VAR( ShadowMapResolution, 2048, u32 ); // Per-slice shadow map resolution.
 
-constexpr i32 BATCH_CHUNK_COUNT = 16; // Number of chunk for batch dispatch. Each chunk can be filled with multiple clusters.
-constexpr i32 BATCH_SIZE = 4 * 64; // Should be a multiple of the wavefront size
-constexpr i32 BATCH_COUNT = 1 * 384;
+enum eCsmLockType : i32
+{
+	CSM_LOCK_READY = 0,
+    CSM_LOCK_UPLOAD = 1,
+    CSM_LOCK_RENDERING = 2
+};
 
 struct PerPassData
 {
@@ -101,7 +104,8 @@ CascadedShadowRenderModule::CascadedShadowRenderModule( BaseAllocator* allocator
 	, drawCallsAllocator( dk::core::allocate<LinearAllocator>( allocator, 4096 * sizeof( DrawCall ), allocator->allocate( 4096 * sizeof( DrawCall ) ) ) )
     , shadowSlices( nullptr )
     , globalShadowMatrix( dkMat4x4f::Identity )
-    , batchChunks( dk::core::allocateArray<BatchChunk>( allocator, BATCH_CHUNK_COUNT ) )
+	, batchChunks( dk::core::allocateArray<BatchChunk>( allocator, BATCH_CHUNK_COUNT ) )
+	, renderingLock( 0 )
 {
 
 }
@@ -234,6 +238,8 @@ void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, FGHan
 
     const CameraData* cameraData = frameGraph.getActiveCameraData();
 
+    // Update this frame shadow casters (note that this function has an implicit
+    // synchronization with rendering).
     fillBatchChunks( cameraData, renderWorld->getGpuShadowBatchesData(), renderWorld->getMeshClusters() );
 
     // Clear IndirectDraw arguments buffer.
@@ -298,6 +304,8 @@ void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, FGHan
 			passData.PerPassBuffer = builder.allocateBuffer( perPassBuffer, SHADER_STAGE_VERTEX );
         }, 
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+            lockForRendering();
+
             Buffer* vectorBuffer = resources->getBuffer( passData.VectorDataBuffer );
             Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
 
@@ -382,6 +390,8 @@ void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, FGHan
 			}
 
             cmdList->popEventMarker();
+
+            unlock();
         } 
     );
 
@@ -391,6 +401,8 @@ void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, FGHan
 
 void CascadedShadowRenderModule::fillBatchChunks( const CameraData* cameraData, MeshConstants* gpuShadowCasters, const std::vector<MeshCluster>* meshClusters )
 {
+	lockForUpload();
+
     u32 drawCallsCount = static_cast< u32 >( drawCallsAllocator->getAllocationCount() );
     DrawCall* drawCalls = static_cast< DrawCall* >( drawCallsAllocator->getBaseAddress() );
 
@@ -406,7 +418,7 @@ void CascadedShadowRenderModule::fillBatchChunks( const CameraData* cameraData, 
     for ( u32 k = 0; k < drawCallsCount; k++ ) {
         const DrawCall& drawCall = drawCalls[k];
         const MeshConstants& meshInfos = gpuShadowCasters[drawCall.MeshEntryIndex];
-        const std::vector<MeshCluster>& clusters = meshClusters[k];
+        const std::vector<MeshCluster>& clusters = meshClusters[drawCall.MeshEntryIndex];
 
         i32 triangleCount = meshInfos.FaceCount;
         i32 firstTriangleIndex = 0;
@@ -480,6 +492,8 @@ void CascadedShadowRenderModule::fillBatchChunks( const CameraData* cameraData, 
             }
         }
     }
+
+    unlock();
 }
 
 void CascadedShadowRenderModule::submitGPUShadowCullCmds( GPUShadowDrawCmd* drawCmds, const size_t drawCmdCount )
@@ -707,4 +721,25 @@ FGHandle CascadedShadowRenderModule::reduceDepthBuffer( FrameGraph& frameGraph, 
     );
 
     return passData.DepthChain[passData.DepthLevelCount - 1];
+}
+
+bool CascadedShadowRenderModule::acquireLock( const i32 nextState )
+{
+	i32 lockState = CSM_LOCK_READY;
+	return renderingLock.compare_exchange_weak( lockState, nextState, std::memory_order_acquire );
+}
+
+void CascadedShadowRenderModule::unlock()
+{
+	renderingLock.store( CSM_LOCK_READY, std::memory_order_release );
+}
+
+void CascadedShadowRenderModule::lockForUpload()
+{
+	while ( !acquireLock( CSM_LOCK_UPLOAD ) );
+}
+
+void CascadedShadowRenderModule::lockForRendering()
+{
+	while ( !acquireLock( CSM_LOCK_RENDERING ) );
 }

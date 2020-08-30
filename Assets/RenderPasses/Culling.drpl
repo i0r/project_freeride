@@ -64,11 +64,11 @@ lib Culling {
                 vertices[1].xyw, 
                 vertices[2].xyw
             };
-
+/*
 #ifdef $CullBackface
             cull = cull || ( determinant( m ) > 0 );  
 #endif
-
+*/
             int verticesInFrontOfNearPlane = 0;
 
             // Transform vertices[i].xy into normalized 0..1 screen space
@@ -89,11 +89,11 @@ lib Culling {
             int2 maxBB = int2( -( 1 << 30 ), -( 1 << 30 ) );
 
             
-#ifdef $CullCSMShadows
+//#ifdef $CullCSMShadows
             float2 sceenSize = float2( CSM_SLICE_DIMENSION, CSM_SLICE_DIMENSION );
-#else
-            float2 sceenSize = g_ScreenSize;
-#endif
+//#else
+//            float2 sceenSize = g_ScreenSize;
+//#endif
 
             bool insideGuardBand = true;
             for ( uint i = 0; i < 3; ++i ) {
@@ -168,7 +168,8 @@ lib Culling {
         uint batchInputVertexOffset = MeshConstantsBuffer[batchMeshIndex].VertexOffset;
         uint batchDrawIndex = SmallBatchDataBuffer[$SV_GroupID.x].DrawIndex;
         
-        if ($SV_GroupThreadID.x < SmallBatchDataBuffer[$SV_GroupID.x].FaceCount) {
+        if ($SV_GroupThreadID.x < SmallBatchDataBuffer[$SV_GroupID.x].FaceCount) 
+        {
             float4x4 modelMatrix = DrawConstants[batchDrawIndex].ModelMatrix;
 
             uint indices[3] = {
@@ -177,8 +178,8 @@ lib Culling {
                 IndexBuffer[$SV_GroupThreadID.x * 3 + 2 + batchInputIndexOffset]
             };
 
-#ifdef $CullCSMShadows
-            uint sliceIdx = ( 0 );
+//#ifdef $CullCSMShadows
+            uint sliceIdx = ( CSM_SLICE_COUNT - 1 );
 
             // Take the last slice matrices to do the culling.
             float4 r0 = SliceInfos[sliceIdx].RenderingMatrix[0];
@@ -187,9 +188,9 @@ lib Culling {
             float4 r3 = SliceInfos[sliceIdx].RenderingMatrix[3];
             
             float4x4 ViewProjection = float4x4( r0, r1, r2, r3 );
-#else
-            float4x4 ViewProjection = g_ViewProjectionMatrix;
-#endif
+//#else
+//            float4x4 ViewProjection = g_ViewProjectionMatrix;
+//#endif
           
             float4 vertices[3] = {
                 mul( mul( float4( LoadVertex( indices[0], batchInputVertexOffset ), 1 ), modelMatrix ), ViewProjection ),
@@ -197,11 +198,7 @@ lib Culling {
                 mul( mul( float4( LoadVertex( indices[2], batchInputVertexOffset ), 1 ), modelMatrix ), ViewProjection )
             };
             
-#ifdef $CullCSMShadows
-            cull = false;
-#else
             cull = CullTriangle( indices, vertices );
-#endif
 
             if ( !cull ) {
                 InterlockedAdd( g_WorkGroupIndexCount, 3, threadOutputSlot );

@@ -53,5 +53,9 @@ private:
     std::unordered_map<dkStringHash_t, ImageDesc>         imageDescMap;
     std::unordered_map<dkStringHash_t, FontDescriptor*>   fontMap;
 
+#if DUSK_DEVBUILD
+	std::unordered_map<dkStringHash_t, dkString_t>        hashResolveMap;
+#endif
+
     Material*                                           defaultMaterial;
 };

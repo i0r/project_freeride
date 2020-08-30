@@ -510,7 +510,7 @@ lib PrimitiveLighting {
         //  xy  - Encoded Normals
         //  z   - Roughness
         //  w   - F0 (required BRDF DFG function rebuild)
-        float4 gbufferData = float4( encodedNormals, BlendedMaterial.Roughness, F0.r );
+        float4 gbufferData = float4( N.xyz, BlendedMaterial.Roughness ); // encodedNormals, BlendedMaterial.Roughness, F0.r );
         $SV_TARGET2 = gbufferData;
 
 #ifdef $DoPickingCheck

@@ -149,7 +149,12 @@ void WorldRenderer::destroy( RenderDevice* renderDevice )
     frameGraph->destroy( renderDevice );
 
     if ( brdfDfgLut != nullptr ) {
-        renderDevice->destroyImage( brdfDfgLut );
+        // Do not destroy if we are using a cached bitmap (the Asset cache 
+        // is owning this resource).
+		if ( ComputeDFGLUTRuntime ) {
+			renderDevice->destroyImage( brdfDfgLut );
+        }
+
         brdfDfgLut = nullptr;
     }
 

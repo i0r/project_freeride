@@ -263,17 +263,14 @@ i32 RenderWorld::allocateGpuMeshInfos( MeshConstants& allocatedBatch, const u32 
 
 void RenderWorld::createMeshClusters( const i32 meshConstantsIdx, const u32 indexCount, const f32* vertices, const u32* indices )
 {
-    constexpr i32 BATCH_SIZE = 4 * 64; // Should be a multiple of the wavefront size
-    constexpr i32 BATCH_COUNT = 1 * 384;
-
     struct BasicTriangle {
         dkVec3f Vertex[3];
     };
     
-    std::array<BasicTriangle, BATCH_SIZE * 3> triangleCache;
+    std::array<BasicTriangle, CascadedShadowRenderModule::BATCH_SIZE * 3> triangleCache;
 
     const i32 triangleCount = indexCount / 3;
-    const i32 clusterCount = (triangleCount + BATCH_SIZE - 1) / BATCH_SIZE;
+    const i32 clusterCount = (triangleCount + CascadedShadowRenderModule::BATCH_SIZE - 1) / CascadedShadowRenderModule::BATCH_SIZE;
     
     if ( Clusters.size() <= meshConstantsIdx ) {
         Clusters.resize( meshConstantsIdx + 1 );
@@ -282,8 +279,8 @@ void RenderWorld::createMeshClusters( const i32 meshConstantsIdx, const u32 inde
     std::vector<MeshCluster>& cluster = Clusters.at( meshConstantsIdx );
     cluster.resize( clusterCount );
     for (i32 i = 0; i < clusterCount; ++i) {
-        const i32 clusterStart = i * BATCH_SIZE;
-        const i32 clusterEnd = Min( clusterStart + BATCH_SIZE, triangleCount);
+        const i32 clusterStart = i * CascadedShadowRenderModule::BATCH_SIZE;
+        const i32 clusterEnd = Min( clusterStart + CascadedShadowRenderModule::BATCH_SIZE, triangleCount);
 
         const i32 clusterTriangleCount = clusterEnd - clusterStart;
 
