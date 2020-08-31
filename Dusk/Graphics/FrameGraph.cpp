@@ -737,7 +737,8 @@ FrameGraph::FrameGraph( BaseAllocator* allocator, RenderDevice* activeRenderDevi
 	perViewData.ProjectionMatrix = dkMat4x4f::Identity;
 	perViewData.ProjectionMatrixFiniteFar = dkMat4x4f::Identity;
 	perViewData.InverseProjectionMatrix = dkMat4x4f::Identity;
-	perViewData.InverseViewMatrix = dkMat4x4f::Identity;
+    perViewData.InverseViewMatrix = dkMat4x4f::Identity;
+    perViewData.ScreenToWorldMatrix = dkMat4x4f::Identity;
     perViewData.ViewportSize = dkVec2f( 0.0f, 0.0f );
     perViewData.InverseViewportSize = dkVec2f( 0.0f, 0.0f );
     perViewData.WorldPosition = dkVec3f( 0.0f, 0.0f, 0.0f );
@@ -849,6 +850,25 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
         perViewData.FarPlane = activeCamera->farPlane;
     }
     
+
+    // Make a matrix that converts from screen coordinates to clip coordinates.
+    dkMat4x4f viewportMatrix = dk::maths::MakeOrtho(
+        static_cast< f32 >( activeViewport.X ),
+        static_cast< f32 >( activeViewport.X + activeViewport.Width ),
+        static_cast< f32 >( activeViewport.Y ),
+        static_cast< f32 >( activeViewport.Y + activeViewport.Height ),
+        -1.0f,
+        1.0f
+    );
+
+    // Setting column 2 (z-axis) to identity makes the matrix ignore the z-axis.
+    dkMat4x4f viewProjMatrix = perViewData.ViewProjectionMatrix;
+    viewProjMatrix[0][2] = 0.0f;
+    viewProjMatrix[1][2] = 0.0f;
+    viewProjMatrix[2][2] = 1.0f;
+    viewProjMatrix[3][2] = 0.0f;
+
+    perViewData.ScreenToWorldMatrix = viewProjMatrix.inverse() * viewportMatrix;
 #ifdef DUSKED
     graphScheduler.updateMaterialEdBuffer( &localMaterialEdData );
 #endif

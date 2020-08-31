@@ -1151,8 +1151,9 @@ void RenderLibraryGenerator::appendSharedShaderHeader( std::string& hlslSource )
 	hlslSource.append( "\tfloat4x4         g_ViewMatrix;\n" );
 	hlslSource.append( "\tfloat4x4         g_ProjectionMatrix;\n" );
 	hlslSource.append( "\tfloat4x4         g_FiniteProjectionMatrix;\n" );
-	hlslSource.append( "\tfloat4x4         g_InverseProjectionMatrix;\n" );
-	hlslSource.append( "\tfloat4x4         g_InverseViewMatrix;\n" );
+    hlslSource.append( "\tfloat4x4         g_InverseProjectionMatrix;\n" );
+    hlslSource.append( "\tfloat4x4         g_InverseViewMatrix;\n" );
+    hlslSource.append( "\tfloat4x4         g_ScreenToWorldMatrix;\n" );
     hlslSource.append( "\tfloat2           g_ScreenSize;\n" );
     hlslSource.append( "\tfloat2           g_InverseScreenSize;\n" );
     hlslSource.append( "\tfloat3           g_WorldPosition;\n" );

@@ -70,6 +70,8 @@ struct PerViewBufferData
     // Inverse view matrix.
     dkMat4x4f   InverseViewMatrix;
 
+    dkMat4x4f   ScreenToWorldMatrix;
+
     // Viewport Size. This is the size of the viewport showing the world view.
     // THIS VALUE MIGHT BE DIFFERENT FROM THE ACTUAL SCREEN SIZE (e.g. in editor).
     dkVec2f     ViewportSize;

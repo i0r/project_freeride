@@ -22,8 +22,12 @@ public:
         // Array of Texture holding each mip level (used for current gen APIs).
         FGHandle	HiZMips[SSR_MAX_MIP_LEVEL];
 
+        // Length of the HiZMips array.
+        u32         HiZMipCount;
+
         HiZResult()
             : HiZMerged( FGHandle::Invalid )
+            , HiZMipCount( 0u )
         {
 
         }
