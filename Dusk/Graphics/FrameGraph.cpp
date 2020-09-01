@@ -868,7 +868,8 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
     viewProjMatrix[2][2] = 1.0f;
     viewProjMatrix[3][2] = 0.0f;
 
-    perViewData.ScreenToWorldMatrix = viewProjMatrix.inverse() * viewportMatrix;
+    perViewData.ScreenToWorldMatrix = viewportMatrix * viewProjMatrix.inverse();
+
 #ifdef DUSKED
     graphScheduler.updateMaterialEdBuffer( &localMaterialEdData );
 #endif

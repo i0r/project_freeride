@@ -33,8 +33,14 @@ lib SSR {
         float ConvertFromDeviceZ(float DeviceZ)
         {
             #define Z_PRECISION	0.001f
-            DeviceZ = min(DeviceZ, 1 - Z_PRECISION);
-            return (1.f / (DeviceZ * g_ClippingPlanes.y - g_ClippingPlanes.x));
+            
+            DeviceZ = min(DeviceZ, 1 - Z_PRECISION); 
+            
+            float n = g_ClippingPlanes.x;
+            float f = g_ClippingPlanes.y;
+            
+            //float LZ  = DeviceZ / (f - DeviceZ * (f - n));
+            return DeviceZ / (f - DeviceZ * (f - n)); //(1.f / (DeviceZ * g_ClippingPlanes.y - g_ClippingPlanes.x));
         }
         
         float DecodeSpecularPower(float SpecularPower)
@@ -78,7 +84,7 @@ lib SSR {
         void Raymarch(
             float2 InUV,
             float ReflectionRayMarchStep,
-            float Roughness,
+            float Smoothness,
             float4 ScreenSpacePos,
             float3 WorldPosition,
             float3 WorldNormal,
@@ -164,7 +170,7 @@ lib SSR {
                 // Bail out if reflected pixel is from a mover primitive, and the normal is not upward facing.
                 // This is to restrict movers to floor reflections only since wall reflections create a lot of artifacting. 
                 [branch]
-                if (WorldNormal.z < 0.996f)
+                if (WorldNormal.y < 0.996f)
                 {
                     return;
                 }
@@ -173,12 +179,12 @@ lib SSR {
                 // Gloss values of 50 or more result in mirror reflections. Mapping or 
                 // Filter = -0.6*Gloss + 31 was obtained by solving linear equation that 
                 // maps Gloss=10 to FilterSize=25, and Gloss=50 to FilterSize=1
-                float SpecularGBufferVal = 1.0f - Roughness; //Gbuf_SpecularTex.SampleLevel(PointSamp, InUV, 0);
-                float Gloss = DecodeSpecularPower(SpecularGBufferVal);
+                //float SpecularGBufferVal = 1.0f - Roughness; //Gbuf_SpecularTex.SampleLevel(PointSamp, InUV, 0);
+                float Gloss = 1.0f; //Smoothness; //DecodeSpecularPower(SpecularGBufferVal);
                 FilterSize = max(1, -0.6*Gloss + 31);
 
                 // Use specular intensity to figure out the reflectance 
-                float Reflectance = SPEC_INTENSITY_TO_REFLECTANCE * SpecularGBufferVal.r;
+                float Reflectance = 1.0f * SPEC_INTENSITY_TO_REFLECTANCE; // * SpecularGBufferVal.r;
 
                 // This will check the direction of the normal of the reflection sample with the
                 // direction of the reflection vector, and if they are pointing in the same direction,
@@ -203,11 +209,9 @@ lib SSR {
     
     shader HiZTraceCS {
         uint2 PixelID = $SV_DispatchThreadId.xy;
-        float2 PixelUV = asfloat(PixelID) / OutputSize;
+        float2 PixelUV = float2(PixelID) / OutputSize;
         float2 NDCPos = float2(2.f,-2.f) * PixelUV + float2(-1.f,1.f);
-        
-        RayHitTarget[PixelID] = float4(0, 0, 0, 0);
-        
+         
         float3 ScreenVector = mul(g_ScreenToWorldMatrix, float4(NDCPos, 1, 0)).xyz;
         
         // Compute world position
@@ -215,6 +219,8 @@ lib SSR {
         float LinearZ = ConvertFromDeviceZ(DeviceZ);
         float3 WorldPosition = ScreenVector * LinearZ;
 
+        RayHitTarget[PixelID] = float4(0, 0, 0, 0);
+        
         // Needed to compute world space reflection vector
         float3 CameraVector = normalize(ScreenVector);
         float4 ThinGBufferSample = ThinGBuffer[PixelID];
@@ -229,20 +235,6 @@ lib SSR {
         Raymarch(PixelUV, MAX_REFLECTION_RAY_MARCH_STEP, ThinGBufferSample.a, ScreenSpacePos, WorldPosition, WorldNormal, CameraVector, g_ViewProjectionMatrix, OutReflectionUV, OutAttenuation, OutFilterSize);
 
         RayHitTarget[PixelID] = float4(OutReflectionUV, OutAttenuation, OutFilterSize);
-    
-        // float2 pixelCoordinates = float2( $SV_DispatchThreadId.xy );
-        // float2 uvCoordinates = pixelCoordinates / OutputSize;
-        // float2 ndcCoordinates = float2( 2.0f, -2.0f ) * uvCoordinates + float2( -1.0f, 1.0f );
-        
-        // float4 ThinGBufferSample = ThinGBuffer.SampleLevel( LinearSampler, uvCoordinates, 0.0f );  
-        // float3 N = ( ThinGBufferSample.rgb );
-        // float  roughness = ThinGBufferSample.a;
-        // float  depth = HiZDepthBuffer.SampleLevel( LinearSampler, uvCoordinates, 0.0f ).r;
-        
-        // float3 screenPos = GetScreenPos( uvCoordinates, depth );
-        // float3 worldPos = ReconstructWorldPos( uvCoordinates, depth );
-        
-        // RayHitTarget[pixelCoordinates] = ComputeHitTrace( N, depth, worldPos, uvCoordinates );
     }
 
     shader ResolveTraceCS {
