@@ -154,6 +154,8 @@ DUSK_ENV_VAR_TRANSIENT( IsFirstLaunch, false, bool ) // "True if this is the fir
 DUSK_DEV_VAR_PERSISTENT( UseDebugLayer, false, bool ); // "Enable render debug context/layers" [false/true]
 DUSK_DEV_VAR_PERSISTENT( UseRenderDocCapture, false, bool );// "Use RenderDoc frame capture tool [false/true]"
                                                            // (note: renderdoc dynamic lib must be present in the working dir)
+DUSK_DEV_VAR( DisplayCulledPrimCount, "Display the number of primitive culled for the Viewport[0]", false, bool );
+DUSK_DEV_VAR( DisplayFramerate, "Display basic framerate infos", true, bool );
 
 void UpdateFreeCamera( MappedInput& input, f32 deltaTime )
 {
@@ -694,17 +696,21 @@ void MainLoop()
         // Rendering
 
         // TEST TEST TEST TEST
-        std::string str = std::to_string( framerateCounter.AvgDeltaTime ).substr( 0, 6 )
-            + " ms / "
-            + std::to_string( framerateCounter.MinDeltaTime ).substr( 0, 6 )
-            + " ms / "
-            + std::to_string( framerateCounter.MaxDeltaTime ).substr( 0, 6 ) + " ms ("
-            + std::to_string( framerateCounter.AvgFramePerSecond ).substr( 0, 6 ) + " FPS)";
+        if ( DisplayFramerate ) {
+            std::string str = std::to_string( framerateCounter.AvgDeltaTime ).substr( 0, 6 )
+                + " ms / "
+                + std::to_string( framerateCounter.MinDeltaTime ).substr( 0, 6 )
+                + " ms / "
+                + std::to_string( framerateCounter.MaxDeltaTime ).substr( 0, 6 ) + " ms ("
+                + std::to_string( framerateCounter.AvgFramePerSecond ).substr( 0, 6 ) + " FPS)";
 
-        g_HUDRenderer->drawText( str.c_str(), 0.4f, 8.0f, 8.0f, dkVec4f( 1, 1, 1, 1 ), 0.5f );
+            g_HUDRenderer->drawText( str.c_str(), 0.4f, 8.0f, 8.0f, dkVec4f( 1, 1, 1, 1 ), 0.5f );
+        }
 
-        std::string culledPrimitiveCount = "Culled Primitive(s): " + std::to_string( g_DrawCommandBuilder->getCulledGeometryPrimitiveCount() );
-        g_HUDRenderer->drawText( culledPrimitiveCount.c_str(), 0.4f, 8.0f, 24.0f, dkVec4f( 1, 1, 1, 1 ), 0.5f );
+        if ( DisplayCulledPrimCount ) {
+            std::string culledPrimitiveCount = "Culled Primitive(s): " + std::to_string( g_DrawCommandBuilder->getCulledGeometryPrimitiveCount() );
+            g_HUDRenderer->drawText( culledPrimitiveCount.c_str(), 0.4f, 8.0f, 24.0f, dkVec4f( 1, 1, 1, 1 ), 0.5f );
+        }
 
         dkMat4x4f rotationMat = g_FreeCamera->getData().viewMatrix;
 

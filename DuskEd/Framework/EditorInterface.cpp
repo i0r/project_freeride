@@ -415,10 +415,14 @@ void EditorInterface::displayGraphicsMenu()
 void EditorInterface::displayDebugMenu()
 {
 	if ( ImGui::BeginMenu( "Debug" ) ) {
-		bool* DrawDebugSphere = EnvironmentVariables::getVariable<bool>( DUSK_STRING_HASH( "DisplayBoundingSphere" ) );
-
-		ImGui::Checkbox( "Display Geometry BoundingSphere", DrawDebugSphere );
-
+        bool* DrawDebugSphere = EnvironmentVariables::getVariable<bool>( DUSK_STRING_HASH( "DisplayBoundingSphere" ) );
+        bool* DisplayCulledPrimCount = EnvironmentVariables::getVariable<bool>( DUSK_STRING_HASH( "DisplayCulledPrimCount" ) );
+        bool* DisplayFramerate = EnvironmentVariables::getVariable<bool>( DUSK_STRING_HASH( "DisplayFramerate" ) );
+		
+        ImGui::Checkbox( "Display Geometry BoundingSphere", DrawDebugSphere );
+        ImGui::Checkbox( "Display Culled Primitive Count", DisplayCulledPrimCount );
+        ImGui::Checkbox( "Display Framerate", DisplayFramerate );
+		
 		ImGui::EndMenu();
 	}
 }
