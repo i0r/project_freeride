@@ -703,6 +703,9 @@ void MainLoop()
 
         g_HUDRenderer->drawText( str.c_str(), 0.4f, 8.0f, 8.0f, dkVec4f( 1, 1, 1, 1 ), 0.5f );
 
+        std::string culledPrimitiveCount = "Culled Primitive(s): " + std::to_string( g_DrawCommandBuilder->getCulledGeometryPrimitiveCount() );
+        g_HUDRenderer->drawText( culledPrimitiveCount.c_str(), 0.4f, 8.0f, 24.0f, dkVec4f( 1, 1, 1, 1 ), 0.5f );
+
         dkMat4x4f rotationMat = g_FreeCamera->getData().viewMatrix;
 
         // Remove translation.

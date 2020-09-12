@@ -19,7 +19,6 @@
 
 DUSK_DEV_VAR( DisplayBoundingSphere, "Display Geometry Bounding Sphere (as wireframe primitive)", false, bool );
 
-static constexpr size_t MAX_SIMULTANEOUS_VIEWPORT_COUNT = 8;
 static constexpr size_t MAX_STATIC_MODEL_COUNT = 4096;
 static constexpr size_t MAX_INSTANCE_COUNT_PER_MODEL = 256;
 
@@ -84,7 +83,9 @@ DrawCommandBuilder::DrawCommandBuilder( BaseAllocator* allocator )
     , instanceDataAllocator( dk::core::allocate<LinearAllocator>( allocator, MAX_STATIC_MODEL_COUNT * MAX_INSTANCE_COUNT_PER_MODEL * sizeof( DrawCommandInfos::InstanceData ), allocator->allocate( MAX_STATIC_MODEL_COUNT * MAX_INSTANCE_COUNT_PER_MODEL * sizeof( DrawCommandInfos::InstanceData ) ) ) )
 	, gpuInstanceDataAllocator( dk::core::allocate<LinearAllocator>( allocator, MAX_STATIC_MODEL_COUNT* MAX_INSTANCE_COUNT_PER_MODEL * sizeof( GPUBatchData ), allocator->allocate( MAX_STATIC_MODEL_COUNT* MAX_INSTANCE_COUNT_PER_MODEL * sizeof( GPUBatchData ) ) ) )
 {
-
+#if DUSK_DEVBUILD
+    memset( culledGeometryPrimitiveCount, 0, sizeof( u32 ) * MAX_SIMULTANEOUS_VIEWPORT_COUNT );
+#endif
 }
 
 DrawCommandBuilder::~DrawCommandBuilder()
@@ -122,6 +123,10 @@ void DrawCommandBuilder::prepareAndDispatchCommands( WorldRenderer* worldRendere
 
 	for ( ; cameraIdx < cameraCount; cameraIdx++ ) {
 		const CameraData& camera = cameraArray[cameraIdx];
+
+#if DUSK_DEVBUILD
+        culledGeometryPrimitiveCount[cameraIdx] = 0u;
+#endif
 
 		buildGeometryDrawCmds( worldRenderer, &camera, cameraIdx );
 
@@ -310,6 +315,11 @@ void DrawCommandBuilder::buildGeometryDrawCmds( WorldRenderer* worldRenderer, co
                 boundingSphereCount++;
             }
         }
+#if DUSK_DEVBUILD
+        else {
+            culledGeometryPrimitiveCount[cameraIdx]++;
+        }
+#endif
     }
 
     // Build draw commands from the batches.

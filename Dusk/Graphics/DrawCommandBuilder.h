@@ -19,6 +19,17 @@ struct Mesh;
 class DrawCommandBuilder
 {
 public:
+#if DUSK_DEVBUILD
+	// Return the number of primitive culled for the Geometry RenderPass for a given submitted camera (index 0 is usually
+	// the main camera of the application).
+	DUSK_INLINE const u32 getCulledGeometryPrimitiveCount( const u32 cameraIdx = 0u ) const 
+	{ 
+		DUSK_DEV_ASSERT( cameraIdx < MAX_SIMULTANEOUS_VIEWPORT_COUNT&& cameraIdx >= 0u, "Index out of bounds!" );
+		return culledGeometryPrimitiveCount[cameraIdx]; 
+	}
+#endif
+
+public:
 						DrawCommandBuilder( BaseAllocator* allocator );
 						DrawCommandBuilder( DrawCommandBuilder& ) = delete;
 						DrawCommandBuilder& operator = ( DrawCommandBuilder& ) = delete;
@@ -38,6 +49,9 @@ public:
 	void				prepareAndDispatchCommands( WorldRenderer* worldRenderer );
 
 private:
+    static constexpr size_t MAX_SIMULTANEOUS_VIEWPORT_COUNT = 8;
+
+private:
 	// The memory allocator owning this instance.
 	BaseAllocator*		memoryAllocator;
 
@@ -50,9 +64,13 @@ private:
 	// Allocator used to allocate instance data to render batched models/geometry.
 	LinearAllocator*	instanceDataAllocator;
 
-	// Allocator used to allocate instance data for gpu driven draw call submit.
+	// Allocator used to allocate instance data for GPU driven draw call submit.
 	LinearAllocator*	gpuInstanceDataAllocator;
 
+#if DUSK_DEVBUILD
+	// The number of primitive geometry culled (either by occlusion culling or frustum culling).
+	u32					culledGeometryPrimitiveCount[MAX_SIMULTANEOUS_VIEWPORT_COUNT];
+#endif
 
 private:
 	// Reset entities allocators (camera, models, etc.). Should be called once the cmds are built and we don't longer need

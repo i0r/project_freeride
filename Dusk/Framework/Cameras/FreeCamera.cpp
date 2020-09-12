@@ -129,7 +129,7 @@ void FreeCamera::update( const f32 frameTime )
     data.inverseViewProjectionMatrix = data.viewProjectionMatrix.inverse();
 
     // Update frustum with the latest view projection matrix
-    UpdateFrustumPlanes( data.finiteProjectionMatrix, data.frustum );
+    UpdateFrustumPlanes( data.viewProjectionMatrix, data.frustum );
 
     // Update camera frame number
     data.cameraFrameNumber++;
