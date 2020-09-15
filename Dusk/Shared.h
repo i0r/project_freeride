@@ -94,4 +94,7 @@ static DUSK_INLINE constexpr std::underlying_type_t<T> ToUnderlyingType( T x ) n
 }
 
 #define DUSK_IS_MEMORY_ALIGNED_STATIC( obj, alignInBytes ) static_assert( sizeof( obj ) % alignInBytes == 0, #obj " alignement is invalid!" );
+
+#include "Graphics/GpuProfiler.h"
+
 #endif

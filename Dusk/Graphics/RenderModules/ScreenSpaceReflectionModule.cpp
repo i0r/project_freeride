@@ -90,6 +90,8 @@ SSRModule::HiZResult SSRModule::computeHiZMips( FrameGraph& frameGraph, FGHandle
             passData.DepthMipChain = builder.allocateImage( mergedDesc );
 		},
 		[=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+			DUSK_GPU_PROFILE_SCOPED( *cmdList );
+
 			Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
 
 			PipelineStateDesc psoDesc( PipelineStateDesc::COMPUTE );
