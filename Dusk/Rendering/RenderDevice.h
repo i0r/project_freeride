@@ -992,10 +992,19 @@ public:
     void                        destroySampler( Sampler* sampler );
     void                        destroyQueryPool( QueryPool* queryPool );
 
+	// Set a debug marker to a given image. The engine must be built with DUSK_ENABLE_GPU_DEBUG_MARKER.
     void                        setDebugMarker( Image& image, const dkChar_t* objectName );
+
+    // Set a debug marker to a given buffer. The engine must be built with DUSK_ENABLE_GPU_DEBUG_MARKER.
     void                        setDebugMarker( Buffer& buffer, const dkChar_t* objectName );
 
+    // Convert an API specific timestamp result to ms and return it. Most APIs
+    // use different granularity so this function should be used whichever the
+    // current backend is.
     f64                         convertTimestampToMs( const u64 timestamp ) const;
+
+    // Retrieve the cached pipeline state binary from the GPU. This function
+    // is only available on Vulkan/D3D12. The returned binary is API specific.
     void                        getPipelineStateCache( PipelineState* pipelineState, void** binaryData, size_t& binaryDataSize );
 
 private:

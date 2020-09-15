@@ -509,6 +509,8 @@ void InitializeRenderSubsystems()
 
     g_DrawCommandBuilder = dk::core::allocate<DrawCommandBuilder>( g_GlobalAllocator, g_GlobalAllocator );
 
+    g_GpuProfiler.create( *g_RenderDevice );
+
     // TODO Retrieve pointer to camera instance from scene db
     g_FreeCamera = new FreeCamera();
     g_FreeCamera->setProjectionMatrix( DefaultCameraFov, static_cast< float >( ScreenSize.x ), static_cast< float >( ScreenSize.y ) );
@@ -672,6 +674,7 @@ void MainLoop()
             accumulator -= LOGIC_DELTA;
         }
 
+        g_GpuProfiler.update( *g_RenderDevice );
 
         // Convert screenspace cursor position to viewport space.
 		shiftedMouseX = dk::maths::clamp( static_cast< i32 >( g_CursorPosition.x - g_ViewportWindowPosition.x ), 0, vp.Width );
@@ -698,7 +701,6 @@ void MainLoop()
 #endif
 
         // Rendering
-
         // TEST TEST TEST TEST
         std::string str = std::to_string( framerateCounter.AvgDeltaTime ).substr( 0, 6 )
             + " ms / "
