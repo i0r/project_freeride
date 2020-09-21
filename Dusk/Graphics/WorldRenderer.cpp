@@ -315,10 +315,20 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
     LightGrid::Data lightGridData = lightGrid->updateClusters( frameGraph );
 
     // Do a depth prepass (and capture normals/roughness at the same time).
-    FGHandle prepassTarget = WorldRendering->addDepthPrepass( frameGraph );
+    WorldRenderModule::PrePassOutput prepass = WorldRendering->addGeometryPrepass( frameGraph );
 
+	FGHandle resolvedGbuffer = prepass.OutputThinGBufferTarget;	
     if ( msaaSamplerCount > 1 ) {
-        resolvedDepth = AddMSAADepthResolveRenderPass( frameGraph, prepassTarget, msaaSamplerCount );
+		resolvedGbuffer = AddCheapMSAAResolveRenderPass( frameGraph, prepass.OutputThinGBufferTarget, msaaSamplerCount );
+	}
+
+	// Rescale the main render target for post-fx (if SSAA is used to down/upscale).
+	if ( imageQuality != 1.0f ) {
+		resolvedGbuffer = AddSSAAResolveRenderPass( frameGraph, resolvedGbuffer, false );
+	}
+    
+    if ( msaaSamplerCount > 1 ) {
+        resolvedDepth = AddMSAADepthResolveRenderPass( frameGraph, prepass.OutputDepthTarget, msaaSamplerCount );
     }
 
     // Rescale the main render target for post-fx (if SSAA is used to down/upscale).
@@ -336,17 +346,15 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
     SSRModule::HiZResult hiZMips = screenSpaceReflections->computeHiZMips( frameGraph, resolvedDepth, viewportWidth, viewportHeight );
 
     // LightPass.
-    WorldRenderModule::LightPassOutput primRenderPass = WorldRendering->addPrimitiveLightPass( frameGraph, lightGridData.PerSceneBuffer, prepassTarget, scenario, environmentProbeStreaming->getReadDistantProbeIrradiance(), environmentProbeStreaming->getReadDistantProbeRadiance(), cascadedShadowMapRendering->getGlobalShadowMatrix() );
+    FGHandle OutputRenderTarget = WorldRendering->addPrimitiveLightPass( frameGraph, lightGridData.PerSceneBuffer, prepass.OutputDepthTarget, scenario, environmentProbeStreaming->getReadDistantProbeIrradiance(), environmentProbeStreaming->getReadDistantProbeRadiance(), cascadedShadowMapRendering->getGlobalShadowMatrix() );
 
     // Atmosphere Rendering.
-    primRenderPass.OutputRenderTarget = atmosphereRendering->renderAtmosphere( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputDepthTarget );
+    OutputRenderTarget = atmosphereRendering->renderAtmosphere( frameGraph, OutputRenderTarget, prepass.OutputDepthTarget );
 
     // AntiAliasing resolve. (we merge both TAA and MSAA in a single pass to avoid multiple dispatch).
-    FGHandle resolvedColor = primRenderPass.OutputRenderTarget;
-    FGHandle resolvedGbuffer = primRenderPass.OutputThinGBufferTarget;
+    FGHandle resolvedColor = OutputRenderTarget;
     if ( msaaSamplerCount > 1 || EnableTAA ) {
-        resolvedColor = AddMSAAResolveRenderPass( frameGraph, primRenderPass.OutputRenderTarget, primRenderPass.OutputVelocityTarget, primRenderPass.OutputDepthTarget, msaaSamplerCount, EnableTAA );
-        resolvedGbuffer = AddCheapMSAAResolveRenderPass( frameGraph, primRenderPass.OutputThinGBufferTarget, msaaSamplerCount );
+        resolvedColor = AddMSAAResolveRenderPass( frameGraph, OutputRenderTarget, prepass.OutputVelocityTarget, prepass.OutputDepthTarget, msaaSamplerCount, EnableTAA );
     }
 
     if ( EnableTAA ) {
@@ -356,16 +364,15 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
     // Rescale the main render target for post-fx (if SSAA is used to down/upscale).
     if ( imageQuality != 1.0f ) {
         resolvedColor = AddSSAAResolveRenderPass( frameGraph, resolvedColor, false );
-        resolvedGbuffer = AddSSAAResolveRenderPass( frameGraph, resolvedGbuffer, false );
     }
 
     FGHandle presentRt = resolvedColor;
 
     // SSR Rendering.
-    FGHandle ssrTrace = screenSpaceReflections->rayTraceHiZ( frameGraph, resolvedGbuffer, hiZMips, viewportWidth, viewportHeight );
-    /* presentRt = screenSpaceReflections->resolveRaytrace( frameGraph, ssrTrace, resolvedColor, resolvedGbuffer, hiZMips, viewportWidth, viewportHeight );
+    SSRModule::TraceResult ssrTrace = screenSpaceReflections->rayTraceHiZ( frameGraph, resolvedGbuffer, hiZMips, viewportWidth, viewportHeight );
+    presentRt = screenSpaceReflections->resolveRaytrace( frameGraph, ssrTrace, resolvedColor, resolvedGbuffer, hiZMips, viewportWidth, viewportHeight );
     
-     FGHandle ssrTemporalResolved = screenSpaceReflections->temporalRebuild( frameGraph, ssrTrace.TraceBuffer, ssrResolved, viewportWidth, viewportHeight );
+      /*  FGHandle ssrTemporalResolved = screenSpaceReflections->temporalRebuild( frameGraph, ssrTrace.TraceBuffer, ssrResolved, viewportWidth, viewportHeight );
 	 frameGraph.saveLastFrameSSRRenderTarget( ssrResolved );
 
 	 presentRt = screenSpaceReflections->combineResult(frameGraph, ssrTemporalResolved, presentRt, resolvedDepth, resolvedGbuffer, viewportWidth, viewportHeight );*/

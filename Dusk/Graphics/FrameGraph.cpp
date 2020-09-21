@@ -863,12 +863,12 @@ void FrameGraph::execute( RenderDevice* renderDevice, const f32 deltaTime )
 
     // Setting column 2 (z-axis) to identity makes the matrix ignore the z-axis.
     dkMat4x4f viewProjMatrix = perViewData.ViewProjectionMatrix;
-    viewProjMatrix[0][2] = 0.0f;
-    viewProjMatrix[1][2] = 0.0f;
-    viewProjMatrix[2][2] = 1.0f;
-    viewProjMatrix[3][2] = 0.0f;
+    //viewProjMatrix[0][2] = 0.0f;
+    //viewProjMatrix[1][2] = 0.0f;
+    //viewProjMatrix[2][2] = 1.0f;
+    //viewProjMatrix[3][2] = 0.0f;
 
-    perViewData.ScreenToWorldMatrix = viewportMatrix * viewProjMatrix.inverse();
+    perViewData.ScreenToWorldMatrix = /*viewportMatrix * */ viewProjMatrix.inverse();
 
 #ifdef DUSKED
     graphScheduler.updateMaterialEdBuffer( &localMaterialEdData );

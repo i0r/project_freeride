@@ -17,16 +17,14 @@ class Material;
 class WorldRenderModule
 {
 public:
-	struct LightPassOutput
+	struct PrePassOutput
 	{
-		FGHandle	OutputRenderTarget;
 		FGHandle	OutputDepthTarget;
         FGHandle	OutputVelocityTarget;
         FGHandle	OutputThinGBufferTarget;
 
-		LightPassOutput()
-			: OutputRenderTarget( FGHandle::Invalid )
-			, OutputDepthTarget( FGHandle::Invalid )
+		PrePassOutput()
+			: OutputDepthTarget( FGHandle::Invalid )
 			, OutputVelocityTarget( FGHandle::Invalid )
 			, OutputThinGBufferTarget( FGHandle::Invalid )
 		{
@@ -49,9 +47,9 @@ public:
     void                destroy( RenderDevice& renderDevice );
 	void                loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache );
 
-	LightPassOutput     addPrimitiveLightPass( FrameGraph& frameGraph, FGHandle perSceneBuffer, FGHandle depthPrepassBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular, const dkMat4x4f& globalShadowMatrix );
+	FGHandle			addPrimitiveLightPass( FrameGraph& frameGraph, FGHandle perSceneBuffer, FGHandle depthPrepassBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular, const dkMat4x4f& globalShadowMatrix );
 
-	FGHandle			addDepthPrepass( FrameGraph& frameGraph );
+	PrePassOutput		addGeometryPrepass( FrameGraph& frameGraph );
 
 	void				setDefaultBrdfDfgLut( Image* brdfDfgLut );
 

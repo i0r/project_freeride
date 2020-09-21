@@ -28,8 +28,11 @@ public:
         // Default_Editor scenario; withing writing to the UAV buffer enabled.
         Default_Picking_Editor,
 
-        // Depth only render pass. It will output non-linearized depth.
-        Depth_Only,
+        // Prepass filling a thin gbuffer and outputing depth (it used to be a basic depth prepass).
+		Depth_Only,
+
+		// Prepass used in runtime material editor.
+		Depth_Only_Editor,
 
         // Do not use.
         Count
@@ -132,6 +135,9 @@ private:
 
 	// Pipeline binding for depth only render scenario (depth prepass or shadow capture).
 	RenderScenarioBinding depthOnlyScenario;
+
+	// Pipeline binding for depth only render scenario (depth prepass or shadow capture).
+	RenderScenarioBinding depthOnlyEditorScenario;
 
     // If true, this material will invalidate previously cached states (pipeline states, shaders, etc.) and will request
     // the resources from the hard drive.

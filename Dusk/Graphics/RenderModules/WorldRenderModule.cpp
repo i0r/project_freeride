@@ -98,13 +98,11 @@ void WorldRenderModule::loadCachedResources( RenderDevice& renderDevice, Graphic
 #endif
 }
 
-WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, FGHandle perSceneBuffer, FGHandle depthPrepassBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular, const dkMat4x4f& globalShadowMatrix )
+FGHandle WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, FGHandle perSceneBuffer, FGHandle depthPrepassBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular, const dkMat4x4f& globalShadowMatrix )
 {
     struct PassData {
         FGHandle output;
-        FGHandle velocityBuffer;
         FGHandle depthBuffer;
-        FGHandle GBuffer;
         FGHandle PerPassBuffer;
         FGHandle PerViewBuffer;
         FGHandle PerSceneBuffer;
@@ -134,23 +132,7 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
 
             passData.output = builder.allocateImage( rtDesc, FrameGraphBuilder::USE_PIPELINE_DIMENSIONS | FrameGraphBuilder::USE_PIPELINE_SAMPLER_COUNT );
 
-            ImageDesc gbufferDesc;
-            gbufferDesc.dimension = ImageDesc::DIMENSION_2D;
-            gbufferDesc.format = eViewFormat::VIEW_FORMAT_R16G16B16A16_FLOAT;
-            gbufferDesc.usage = RESOURCE_USAGE_DEFAULT;
-            gbufferDesc.bindFlags = RESOURCE_BIND_RENDER_TARGET_VIEW | RESOURCE_BIND_SHADER_RESOURCE;
-
-            passData.GBuffer = builder.allocateImage( gbufferDesc, FrameGraphBuilder::USE_PIPELINE_DIMENSIONS | FrameGraphBuilder::USE_PIPELINE_SAMPLER_COUNT );
-
             passData.depthBuffer = builder.readReadOnlyImage( depthPrepassBuffer );
-
-            ImageDesc velocityRtDesc;
-            velocityRtDesc.dimension = ImageDesc::DIMENSION_2D;
-            velocityRtDesc.format = eViewFormat::VIEW_FORMAT_R16G16_FLOAT;
-            velocityRtDesc.usage = RESOURCE_USAGE_DEFAULT;
-            velocityRtDesc.bindFlags = RESOURCE_BIND_RENDER_TARGET_VIEW | RESOURCE_BIND_SHADER_RESOURCE;
-
-            passData.velocityBuffer = builder.allocateImage( velocityRtDesc, FrameGraphBuilder::USE_PIPELINE_DIMENSIONS | FrameGraphBuilder::USE_PIPELINE_SAMPLER_COUNT );
 
 			BufferDesc perPassBuffer;
 			perPassBuffer.BindFlags = RESOURCE_BIND_CONSTANT_BUFFER;
@@ -195,9 +177,7 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
             Image* outputTarget = resources->getImage( passData.output );
-            Image* velocityTarget = resources->getImage( passData.velocityBuffer );
             Image* zbufferTarget = resources->getImage( passData.depthBuffer );
-            Image* gbufferTarget = resources->getImage( passData.GBuffer );
 
             Image* sliceShadow = resources->getPersitentImage( passData.CSMSlices );
 
@@ -214,17 +194,13 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
 
             // Clear render targets at the beginning of the pass.
             constexpr f32 ClearValue[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-            Image* Framebuffer[3] = { 
-                outputTarget, 
-                velocityTarget, 
-                gbufferTarget 
+            Image* Framebuffer[1] = { 
+                outputTarget
             };
-            FramebufferAttachment FramebufferAttachments[3] = { 
-                FramebufferAttachment( outputTarget ), 
-                FramebufferAttachment( velocityTarget ), 
-                FramebufferAttachment( gbufferTarget ) 
+            FramebufferAttachment FramebufferAttachments[1] = { 
+                FramebufferAttachment( outputTarget )
             };
-            cmdList->clearRenderTargets( Framebuffer, 3u, ClearValue );
+            cmdList->clearRenderTargets( Framebuffer, 1u, ClearValue );
 
             // Update viewport (using image quality scaling)
             const CameraData* camera = resources->getMainCamera();
@@ -349,26 +325,22 @@ WorldRenderModule::LightPassOutput WorldRenderModule::addPrimitiveLightPass( Fra
         }
     );
 
-    LightPassOutput output;
-    output.OutputRenderTarget = data.output;
-    output.OutputDepthTarget = data.depthBuffer;
-    output.OutputVelocityTarget = data.velocityBuffer;
-    output.OutputThinGBufferTarget = data.GBuffer;
-
-    return output;
+    return data.output;
 }
 
-FGHandle WorldRenderModule::addDepthPrepass( FrameGraph& frameGraph )
+WorldRenderModule::PrePassOutput WorldRenderModule::addGeometryPrepass( FrameGraph& frameGraph )
 {
     struct PassData {
-        FGHandle DepthBuffer;
+		FGHandle DepthBuffer;
+		FGHandle GBuffer;
+        FGHandle VelocityBuffer;
         FGHandle PerPassBuffer;
         FGHandle PerViewBuffer;
         FGHandle VectorDataBuffer;
     };
 
     PassData& data = frameGraph.addRenderPass<PassData>(
-        "Depth PrePass",
+        "WorldRenderModule::GeometryPrePass",
         [&]( FrameGraphBuilder& builder, PassData& passData ) {
             ImageDesc zBufferRenderTargetDesc;
             zBufferRenderTargetDesc.dimension = ImageDesc::DIMENSION_2D;
@@ -378,6 +350,22 @@ FGHandle WorldRenderModule::addDepthPrepass( FrameGraph& frameGraph )
             zBufferRenderTargetDesc.DefaultView.ViewFormat = eViewFormat::VIEW_FORMAT_D32_FLOAT;
 
             passData.DepthBuffer = builder.allocateImage( zBufferRenderTargetDesc, FrameGraphBuilder::USE_PIPELINE_DIMENSIONS | FrameGraphBuilder::USE_PIPELINE_SAMPLER_COUNT );
+
+			ImageDesc gbufferDesc;
+			gbufferDesc.dimension = ImageDesc::DIMENSION_2D;
+			gbufferDesc.format = eViewFormat::VIEW_FORMAT_R16G16B16A16_FLOAT;
+			gbufferDesc.usage = RESOURCE_USAGE_DEFAULT;
+			gbufferDesc.bindFlags = RESOURCE_BIND_RENDER_TARGET_VIEW | RESOURCE_BIND_SHADER_RESOURCE;
+
+			passData.GBuffer = builder.allocateImage( gbufferDesc, FrameGraphBuilder::USE_PIPELINE_DIMENSIONS | FrameGraphBuilder::USE_PIPELINE_SAMPLER_COUNT );
+
+			ImageDesc velocityRtDesc;
+			velocityRtDesc.dimension = ImageDesc::DIMENSION_2D;
+			velocityRtDesc.format = eViewFormat::VIEW_FORMAT_R16G16_FLOAT;
+			velocityRtDesc.usage = RESOURCE_USAGE_DEFAULT;
+			velocityRtDesc.bindFlags = RESOURCE_BIND_RENDER_TARGET_VIEW | RESOURCE_BIND_SHADER_RESOURCE;
+
+			passData.VelocityBuffer = builder.allocateImage( velocityRtDesc, FrameGraphBuilder::USE_PIPELINE_DIMENSIONS | FrameGraphBuilder::USE_PIPELINE_SAMPLER_COUNT );
 
             passData.VectorDataBuffer = builder.retrieveVectorDataBuffer();
 
@@ -392,14 +380,24 @@ FGHandle WorldRenderModule::addDepthPrepass( FrameGraph& frameGraph )
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
             Image* zbufferTarget = resources->getImage( passData.DepthBuffer );
+            Image* gbuffer = resources->getImage( passData.GBuffer );
+            Image* velocity = resources->getImage( passData.VelocityBuffer );
 
             Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );
             Buffer* perViewBuffer = resources->getPersistentBuffer( passData.PerViewBuffer );
             Buffer* vectorBuffer = resources->getPersistentBuffer( passData.VectorDataBuffer );
 
-            cmdList->pushEventMarker( DUSK_STRING( "Depth PrePass" ) );
+            cmdList->pushEventMarker( DUSK_STRING( "WorldRenderModule::GeometryPrePass" ) );
 
             // Clear render targets at the beginning of the pass.
+            constexpr f32 ClearValues[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+            Image* FrameBuffer[2] = {
+                gbuffer,
+                velocity
+            };
+
+            cmdList->clearRenderTargets( FrameBuffer, 2u, ClearValues );
             cmdList->clearDepthStencil( zbufferTarget, 0.0f );
 
             // Update viewport (using image quality scaling)
@@ -452,19 +450,24 @@ FGHandle WorldRenderModule::addDepthPrepass( FrameGraph& frameGraph )
                 cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
 
                 // Re-setup the framebuffer (some permutations have a different framebuffer layout).
-                cmdList->setupFramebuffer( nullptr, FramebufferAttachment( zbufferTarget ) );
+                FramebufferAttachment Framebuffer[2] = { FramebufferAttachment( gbuffer ), FramebufferAttachment( velocity ) };
+                cmdList->setupFramebuffer( Framebuffer, FramebufferAttachment( zbufferTarget ) );
                 cmdList->prepareAndBindResourceList();
 
-                const Buffer* bufferList[1] = { 
-                    cmdInfos.vertexBuffers[eMeshAttribute::Position].BufferObject
+                const Buffer* bufferList[3] = { 
+					cmdInfos.vertexBuffers[eMeshAttribute::Position].BufferObject,
+					cmdInfos.vertexBuffers[eMeshAttribute::Normal].BufferObject,
+					cmdInfos.vertexBuffers[eMeshAttribute::UvMap_0].BufferObject
                 };
 
-                const u32 bufferOffsets[1] = {
-                    cmdInfos.vertexBuffers[eMeshAttribute::Position].OffsetInBytes
+                const u32 bufferOffsets[3] = {
+                    cmdInfos.vertexBuffers[eMeshAttribute::Position].OffsetInBytes,
+                    0u,
+                    0u
                 };
 
                 // Bind vertex buffers
-                cmdList->bindVertexBuffer( ( const Buffer** )bufferList, bufferOffsets );
+                cmdList->bindVertexBuffer( ( const Buffer** )bufferList, bufferOffsets, 3u );
                 cmdList->bindIndiceBuffer( cmdInfos.indiceBuffer->BufferObject, !cmdInfos.useShortIndices );
 
 				cmdList->drawIndexed( cmdInfos.indiceBufferCount, cmdInfos.instanceCount, cmdInfos.indiceBufferOffset );
@@ -477,7 +480,12 @@ FGHandle WorldRenderModule::addDepthPrepass( FrameGraph& frameGraph )
         }
     );
 
-    return data.DepthBuffer;
+    PrePassOutput output;
+    output.OutputDepthTarget = data.DepthBuffer;
+    output.OutputThinGBufferTarget = data.GBuffer;
+    output.OutputVelocityTarget = data.VelocityBuffer;
+
+    return output;
 }
 
 void WorldRenderModule::clearPickingBuffer( FrameGraph& frameGraph )

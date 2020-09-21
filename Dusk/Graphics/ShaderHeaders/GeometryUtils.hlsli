@@ -25,7 +25,7 @@ float3 DecodeNormals( float2 enc )
         
 float3 GetScreenPos( float2 uv, float depth ) 
 {
-    return float3( uv.x * 2.0f - 1.0f, 1.0f - 2.0f * uv.y, depth );
+    return float3( uv.x * 2.0f - 1.0f, (1 - uv.y) * 2 - 1, depth );
 }
 
 float3 ReconstructWorldPos( float2 uv, float depth ) 
@@ -50,16 +50,17 @@ float3 GetViewPos( float3 screenPos )
 
 float4 TangentToWorld(float3 N, float4 H) 
 {
-    float3 UpVector = abs(N.y) < 0.999 ? float3(0.0, 1.0, 0.0) : float3(1.0, 0.0, 0.0);
+    float3 UpVector = abs(N.z) < 0.999 ? float3(0.0, 0.0, 1.0) : float3(1.0, 0.0, 0.0);
     float3 T = normalize(cross(UpVector, N));
     float3 B = cross(N, T);
 
     return float4((T * H.x) + (B * H.y) + (N * H.z), H.w);
 }
 
-float Linear01Depth(float depth, float near, float far) 
+float LinearizeDepth(float depth, float near, float far)
 {
-    return (1.0f - (depth * near) / (far - depth * (far - near)));
+    float z = depth * 2.0 - 1.0; // back to NDC 
+    return (2.0 * near * far) / (far + near - z * (far - near));    
 }
 
 float ViewDepth(float depth, float near, float far) 

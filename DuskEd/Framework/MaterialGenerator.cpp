@@ -203,9 +203,11 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
     const std::string namedGenericPickingPass = std::string( editableMaterial.Name ) + "LightPickingPass";
     const std::string namedGenericPickingPassEd = std::string( editableMaterial.Name ) + "LightPickingPassEd";
     const std::string namedDepthOnlyPass = std::string( editableMaterial.Name ) + "DepthOnly";
+	const std::string namedDepthOnlyPassEd = std::string( editableMaterial.Name ) + "DepthOnlyEd";
 
 	ScenarioBinding DefaultBinding;
 	ScenarioBinding DepthOnlyBinding;
+	ScenarioBinding DepthOnlyEdBinding;
     ScenarioBinding DefaultEdBinding;
     ScenarioBinding DefaultPickingBinding;
     ScenarioBinding DefaultPickingEdBinding;
@@ -225,6 +227,8 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
             matchingBinding = &DefaultPickingEdBinding;
 		} else if ( renderPass.RenderPassName == namedDepthOnlyPass ) {
 			matchingBinding = &DepthOnlyBinding;
+		} else if ( renderPass.RenderPassName == namedDepthOnlyPassEd ) {
+			matchingBinding = &DepthOnlyEdBinding;
 		} else {
             DUSK_LOG_WARN( "Unknown RenderPass '%hs' found!\n", renderPass.RenderPassName.c_str() );
             continue;
@@ -274,6 +278,7 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
         SerializeScenario( materialDescriptor, "Default_Picking", DefaultPickingBinding );
 		SerializeScenario( materialDescriptor, "Editor_Default_Picking", DefaultPickingEdBinding );
 		SerializeScenario( materialDescriptor, "Depth_Only", DepthOnlyBinding );
+		SerializeScenario( materialDescriptor, "Editor_Depth_Only", DepthOnlyBinding );
         
         materialDescriptor->writeString( "}\n" );
 

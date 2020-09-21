@@ -120,6 +120,10 @@ void Material::deserialize( FileSystemObject* object )
 						if ( dk::core::ExpectKeyword( name.StreamPointer, name.Length, "Depth_Only" ) ) {
 							ParseScenario( depthOnlyScenario, type );
 						}
+
+						if ( dk::core::ExpectKeyword( name.StreamPointer, name.Length, "Editor_Depth_Only" ) ) {
+							ParseScenario( depthOnlyEditorScenario, type );
+						}
                     } break;
                     case TypeAST::MATERIAL_PARAMETER: {
                         const u32 parameterCount = static_cast<u32>( type.Names.size() );
@@ -170,8 +174,6 @@ void Material::bindForScenario( const RenderScenario scenario, CommandList* cmdL
         DefaultPipelineState.RasterizerState.FillMode = ( isWireframe ) ? eFillMode::FILL_MODE_WIREFRAME : eFillMode::FILL_MODE_SOLID;
 
         DefaultPipelineState.FramebufferLayout.declareRTV( 0, VIEW_FORMAT_R16G16B16A16_FLOAT );
-        DefaultPipelineState.FramebufferLayout.declareRTV( 1, VIEW_FORMAT_R16G16_FLOAT );
-        DefaultPipelineState.FramebufferLayout.declareRTV( 2, VIEW_FORMAT_R11G11B10_FLOAT );
         DefaultPipelineState.FramebufferLayout.declareDSV( VIEW_FORMAT_D32_FLOAT );
 
         DefaultPipelineState.samplerCount = samplerCount;
@@ -201,10 +203,14 @@ void Material::bindForScenario( const RenderScenario scenario, CommandList* cmdL
         DefaultPipelineState.RasterizerState.CullMode = ( isDoubleFace ) ? eCullMode::CULL_MODE_NONE : eCullMode::CULL_MODE_FRONT;
         DefaultPipelineState.RasterizerState.FillMode = ( isWireframe ) ? eFillMode::FILL_MODE_WIREFRAME : eFillMode::FILL_MODE_SOLID;
 
+		DefaultPipelineState.FramebufferLayout.declareRTV( 0, VIEW_FORMAT_R16G16B16A16_FLOAT );
+		DefaultPipelineState.FramebufferLayout.declareRTV( 1, VIEW_FORMAT_R16G16_FLOAT );
         DefaultPipelineState.FramebufferLayout.declareDSV( VIEW_FORMAT_D32_FLOAT );
 
         DefaultPipelineState.samplerCount = samplerCount;
-        DefaultPipelineState.InputLayout.Entry[0] = { 0, VIEW_FORMAT_R32G32B32_FLOAT, 0, 0, 0, false, "POSITION" };
+		DefaultPipelineState.InputLayout.Entry[0] = { 0, VIEW_FORMAT_R32G32B32_FLOAT, 0, 0, 0, false, "POSITION" };
+		DefaultPipelineState.InputLayout.Entry[1] = { 0, VIEW_FORMAT_R32G32B32_FLOAT, 0, 1, 0, true, "NORMAL" };
+		DefaultPipelineState.InputLayout.Entry[2] = { 0, VIEW_FORMAT_R32G32_FLOAT, 0, 2, 0, true, "TEXCOORD" };
         DefaultPipelineState.depthClearValue = 0.0f;
 
         // Retrieve the appropriate shader binding for the given scenario.
