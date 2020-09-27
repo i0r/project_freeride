@@ -25,7 +25,7 @@ float3 DecodeNormals( float2 enc )
         
 float3 GetScreenPos( float2 uv, float depth ) 
 {
-    return float3( uv.x * 2.0f - 1.0f, (1 - uv.y) * 2 - 1, depth );
+    return float3( uv.x * 2.0f - 1.0f, 1.0f - 2.0f * uv.y, depth );
 }
 
 float3 ReconstructWorldPos( float2 uv, float depth ) 

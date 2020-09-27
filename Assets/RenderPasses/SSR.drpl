@@ -325,34 +325,32 @@ lib SSR {
         float4 ThinGBufferSample = ThinGBuffer.SampleLevel( LinearSampler, UvCoordinates, 0.0f );
         
         float3 Normals = DecodeNormals( ThinGBufferSample.rg );
-        float3 NormalsViewSpace = mul( g_ViewMatrix, float4( normalize( Normals ), 0.0f ) ).xyz;
+        float3 NormalsViewSpace = normalize( mul( float4( Normals, 0.0f ), g_ViewMatrix).xyz );
         
-        float  rebuildDepth = ThinGBufferSample.b;
         float  roughness = ThinGBufferSample.a;
         float  depth = HiZDepthBuffer.SampleLevel( LinearSampler, UvCoordinates, 0.0f );
-        //depth = LinearizeDepth( depth, g_ClippingPlanes.x, g_ClippingPlanes.y );
         
         float2 Hash = BlueNoise.SampleLevel(LinearSampler, (UvCoordinates + HaltonOffset.xy) * OutputSize.xy / float2(BLUE_NOISE_SIZE, BLUE_NOISE_SIZE), 0.0f).rg;
         Hash.y = lerp(Hash.y, 0.0, BRDF_BIAS);
-  
-        float3 screenPos = GetScreenPos( UvCoordinates, rebuildDepth );
-        float3 worldPos = ReconstructWorldPos( UvCoordinates, rebuildDepth );
-        float3 viewPos = GetViewPos( screenPos );
-        float3 viewDir = GetViewDir( worldPos );
-       
-        bool IsMirror = ( roughness < 0.1f );
+ 
+        float3 screenPos = GetScreenPos( UvCoordinates, depth );        
+        float4 Position = mul( g_InverseProjectionMatrix, float4( screenPos, 1.0f ) );
+        Position.xyz /= Position.w;      
+        float3 PositionWS = mul( g_InverseViewMatrix, float4( Position.xyz, 1.0f ) ).xyz;     
         
+        bool IsMirror = ( roughness < 0.1f );
+       
         // Use a stochastic approach for rough surfaces. If roughness is below the threshold; assume the surface
         // is mirror like and should reflect as is.
         float4 H = ( IsMirror ) ? float4( NormalsViewSpace, 1.0f ) : TangentToWorld( NormalsViewSpace, ImportanceSampleGGX( Hash, roughness ) );
         
-        float3 V = normalize(viewDir);
+        float3 V = normalize(PositionWS);
         float3 R = reflect(V, H.xyz);
 
         float3 rayStart = float3(UvCoordinates, depth);
-        float4 rayProj = mul(g_ProjectionMatrix, float4(V + R, 1.0));
+        float4 rayProj = mul(float4(V + R, 1.0), g_ProjectionMatrix);
         float3 rayDir = normalize((rayProj.xyz / rayProj.w) - screenPos);
-        rayDir.xy *= float2(0.5f, -0.5f);
+        //rayDir.xy *= float2(0.5f, -0.5f);
 
         float4 rayTrace = RayTrace(SSR_MAX_MIP_LEVEL, HIZ_START_LEVEL, HIZ_STOP_LEVEL, NUM_STEPS, THICKNESS, OutputSize, rayStart, rayDir);
         float4 outRayCast = rayTrace;
@@ -367,19 +365,21 @@ lib SSR {
         
         float4 ThinGBufferSample = ThinGBuffer.SampleLevel( LinearSampler, UvCoordinates, 0.0f );
         
-        float3 Normals = DecodeNormals( ThinGBufferSample.rg );
+        float3 Normals = DecodeNormals( ThinGBufferSample.rg ) * 2.0f - 1.0f;
         float3 NormalsViewSpace = mul( g_ViewMatrix, float4( Normals, 0.0f ) ).xyz;
         
-        float  rebuildDepth = ThinGBufferSample.b;
+        float  depth = ThinGBufferSample.b;
         float  roughness = ThinGBufferSample.a;
         
         float2 Hash = BlueNoise.SampleLevel(LinearSampler, (UvCoordinates + HaltonOffset.xy) * OutputSize.xy / float2(BLUE_NOISE_SIZE, BLUE_NOISE_SIZE), 0.0f).rg * 2.0 - 1.0;
         float2x2 offsetRotationMatrix = float2x2(Hash.x, Hash.y, -Hash.y, Hash.x);
 
-        float3 screenPos = GetScreenPos( UvCoordinates, rebuildDepth );
-        float3 worldPos = ReconstructWorldPos( UvCoordinates, rebuildDepth );
-        float3 viewPos = GetViewPos( screenPos );
-        float3 viewDir = GetViewDir( worldPos );
+        float3 screenPos = GetScreenPos( UvCoordinates, depth );        
+        float4 Position = mul( float4( screenPos, 1.0f ), g_InverseProjectionMatrix );
+        Position.xyz /= Position.w;      
+        float3 PositionWS = mul( float4( Position.xyz, 1.0f ), g_InverseViewMatrix ).xyz;     
+        float3 viewDir = GetViewDir( PositionWS );
+        float3 viewPos = Position.xyz;
         
         float NdotV = saturate(dot(NormalsViewSpace, -viewDir));
         float coneTangent = lerp(0.0, roughness * (1.0 - BRDF_BIAS), NdotV * sqrt(roughness));
@@ -417,7 +417,8 @@ lib SSR {
 
         result.rgb /= 1 - RGBToLuminance(result.rgb);
 
-        ResolvedOutput[$SV_DispatchThreadId.xy] = (result.a > 0.01f) ? max(result, 1e-5) : float4(0.0f, 0.0f, 0.0f, 0.0f);
+            float4 hitPacked = RayTraceBuffer.SampleLevel(LinearSampler, UvCoordinates, 0.0f);
+        ResolvedOutput[$SV_DispatchThreadId.xy] = hitPacked; // (result.a > 0.01f) ? max(result, 1e-5) : float4(0.0f, 0.0f, 0.0f, 0.0f);
     }
     
     pass HiZTrace {
