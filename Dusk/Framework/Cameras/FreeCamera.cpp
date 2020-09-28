@@ -125,8 +125,12 @@ void FreeCamera::update( const f32 frameTime )
 
     data.rightVector = rightVector;
     data.aspectRatio = aspectRatio;
-
-    data.inverseViewProjectionMatrix = data.viewProjectionMatrix.inverse();
+    
+    dkMat4x4f biasedProjectionMatrix = data.projectionMatrix;
+    for ( i32 i = 0; i < 4; i++ ) { 
+        biasedProjectionMatrix[2][i] = biasedProjectionMatrix[2][i] * 0.5f + biasedProjectionMatrix[3][i] * 0.5f;
+    }
+    data.inverseViewProjectionMatrix = ( biasedProjectionMatrix * data.viewMatrix ).inverse();
 
     // Update frustum with the latest view projection matrix
     UpdateFrustumPlanes( data.viewProjectionMatrix, data.frustum );

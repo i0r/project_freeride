@@ -339,15 +339,15 @@ lib SSR {
 
         float3 rightShift = mul(xPixelCoordShifted, -ParamRightVector);
         float3 upShift = mul(yPixelCoordShifted, -ParamUpVector);
-        float3 viewDirection =  normalize(ParamViewDirection + rightShift + upShift).xzy;
-        float depthWs = -(g_ClippingPlanes.x * g_ClippingPlanes.y) / (depth * (g_ClippingPlanes.x - g_ClippingPlanes.y) - g_ClippingPlanes.x);	
-        float distance_to_camera = depthWs / dot(viewDirection, ParamViewDirection);
+        float3 viewDirection =  normalize(ParamViewDirection + rightShift + upShift).xyz;
+        
+        //float depthWs = -(g_ClippingPlanes.x * g_ClippingPlanes.y) / (depth * (g_ClippingPlanes.x - g_ClippingPlanes.y) - g_ClippingPlanes.x);	
+        //float distance_to_camera = depthWs / dot(viewDirection, ParamViewDirection);
         //float3 positionWs = ParamWorldPosition + viewDirection * distance_to_camera;
 
-        float3 screenPos = GetScreenPos( uvCoordinates, depth );        
-        //float4 position = mul( g_InverseProjectionMatrix, float4( screenPos, 1.0f ) );
-        //position.xyz /= position.w;      
-        float3 positionWs = mul( g_InverseViewMatrix, float4( viewDirection.xyz, 1.0f ) ).xyz;     
+        float3 screenPos = GetScreenPos( uvCoordinates, depth * 2 - 1 );        
+        float4 position = mul( float4( screenPos, 1 ), g_InverseViewProjectionMatrix );
+        float3 positionWs = ( position / position.w ).xyz;
         
         float  roughness = thinGbuffer.a;    
         bool isMirror = ( roughness < 0.1f );
