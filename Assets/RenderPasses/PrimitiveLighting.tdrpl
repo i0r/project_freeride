@@ -528,11 +528,12 @@ lib PrimitiveLighting {
         DUSK_LAYERS_GET;
 #endif
 
-        float3 N = normalize( $NORMAL0.xyz );
+        float BaseColorLuminance = RGBToLuminance( BlendedMaterial.BaseColor );  
+        float3 F0 = lerp( ( 0.16f * ( BlendedMaterial.Reflectance * BlendedMaterial.Reflectance ) ), BaseColorLuminance, BlendedMaterial.Metalness );  
+        float3 N = normalize( mul( (float3x3)g_ViewMatrix, $NORMAL0.xyz ).xyz );
         
         float2 encodedNormals = EncodeNormals( N.xyz );
-        float depth = ( $SV_POSITION.z / $SV_POSITION.w );
-        $SV_TARGET0 = float4( encodedNormals, depth, BlendedMaterial.Roughness );
+        $SV_TARGET0 = float4( encodedNormals, F0.r, BlendedMaterial.Roughness );
         
 #ifdef $WriteVelocity
         $SV_TARGET1 = ComputeScreenSpaceVelocity( $POSITION0, $SV_POSITION ).rgrg;      
