@@ -54,8 +54,7 @@ public:
 
     HiZResult                   computeHiZMips( FrameGraph& frameGraph, FGHandle resolvedDepthBuffer, const u32 width, const u32 height );
     
-    TraceResult                 rayTraceHiZ( FrameGraph& frameGraph, FGHandle resolveThinGbuffer, const HiZResult& hiZBuffer, const u32 width, const u32 height );
-
+    SSRModule::TraceResult      rayTraceHiZ( FrameGraph& frameGraph, FGHandle resolveThinGbuffer, FGHandle colorBuffer, const HiZResult& hiZBuffer, const u32 width, const u32 height );
     FGHandle                    resolveRaytrace( FrameGraph& frameGraph, const TraceResult& traceResult, FGHandle colorBuffer, FGHandle resolvedThinGbuffer, const HiZResult& hiZBuffer, const u32 width, const u32 height );
 
     /*FGHandle                    temporalRebuild( FrameGraph& frameGraph, FGHandle rayTraceOutput, FGHandle resolvedOutput, const u32 width, const u32 height );

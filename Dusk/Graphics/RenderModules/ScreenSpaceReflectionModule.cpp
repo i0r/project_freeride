@@ -166,12 +166,13 @@ SSRModule::HiZResult SSRModule::computeHiZMips( FrameGraph& frameGraph, FGHandle
 	return result;
 }
 
-SSRModule::TraceResult SSRModule::rayTraceHiZ( FrameGraph& frameGraph, FGHandle resolveThinGbuffer, const HiZResult& hiZBuffer, const u32 width, const u32 height )
+SSRModule::TraceResult SSRModule::rayTraceHiZ( FrameGraph& frameGraph, FGHandle resolveThinGbuffer, FGHandle colorBuffer, const HiZResult& hiZBuffer, const u32 width, const u32 height )
 {
     struct PassData {
         FGHandle	PerPassBuffer;
 		FGHandle	HiZBuffer;
-		FGHandle	ThinGBuffer;
+        FGHandle	ThinGBuffer;
+        FGHandle	ColorBuffer;
 		FGHandle	MaskBuffer;
         FGHandle	RayHitBuffer;
     };
@@ -210,6 +211,8 @@ SSRModule::TraceResult SSRModule::rayTraceHiZ( FrameGraph& frameGraph, FGHandle 
 
 			passData.MaskBuffer = builder.allocateImage( maskDesc );
 
+			passData.ColorBuffer = builder.readReadOnlyImage( colorBuffer );
+
             passData.ThinGBuffer = builder.readReadOnlyImage( resolveThinGbuffer );
             passData.HiZBuffer = builder.readReadOnlyImage( hiZBuffer.HiZMerged );
 		},
@@ -219,6 +222,7 @@ SSRModule::TraceResult SSRModule::rayTraceHiZ( FrameGraph& frameGraph, FGHandle 
 			Image* rayHitBuffer = resources->getImage( passData.RayHitBuffer );
 			Image* maskBuffer = resources->getImage( passData.MaskBuffer );
             Image* hizBuffer = resources->getImage( passData.HiZBuffer );
+            Image* colorBuffer = resources->getImage( passData.ColorBuffer );
 
 			PipelineStateDesc psoDesc( PipelineStateDesc::COMPUTE );
 			psoDesc.addStaticSampler( RenderingHelpers::S_PointClampEdge );
@@ -237,7 +241,8 @@ SSRModule::TraceResult SSRModule::rayTraceHiZ( FrameGraph& frameGraph, FGHandle 
 			cmdList->bindImage( SSR::HiZTrace_MaskTarget_Hashcode, maskBuffer );
 			cmdList->bindImage( SSR::HiZTrace_HiZDepthBuffer_Hashcode, hizBuffer );
 			cmdList->bindImage( SSR::HiZTrace_ThinGBuffer_Hashcode, thinGBuffer );
-			cmdList->bindImage( SSR::HiZTrace_BlueNoise_Hashcode, blueNoise );
+            cmdList->bindImage( SSR::HiZTrace_BlueNoise_Hashcode, blueNoise );
+            cmdList->bindImage( SSR::HiZTrace_ColorBuffer_Hashcode, colorBuffer );
             cmdList->prepareAndBindResourceList();
 
             u32 ThreadGroupX = Max( 1u, SSR::HiZTraceProperties.OutputSize.x / SSR::HiZTrace_DispatchX );

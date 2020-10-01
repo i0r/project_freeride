@@ -369,7 +369,7 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
     FGHandle presentRt = resolvedColor;
 
     // SSR Rendering.
-    SSRModule::TraceResult ssrTrace = screenSpaceReflections->rayTraceHiZ( frameGraph, resolvedGbuffer, hiZMips, viewportWidth, viewportHeight );
+    SSRModule::TraceResult ssrTrace = screenSpaceReflections->rayTraceHiZ( frameGraph, resolvedGbuffer, resolvedColor, hiZMips, viewportWidth, viewportHeight );
     presentRt = screenSpaceReflections->resolveRaytrace( frameGraph, ssrTrace, resolvedColor, resolvedGbuffer, hiZMips, viewportWidth, viewportHeight );
     
       /*  FGHandle ssrTemporalResolved = screenSpaceReflections->temporalRebuild( frameGraph, ssrTrace.TraceBuffer, ssrResolved, viewportWidth, viewportHeight );

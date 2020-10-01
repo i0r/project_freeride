@@ -1,5 +1,24 @@
 #ifndef __GEO_UTILS_H__
 #define __GEO_UTILS_H__ 1
+
+#include <Shared.hlsli>
+
+// Spherical Coordinates encoding (ALU heavy but suitable for world space normals).
+float2 EncodeNormals ( float3 n )
+{
+    return float2( half2( atan2( n.y, n.x ) / PI, n.z ) + 1.0f ) * 0.5f;
+}
+
+float3 DecodeNormals( float2 enc )
+{
+    half2 ang = enc*2-1;
+    half2 scth;
+    sincos(ang.x * PI, scth.x, scth.y);
+    half2 scphi = half2(sqrt(1.0 - ang.y*ang.y), ang.y);
+    return float3(scth.y*scphi.x, scth.x*scphi.x, scphi.y);
+}
+
+#if 0
 float2 EncodeNormals( float3 n )
 {
     static const float scale = 1.7777f;
@@ -22,16 +41,22 @@ float3 DecodeNormals( float2 enc )
     n.z = g-1;
     return n;
 }
-        
+#endif
+
 float LinearizeDepth(float depth, float near, float far)
 {
     float z = depth * 2.0 - 1.0; // back to NDC 
     return (2.0 * near * far) / (far + near - z * (far - near));    
 }
 
+float ConvertFromDeviceZ(float d,float zNear,float zFar)
+{
+    return zNear * zFar / (zFar + d * (zNear - zFar));
+}
+
 float3 GetScreenPos( float2 uv, float depth ) 
 {
-    return float3( uv.x * 2.0f - 1.0f, ( 1.0f - uv.y ) * 2.0f - 1.0f, depth );
+    return float3( uv.x * 2.0f - 1.0f, ( 1.0f - uv.y ) * 2.0f - 1.0f, depth * 2.0f - 1.0f );
 }
 
 float3 ReconstructWorldPos( float2 uv, float depth ) 
