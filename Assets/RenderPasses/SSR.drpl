@@ -81,6 +81,8 @@ lib SSR {
         static const float TEMPORAL_CLAMP_SCALE = 3.00f;
         static const float EXPOSURE = 1.0f;
         static const int NUM_RESOLVE = 4;
+        static const int MAX_ITERATIONS = 32;
+        static const int HIZ_MAX_LEVEL = 8;
         
         inline float SmithJointGGXVisibilityTerm(float NdotL, float NdotV, float roughness)
         {
@@ -204,257 +206,265 @@ lib SSR {
         //
         //
         //
-        static const float MAX_REFLECTION_RAY_MARCH_STEP = 0.02f;
-        static const float RAY_MARH_BIAS = 0.001f;
-        static const float SPEC_INTENSITY_TO_REFLECTANCE = 0.5f;
-        static const int  NumDepthMips = 7;
-        
-        void StepThroughCell(inout float3 RaySample, float3 RayDir, int MipLevel)
+        inline float4 GetScreenPos(in float2 uv, in float z)
         {
-            // Size of current mip 
-            int2 MipSize = int2(OutputSize) >> MipLevel;
-
-            // UV converted to index in the mip
-            float2 MipCellIndex = RaySample.xy * float2(MipSize);
-
-            // The cell boundary UV in the direction of the ray
-            float2 BoundaryUV;
-            BoundaryUV.x = RayDir.x > 0 ? ceil(MipCellIndex.x) / float(MipSize.x) : floor(MipCellIndex.x) / float(MipSize.x);
-            BoundaryUV.y = RayDir.y > 0 ? ceil(MipCellIndex.y) / float(MipSize.y) : floor(MipCellIndex.y) / float(MipSize.y);
-
-            // Result of 2 ray-line intersections where we intersect the ray with the boundary cell UVs
-            float2 ParameterUV;
-            ParameterUV.x = (BoundaryUV.x - RaySample.x) / RayDir.x;
-            ParameterUV.y = (BoundaryUV.y - RaySample.y) / RayDir.y;
-
-            float CellStepOffset = 0.05;
-
-            // Pick the cell intersection that is closer, and march to that cell
-            if (abs(ParameterUV.x) < abs(ParameterUV.y))
-            {
-                RaySample += (ParameterUV.x + CellStepOffset) * RayDir;
-            }
-            else
-            {
-                RaySample += (ParameterUV.y + CellStepOffset) * RayDir;
-            }
+            float x = uv.x * 2.0f - 1.0f;
+            float y = (1.0 - uv.y) * 2.0f - 1.0f;
+            return float4(x, y, z, 1.0f);
         }
-
-        void Raymarch(
-            float2 InUV,
-            float4 ScreenSpacePos,
-            float ReflectionRayMarchStep,
-            float3 WorldPosition,
-            float3 WorldNormal,
-            float3 CameraVector,
-            float4x4 ViewProjectionMat,
-            out float2 ReflectionUV,
-            out float Attenuation,
-            out float FilterSize)
+        
+        inline float3 ReconstructPosition(in float2 uv, in float z, in float4x4 InvVP)
         {
-            ReflectionUV = 0;
-            Attenuation = 0;
-            FilterSize = 0;
+            float4 position_s = GetScreenPos( uv, z );
+            float4 position_v = mul(position_s, InvVP);
+            return position_v.xyz / position_v.w;
+        }
+        
+        // float3 intersectDepth_Plane(float3 rayOrigin, float3 rayDir, float marchSize)
+        // {
+            // return rayOrigin + rayDir * marchSize;
+        // }
 
-            // Compute world space reflection vector
-            float3 ReflectionVector = reflect(CameraVector, WorldNormal.xyz);
+        // float2 cell(float2 ray, float2 cell_count) 
+        // {
+            // return floor(ray.xy * cell_count);
+        // }
 
-            // This will check the direction of the reflection vector with the view direction,
-            // and if they are pointing in the same direction, it will drown out those reflections 
-            // since we are limited to pixels visible on screen. Attenuate reflections for angles between 
-            // 60 degrees and 75 degrees, and drop all contribution beyond the (-60,60)  degree range
-            float CameraFacingReflectionAttenuation = 1 - smoothstep(0.25, 0.5, dot(-CameraVector, ReflectionVector));
+        // float2 cell_count(float level, float2 ScreenSize)
+        // {
+            // return ScreenSize / (level == 0 ? 1 : exp2(level));
+        // }
 
-            // Reject if the reflection vector is pointing back at the viewer.
-            [branch]
-            if (CameraFacingReflectionAttenuation <= 0)
-                return;
+        // float3 intersect_cell_boundary(float3 rayOrigin, float3 rayDir, float2 cellIndex, float2 cellCount, float2 crossStep, float2 crossOffset)
+        // {
+            // float2 cell_size = 1.0 / cellCount;
+            // float2 planes = cellIndex / cellCount + cell_size * crossStep;
 
-            // Compute second sreen space point so that we can get the SS reflection vector
-            float4 ScreenSpaceReflectionPoint = mul(ViewProjectionMat, float4(10.f*ReflectionVector + WorldPosition, 1.f));
-            ScreenSpaceReflectionPoint /= ScreenSpaceReflectionPoint.w;
-            ScreenSpaceReflectionPoint.xy = ScreenSpaceReflectionPoint.xy * float2(0.5, -0.5) + float2(0.5, 0.5);
+            // float2 solutions = (planes - rayOrigin.xy) / rayDir.xy;
+            // float3 intersection_pos = rayOrigin + rayDir * min(solutions.x, solutions.y);
 
-            // Compute the sreen space reflection vector as the difference of the two screen space points
-            float3 ScreenSpaceReflectionVec = normalize(ScreenSpaceReflectionPoint.xyz - ScreenSpacePos.xyz);
+            // intersection_pos.xy += (solutions.x < solutions.y) ? float2(crossOffset.x, 0.0) : float2(0.0, crossOffset.y);
 
-            // Dithered offset for raymarching to prevent banding artifacts
-            float DitherOffset = BlueNoise.SampleLevel(LinearSampler, InUV * HaltonOffset, 0).r * 0.01f + RAY_MARH_BIAS;
-      
-            float3 RaySample = ScreenSpacePos.xyz + DitherOffset * ScreenSpaceReflectionVec;
-            float2 UVSamplingAttenuation = float2(0.0, 0.0);
+            // return intersection_pos;
+        // }
 
-            int MipLevel = 0;
-            int IterCount = 0;
-            while (	MipLevel > -1 && 
-                    MipLevel < (NumDepthMips - 1) && 
-                    IterCount < 20)
-            {
-                StepThroughCell(RaySample, ScreenSpaceReflectionVec, MipLevel);
+        // bool crossed_cell_boundary(float2 cell_id_one, float2 cell_id_two)
+        // {
+            // return (int)cell_id_one.x != (int)cell_id_two.x || (int)cell_id_one.y != (int)cell_id_two.y;
+        // }
 
-                UVSamplingAttenuation = smoothstep(0.05, 0.1, RaySample.xy) * (1 - smoothstep(0.95, 1, RaySample.xy));
-                UVSamplingAttenuation.x *= UVSamplingAttenuation.y;
+        // float minimum_depth_plane(float2 ray, float level, float2 cell_count)
+        // {
+            // return HiZDepthBuffer.Load( int4( ( ray * cell_count ), max( level, 0 ), 0) ).r;
+        // }
+        
+        // float4 RayTrace(int HiZ_Max_Level, int HiZ_Start_Level, int HiZ_Stop_Level, int NumSteps, float Thickness, float2 screenSize, float3 rayOrigin, float3 rayDir)
+        // {
+            // HiZ_Max_Level = clamp(HiZ_Max_Level, 0, 7);
 
-                if (UVSamplingAttenuation.x > 0)
-                {
-                    float ZBufferValue = HiZDepthBuffer.SampleLevel(LinearSampler, RaySample.xy, MipLevel).r;
+            // float level = HiZ_Start_Level;
+            // float3 ray = rayOrigin + rayDir * RAY_BIAS;
 
-                    if (RaySample.z < ZBufferValue)
-                    {
-                        MipLevel++;
-                    }
-                    else
-                    {
-                        float t = (RaySample.z - ZBufferValue) / ScreenSpaceReflectionVec.z;
-                        RaySample -= ScreenSpaceReflectionVec * t;
-                        MipLevel--;
-                    }
+            // float2 cross_step = float2(rayDir.x >= 0.0 ? 1.0 : -1.0, rayDir.y >= 0.0 ? 1.0 : -1.0);
+            // float2 cross_offset = cross_step * 0.00001f;
+            // cross_step = saturate(cross_step);
 
-                    IterCount++;
-                }
-                else
-                {
-                    break;
-                }
-            }
+            // float2 hi_z_size = cell_count(level, screenSize); 
+            // float2 ray_cell = cell(ray.xy, hi_z_size.xy);
+            // ray = intersect_cell_boundary(ray, rayDir, ray_cell, hi_z_size, cross_step, cross_offset);
 
+            // int iterations = 0;
+            // float mask = 1.0f;
+            // while (level >= HiZ_Stop_Level && iterations < NumSteps) 
+            // {
+                // float3 tmp_ray = ray;
+                // float2 current_cell_count = cell_count(level, screenSize);
+                // float2 old_cell_id = cell(ray.xy, current_cell_count);
 
-            [branch]
-            if (MipLevel == -1)
-            {
-                // Screenspace UV of the reflected color
-                ReflectionUV = RaySample.xy;
-
-                // float BitMaskValue = Gbuf_DiffuseTex.SampleLevel(PointSamp, ReflectionUV, 0).a;
-
-                // // Bail out if reflected pixel is from a mover primitive, and the normal is not upward facing.
-                // // This is to restrict movers to floor reflections only since wall reflections create a lot of artifacting. 
-                // [branch]
-                // if (WorldNormal.z < 0.996f)
+                // if (ray.x < 0.0f ||
+                    // ray.x > 1.0f ||
+                    // ray.y < 0.0f ||
+                    // ray.y > 1.0f
+                    // )
                 // {
-                    // return;
+                    // mask = 0.0f;
+                    // return float4(ray.xy, ray.z, mask);
                 // }
 
-                // Use gloss value to figure out how blurry the reflections should be
-                // Gloss values of 50 or more result in mirror reflections. Mapping or 
-                // Filter = -0.6*Gloss + 31 was obtained by solving linear equation that 
-                // maps Gloss=10 to FilterSize=25, and Gloss=50 to FilterSize=1
-                //float4 SpecularGBufferVal = Gbuf_SpecularTex.SampleLevel(PointSamp, InUV, 0);
-                float Gloss = 1.0f; //DecodeSpecularPower(SpecularGBufferVal);
-                FilterSize = max(1, -0.6*Gloss + 31);
+                // float min_z = minimum_depth_plane(ray.xy, level, current_cell_count);
 
-                // Use specular intensity to figure out the reflectance 
-                float Reflectance = 1.0f; //SPEC_INTENSITY_TO_REFLECTANCE * SpecularGBufferVal.r;
+                // if (min_z < 1e-7)
+                // {
+                    // mask = 0.0f;
+                    // return float4(ray.xy, ray.z, mask);
+                // }
 
-                // This will check the direction of the normal of the reflection sample with the
-                // direction of the reflection vector, and if they are pointing in the same direction,
-                // it will drown out those reflections since backward facing pixels are not available 
-                // for screen space reflection. Attenuate reflections for angles between 90 degrees 
-                // and 100 degrees, and drop all contribution beyond the (-100,100)  degree range
-                
-                float4 thinGbuffer = ThinGBuffer.SampleLevel(LinearSampler, ReflectionUV, 0);
-                float3 ReflectionNormal = DecodeNormals( thinGbuffer.rg );
-                
-                //float4 ReflectionNormalColor = Gbuf_WorldNormalTex.SampleLevel(PointSamp, ReflectionUV, 0);
-                //float4 ReflectionNormal = ReflectionNormalColor * float4(2, 2, 2, 1) - float4(1, 1, 1, 0);
-                float DirectionBasedAttenuation = smoothstep(-0.17, 0.0, dot(ReflectionNormal.xyz, -ReflectionVector));
+                // if (rayDir.z < 0)
+                // {
+                    // float min_minus_ray = min_z - ray.z;
+                    // tmp_ray = min_minus_ray < 0 ? ray + (rayDir / rayDir.z) * min_minus_ray : tmp_ray;
+                    // float2 new_cell_id = cell(tmp_ray.xy, current_cell_count);
 
-                // Attenuate any reflection color from the foreground. The GBuffer normal color for foreground objects is (0,0,1)
-                float ForegroundAttenuation = 1.0f; //step(0.0001f, ReflectionNormalColor.r * ReflectionNormalColor.g);
+                    // if (crossed_cell_boundary(old_cell_id, new_cell_id))
+                    // {
+                        // tmp_ray = intersect_cell_boundary(ray, rayDir, old_cell_id, current_cell_count, cross_step, cross_offset);
+                        // level = min(HiZ_Max_Level, level + 2.0);
+                    // }
+                    // else 
+                    // {
+                        // if(level == 1.0 && abs(min_minus_ray) > 0.0001) 
+                        // {
+                            // tmp_ray = intersect_cell_boundary(ray, rayDir, old_cell_id, current_cell_count, cross_step, cross_offset);
+                            // level = 2.0;
+                        // }
+                    // }
+                // }
+                // else if (ray.z > min_z)
+                // {
+                    // tmp_ray = intersect_cell_boundary(ray, rayDir, old_cell_id, current_cell_count, cross_step, cross_offset);
+                    // level = min(HiZ_Max_Level, level + 2.0);
+                // }
 
-                // Range based attenuation parameter to gracefully fade out reflections at the edge of ray march range
-                float RangeBasedAttenuation = 1.0 - smoothstep(0.5, 1.0, 3.f*length(ReflectionUV - ScreenSpacePos.xy));
+                // ray.xyz = tmp_ray.xyz;
+                // level--;
+                // iterations++;
 
-                // Use material parameters and normal direction to figure out reflection contribution
-                Attenuation = Reflectance * DirectionBasedAttenuation * RangeBasedAttenuation * CameraFacingReflectionAttenuation * UVSamplingAttenuation.x * ForegroundAttenuation;
+                // mask = (ViewDepth(ray.z, g_ClippingPlanes.x, g_ClippingPlanes.y) - ViewDepth(min_z, g_ClippingPlanes.x, g_ClippingPlanes.y)) < Thickness && iterations > 0.0;
+            // }
+
+            // return float4(ray.xy, ray.z, mask);
+        // }
+    
+        float2 cell(float2 ray, float2 cell_count) {
+         return floor(ray.xy * cell_count);
+        }
+
+        float2 cell_count(float level) {
+         return OutputSize / (level == 0.0 ? 1.0 : exp2(level));
+        }
+
+        float3 intersect_cell_boundary(float3 pos, float3 dir, float2 cell_id, float2 cell_count, float2 cross_step, float2 cross_offset) {
+         float2 cell_size = 1.0 / cell_count;
+         float2 planes = cell_id/cell_count + cell_size * cross_step;
+
+         float2 solutions = (planes - pos)/dir.xy;
+         float3 intersection_pos = pos + dir * min(solutions.x, solutions.y);
+
+         intersection_pos.xy += (solutions.x < solutions.y) ? float2(cross_offset.x, 0.0) : float2(0.0, cross_offset.y);
+
+         return intersection_pos;
+        }
+
+        bool crossed_cell_boundary(float2 cell_id_one, float2 cell_id_two) {
+         return (int)cell_id_one.x != (int)cell_id_two.x || (int)cell_id_one.y != (int)cell_id_two.y;
+        }
+
+        float minimum_depth_plane(float2 ray, float level, float2 cell_count) {
+         return HiZDepthBuffer.Load(int3(ray.xy * cell_count, level)).r;
+        }
+
+        float3 hi_z_trace(float3 p, float3 v, out uint iterations) {
+         float level = HIZ_START_LEVEL;
+         float3 v_z = v/v.z;
+         float2 hi_z_size = cell_count(level);
+         float3 ray = p;
+
+         float2 cross_step = float2(v.x >= 0.0 ? 1.0 : -1.0, v.y >= 0.0 ? 1.0 : -1.0);
+         float2 cross_offset = cross_step * 0.00001;
+         cross_step = saturate(cross_step);
+
+         float2 ray_cell = cell(ray.xy, hi_z_size.xy);
+         ray = intersect_cell_boundary(ray, v, ray_cell, hi_z_size, cross_step, cross_offset);
+
+         iterations = 0;
+         while(level >= HIZ_STOP_LEVEL && iterations < MAX_ITERATIONS) {
+          float2 current_cell_count = cell_count(level);
+          float2 old_cell_id = cell(ray.xy, current_cell_count);
+
+          float min_z = minimum_depth_plane(ray.xy, level, current_cell_count);
+
+          float3 tmp_ray = ray;
+          if(v.z > 0) {
+           float min_minus_ray = min_z - ray.z;
+           tmp_ray = min_minus_ray > 0 ? ray + v_z*min_minus_ray : tmp_ray;
+           float2 new_cell_id = cell(tmp_ray.xy, current_cell_count);
+           if(crossed_cell_boundary(old_cell_id, new_cell_id)) {
+            tmp_ray = intersect_cell_boundary(ray, v, old_cell_id, current_cell_count, cross_step, cross_offset);
+            level = min(HIZ_MAX_LEVEL, level + 2.0f);
+           }else{
+            if(level == 1 && abs(min_minus_ray) > 0.0001) {
+             tmp_ray = intersect_cell_boundary(ray, v, old_cell_id, current_cell_count, cross_step, cross_offset);
+             level = 2;
             }
+           }
+          } else if(ray.z < min_z) {
+           tmp_ray = intersect_cell_boundary(ray, v, old_cell_id, current_cell_count, cross_step, cross_offset);
+           level = min(HIZ_MAX_LEVEL, level + 2.0f);
+          }
+
+          ray.xyz = tmp_ray.xyz;
+          --level;
+
+          ++iterations;
+         }
+         return ray;
+        }
+        
+        float3 project_tc(float3 pos, float4x4 mat)
+        {
+            float4 res = mul(mat, float4(pos, 1));
+            res /= res.w;
+            return float3(res.xy * float2(0.5, -0.5) + float2(0.5, 0.5), res.z);
+        }
+        
+        float3 depth_to_wpos(float d, float2 tc, float4x4 mat)
+        {
+            float4 P = mul(float4(tc * float2(2, -2) + float2(-1, 1), d, 1), mat);
+            return P.xyz / P.w;
         }
     }
     
     shader HiZTraceCS {
-        uint2 PixelID = uint2($SV_DispatchThreadId.x, $SV_DispatchThreadId.y);
-        float2 PixelUV = float2( float2(PixelID) + 0.5f ) / OutputSize;
-        float2 NDCPos = float2(2.f,-2.f) * PixelUV + float2(-1.f,1.f);
-
+        uint2 pixelID = uint2( $SV_DispatchThreadId.x, $SV_DispatchThreadId.y );
+        
+        float depth = HiZDepthBuffer[pixelID].r;
+        float4 thinGbuffer = ThinGBuffer[pixelID];
+        
+        float2 uv = ( pixelID + 0.5f ) * ( 1.0f / OutputSize );
+        
         // Initialize to 0 as some of the code paths might not write to O/P
-        RayHitTarget[PixelID] = float4(0, 0, 0, 0);
-        MaskTarget[PixelID] = 0.0f;
+        RayHitTarget[pixelID] = float4(0, 0, 0, 0);
+        MaskTarget[pixelID] = 0.0f;
+        
+        if (depth == 0.0f) return;
+      
+        float3 P = ReconstructPosition(uv, depth, g_InverseViewProjectionMatrix);
+        float roughness = thinGbuffer.a;
+        bool isMirror = ( roughness < 0.1f );
+        
+        float3 V = normalize( -P );
+        float3 normalWorldSpace = DecodeNormals( thinGbuffer.rg );
+        float3 N = mul((float3x3)g_ViewMatrix, normalWorldSpace).xyz;
+        
+        float4 H = float4( N, 1.0f );
+  
+        float3 R = reflect( -V, H.xyz );
+    
+        float3 posr = P + normalize( R );
+        float3 pss = float3(uv, depth);
+        float4 pcs = mul(float4(posr,1), g_ProjectionMatrix);
+        float3 pss_ = pcs.xyz / pcs.w;
+        pss_.xy = pss_.xy * float2(0.5, -0.5) + float2(0.5, 0.5); 
+        
+        uint iterations = 0;
+        float3 rayTrace = hi_z_trace(pss, (pss_- pss), iterations);
+        
+		float3 v_debug = -normalize(g_WorldPosition - P);
+		float3 r_debug = reflect(v_debug, normalWorldSpace);
+        
+        float2 tc = project_tc(P + rayTrace.x * r_debug, g_ViewProjectionMatrix);
 
-        float3 ScreenVector = mul(g_InverseViewProjectionMatrix, float4(NDCPos, 1, 0)).xyz;
-
-        // Compute world position
-        float DeviceZ = HiZDepthBuffer[PixelID].r;
-        float4 thinGbuffer = ThinGBuffer[PixelID].rgba;
-       
-        float LinearZ = ConvertFromDeviceZ(DeviceZ, g_ClippingPlanes.x, g_ClippingPlanes.y);
-        float3 WorldPosition = ScreenVector * LinearZ;
-        
-        float3 CameraVector = normalize(ScreenVector);
-        float3 WorldNormal = DecodeNormals( thinGbuffer.rg );
-        
-        // ScreenSpacePos --> (texcoord.xy, device_z)
-        float4 ScreenSpacePos = float4(PixelUV, DeviceZ, 1.f);
-
-        float2 OutReflectionUV;
-        float OutAttenuation, OutFilterSize;
-
-        Raymarch(PixelUV, ScreenSpacePos, MAX_REFLECTION_RAY_MARCH_STEP, WorldPosition, WorldNormal, CameraVector, g_ViewProjectionMatrix, OutReflectionUV, OutAttenuation, OutFilterSize);
-
-        RayHitTarget[PixelID] = float4(PixelUV, 0, 1); //float4(OutReflectionUV, OutAttenuation, OutFilterSize); //ColorBuffer.SampleLevel(LinearSampler, OutReflectionUV, 0.0f); //float4( CameraVector, 1 ); //
-        //RayHitTarget[PixelID] = float4( WorldPosition, 1 );
-        
-        // float2 pixelCoordinates = float2( $SV_DispatchThreadId.xy ) + float2( 0.5f, 0.5f );
-        // float2 uvCoordinates = pixelCoordinates / OutputSize;
-        
-        // float  depth = HiZDepthBuffer.SampleLevel( LinearSampler, uvCoordinates, 0.0f );
-        // float4 thinGbuffer = ThinGBuffer.SampleLevel( LinearSampler, uvCoordinates, 0.0f );
-        // float2 hash = BlueNoise.SampleLevel(LinearSampler, (uvCoordinates + HaltonOffset.xy) * OutputSize.xy / float2(BLUE_NOISE_SIZE, BLUE_NOISE_SIZE), 0.0f).rg;
-        
-        // float2 ParamRenderTargetSize = OutputSize;
-        // float3 ParamViewDirection = g_ViewDirection;
-        // float3 ParamRightVector = g_RightVector;
-        // float3 ParamUpVector = g_UpVector;
-        // float3 ParamWorldPosition = g_WorldPosition;
-        // float ParamAspectRatio = g_AspectRatio;
-        
-        // // Generate a view ray (in world space).
-        // float xPixelCoordShifted = (2 * (($SV_DispatchThreadId.x + 0.5f) / ParamRenderTargetSize.x) - 1) * ParamAspectRatio; 
-        // float yPixelCoordShifted = (2 * (($SV_DispatchThreadId.y + 0.5f) / ParamRenderTargetSize.y) - 1); 
-
-        // float3 rightShift = mul(xPixelCoordShifted, -ParamRightVector);
-        // float3 upShift = mul(yPixelCoordShifted, -ParamUpVector);
-        // float3 viewDirection =  normalize(ParamViewDirection + rightShift + upShift).xyz;
-        
-        // //float depthWs = -(g_ClippingPlanes.x * g_ClippingPlanes.y) / (depth * (g_ClippingPlanes.x - g_ClippingPlanes.y) - g_ClippingPlanes.x);	
-        // //float distance_to_camera = depthWs / dot(viewDirection, ParamViewDirection);
-        // //float3 positionWs = ParamWorldPosition + viewDirection * distance_to_camera;
-     
-        // float4 position = mul( float4( screenPos, 1 ), g_InverseViewProjectionMatrix );
-        // float3 positionWs = viewDirection; //( position / position.w ).xyz;
-        
-        // float roughness = 0.0f; // thinGbuffer.a;    
-        // bool isMirror = ( roughness < 0.1f );
-       
-        // // Use a stochastic approach for rough surfaces. If roughness is below the threshold; assume the surface
-        // // is mirror like and should reflect as is.
-        // hash.y = lerp(hash.y, 0.0, BRDF_BIAS);
- 
-        // float3 normalsVS = DecodeNormals( thinGbuffer.rg );
-        // float4 H = ( isMirror ) ? float4( normalsVS, 1.0f ) : TangentToWorld( normalsVS, ImportanceSampleGGX( hash, roughness ) );
-        
-        // float3 R = reflect(normalize(WorldPosition), H.xyz);
-
-        // float3 screenPos = GetScreenPos(PixelUV, DeviceZ);   
-        // float3 rayStart = float3(PixelUV, DeviceZ);
-        // float4 rayProj = mul(float4(WorldPosition + R, 1.0), g_ProjectionMatrix);
-        // float3 rayDir = normalize((rayProj.xyz / rayProj.w) - screenPos);
-        // rayDir.xy *= float2(0.5f, -0.5f);
-
-        // float4 rayTrace = RayTrace(SSR_MAX_MIP_LEVEL, HIZ_START_LEVEL, HIZ_STOP_LEVEL, NUM_STEPS, THICKNESS, OutputSize, rayStart, rayDir);
-        // float4 outRayCast = rayTrace;
-          
-        // RayHitTarget[$SV_DispatchThreadId.xy] = float4(rayTrace.xyz, H.a);
-        // MaskTarget[$SV_DispatchThreadId.xy] = rayTrace.a * rayTrace.a;
+        RayHitTarget[$SV_DispatchThreadId.xy] = ColorBuffer.SampleLevel(LinearSampler, tc, 0.0f); //float4(rayTrace.xyz, H.a);
     }
 
     shader ResolveCS {

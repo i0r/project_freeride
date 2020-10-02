@@ -54,10 +54,10 @@ float ConvertFromDeviceZ(float d,float zNear,float zFar)
     return zNear * zFar / (zFar + d * (zNear - zFar));
 }
 
-float3 GetScreenPos( float2 uv, float depth ) 
-{
-    return float3( uv.x * 2.0f - 1.0f, ( 1.0f - uv.y ) * 2.0f - 1.0f, depth * 2.0f - 1.0f );
-}
+//float3 GetScreenPos( float2 uv, float depth ) 
+//{
+//    return float3( uv.x * 2.0f - 1.0f, ( 1.0f - uv.y ) * 2.0f - 1.0f, depth * 2.0f - 1.0f );
+//}
 
 float3 ReconstructWorldPos( float2 uv, float depth ) 
 {

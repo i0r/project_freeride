@@ -530,7 +530,7 @@ lib PrimitiveLighting {
 
         float BaseColorLuminance = RGBToLuminance( BlendedMaterial.BaseColor );  
         float3 F0 = lerp( ( 0.16f * ( BlendedMaterial.Reflectance * BlendedMaterial.Reflectance ) ), BaseColorLuminance, BlendedMaterial.Metalness );  
-        float3 N = normalize( mul( (float3x3)g_ViewMatrix, $NORMAL0.xyz ).xyz );
+        float3 N = normalize( $NORMAL0.xyz );
         
         float2 encodedNormals = EncodeNormals( N.xyz );
         $SV_TARGET0 = float4( encodedNormals, F0.r, BlendedMaterial.Roughness );

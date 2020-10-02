@@ -166,6 +166,13 @@ SSRModule::HiZResult SSRModule::computeHiZMips( FrameGraph& frameGraph, FGHandle
 	return result;
 }
 
+u32 _DispatchSize( const u32 tgSize, const u32 numElements )
+{
+    u32 dispatchSize = numElements / tgSize;
+    dispatchSize += numElements % tgSize > 0 ? 1 : 0;
+    return dispatchSize;
+}
+
 SSRModule::TraceResult SSRModule::rayTraceHiZ( FrameGraph& frameGraph, FGHandle resolveThinGbuffer, FGHandle colorBuffer, const HiZResult& hiZBuffer, const u32 width, const u32 height )
 {
     struct PassData {
@@ -245,9 +252,7 @@ SSRModule::TraceResult SSRModule::rayTraceHiZ( FrameGraph& frameGraph, FGHandle 
             cmdList->bindImage( SSR::HiZTrace_ColorBuffer_Hashcode, colorBuffer );
             cmdList->prepareAndBindResourceList();
 
-            u32 ThreadGroupX = Max( 1u, SSR::HiZTraceProperties.OutputSize.x / SSR::HiZTrace_DispatchX );
-            u32 ThreadGroupY = Max( 1u, SSR::HiZTraceProperties.OutputSize.y / SSR::HiZTrace_DispatchY );
-            cmdList->dispatchCompute( ThreadGroupX, ThreadGroupY, SSR::HiZTrace_DispatchZ );
+            cmdList->dispatchCompute( _DispatchSize( SSR::HiZTrace_DispatchX, width ), _DispatchSize( SSR::HiZTrace_DispatchY, height ), SSR::HiZTrace_DispatchZ );
 
 			cmdList->popEventMarker();
 		} 

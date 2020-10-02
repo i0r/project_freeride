@@ -38,6 +38,7 @@ void GpuProfiler::destroy( RenderDevice& renderDevice )
 
 void GpuProfiler::update( RenderDevice& renderDevice )
 {
+#if 0
 	const size_t frameIndex = renderDevice.getFrameIndex();
 
 	if ( ( frameIndex - RESULT_RETRIVAL_FRAME_LAG ) >= 0 ) {
@@ -54,11 +55,13 @@ void GpuProfiler::update( RenderDevice& renderDevice )
 
 	sectionWriteIndex = ( sectionWriteIndex + MAX_PROFILE_SECTION_COUNT ) % TOTAL_SECTION_COUNT;
 	sectionCount = 0;
+#endif
 }
 
 GpuProfiler::SectionHandle_t GpuProfiler::beginSection( CommandList& cmdList )
 {
-	const SectionHandle_t handle = ( sectionWriteIndex + sectionCount );
+    const SectionHandle_t handle = ( sectionWriteIndex + sectionCount );
+#if 0
 	SectionInfos& section = sections[handle];
 	section.BeginQueryHandle = allocateQueryHandle( cmdList );
 	section.EndQueryHandle = allocateQueryHandle( cmdList );
@@ -71,12 +74,14 @@ GpuProfiler::SectionHandle_t GpuProfiler::beginSection( CommandList& cmdList )
 
 	std::stack<SectionHandle_t>& sectionsStack = sectionsStacks[cmdList.getCommandListPooledIndex()];
 	sectionsStack.push( handle );
+#endif
 
 	return handle;
 }
 
 void GpuProfiler::endSection( CommandList& cmdList )
 {
+#if 0
 	std::stack<SectionHandle_t>& sectionsStack = sectionsStacks[cmdList.getCommandListPooledIndex()];
 
 	DUSK_ASSERT( !sectionsStack.empty(), "There is no active profiling section..." );
@@ -90,7 +95,8 @@ void GpuProfiler::endSection( CommandList& cmdList )
 	// Write end timestamp.
 	cmdList.writeTimestamp( *timestampQueryPool, timestampQueries[section.EndQueryHandle] );
 
-	sectionsStack.pop();
+    sectionsStack.pop();
+#endif
 }
 
 f64 GpuProfiler::getSectionResultInMs( const SectionHandle_t handle ) const
@@ -101,6 +107,7 @@ f64 GpuProfiler::getSectionResultInMs( const SectionHandle_t handle ) const
 
 void GpuProfiler::getSectionsResult( RenderDevice& renderDevice, CommandList& cmdList )
 {
+#if 0
 	cmdList.retrieveQueryResults( *timestampQueryPool, sectionReadIndex, sectionCount );
 	cmdList.getQueryResult( *timestampQueryPool, timestampResults, sectionReadIndex, sectionCount );
 
@@ -119,14 +126,17 @@ void GpuProfiler::getSectionsResult( RenderDevice& renderDevice, CommandList& cm
 
 		u64 elapsedTicks = ( endQueryResult - beginQueryResult );
 		section.Result = renderDevice.convertTimestampToMs( elapsedTicks );
-	}
+    }
+#endif
 }
 
 u32 GpuProfiler::allocateQueryHandle( CommandList& cmdList )
 {
-	const u32 handle = queryCount;
+    const u32 handle = queryCount;
+#if 0
 	timestampQueries[handle] = cmdList.allocateQuery( *timestampQueryPool );
-	queryCount = ( ++queryCount % TOTAL_SECTION_COUNT );
+    queryCount = ( ++queryCount % TOTAL_SECTION_COUNT );
+#endif
 	return handle;
 }
 
