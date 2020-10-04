@@ -360,7 +360,7 @@ lib SSR {
         }
 
         float minimum_depth_plane(float2 ray, float level, float2 cell_count) {
-         return HiZDepthBuffer.Load(int3(ray.xy * cell_count, level)).r;
+         return g_ClippingPlanes.x / HiZDepthBuffer.Load(int3(ray.xy * cell_count, level)).r;
         }
 
         float3 hi_z_trace(float3 p, float3 v, out uint iterations) {
@@ -422,12 +422,34 @@ lib SSR {
             float4 P = mul(float4(tc * float2(2, -2) + float2(-1, 1), d, 1), mat);
             return P.xyz / P.w;
         }
+        float3 ImportanceSampleGGXPdf(float2 Xi, float Roughness, float3 N, out float PDF)
+        {
+            float a = Roughness * Roughness;
+            float Phi = 2 * PI * Xi.x;
+            float CosTheta = sqrt((1 - Xi.y) / (1 + (a*a - 1) * Xi.y));
+            float SinTheta = sqrt(1 - min(1.0f, CosTheta * CosTheta));
+            float3 H;
+            H.x = SinTheta * cos(Phi);
+            H.y = SinTheta * sin(Phi);
+            H.z = CosTheta;
+            float3 UpVector = abs(N.z) < 0.999 ? float3(0, 0, 1) : float3(1, 0, 0);
+            float3 TangentX = normalize(cross(UpVector, N));
+            float3 TangentY = cross(N, TangentX);
+
+            float m2 = a * a;
+            float d = (CosTheta * m2 - CosTheta) * CosTheta + 1;
+            float D = m2 / (PI*d*d);
+             PDF = D * CosTheta;
+
+            // Tangent to world space
+            return TangentX * H.x + TangentY * H.y + N * H.z;
+        }
     }
     
     shader HiZTraceCS {
         uint2 pixelID = uint2( $SV_DispatchThreadId.x, $SV_DispatchThreadId.y );
         
-        float depth = HiZDepthBuffer[pixelID].r;
+        float depth = g_ClippingPlanes.x / HiZDepthBuffer[pixelID].r;
         float4 thinGbuffer = ThinGBuffer[pixelID];
         
         float2 uv = ( pixelID + 0.5f ) * ( 1.0f / OutputSize );
@@ -446,9 +468,16 @@ lib SSR {
         float3 normalWorldSpace = DecodeNormals( thinGbuffer.rg );
         float3 N = mul((float3x3)g_ViewMatrix, normalWorldSpace).xyz;
         
-        float4 H = float4( N, 1.0f );
-  
-        float3 R = reflect( -V, H.xyz );
+        //float3 R = reflect( -V, H.xyz );
+            
+        float PDF = 0.0f;
+        float3 H = ( isMirror ) ? N : ImportanceSampleGGXPdf( HaltonOffset, roughness, N, PDF );
+        float3 L = 2 * dot(V, H) * H - V;
+        float3 R = L;
+        float RoN = dot( R, N );
+            
+        if ( RoN < 0 )
+            R = normalize( R + N );
     
         float3 posr = P + normalize( R );
         float3 pss = float3(uv, depth);
@@ -464,52 +493,28 @@ lib SSR {
         
         float2 tc = project_tc(P + rayTrace.x * r_debug, g_ViewProjectionMatrix);
 
-        RayHitTarget[$SV_DispatchThreadId.xy] = ColorBuffer.SampleLevel(LinearSampler, tc, 0.0f); //float4(rayTrace.xyz, H.a);
+        RayHitTarget[$SV_DispatchThreadId.xy] = float4(rayTrace, PDF);
     }
 
-    shader ResolveCS {
-        float2 PixelCoordinates = float2( $SV_DispatchThreadId.xy ) + float2( 0.5f, 0.5f );
-        float2 uvCoordinates = PixelCoordinates / OutputSize;
+    shader ResolveCS {      
+        uint2 pixelID = uint2( $SV_DispatchThreadId.x, $SV_DispatchThreadId.y );
         
-        float4 ThinGBufferSample = ThinGBuffer.SampleLevel( LinearSampler, uvCoordinates, 0.0f );
+        float4 thinGbuffer = ThinGBuffer[pixelID];
         
-        float3 NormalsViewSpace = DecodeNormals( ThinGBufferSample.rg );
+        float2 uv = ( pixelID + 0.5f ) * ( 1.0f / OutputSize );
         
-        float  depth = HiZDepthBuffer.SampleLevel( LinearSampler, uvCoordinates, 0.0f );
-        float  roughness = ThinGBufferSample.a;
+        float roughness = thinGbuffer.a;
+        float3 P = ReconstructPosition(uv, depth, g_InverseViewProjectionMatrix);
+        float3 V = normalize( -P );
+        float3 normalWorldSpace = DecodeNormals( thinGbuffer.rg );
+        float3 N = mul((float3x3)g_ViewMatrix, normalWorldSpace).xyz;
         
         float2 Hash = BlueNoise.SampleLevel(LinearSampler, (uvCoordinates + HaltonOffset.xy) * OutputSize.xy / float2(BLUE_NOISE_SIZE, BLUE_NOISE_SIZE), 0.0f).rg * 2.0 - 1.0;
         float2x2 offsetRotationMatrix = float2x2(Hash.x, Hash.y, -Hash.y, Hash.x);
 
-        float2 ParamRenderTargetSize = OutputSize;
-        float3 ParamViewDirection = g_ViewDirection;
-        float3 ParamRightVector = g_RightVector;
-        float3 ParamUpVector = g_UpVector;
-        float3 ParamWorldPosition = g_WorldPosition;
-        float ParamAspectRatio = g_AspectRatio;
-        
-        // Generate a view ray (in world space).
-        float xPixelCoordShifted = (2 * (($SV_DispatchThreadId.x + 0.5f) / ParamRenderTargetSize.x) - 1) * ParamAspectRatio; 
-        float yPixelCoordShifted = (2 * (($SV_DispatchThreadId.y + 0.5f) / ParamRenderTargetSize.y) - 1); 
-
-        float3 rightShift = mul(xPixelCoordShifted, -ParamRightVector);
-        float3 upShift = mul(yPixelCoordShifted, -ParamUpVector);
-        float3 viewDirection =  normalize(ParamViewDirection + rightShift + upShift).xzy;
-        float depthWs = -(g_ClippingPlanes.x * g_ClippingPlanes.y) / (depth * (g_ClippingPlanes.y - g_ClippingPlanes.x) - g_ClippingPlanes.y);	
-        float distance_to_camera = depthWs / dot(viewDirection, ParamViewDirection);
-        float3 viewPos = ParamWorldPosition + viewDirection * distance_to_camera;
-
-        float3 screenPos = GetScreenPos( uvCoordinates, depth );       
-        
-        float NdotV = saturate(dot(NormalsViewSpace, -viewDirection));
-        float coneTangent = lerp(0.0, roughness * (1.0 - BRDF_BIAS), NdotV * sqrt(roughness));
-
-        float maxMipLevel = (float)SSR_MAX_MIP_LEVEL - 1.0;
-
         float4 result = 0.0;
         float weightSum = 0.0;
-        for (int i = 1; i < NUM_RESOLVE; i++)
-        {
+        for (int i = 1; i < NUM_RESOLVE; i++) {
             float2 offsetUV = Offset[i] * (1.0f / OutputSize);
             offsetUV = mul(offsetUV, offsetRotationMatrix);
             
@@ -522,8 +527,9 @@ lib SSR {
             float hitMask = MaskBuffer.SampleLevel(LinearSampler, neighborUv, 0.0f).r;
 
             float3 hitViewPos = GetViewPos(GetScreenPos(hitUv, hitZ));
-
-            float weight = BRDF_Weight(normalize(-viewPos) /*V*/, normalize(hitViewPos - viewPos) /*L*/, NormalsViewSpace /*N*/, roughness) / max(1e-5, hitPDF);
+            float3 L = normalize( hitViewPos - P )
+            
+            float weight = BRDF_Weight(V, L, N, roughness) / max(1e-5, hitPDF);
 
             float4 sampleColor = float4(0.0, 0.0, 0.0, 1.0);
             sampleColor = ColorBuffer.SampleLevel(LinearSampler, hitUv, 0.0f);
@@ -533,12 +539,11 @@ lib SSR {
             result += sampleColor * weight;
             weightSum += weight;
         }
+        
         result /= weightSum;
-
         result.rgb /= 1 - RGBToLuminance(result.rgb);
 
-        float4 hitPacked = RayTraceBuffer.SampleLevel(LinearSampler, uvCoordinates, 0.0f);
-        ResolvedOutput[$SV_DispatchThreadId.xy] = hitPacked; //(result.a > 0.01f) ? max(result, 1e-5) : float4(0.0f, 0.0f, 0.0f, 0.0f);
+        ResolvedOutput[$SV_DispatchThreadId.xy] = (result.a > 0.01f) ? max(result, 1e-5) : float4(0.0f, 0.0f, 0.0f, 0.0f);
     }
     
     pass HiZTrace {
