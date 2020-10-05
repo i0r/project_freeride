@@ -327,12 +327,13 @@ FGHandle SSRModule::resolveRaytrace( FrameGraph& frameGraph, const SSRModule::Tr
 
 			cmdList->bindPipelineState( pipelineState );
 			cmdList->bindConstantBuffer( PerPassBufferHashcode, perPassBuffer );
-			cmdList->bindImage( SSR::ResolveTrace_HiZDepthBuffer_Hashcode, hizBuffer );
-            cmdList->bindImage( SSR::ResolveTrace_ThinGBuffer_Hashcode, thinGBuffer );
+			//cmdList->bindImage( SSR::ResolveTrace_HiZDepthBuffer_Hashcode, hizBuffer );
+            //cmdList->bindImage( SSR::ResolveTrace_ThinGBuffer_Hashcode, thinGBuffer );
+            cmdList->bindImage( SSR::ResolveTrace_ColorBuffer_Hashcode, colorBuffer );
 			cmdList->bindImage( SSR::ResolveTrace_RayTraceBuffer_Hashcode, rayHitBuffer );
-			cmdList->bindImage( SSR::ResolveTrace_ColorBuffer_Hashcode, colorBuffer );
-			cmdList->bindImage( SSR::ResolveTrace_MaskBuffer_Hashcode, maskBuffer );
-			cmdList->bindImage( SSR::ResolveTrace_ResolvedOutput_Hashcode, resolvedBuffer );
+            cmdList->bindImage( SSR::ResolveTrace_ResolvedOutput_Hashcode, resolvedBuffer );
+            //cmdList->bindImage( SSR::ResolveTrace_MaskBuffer_Hashcode, maskBuffer );
+            //cmdList->bindImage( SSR::ResolveTrace_BlueNoise_Hashcode, blueNoise );
 			//cmdList->bindImage( SSR::ResolveTrace_BrdfDfgLut_Hashcode, brdfDfgLut );
             cmdList->prepareAndBindResourceList();
 
