@@ -72,10 +72,11 @@ lib SSR {
         
         static const int NUM_STEPS = 300;
         static const float BRDF_BIAS = 0.7f;
-        static const float RAY_BIAS = 0.05f;
+        static const float RAY_BIAS = 0.01f;
         static const int HIZ_START_LEVEL = 0;
         static const int HIZ_STOP_LEVEL = 0;
         static const float THICKNESS = 50.0f;
+        
         static const int BLUE_NOISE_SIZE = 1024;
         static const float TEMPORAL_WEIGHT = 0.99f;
         static const float TEMPORAL_CLAMP_SCALE = 3.00f;
@@ -98,8 +99,7 @@ lib SSR {
         {
             float a2 = roughness * roughness;
             float d = (NdotH * a2 - NdotH) * NdotH + 1.0f; // 2 mad
-            return a2 / (PI * (d * d + 1e-7f)); // This function is not intended to be running on Mobile,
-            // therefore epsilon is smaller than what can be represented by float
+            return a2 / (PI * (d * d + 1e-7f));
         }
  
         float BRDF_Weight(float3 V, float3 L, float3 N, float Roughness)
@@ -207,20 +207,6 @@ lib SSR {
         //
         //
         //
-        inline float4 GetScreenPos(in float2 uv, in float z)
-        {
-            float x = uv.x * 2.0f - 1.0f;
-            float y = (1.0 - uv.y) * 2.0f - 1.0f;
-            return float4(x, y, z, 1.0f);
-        }
-        
-        inline float3 ReconstructPosition(in float2 uv, in float z, in float4x4 InvVP)
-        {
-            float4 position_s = GetScreenPos( uv, z );
-            float4 position_v = mul(position_s, InvVP);
-            return position_v.xyz / position_v.w;
-        }
-
         float2 cell(float2 ray, float2 cell_count) 
         {
             return floor(ray.xy * cell_count);
@@ -251,54 +237,55 @@ lib SSR {
 
         float minimum_depth_plane(float2 ray, float level, float2 cell_count) 
         {
-            return g_ClippingPlanes.x / HiZDepthBuffer.Load(int3(ray.xy * cell_count, level)).r;
+            return g_ClippingPlanes.x / max( 0.000001f, HiZDepthBuffer.Load(int3(ray.xy * cell_count, level)).r );
         }
 
-        float3 hi_z_trace(float3 p, float3 v) {
-         float level = HIZ_START_LEVEL;
-         float3 v_z = v/v.z;
-         float2 hi_z_size = cell_count(level);
-         float3 ray = p;
+        float3 hi_z_trace(float3 p, float3 v) 
+        {
+            float level = HIZ_START_LEVEL;
+            float3 v_z = v/v.z;
+            float2 hi_z_size = cell_count(level);
+            float3 ray = p;
 
-         float2 cross_step = float2(v.x >= 0.0 ? 1.0 : -1.0, v.y >= 0.0 ? 1.0 : -1.0);
-         float2 cross_offset = cross_step * 0.00001;
-         cross_step = saturate(cross_step);
+            float2 cross_step = float2(v.x >= 0.0 ? 1.0 : -1.0, v.y >= 0.0 ? 1.0 : -1.0);
+            float2 cross_offset = cross_step * 0.00001;
+            cross_step = saturate(cross_step);
 
-         float2 ray_cell = cell(ray.xy, hi_z_size.xy);
-         ray = intersect_cell_boundary(ray, v, ray_cell, hi_z_size, cross_step, cross_offset);
+            float2 ray_cell = cell(ray.xy, hi_z_size.xy);
+            ray = intersect_cell_boundary(ray, v, ray_cell, hi_z_size, cross_step, cross_offset);
 
-         uint iterations = 0;
-         while(level >= HIZ_STOP_LEVEL && iterations < MAX_ITERATIONS) {
-          float2 current_cell_count = cell_count(level);
-          float2 old_cell_id = cell(ray.xy, current_cell_count);
+            uint iterations = 0;
+            while (level >= HIZ_STOP_LEVEL && iterations < MAX_ITERATIONS) {
+                float2 current_cell_count = cell_count(level);
+                float2 old_cell_id = cell(ray.xy, current_cell_count);
 
-          float min_z = minimum_depth_plane(ray.xy, level, current_cell_count);
+                float min_z = minimum_depth_plane(ray.xy, level, current_cell_count);
 
-          float3 tmp_ray = ray;
-          if(v.z > 0) {
-           float min_minus_ray = min_z - ray.z;
-           tmp_ray = min_minus_ray > 0 ? ray + v_z*min_minus_ray : tmp_ray;
-           float2 new_cell_id = cell(tmp_ray.xy, current_cell_count);
-           if(crossed_cell_boundary(old_cell_id, new_cell_id)) {
-            tmp_ray = intersect_cell_boundary(ray, v, old_cell_id, current_cell_count, cross_step, cross_offset);
-            level = min(HIZ_MAX_LEVEL, level + 2.0f);
-           }else{
-            if(level == 1 && abs(min_minus_ray) > 0.0001) {
-             tmp_ray = intersect_cell_boundary(ray, v, old_cell_id, current_cell_count, cross_step, cross_offset);
-             level = 2;
+                float3 tmp_ray = ray;
+                if (v.z > 0) {
+                    float min_minus_ray = min_z - ray.z;
+                    tmp_ray = min_minus_ray > 0 ? ray + v_z*min_minus_ray : tmp_ray;
+                    float2 new_cell_id = cell(tmp_ray.xy, current_cell_count);
+                    if ( crossed_cell_boundary( old_cell_id, new_cell_id ) ) {
+                        tmp_ray = intersect_cell_boundary(ray, v, old_cell_id, current_cell_count, cross_step, cross_offset);
+                        level = min(HIZ_MAX_LEVEL, level + 2.0f);
+                    } else {
+                        if (level == 1 && abs(min_minus_ray) > 0.0001) {
+                            tmp_ray = intersect_cell_boundary(ray, v, old_cell_id, current_cell_count, cross_step, cross_offset);
+                            level = 2;
+                        }
+                    }
+                } else if(ray.z < min_z) {
+                    tmp_ray = intersect_cell_boundary(ray, v, old_cell_id, current_cell_count, cross_step, cross_offset);
+                    level = min(HIZ_MAX_LEVEL, level + 2.0f);
+                }
+
+                ray.xyz = tmp_ray.xyz;
+                --level;
+
+                ++iterations;
             }
-           }
-          } else if(ray.z < min_z) {
-           tmp_ray = intersect_cell_boundary(ray, v, old_cell_id, current_cell_count, cross_step, cross_offset);
-           level = min(HIZ_MAX_LEVEL, level + 2.0f);
-          }
-
-          ray.xyz = tmp_ray.xyz;
-          --level;
-
-          ++iterations;
-         }
-         return ray;
+            return ray;
         }
         
         float3 project_tc(float3 pos, float4x4 mat)
@@ -308,28 +295,6 @@ lib SSR {
             return float3(res.xy * float2(0.5, -0.5) + float2(0.5, 0.5), res.z);
         }
         
-        float3 ImportanceSampleGGXPdf(float2 Xi, float Roughness, float3 N, out float PDF)
-        {
-            float a = Roughness * Roughness;
-            float Phi = 2 * PI * Xi.x;
-            float CosTheta = sqrt((1 - Xi.y) / (1 + (a*a - 1) * Xi.y));
-            float SinTheta = sqrt(1 - min(1.0f, CosTheta * CosTheta));
-            float3 H;
-            H.x = SinTheta * cos(Phi);
-            H.y = SinTheta * sin(Phi);
-            H.z = CosTheta;
-            float3 UpVector = abs(N.z) < 0.999 ? float3(0, 0, 1) : float3(1, 0, 0);
-            float3 TangentX = normalize(cross(UpVector, N));
-            float3 TangentY = cross(N, TangentX);
-
-            float m2 = a * a;
-            float d = (CosTheta * m2 - CosTheta) * CosTheta + 1;
-            float D = m2 / (PI*d*d);
-             PDF = D * CosTheta;
-
-            // Tangent to world space
-            return TangentX * H.x + TangentY * H.y + N * H.z;
-        }
         float ComputeRoughnessMaskScale(in float maxRoughness)
         {
             float MaxRoughness = clamp(maxRoughness, 0.01f, 1.0f);
@@ -348,7 +313,7 @@ lib SSR {
     shader HiZTraceCS {
         uint2 pixelID = uint2( $SV_DispatchThreadId.x, $SV_DispatchThreadId.y );
         
-        float depth = g_ClippingPlanes.x / HiZDepthBuffer[pixelID].r;
+        float depth = g_ClippingPlanes.x / max( 0.000001f, HiZDepthBuffer[pixelID].r );
         float4 thinGbuffer = ThinGBuffer[pixelID];
         
         float2 uv = ( pixelID + 0.5f ) * ( 1.0f / OutputSize );
@@ -359,7 +324,7 @@ lib SSR {
         
         if ( depth == 0.0f ) return;
       
-        float3 P = ReconstructPosition(uv, depth, g_InverseViewProjectionMatrix);
+        float3 P = ReconstructPosition(uv, HiZDepthBuffer[pixelID].r, g_InverseViewProjectionMatrix);
         float roughness = thinGbuffer.a;
         float roughnessFade = GetRoughnessFade(roughness, SSRMaxRoughness);
         
@@ -369,23 +334,20 @@ lib SSR {
         
         float3 V = normalize( -P );
         float3 normalWorldSpace = DecodeNormals( thinGbuffer.rg );
-        float3 N = mul((float3x3)g_ViewMatrix, normalWorldSpace).xyz;
+        float3 N = normalize(mul((float3x3)g_ViewMatrix, normalWorldSpace));
         
         float2 Hash = BlueNoise.SampleLevel(LinearSampler, (uv + HaltonOffset.xy) * OutputSize.xy / float2(BLUE_NOISE_SIZE, BLUE_NOISE_SIZE), 0.0f).rg * 2.0 - 1.0;
+        Hash.y = lerp(Hash.y, 0.0, BRDF_BIAS);
+    
+        float4 H = ( isMirror ) ? float4( N, 1.0f ) : TangentToWorld(N, ImportanceSampleGGX(Hash, roughness));
+        float PDF = H.w;
         
-        float PDF = 0.0f;
-        float3 H = ( isMirror ) ? N : ImportanceSampleGGXPdf( HaltonOffset, roughness, N, PDF );
-        float3 L = 2 * dot(V, H) * H - V;
-        float3 R = L;
-        float RoN = dot( R, N );
-
-        if ( RoN < 0 ) R = normalize( R + N );
-
+        float3 R = reflect(V, H.xyz);
         float3 posr = P + normalize( R );
         float3 pss = float3(uv, depth);
         float4 pcs = mul(g_ProjectionMatrix, float4(posr,1));
         float3 pss_ = pcs.xyz / pcs.w;
-        pss_.xy = pss_.xy * float2(0.5, -0.5) + float2(0.5, 0.5); 
+        pss_.xy = pss_.xy * float2(0.5, -0.5);
         
         float3 rayTrace = hi_z_trace(pss, (pss_- pss));
         
@@ -394,6 +356,8 @@ lib SSR {
 
     shader ResolveCS {      
         uint2 pixelID = uint2( $SV_DispatchThreadId.x, $SV_DispatchThreadId.y );
+        
+        ResolvedOutput[pixelID] = float4(0, 0, 0, 0);
         
         float depth = g_ClippingPlanes.x / HiZDepthBuffer[pixelID].r;
         
@@ -407,6 +371,8 @@ lib SSR {
     
         float4 dist = RayTraceBuffer[pixelID];
         
+        if (isnan(dist.a)) return;
+    
         float2 uv = ( pixelID + 0.5f ) * ( 1.0f / OutputSize );
         
         float3 P = ReconstructPosition(uv, depth, g_InverseViewProjectionMatrix);

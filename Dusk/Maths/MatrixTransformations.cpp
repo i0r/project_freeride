@@ -11,17 +11,6 @@ namespace dk
 {
     namespace maths
     {
-        dkMat4x4f MakeInfReversedZProj( const f32 fovY_radians, const f32 aspectWbyH, const f32 zNear )
-        {
-            f32 f = 1.0f / tan( fovY_radians * 0.5f );
-
-            return dkMat4x4f(
-                f / aspectWbyH, 0.0f, 0.0f, 0.0f,
-                0.0f, f, 0.0f, 0.0f,
-                0.0f, 0.0f, 0.0f, 1.0f,
-                0.0f, 0.0f, zNear, 0.0f );
-        }
-
         dkMat4x4f MakeFovProj( const f32 fovY_radians, const f32 aspectWbyH, f32 zNear, f32 zFar )
         {
             f32 f = 1.0f / tan( fovY_radians * 0.5f );
@@ -32,6 +21,17 @@ namespace dk
                 0.0f, f, 0.0f, 0.0f,
                 0.0f, 0.0f, q, 1.0f,
                 0.0f, 0.0f, -q * zNear, 0.0f );
+        }
+            
+        dkMat4x4f MakeInfReversedZProj( const f32 fovY_radians, const f32 aspectWbyH, const f32 zNear )
+        {
+            f32 f = 1.0f / tan( fovY_radians * 0.5f );
+
+             return dkMat4x4f(
+                 f / aspectWbyH, 0.0f, 0.0f, 0.0f,
+                 0.0f, f, 0.0f, 0.0f,
+                 0.0f, 0.0f, 0.0f, 1.0f,
+                 0.0f, 0.0f, zNear, 0.0f );
         }
 
         dkMat4x4f MakeTranslationMat( const dkVec3f& translation, const dkMat4x4f& matrix )
