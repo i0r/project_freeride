@@ -25,13 +25,20 @@ namespace dk
             
         dkMat4x4f MakeInfReversedZProj( const f32 fovY_radians, const f32 aspectWbyH, const f32 zNear )
         {
+            // TODO Right now we'll simply swap the near/far plane distances to avoid a div per zero when rebuilding
+            // position in screenspace render passes. We might want to build our projection matrix using the old code below
+            // if there is a precision loss.
+            return MakeFovProj( fovY_radians, aspectWbyH, 250.0f, zNear );
+
+#if 0
             f32 f = 1.0f / tan( fovY_radians * 0.5f );
 
-             return dkMat4x4f(
-                 f / aspectWbyH, 0.0f, 0.0f, 0.0f,
-                 0.0f, f, 0.0f, 0.0f,
-                 0.0f, 0.0f, 0.0f, 1.0f,
-                 0.0f, 0.0f, zNear, 0.0f );
+            return dkMat4x4f(
+                f / aspectWbyH, 0.0f, 0.0f, 0.0f,
+                0.0f, f, 0.0f, 0.0f,
+                0.0f, 0.0f, 0.0f, 1.0f,
+                0.0f, 0.0f, zNear, 0.0f );
+#endif
         }
 
         dkMat4x4f MakeTranslationMat( const dkVec3f& translation, const dkMat4x4f& matrix )
