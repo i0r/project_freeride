@@ -49,6 +49,11 @@ void DumpStackBacktrace()
 }
 #endif
 
+bool IsDebuggerAttached()
+{
+    return IsDebuggerPresent();
+}
+
 [[noreturn]] void FatalError( const char* description, ... )
 {
     char buffer[4096] = { 0 };

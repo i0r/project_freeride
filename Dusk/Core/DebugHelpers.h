@@ -6,13 +6,20 @@
 
 #include "Logger.h"
 
-void Assert( const char* description, ... );
+// Should be called whenever the application can't recover from a fatal error.
 [[noreturn]] void FatalError( const char* description, ... );
+
+// Return true if a debugger is currently attached to this instance; false otherwise.
+bool IsDebuggerAttached();
 
 #define DUSK_RAISE_FATAL_ERROR( condition, format, ... ) ( condition ) ? (void)0 : FatalError( format "\n", ##__VA_ARGS__ )
 
 #if DUSK_DEVBUILD
+// If true, ignore any assertion failure in dev/release builds.
 static bool g_SkipAssertions = false;
+
+// If true, trigger a debugger break whenever an assertion fails. Lead to an early app termination if no debugger is attached.
+static bool g_BreakOnAssertionFailure = false;
 
 #if DUSK_MSVC
 #define DUSK_TRIGGER_BREAKPOINT __debugbreak();
@@ -31,6 +38,8 @@ void DumpStackBacktrace();
 
 #define DUSK_ASSERT( condition, format, ... )\
 if ( !( condition ) ) {\
-    DUSK_TRIGGER_BREAKPOINT;\
+    if ( g_BreakOnAssertionFailure ) {\
+        DUSK_TRIGGER_BREAKPOINT;\
+    }\
     DUSK_LOG_ERROR( format "\n", ##__VA_ARGS__ );\
 }
