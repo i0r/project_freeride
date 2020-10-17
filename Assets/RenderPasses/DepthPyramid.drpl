@@ -27,7 +27,9 @@ lib DepthPyramid {
         }
     }
     
-    shared {
+    shared { 
+        #include <GeometryUtils.hlsli>
+     
         static const uint ReductionTGSize = 16;      
         static const uint NumThreads = ReductionTGSize * ReductionTGSize;
         
@@ -41,13 +43,10 @@ lib DepthPyramid {
         uint2 samplePos = $SV_GroupID.xy * ReductionTGSize + $SV_GroupThreadID.xy;
         samplePos = min(samplePos, TextureSize - 1);
 
-        float depthSample = DepthBuffer[samplePos];
+        float depthSample = ConvertFromReversedDepth( DepthBuffer[samplePos], g_ClippingPlanes.x, g_ClippingPlanes.y );
 
-        if(depthSample > 0.0f)
+        if(depthSample < 1.0f)
         {
-            // Convert to linear Z
-            depthSample = Projection._43 / ( depthSample - Projection._33 );
-            depthSample = saturate( ( depthSample - CameraPlanes.x ) / ( CameraPlanes.y - CameraPlanes.x ) );
             minDepth = min( minDepth, depthSample );
             maxDepth = max( maxDepth, depthSample );
         }
@@ -85,8 +84,8 @@ lib DepthPyramid {
         float minDepth = CurrentDepthMip[samplePos].x;
         float maxDepth = CurrentDepthMip[samplePos].y;
 
-        if ( maxDepth == 1.0f ) {
-            maxDepth = 0.0f;
+        if ( maxDepth == 0.0f ) {
+            maxDepth = 1.0f;
         }
         
         // Store in shared memory

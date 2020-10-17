@@ -32,7 +32,8 @@ float LinearizeDepth(float depth, float near, float far)
 // to modify raymarching algorithm for reversed z.
 float ConvertFromReversedDepth(float d,float zNear)
 {
-    return zNear / d;
+    float safeDepth = d; //max( 0.0000001f, d );
+    return zNear / safeDepth;
 }
 
 // Return screen position from uv coordinates (0..1) and linearized depth.
