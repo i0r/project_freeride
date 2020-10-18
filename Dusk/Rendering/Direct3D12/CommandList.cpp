@@ -90,6 +90,11 @@ void CommandList::dispatchCompute( const u32 threadCountX, const u32 threadCount
     nativeCommandList->graphicsCmdList->Dispatch( threadCountX, threadCountY, threadCountZ );
 }
 
+void CommandList::multiDrawIndexedInstancedIndirect( const u32 instanceCount, Buffer* argsBuffer, const u32 bufferAlignmentInBytes /* = 0u */, const u32 argumentsSizeInBytes /* = 0u */ )
+{
+ 
+}
+
 void CommandList::pushEventMarker( const dkChar_t* eventName )
 {
 #if DUSK_ENABLE_GPU_DEBUG_MARKER

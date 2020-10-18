@@ -261,7 +261,7 @@ void RenderDevice::setDebugMarker( Buffer& buffer, const dkChar_t* objectName )
 #endif
 }
 
-void CommandList::bindVertexBuffer( const Buffer** buffers, const u32 bufferCount, const u32 startBindIndex )
+void CommandList::bindVertexBuffer( const Buffer** buffers, const u32* offsets, const u32 bufferCount, const u32 startBindIndex )
 {
     D3D12_VERTEX_BUFFER_VIEW vboView[MAX_VERTEX_BUFFER_BIND_COUNT];
     for ( u32 i = 0; i < bufferCount; i++ ) {
@@ -328,5 +328,10 @@ void CommandList::transitionBuffer( Buffer& buffer, const eResourceState state )
     nativeCommandList->graphicsCmdList->ResourceBarrier( 1, &transitionBarrier );
 
     buffer.currentResourceState = nextState;
+}
+
+void CommandList::copyBuffer( Buffer* sourceBuffer, Buffer* destBuffer )
+{
+
 }
 #endif

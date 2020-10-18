@@ -29,8 +29,6 @@
 #include "ThirdParty/ags/amd_ags.h"
 #endif
 
-DUSK_ENV_VAR( DisableVendorExtensions, false, bool );
-
 RenderContext::RenderContext()
     : ImmediateContext( nullptr )
     , PhysicalDevice( nullptr )

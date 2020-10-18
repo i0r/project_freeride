@@ -10,6 +10,20 @@ class RuntimeInclude;
  
 #include <Rendering/RenderDevice.h>
 
+// TODO We may want to make those flags modulable.
+#ifdef DUSK_WIN
+#define DUSK_SUPPORT_SM5_COMPILATION 1
+#define DUSK_SUPPORT_SM6_COMPILATION 1
+#endif
+
+#ifdef DUSK_SUPPORT_SM6_COMPILATION
+#include <d3dcompiler.h>
+#include <ThirdParty/dxc/dxcapi.use.h>
+
+struct IDxcLibrary;
+struct IDxcCompiler;
+#endif
+
 class RuntimeShaderCompiler {
 public:
     // RAI object holding shader bytecode (for a given shader model).
@@ -53,6 +67,11 @@ public:
     // ShaderName is an extra parameter used for logging/debugging (can be duplicated/null if you don't need shader dump).
     GeneratedBytecode       compileShaderModel5( const eShaderStage shaderStage, const char* sourceCode, const size_t sourceCodeLength, const char* shaderName );
 
+    // Compile HLSL code to a blob with SM6.0 bytecode (D3D12 bytecode).
+    // If the compilation failed, the Bytecode pointer will be null with a Length of 0.
+    // ShaderName is an extra parameter used for logging/debugging (can be duplicated/null if you don't need shader dump).
+    GeneratedBytecode       compileShaderModel6( const eShaderStage shaderStage, const char* sourceCode, const size_t sourceCodeLength, const char* shaderName );
+
 private:
     // The memory allocator owning this instance.
     BaseAllocator*          memoryAllocator;
@@ -62,4 +81,15 @@ private:
 
     // A pointer to the active Virtual File System instance.
     VirtualFileSystem*      virtualFileSystem;
+
+#if DUSK_SUPPORT_SM6_COMPILATION
+    // Class helper to load DXC library (used for dxbytecode generation).
+    dxc::DxcDllSupport          dxcHelper;
+
+    // DXC library instance.
+    IDxcLibrary*                dxcLibrary;
+
+    // DXC compiler instance.
+    IDxcCompiler*               dxcCompiler;
+#endif
 };

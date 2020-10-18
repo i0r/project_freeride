@@ -174,7 +174,7 @@ RenderDevice::~RenderDevice()
     dk::core::free( memoryAllocator, renderContext );
 }
 
-void RenderDevice::create( DisplaySurface& displaySurface, const bool useDebugContext )
+void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefreshRate, const bool useDebugContext )
 {
     const NativeDisplaySurface* displaySurf = displaySurface.getNativeDisplaySurface();
 
@@ -500,7 +500,7 @@ void RenderDevice::create( DisplaySurface& displaySurface, const bool useDebugCo
         for ( i32 j = 0; j < CMD_LIST_POOL_CAPACITY; j++ ) {
             renderContext->device->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS( &renderContext->directCmdAllocator[i][j] ) );
 
-            CommandList* cmdList = dk::core::allocate<CommandList>( graphicsCmdListAllocator[i], CommandList::GRAPHICS );
+            CommandList* cmdList = dk::core::allocate<CommandList>( graphicsCmdListAllocator[i], CommandList::Type::GRAPHICS );
             cmdList->initialize( memoryAllocator, j );
 
             NativeCommandList* nativeCmdList = cmdList->getNativeCommandList();
@@ -535,7 +535,7 @@ void RenderDevice::create( DisplaySurface& displaySurface, const bool useDebugCo
         for ( i32 j = 0; j < CMD_LIST_POOL_CAPACITY; j++ ) {
             renderContext->device->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS( &renderContext->computeCmdAllocator[i][j] ) );
 
-            CommandList* cmdList = dk::core::allocate<CommandList>( computeCmdListAllocator[i], CommandList::COMPUTE );
+            CommandList* cmdList = dk::core::allocate<CommandList>( computeCmdListAllocator[i], CommandList::Type::COMPUTE );
             cmdList->initialize( memoryAllocator, j );
 
             NativeCommandList* nativeCmdList = cmdList->getNativeCommandList();
@@ -632,13 +632,28 @@ CommandList& RenderDevice::allocateComputeCommandList()
     return *cmdList;
 }
 
+CommandList& RenderDevice::allocateCopyCommandList()
+{
+    return allocateComputeCommandList();
+}
+
 void RenderDevice::submitCommandList( CommandList& cmdList )
 {
     NativeCommandList* nativeCmdList = cmdList.getNativeCommandList();
     ID3D12GraphicsCommandList* dxCmdList = nativeCmdList->graphicsCmdList;
 
-    ID3D12CommandQueue* submitQueue = ( cmdList.getCommandListType() == CommandList::GRAPHICS ) ? renderContext->directCmdQueue : renderContext->computeCmdQueue;
+    ID3D12CommandQueue* submitQueue = ( cmdList.getCommandListType() == CommandList::Type::GRAPHICS ) ? renderContext->directCmdQueue : renderContext->computeCmdQueue;
     submitQueue->ExecuteCommandLists( 1, reinterpret_cast< ID3D12CommandList** >( &dxCmdList ) );
+}
+
+void RenderDevice::submitCommandLists( CommandList** cmdLists, const u32 cmdListCount )
+{
+
+}
+ 
+void RenderDevice::resizeBackbuffer( const u32 width, const u32 height )
+{
+
 }
 
 void RenderDevice::present()

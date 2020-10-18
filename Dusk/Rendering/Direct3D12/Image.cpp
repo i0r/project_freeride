@@ -453,7 +453,7 @@ static D3D12_CPU_DESCRIPTOR_HANDLE CreateDepthStencilView( RenderContext* render
     return dsvHandle;
 }
 
-void CommandList::setupFramebuffer( Image** renderTargetViews, Image* depthStencilView )
+void CommandList::setupFramebuffer( FramebufferAttachment* renderTargetViews, FramebufferAttachment depthStencilView )
 {
     const PipelineState& pipelineState = *nativeCommandList->BindedPipelineState;
     bool hasDsv = pipelineState.hasDepthStencilView;
@@ -470,7 +470,7 @@ void CommandList::setupFramebuffer( Image** renderTargetViews, Image* depthStenc
 
     u32 rtvCount = pipelineState.rtvCount;
     for ( u32 i = 0; i < rtvCount; i++ ) {
-        Image* renderBuffer = renderTargetViews[i];
+        Image* renderBuffer = renderTargetViews[i].ImageAttachment;
         const PipelineState::RTVDesc& psoRtvDesc = pipelineState.renderTargetViewDesc[renderTargetCount];
 
         D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = CreateRenderTargetView( nativeCommandList->renderContext, resourceFrameIndex, psoRtvDesc, renderBuffer );
@@ -498,11 +498,12 @@ void CommandList::setupFramebuffer( Image** renderTargetViews, Image* depthStenc
     if ( pipelineState.hasDepthStencilView ) {
         const PipelineState::RTVDesc& psoDsvDesc = pipelineState.depthStencilViewDesc;
 
-        dsv = CreateDepthStencilView( nativeCommandList->renderContext, resourceFrameIndex, psoDsvDesc, depthStencilView );
+        Image* dsvAttachment = depthStencilView.ImageAttachment;
+        dsv = CreateDepthStencilView( nativeCommandList->renderContext, resourceFrameIndex, psoDsvDesc, dsvAttachment );
 
         // Pre-transition render target to the correct state (no idea if this is the right place to do it; it might need to be done at higher level?)
-        if ( depthStencilView->currentResourceState[resourceFrameIndex] != D3D12_RESOURCE_STATE_DEPTH_WRITE ) {
-            transitionImage( *depthStencilView, RESOURCE_STATE_DEPTH_WRITE, psoDsvDesc.mipIndex );
+        if ( dsvAttachment->currentResourceState[resourceFrameIndex] != D3D12_RESOURCE_STATE_DEPTH_WRITE ) {
+            transitionImage( *dsvAttachment, RESOURCE_STATE_DEPTH_WRITE, psoDsvDesc.mipIndex );
         }
 
         if ( psoDsvDesc.clearRenderTarget ) {
@@ -510,8 +511,8 @@ void CommandList::setupFramebuffer( Image** renderTargetViews, Image* depthStenc
             D3D12_RECT& clearRectangle = clearDepthRectangle;
             clearRectangle.top = 0;
             clearRectangle.left = 0;
-            clearRectangle.right = depthStencilView->width;
-            clearRectangle.bottom = depthStencilView->height;
+            clearRectangle.right = dsvAttachment->width;
+            clearRectangle.bottom = dsvAttachment->height;
 
             shouldClearDsv = true;
         }
@@ -527,5 +528,25 @@ void CommandList::setupFramebuffer( Image** renderTargetViews, Image* depthStenc
     }
 
     cmdList->OMSetRenderTargets( renderTargetCount, rtvs, FALSE, ( hasDsv ) ? &dsv : nullptr );
+}
+
+void RenderDevice::createImageView( Image& image, const ImageViewDesc& viewDescription, const u32 creationFlags )
+{
+
+}
+
+void CommandList::clearRenderTargets( Image** renderTargetViews, const u32 renderTargetCount, const f32 clearValues[4] )
+{
+
+}
+
+void CommandList::clearDepthStencil( Image* depthStencilView, const f32 clearValue, const bool clearStencil, const u8 clearStencilValue )
+{
+
+}
+
+void CommandList::resolveImage( Image& src, Image& dst )
+{
+
 }
 #endif

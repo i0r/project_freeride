@@ -5,6 +5,8 @@
 #include <Shared.h>
 #include "RenderDevice.h"
 
+DUSK_ENV_VAR( DisableVendorExtensions, false, bool );
+
 RenderDevice::RenderDevice( BaseAllocator* allocator )
     : memoryAllocator( allocator )
     , pipelineStateCacheAllocator( nullptr )

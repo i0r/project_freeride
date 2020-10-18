@@ -156,10 +156,7 @@ Shader* RenderDevice::createShader( const eShaderStage stage, const void* byteco
     IDxcBlobEncoding* blob = NULL;
     renderContext->dxcLibrary->CreateBlobWithEncodingFromPinned( ( LPBYTE )bytecodeMem, ( UINT32 )bytecodeSize, 0, &blob );
 
-#define DXIL_FOURCC(ch0, ch1, ch2, ch3) \
-	((uint32_t)(uint8_t)(ch0) | (uint32_t)(uint8_t)(ch1) << 8 | (uint32_t)(uint8_t)(ch2) << 16 | (uint32_t)(uint8_t)(ch3) << 24)
-    static constexpr UINT32 DXIL_MAGIC = DXIL_FOURCC( 'D', 'X', 'I', 'L' );
-#undef DXIL_FOURCC
+    static constexpr UINT32 DXIL_MAGIC = MakeFourCC( 'D', 'X', 'I', 'L' );
 
     UINT32 shaderIdx;
     renderContext->dxcContainerReflection->Load( blob );
@@ -218,32 +215,32 @@ void RenderDevice::destroyShader( Shader* shader )
 void FillInputAssemblyDesc( const PipelineStateDesc& description, D3D12_INPUT_ELEMENT_DESC* iaDesc, i32& iaCount )
 {
     for ( iaCount = 0; iaCount < 8; iaCount++ ) {
-        if ( description.inputLayout[iaCount].semanticName == nullptr ) {
+        if ( description.InputLayout.Entry[iaCount].semanticName == nullptr ) {
             break;
         }
 
-        iaDesc[iaCount].SemanticName = description.inputLayout[iaCount].semanticName;
-        iaDesc[iaCount].InputSlot = description.inputLayout[iaCount].vertexBufferIndex;
-        iaDesc[iaCount].SemanticIndex = description.inputLayout[iaCount].index;
-        iaDesc[iaCount].Format = static_cast< DXGI_FORMAT >( description.inputLayout[iaCount].format );
-        iaDesc[iaCount].AlignedByteOffset = ( description.inputLayout[iaCount].needPadding )
+        iaDesc[iaCount].SemanticName = description.InputLayout.Entry[iaCount].semanticName;
+        iaDesc[iaCount].InputSlot = description.InputLayout.Entry[iaCount].vertexBufferIndex;
+        iaDesc[iaCount].SemanticIndex = description.InputLayout.Entry[iaCount].index;
+        iaDesc[iaCount].Format = static_cast< DXGI_FORMAT >( description.InputLayout.Entry[iaCount].format );
+        iaDesc[iaCount].AlignedByteOffset = ( description.InputLayout.Entry[iaCount].needPadding )
             ? D3D12_APPEND_ALIGNED_ELEMENT
-            : description.inputLayout[iaCount].offsetInBytes;
-        iaDesc[iaCount].InputSlotClass = ( description.inputLayout[iaCount].instanceCount == 0 )
+            : description.InputLayout.Entry[iaCount].offsetInBytes;
+        iaDesc[iaCount].InputSlotClass = ( description.InputLayout.Entry[iaCount].instanceCount == 0 )
             ? D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA
             : D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA;
-        iaDesc[iaCount].InstanceDataStepRate = description.inputLayout[iaCount].instanceCount;
+        iaDesc[iaCount].InstanceDataStepRate = description.InputLayout.Entry[iaCount].instanceCount;
     }
 }
 
 void FillRasterizerStateDesc( D3D12_RASTERIZER_DESC& nativeRasterState, const RasterizerStateDesc& rasterizerState )
 {
-    nativeRasterState.FillMode = FILL_MODE_LUT[rasterizerState.fillMode];
-    nativeRasterState.CullMode = CULL_MODE_LUT[rasterizerState.cullMode];
-    nativeRasterState.FrontCounterClockwise = rasterizerState.useTriangleCCW;
-    nativeRasterState.DepthBias = static_cast< INT >( rasterizerState.depthBias );
-    nativeRasterState.DepthBiasClamp = rasterizerState.depthBiasClamp;
-    nativeRasterState.SlopeScaledDepthBias = rasterizerState.slopeScale;
+    nativeRasterState.FillMode = FILL_MODE_LUT[rasterizerState.FillMode];
+    nativeRasterState.CullMode = CULL_MODE_LUT[rasterizerState.CullMode];
+    nativeRasterState.FrontCounterClockwise = rasterizerState.UseTriangleCCW;
+    nativeRasterState.DepthBias = static_cast< INT >( rasterizerState.DepthBias );
+    nativeRasterState.DepthBiasClamp = rasterizerState.DepthBiasClamp;
+    nativeRasterState.SlopeScaledDepthBias = rasterizerState.SlopeScale;
     nativeRasterState.DepthClipEnable = TRUE;
     nativeRasterState.MultisampleEnable = FALSE;
     nativeRasterState.AntialiasedLineEnable = FALSE;
@@ -254,7 +251,7 @@ void FillRasterizerStateDesc( D3D12_RASTERIZER_DESC& nativeRasterState, const Ra
 // NOTE We need to provide the pipeline state descriptor since the blend state will implicitly set the sample mask of the pipeline
 void FillBlendStateDesc( D3D12_GRAPHICS_PIPELINE_STATE_DESC& psoDesc, const BlendStateDesc& blendState )
 {
-    psoDesc.SampleMask = blendState.SampleMask;
+    psoDesc.SampleMask = 0xffffffff;
 
     psoDesc.BlendState.AlphaToCoverageEnable = blendState.EnableAlphaToCoverage;
     psoDesc.BlendState.IndependentBlendEnable = FALSE;
@@ -263,7 +260,7 @@ void FillBlendStateDesc( D3D12_GRAPHICS_PIPELINE_STATE_DESC& psoDesc, const Blen
 
     for ( i32 i = 0; i < 8; i++ ) {
         psoDesc.BlendState.RenderTarget[i].BlendEnable = blendState.EnableBlend;
-        psoDesc.BlendState.RenderTarget[i].SrcBlend = BLEND_SOURCE_LUT[blendState.BlendConfColor.source];
+        psoDesc.BlendState.RenderTarget[i].SrcBlend = BLEND_SOURCE_LUT[blendState.BlendConfColor.Source];
         psoDesc.BlendState.RenderTarget[i].DestBlend = BLEND_SOURCE_LUT[blendState.BlendConfColor.Destination];
         psoDesc.BlendState.RenderTarget[i].BlendOp = BLEND_OPERATION_LUT[blendState.BlendConfColor.Operation];
         psoDesc.BlendState.RenderTarget[i].SrcBlendAlpha = BLEND_SOURCE_LUT[blendState.BlendConfAlpha.Source];
@@ -293,10 +290,10 @@ void FillDepthStencilStateDesc( D3D12_DEPTH_STENCIL_DESC& nativeDsState, const D
 
         // D3D12_DEPTH_STENCILOP_DESC BackFace
         {
-            STENCIL_OPERATION_LUT[dsState.Back.failOp],		            //		D3D12_STENCIL_OP StencilFailOp
-            STENCIL_OPERATION_LUT[dsState.Back.zFailOp],		        //		D3D12_STENCIL_OP StencilDepthFailOp
-            STENCIL_OPERATION_LUT[dsState.Back.passOp],		            //		D3D12_STENCIL_OP StencilPassOp
-            COMPARISON_FUNCTION_LUT[dsState.Back.comparisonFunc],	    //		D3D12_COMPARISON_FUNC StencilFunc
+            STENCIL_OPERATION_LUT[dsState.Back.FailOperation],		            //		D3D12_STENCIL_OP StencilFailOp
+            STENCIL_OPERATION_LUT[dsState.Back.ZFailOperation],		        //		D3D12_STENCIL_OP StencilDepthFailOp
+            STENCIL_OPERATION_LUT[dsState.Back.PassOperation],		            //		D3D12_STENCIL_OP StencilPassOp
+            COMPARISON_FUNCTION_LUT[dsState.Back.ComparisonFunction],	    //		D3D12_COMPARISON_FUNC StencilFunc
         },
     };
 }
@@ -443,9 +440,9 @@ PipelineState* RenderDevice::createPipelineState( const PipelineStateDesc& descr
 
     D3D12_STATIC_SAMPLER_DESC samplerDescs[PipelineStateDesc::MAX_STATIC_SAMPLER_COUNT];
 
-    for ( i32 i = 0; i < description.staticSamplerCount; i++ ) {
+    for ( i32 i = 0; i < description.StaticSamplers.StaticSamplerCount; i++ ) {
         D3D12_STATIC_SAMPLER_DESC& nativeSamplerDesc = samplerDescs[i];
-        const SamplerDesc& samplerDesc = description.staticSamplers[i];
+        const SamplerDesc& samplerDesc = description.StaticSamplers.StaticSamplersDesc[i];
 
         nativeSamplerDesc.RegisterSpace = 0;
         nativeSamplerDesc.ShaderRegister = i;
@@ -475,7 +472,7 @@ PipelineState* RenderDevice::createPipelineState( const PipelineStateDesc& descr
         nativeSamplerDesc.MaxLOD = static_cast< FLOAT >( samplerDesc.maxLOD );
     }
 
-    rootSignatureDesc.NumStaticSamplers = description.staticSamplerCount;
+    rootSignatureDesc.NumStaticSamplers = description.StaticSamplers.StaticSamplerCount;
     rootSignatureDesc.pStaticSamplers = samplerDescs;
 
     if ( description.PipelineType == PipelineStateDesc::COMPUTE ) {
@@ -629,7 +626,7 @@ PipelineState* RenderDevice::createPipelineState( const PipelineStateDesc& descr
     return pipelineState;
 }
 
-void RenderDevice::prepareAndBindResourceList( CommandList& commandList, const PipelineState& pipelineState )
+void CommandList::prepareAndBindResourceList()
 {
     //u32 srvIndex = 0;
    
@@ -870,14 +867,16 @@ void RenderDevice::destroyPipelineStateCache( PipelineState* pipelineState )
     pipelineStateCacheAllocator->clear();
 }
 
-void CommandList::begin( PipelineState* pipelineState )
+void CommandList::begin()
 {
     ID3D12GraphicsCommandList* cmdList = nativeCommandList->graphicsCmdList;
+
+    PipelineState* pipelineState = nativeCommandList->BindedPipelineState;
 
     if ( pipelineState != nullptr ) {
         cmdList->Reset( *nativeCommandList->allocator, pipelineState->pso );
 
-        if ( commandListType == GRAPHICS ) {
+        if ( commandListType == CommandList::Type::GRAPHICS ) {
             cmdList->IASetPrimitiveTopology( pipelineState->primitiveTopology );
             cmdList->SetGraphicsRootSignature( pipelineState->rootSignature );
         } else {
@@ -886,7 +885,10 @@ void CommandList::begin( PipelineState* pipelineState )
     } else {
         cmdList->Reset( *nativeCommandList->allocator, nullptr );
     }
+}
 
+void CommandList::bindPipelineState( PipelineState* pipelineState )
+{
     nativeCommandList->BindedPipelineState = pipelineState;
 }
 
@@ -895,7 +897,7 @@ void CommandList::bindConstantBuffer( const dkStringHash_t hashcode, Buffer* buf
 
 }
 
-void CommandList::bindImage( const dkStringHash_t hashcode, Image* image, const eViewFormat viewFormat )
+void CommandList::bindImage( const dkStringHash_t hashcode, Image* image, const ImageViewDesc viewDescription )
 {
 
 }

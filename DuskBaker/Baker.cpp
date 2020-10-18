@@ -208,6 +208,18 @@ void dk::baker::Start( const char* cmdLineArgs )
                     std::ofstream shaderStream( bakingPaths.CompiledShadersPath + "/sm5/" + shader.Hashcode, std::ios::binary | std::ios::trunc );
                     shaderStream.write( (const char*)compiledShader.Bytecode, compiledShader.Length );
                     shaderStream.close();
+
+                    // Use DXC for Shader model 6.0; use spirv-cross for SPIRV bytecode
+                    RuntimeShaderCompiler::GeneratedBytecode compiledShaderSM6 = runtimeShaderCompiler->compileShaderModel6( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), ( shader.OriginalName + "." + shader.Hashcode ).c_str() );
+                    if ( compiledShaderSM6.Length == 0ull || compiledShaderSM6.Bytecode == nullptr ) {
+                        // At least one pass is invalid; flag the file as invalid.
+                        isLibraryValid = false;
+                        continue;
+                    }
+
+                    std::ofstream shaderStreamSM6( bakingPaths.CompiledShadersPath + "/sm6/" + shader.Hashcode, std::ios::binary | std::ios::trunc );
+                    shaderStreamSM6.write( ( const char* )compiledShaderSM6.Bytecode, compiledShaderSM6.Length );
+                    shaderStreamSM6.close();
                 }
             } break;
             default:
