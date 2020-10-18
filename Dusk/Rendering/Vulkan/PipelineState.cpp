@@ -127,11 +127,11 @@ DUSK_INLINE VkShaderStageFlags GetDescriptorStageFlags( const uint32_t shaderSta
     }
 
     if ( shaderStageBindBitfield & SHADER_STAGE_TESSELATION_CONTROL ) {
-        bindFlags |= VK_SHADER_STAGE_TESSELATION_CONTROL_BIT;
+        bindFlags |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
     }
 
     if ( shaderStageBindBitfield & SHADER_STAGE_TESSELATION_EVALUATION ) {
-        bindFlags |= VK_SHADER_STAGE_TESSELATION_EVALUATION_BIT;
+        bindFlags |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
     }
 
     if ( shaderStageBindBitfield & SHADER_STAGE_PIXEL ) {
@@ -151,9 +151,9 @@ DUSK_INLINE VkShaderStageFlagBits GetVkStageFlags( const eShaderStage shaderStag
     case SHADER_STAGE_VERTEX:
         return VK_SHADER_STAGE_VERTEX_BIT;
     case SHADER_STAGE_TESSELATION_CONTROL:
-        return VK_SHADER_STAGE_TESSELATION_CONTROL_BIT;
+        return VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
     case SHADER_STAGE_TESSELATION_EVALUATION:
-        return VK_SHADER_STAGE_TESSELATION_EVALUATION_BIT;
+        return VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
     case SHADER_STAGE_PIXEL:
         return VK_SHADER_STAGE_FRAGMENT_BIT;
     case SHADER_STAGE_COMPUTE:
@@ -265,11 +265,11 @@ void CreateShaderStageDescriptor( VkPipelineShaderStageCreateInfo& shaderStageIn
         shaderStageInfos.pName = "EntryPointPS";
         break;
     case eShaderStage::SHADER_STAGE_TESSELATION_CONTROL:
-        shaderStageInfos.stage = VK_SHADER_STAGE_TESSELATION_CONTROL_BIT;
+        shaderStageInfos.stage = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
         shaderStageInfos.pName = "EntryPointDS";
         break;
     case eShaderStage::SHADER_STAGE_TESSELATION_EVALUATION:
-        shaderStageInfos.stage = VK_SHADER_STAGE_TESSELATION_EVALUATION_BIT;
+        shaderStageInfos.stage = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
         shaderStageInfos.pName = "EntryPointHS";
         break;
     default:
@@ -298,13 +298,13 @@ DUSK_INLINE VkPipelineRasterizationStateCreateInfo* FillRasterizationInfos( cons
     rasterizerStateInfos.flags = 0;
     rasterizerStateInfos.depthClampEnable = VK_FALSE; // static_cast< VkBool32 >( rasterizerDescription.depthBiasClamp != 0.0f );
     rasterizerStateInfos.rasterizerDiscardEnable = VK_FALSE;
-    rasterizerStateInfos.polygonMode = VK_FM[rasterizerDescription.fillMode];
-    rasterizerStateInfos.cullMode = VK_CM[rasterizerDescription.cullMode];
-    rasterizerStateInfos.frontFace = ( rasterizerDescription.useTriangleCCW ) ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
-    rasterizerStateInfos.depthBiasEnable = static_cast< VkBool32 >( rasterizerDescription.depthBias != 0.0f );
-    rasterizerStateInfos.depthBiasConstantFactor = rasterizerDescription.depthBias;
-    rasterizerStateInfos.depthBiasClamp = rasterizerDescription.depthBiasClamp;
-    rasterizerStateInfos.depthBiasSlopeFactor = rasterizerDescription.slopeScale;
+    rasterizerStateInfos.polygonMode = VK_FM[rasterizerDescription.FillMode];
+    rasterizerStateInfos.cullMode = VK_CM[rasterizerDescription.CullMode];
+    rasterizerStateInfos.frontFace = ( rasterizerDescription.UseTriangleCCW ) ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
+    rasterizerStateInfos.depthBiasEnable = static_cast< VkBool32 >( rasterizerDescription.DepthBias != 0.0f );
+    rasterizerStateInfos.depthBiasConstantFactor = rasterizerDescription.DepthBias;
+    rasterizerStateInfos.depthBiasClamp = rasterizerDescription.DepthBiasClamp;
+    rasterizerStateInfos.depthBiasSlopeFactor = rasterizerDescription.SlopeScale;
     rasterizerStateInfos.lineWidth = 1.0f;
 
     return &rasterizerStateInfos;
@@ -347,10 +347,10 @@ DUSK_INLINE VkPipelineDepthStencilStateCreateInfo* FillDepthStencilState( const 
     depthStencilStateInfos.front = frontStencilState;
 
     VkStencilOpState backStencilState;
-    backStencilState.failOp = VK_STENCIL_OPERATION[depthStencilDescription.Back.failOp];
-    backStencilState.passOp = VK_STENCIL_OPERATION[depthStencilDescription.Back.passOp];
-    backStencilState.depthFailOp = VK_STENCIL_OPERATION[depthStencilDescription.Back.zFailOp];
-    backStencilState.compareOp = COMPARISON_FUNCTION_LUT[depthStencilDescription.Back.comparisonFunc];
+    backStencilState.failOp = VK_STENCIL_OPERATION[depthStencilDescription.Back.FailOperation];
+    backStencilState.passOp = VK_STENCIL_OPERATION[depthStencilDescription.Back.PassOperation];
+    backStencilState.depthFailOp = VK_STENCIL_OPERATION[depthStencilDescription.Back.ZFailOperation];
+    backStencilState.compareOp = COMPARISON_FUNCTION_LUT[depthStencilDescription.Back.ComparisonFunction];
     backStencilState.compareMask = depthStencilDescription.StencilReadMask;
     backStencilState.writeMask = depthStencilDescription.StencilWriteMask;
     backStencilState.reference = depthStencilDescription.StencilRefValue;
@@ -480,8 +480,8 @@ void CreatePipelineLayout( VkDevice device, const PipelineStateDesc& description
     u32 descriptorSetCount = 0;
     u32 descriptorBindingCount[8] = { 0 };
 
-    for ( i32 i = 0; i < description.staticSamplerCount; i++ ) {
-        const SamplerDesc& samplerDesc = description.staticSamplers[i];
+    for ( i32 i = 0; i < description.StaticSamplers.StaticSamplerCount; i++ ) {
+        const SamplerDesc& samplerDesc = description.StaticSamplers.StaticSamplersDesc[i];
 
         const bool useAnisotropicFiltering = ( samplerDesc.filter == eSamplerFilter::SAMPLER_FILTER_ANISOTROPIC_16
                                                || samplerDesc.filter == eSamplerFilter::SAMPLER_FILTER_ANISOTROPIC_8
@@ -522,13 +522,13 @@ void CreatePipelineLayout( VkDevice device, const PipelineStateDesc& description
         descriptorSetLayoutBinding.pImmutableSamplers = &samplerObject;
     }
 
-    pipelineState.immutableSamplerCount = description.staticSamplerCount;
+    pipelineState.immutableSamplerCount = description.StaticSamplers.StaticSamplerCount;
 
     // Build DescriptorSet binding layout using Reflection infos
     if ( description.PipelineType == PipelineStateDesc::GRAPHICS ) {
         BuildStageDescriptorBinding( description.vertexShader, VK_SHADER_STAGE_VERTEX_BIT, descriptorSetBindings, descriptorSetCount, descriptorBindingCount, pipelineState.bindingSet, pipelineState.immutableSamplers );
-        BuildStageDescriptorBinding( description.tesselationControlShader, VK_SHADER_STAGE_TESSELATION_CONTROL_BIT, descriptorSetBindings, descriptorSetCount, descriptorBindingCount, pipelineState.bindingSet, pipelineState.immutableSamplers );
-        BuildStageDescriptorBinding( description.tesselationEvalShader, VK_SHADER_STAGE_TESSELATION_EVALUATION_BIT, descriptorSetBindings, descriptorSetCount, descriptorBindingCount, pipelineState.bindingSet, pipelineState.immutableSamplers );
+        BuildStageDescriptorBinding( description.tesselationControlShader, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, descriptorSetBindings, descriptorSetCount, descriptorBindingCount, pipelineState.bindingSet, pipelineState.immutableSamplers );
+        BuildStageDescriptorBinding( description.tesselationEvalShader, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, descriptorSetBindings, descriptorSetCount, descriptorBindingCount, pipelineState.bindingSet, pipelineState.immutableSamplers );
         BuildStageDescriptorBinding( description.pixelShader, VK_SHADER_STAGE_FRAGMENT_BIT, descriptorSetBindings, descriptorSetCount, descriptorBindingCount, pipelineState.bindingSet, pipelineState.immutableSamplers );
     } else if ( description.PipelineType == PipelineStateDesc::COMPUTE ) {
         BuildStageDescriptorBinding( description.computeShader, VK_SHADER_STAGE_COMPUTE_BIT, descriptorSetBindings, descriptorSetCount, descriptorBindingCount, pipelineState.bindingSet, pipelineState.immutableSamplers );
@@ -757,20 +757,20 @@ DUSK_INLINE PipelineState* CreateGraphicsPso(VkDevice device, BaseAllocator* mem
 
     uint32_t i = 0;
     for ( ; ; i++ ) {
-        if ( description.inputLayout[i].semanticName == nullptr ) {
+        if ( description.InputLayout.Entry[i].semanticName == nullptr ) {
             break;
         }
 
         vertexInputAttributeDesc[i].location = i;
-        vertexInputAttributeDesc[i].binding = description.inputLayout[i].vertexBufferIndex;
-        vertexInputAttributeDesc[i].format = VK_IMAGE_FORMAT[description.inputLayout[i].format];
-        vertexInputAttributeDesc[i].offset = description.inputLayout[i].offsetInBytes;
+        vertexInputAttributeDesc[i].binding = description.InputLayout.Entry[i].vertexBufferIndex;
+        vertexInputAttributeDesc[i].format = VK_IMAGE_FORMAT[description.InputLayout.Entry[i].format];
+        vertexInputAttributeDesc[i].offset = description.InputLayout.Entry[i].offsetInBytes;
 
         // TODO This is crappy since we assume each attribute will use its own buffer (which might not always be the case!)
         VkVertexInputBindingDescription& vboBindDesc = vertexInputBindingDesc[i];
         vboBindDesc.binding = i;
-        vboBindDesc.stride = static_cast<uint32_t>( VK_VIEW_FORMAT_SIZE[description.inputLayout[i].format] );
-        vboBindDesc.inputRate = ( description.inputLayout[i].instanceCount ) > 1u ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
+        vboBindDesc.stride = static_cast<uint32_t>( VK_VIEW_FORMAT_SIZE[description.InputLayout.Entry[i].format] );
+        vboBindDesc.inputRate = ( description.InputLayout.Entry[i].instanceCount ) > 1u ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
     }
 
     VkPipelineVertexInputStateCreateInfo vertexInputStateDesc;
@@ -844,7 +844,7 @@ DUSK_INLINE PipelineState* CreateGraphicsPso(VkDevice device, BaseAllocator* mem
         else if ( blendStateDescription.WriteA )
             blendAttachementState.colorWriteMask |= VK_COLOR_COMPONENT_A_BIT;
 
-        blendAttachementState.srcColorBlendFactor = VK_BLEND_SOURCE[blendStateDescription.BlendConfColor.source];
+        blendAttachementState.srcColorBlendFactor = VK_BLEND_SOURCE[blendStateDescription.BlendConfColor.Source];
         blendAttachementState.dstColorBlendFactor = VK_BLEND_SOURCE[blendStateDescription.BlendConfColor.Destination];
         blendAttachementState.colorBlendOp = VK_BLEND_OPERATION[blendStateDescription.BlendConfColor.Operation];
 
@@ -897,12 +897,12 @@ DUSK_INLINE PipelineState* CreateGraphicsPso(VkDevice device, BaseAllocator* mem
 
     if ( description.tesselationEvalShader != nullptr ) {
         CreateShaderStageDescriptor( pipelineStages[pipelineStageCount++], eShaderStage::SHADER_STAGE_TESSELATION_EVALUATION, description.tesselationEvalShader );
-        pipelineState->stageFlags |= VK_SHADER_STAGE_TESSELATION_EVALUATION_BIT;
+        pipelineState->stageFlags |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
     }
 
     if ( description.tesselationControlShader != nullptr ) {
         CreateShaderStageDescriptor( pipelineStages[pipelineStageCount++], eShaderStage::SHADER_STAGE_TESSELATION_CONTROL, description.tesselationControlShader );
-        pipelineState->stageFlags |= VK_SHADER_STAGE_TESSELATION_CONTROL_BIT;
+        pipelineState->stageFlags |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
     }
 
     if ( description.pixelShader != nullptr ) {
@@ -941,11 +941,12 @@ PipelineState* RenderDevice::createPipelineState( const PipelineStateDesc& descr
     return nullptr;
 }
 
-void RenderDevice::prepareAndBindResourceList( CommandList& commandList, const PipelineState& pipelineState )
+void CommandList::prepareAndBindResourceList()
 {
-    NativeCommandList* nativeCommandList = commandList.getNativeCommandList();
+    NativeCommandList* nativeCommandList = getNativeCommandList();
+    PipelineState* pipelineState = nativeCommandList->BindedPipelineState;
 
-    for ( i32 i = 0; i < pipelineState.immutableSamplerCount; i++ ) {
+    for ( i32 i = 0; i < pipelineState->immutableSamplerCount; i++ ) {
         VkWriteDescriptorSet& writeDescriptor = nativeCommandList->writeDescriptorSets[nativeCommandList->writeDescriptorSetsCount++];
         writeDescriptor.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         writeDescriptor.pNext = nullptr;
@@ -956,30 +957,30 @@ void RenderDevice::prepareAndBindResourceList( CommandList& commandList, const P
         writeDescriptor.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
 
         VkDescriptorImageInfo& imageInfos = nativeCommandList->imageInfos[nativeCommandList->imageInfosCount++];
-        imageInfos.sampler = pipelineState.immutableSamplers[i];
+        imageInfos.sampler = pipelineState->immutableSamplers[i];
 
         writeDescriptor.pImageInfo = &imageInfos;
     }
 
-    vkUpdateDescriptorSets( renderContext->device, nativeCommandList->writeDescriptorSetsCount, nativeCommandList->writeDescriptorSets, 0u, nullptr );
+    vkUpdateDescriptorSets( nativeCommandList->device, nativeCommandList->writeDescriptorSetsCount, nativeCommandList->writeDescriptorSets, 0u, nullptr );
 
-    const bool isGfxCmdList = ( commandList.getCommandListType() == CommandList::GRAPHICS );
+    const bool isGfxCmdList = ( commandListType == CommandList::Type::GRAPHICS );
     VkPipelineBindPoint bindPoint = ( isGfxCmdList ) ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE;
 
     // Bind DescriptorSets prior to PSO binding
     vkCmdBindDescriptorSets(
         nativeCommandList->cmdList,
         bindPoint,
-        pipelineState.layout,
+        pipelineState->layout,
         0u,
-        pipelineState.descriptorSetCount,
+        pipelineState->descriptorSetCount,
         nativeCommandList->activeDescriptorSets,
         0u,
         nullptr
     );
 
     // Bind Pipeline State
-    vkCmdBindPipeline( nativeCommandList->cmdList, bindPoint, pipelineState.pipelineObject );
+    vkCmdBindPipeline( nativeCommandList->cmdList, bindPoint, pipelineState->pipelineObject );
 }
 
 void RenderDevice::destroyPipelineState( PipelineState* pipelineState )
@@ -1021,7 +1022,7 @@ void RenderDevice::destroyPipelineStateCache( PipelineState* pipelineState )
     pipelineStateCacheAllocator->clear();
 }
 
-void CommandList::begin( PipelineState* pipelineState )
+void CommandList::begin()
 {
     VkCommandBufferBeginInfo cmdBufferInfos = {};
     cmdBufferInfos.sType = VkStructureType::VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1030,21 +1031,6 @@ void CommandList::begin( PipelineState* pipelineState )
     cmdBufferInfos.pInheritanceInfo = nullptr;
 
     vkBeginCommandBuffer( nativeCommandList->cmdList, &cmdBufferInfos );
-
-    if ( pipelineState != nullptr ) {
-        VkDescriptorSetAllocateInfo allocInfo;
-        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.pNext = nullptr;
-        allocInfo.descriptorPool = nativeCommandList->descriptorPool;
-        allocInfo.descriptorSetCount = pipelineState->descriptorSetCount;
-        allocInfo.pSetLayouts = pipelineState->descriptorSetLayouts;
-
-        // Allocate Descriptor sets from the pool and update it immediatly
-        vkAllocateDescriptorSets( nativeCommandList->device, &allocInfo, nativeCommandList->activeDescriptorSets );
-
-        // NOTE Do not bind the PSO nor the DescriptorSet yet, since we need to do the binding/update of the sets
-        nativeCommandList->BindedPipelineState = pipelineState;
-    }
 
     nativeCommandList->isInRenderPass = false;
     nativeCommandList->waitForSwapchainRetrival = false;
@@ -1055,6 +1041,26 @@ void CommandList::begin( PipelineState* pipelineState )
     nativeCommandList->imageInfosCount = 0;
     nativeCommandList->writeDescriptorSetsCount = 0;
     nativeCommandList->bufferInfosCount = 0;
+}
+
+void CommandList::bindPipelineState( PipelineState* pipelineState )
+{
+    // NOTE Do not bind the PSO nor the DescriptorSet yet, since we need to do the binding/update of the sets
+    nativeCommandList->BindedPipelineState = pipelineState;
+
+    if ( pipelineState == nullptr ) {
+        return;
+    }
+
+    VkDescriptorSetAllocateInfo allocInfo;
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.pNext = nullptr;
+    allocInfo.descriptorPool = nativeCommandList->descriptorPool;
+    allocInfo.descriptorSetCount = pipelineState->descriptorSetCount;
+    allocInfo.pSetLayouts = pipelineState->descriptorSetLayouts;
+
+    // Allocate Descriptor sets from the pool and update it immediately.
+    vkAllocateDescriptorSets( nativeCommandList->device, &allocInfo, nativeCommandList->activeDescriptorSets );
 }
 
 void CommandList::bindConstantBuffer( const dkStringHash_t hashcode, Buffer* buffer )
@@ -1082,7 +1088,7 @@ void CommandList::bindConstantBuffer( const dkStringHash_t hashcode, Buffer* buf
     writeDescriptor.pBufferInfo = &bufferInfos;
 }
 
-void CommandList::bindImage( const dkStringHash_t hashcode, Image* image, const eViewFormat viewFormat )
+void CommandList::bindImage( const dkStringHash_t hashcode, Image* image, const ImageViewDesc viewDescription )
 {
     std::unordered_map<dkStringHash_t, PipelineState::ResourceBinding>& bindingSet = nativeCommandList->BindedPipelineState->bindingSet;
 
@@ -1090,6 +1096,8 @@ void CommandList::bindImage( const dkStringHash_t hashcode, Image* image, const 
     DUSK_DEV_ASSERT( ( it != bindingSet.end( ) ), "Unknown resource hashcode! (shader source might have been updated?)" )
 
     PipelineState::ResourceBinding& binding = it->second;
+
+    eViewFormat viewFormat = viewDescription.ViewFormat;
 
     if ( image->renderTargetView[viewFormat][resourceFrameIndex] == VK_NULL_HANDLE ) {
         image->renderTargetView[viewFormat][resourceFrameIndex] = CreateImageView(
