@@ -76,8 +76,8 @@ lib PrimitiveLighting {
     }
     
     shared {
-        #include <Material.hlsli>
-        #include <GeometryUtils.hlsli>
+        #include "Material.hlsli"
+        #include "GeometryUtils.hlsli"
         
         #ifdef $MaterialEditor
         

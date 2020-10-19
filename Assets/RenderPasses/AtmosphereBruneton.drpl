@@ -53,8 +53,8 @@ lib AtmosphereBruneton {
     }
     
     shared {
-        #include <AtmosphereFunctions.hlsli>
-        #include <ColorSpaces.hlsli>
+        #include "AtmosphereFunctions.hlsli"
+        #include "ColorSpaces.hlsli"
         
         RadianceSpectrum GetSkyRadiance(
             IN_BRUNETON(AtmosphereParameters) atmosphere,

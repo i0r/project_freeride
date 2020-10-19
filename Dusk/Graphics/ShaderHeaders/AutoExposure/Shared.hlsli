@@ -1,6 +1,6 @@
 #ifndef __AUTOEXPOSURE_H__
 #define __AUTOEXPOSURE_H__ 1
-#include <Photometry.hlsli>
+#include "Photometry.hlsli"
 
 static const float	BISOU_TO_WORLD_LUMINANCE = 139.26;
 static const float	WORLD_TO_BISOU_LUMINANCE = 1.0 / BISOU_TO_WORLD_LUMINANCE;

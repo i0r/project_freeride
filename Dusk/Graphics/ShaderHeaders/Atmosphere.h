@@ -11,7 +11,7 @@
 #include <Maths/Helpers.h>
 static const float PI = dk::maths::PI<float>();
 #else
-#include <Shared.hlsli>
+#include "Shared.hlsli"
 #endif
 
 #define TRANSMITTANCE_TEXTURE_WIDTH 256

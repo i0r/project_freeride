@@ -17,9 +17,9 @@ DUSK_DEV_VAR( DumpFailedShaders, "If true, dump the shader source code to the wo
 #endif
 
 #ifdef DUSK_SUPPORT_SM5_COMPILATION
-class RuntimeInclude : public ID3DInclude {
+class RuntimeIncludeSM5 : public ID3DInclude {
 public:
-    RuntimeInclude( VirtualFileSystem* vfs )
+    RuntimeIncludeSM5( VirtualFileSystem* vfs )
         : ID3DInclude()
         , virtualFileSystem( vfs )
     {
@@ -57,9 +57,7 @@ private:
 private:
     VirtualFileSystem* virtualFileSystem;
 };
-#endif
 
-#ifdef DUSK_SUPPORT_SM5_COMPILATION
 // Return the Shading Model 5 target corresponding to a given shader stage.
 const char* GetSM5StageTarget( const eShaderStage shaderStage )
 {
@@ -81,6 +79,96 @@ const char* GetSM5StageTarget( const eShaderStage shaderStage )
 #endif
 
 #ifdef DUSK_SUPPORT_SM6_COMPILATION
+template<typename... Ts, typename TObject>
+HRESULT DoBasicQueryInterface( TObject* self, REFIID iid, void** ppvObject )
+{
+    if ( ppvObject == nullptr ) return E_POINTER;
+
+    // Support INoMarshal to void GIT shenanigans.
+    if ( IsEqualIID( iid, __uuidof( IUnknown ) ) ||
+         IsEqualIID( iid, __uuidof( INoMarshal ) ) ) {
+        *ppvObject = reinterpret_cast< IUnknown* >( self );
+        reinterpret_cast< IUnknown* >( self )->AddRef();
+        return S_OK;
+    }
+
+    return DoBasicQueryInterface_recurse<TObject, Ts...>( self, iid, ppvObject );
+}
+
+template<typename TObject>
+HRESULT DoBasicQueryInterface_recurse( TObject* self, REFIID iid, void** ppvObject )
+{
+    return E_NOINTERFACE;
+}
+template<typename TObject, typename TInterface, typename... Ts>
+HRESULT DoBasicQueryInterface_recurse( TObject* self, REFIID iid, void** ppvObject )
+{
+    if ( ppvObject == nullptr ) return E_POINTER;
+    if ( IsEqualIID( iid, __uuidof( TInterface ) ) ) {
+        *( TInterface** )ppvObject = self;
+        self->AddRef();
+        return S_OK;
+    }
+    return DoBasicQueryInterface_recurse<TObject, Ts...>( self, iid, ppvObject );
+}
+
+#define DXC_MICROCOM_REF_FIELD(m_dwRef)                                        \
+  std::atomic<u32> m_dwRef = {0};
+#define DXC_MICROCOM_ADDREF_IMPL(m_dwRef)                                      \
+  ULONG STDMETHODCALLTYPE AddRef() override {                                  \
+    return (ULONG)++m_dwRef;                                                   \
+  }
+#define DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)                              \
+  DXC_MICROCOM_ADDREF_IMPL(m_dwRef)                                            \
+  ULONG STDMETHODCALLTYPE Release() override {                                 \
+    ULONG result = (ULONG)--m_dwRef;                                           \
+    return result;                                                             \
+  }
+
+class RuntimeIncludeSM6 : public IDxcIncludeHandler
+{
+public:
+    // Macro atrocity to implement the reference tracking interface (copied straight from Microsoft sample).
+    DXC_MICROCOM_REF_FIELD( dwRef )
+    DXC_MICROCOM_ADDREF_RELEASE_IMPL( dwRef )
+
+public:
+    RuntimeIncludeSM6( VirtualFileSystem* vfs, IDxcLibrary* dxcLib )
+        : IDxcIncludeHandler()
+        , virtualFileSystem( vfs )
+        , dxcLibrary( dxcLib )
+    {
+
+    }
+    
+    HRESULT STDMETHODCALLTYPE QueryInterface( REFIID iid, void** ppvObject ) override
+    {
+        return DoBasicQueryInterface<IDxcIncludeHandler>( this, iid, ppvObject );
+    }
+
+    HRESULT LoadSource( LPCWSTR pFilename, IDxcBlob** ppIncludeSource ) override
+    {
+        dkString_t filePath = dkString_t( DUSK_STRING( "EditorAssets/ShaderHeaders/" ) ) + pFilename;
+        FileSystemObject* file = virtualFileSystem->openFile( filePath.c_str(), eFileOpenMode::FILE_OPEN_MODE_READ );
+
+        if ( file == nullptr || !file->isGood() ) {
+            return S_FALSE;
+        }
+
+        std::string content;
+        dk::io::LoadTextFile( file, content );
+        file->close();
+        dk::core::RemoveNullCharacters( content );
+
+        HRESULT opResult = dxcLibrary->CreateBlobWithEncodingOnHeapCopy( content.data(), static_cast<UINT32>( content.size() ), CP_UTF8, ( IDxcBlobEncoding** )ppIncludeSource );
+        return opResult;
+    }
+
+private:
+    VirtualFileSystem* virtualFileSystem;
+    IDxcLibrary* dxcLibrary;
+};
+
 // Return the Shading Model 6 target corresponding to a given shader stage.
 // Note that we explicitly use wide chars. since the DXC library is built this
 // way.
@@ -105,7 +193,9 @@ const wchar_t* GetSM6StageTarget( const eShaderStage shaderStage )
 
 RuntimeShaderCompiler::RuntimeShaderCompiler( BaseAllocator* allocator, VirtualFileSystem* vfs )
     : memoryAllocator( allocator )
-    , runtimeInclude( dk::core::allocate<RuntimeInclude>( allocator, vfs ) )
+#ifdef DUSK_SUPPORT_SM5_COMPILATION
+    , runtimeInclude( dk::core::allocate<RuntimeIncludeSM5>( allocator, vfs ) )
+#endif
     , virtualFileSystem( vfs )
 {
 #ifdef DUSK_SUPPORT_SM6_COMPILATION
@@ -116,14 +206,19 @@ RuntimeShaderCompiler::RuntimeShaderCompiler( BaseAllocator* allocator, VirtualF
 
     dxcHelper.CreateInstance( CLSID_DxcCompiler, &dxcCompiler );
 
-    //IDxcIncludeHandler* includeHandler = nullptr;
-    //dxcLibrary->CreateIncludeHandler( &includeHandler );
+    runtimeIncludeSM6 = dk::core::allocate<RuntimeIncludeSM6>( allocator, vfs, dxcLibrary );
 #endif
 }
 
 RuntimeShaderCompiler::~RuntimeShaderCompiler()
 {
+#ifdef DUSK_SUPPORT_SM5_COMPILATION
     dk::core::free( memoryAllocator, runtimeInclude );
+#endif
+
+#ifdef DUSK_SUPPORT_SM6_COMPILATION
+    dk::core::free( memoryAllocator, runtimeIncludeSM6 );
+#endif
 
     memoryAllocator = nullptr;
     virtualFileSystem = nullptr;
@@ -196,7 +291,7 @@ RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderMod
 
     
     IDxcOperationResult* shaderBlob = nullptr;
-    dxcCompiler->Compile( blob, NULL, DUSK_STRING( "EntryPoint" ), modelTarget, &pArgs[0], sizeof( pArgs ) / sizeof( pArgs[0] ), nullptr, 0, nullptr, &shaderBlob );
+    dxcCompiler->Compile( blob, NULL, DUSK_STRING( "EntryPoint" ), modelTarget, &pArgs[0], sizeof( pArgs ) / sizeof( pArgs[0] ), nullptr, 0, runtimeIncludeSM6, &shaderBlob );
 
     HRESULT hrCompilation;
     shaderBlob->GetStatus( &hrCompilation );
@@ -208,7 +303,7 @@ RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderMod
         DUSK_LOG_ERROR( "'%hs' : Compilation Failed!\n%hs\n", shaderName, printBlob->GetBufferPointer() );
 
         if ( DumpFailedShaders ) {
-            dkString_t dumpFile = DUSK_STRING( "GameData/failed_shaders/" ) + StringToWideString( shaderName ) + DUSK_STRING( ".hlsl" );
+            dkString_t dumpFile = DUSK_STRING( "GameData/failed_shaders/" ) + StringToWideString( shaderName ) + DUSK_STRING( ".sm6.hlsl" );
             FileSystemObject* dumpStream = virtualFileSystem->openFile( dumpFile.c_str(), eFileOpenMode::FILE_OPEN_MODE_WRITE | eFileOpenMode::FILE_OPEN_MODE_BINARY );
             if ( dumpStream->isGood() ) {
                 dumpStream->writeString( "/***********\n" );

@@ -401,7 +401,7 @@ static void PreprocessShaderSource( const std::string& bodySource, const i32 sta
                     // Include (local scope)
                     srcCodeLine.append( " \"" );
                     srcCodeLine.append( token.streamReference.StreamPointer, token.streamReference.Length );
-                    srcCodeLine.append( "\"" );
+                    srcCodeLine.append( "\"\n" );
                 }
             } else if ( tokenValue == "endif" ) {
                 srcCodeLine.append( "endif\n" );
@@ -1140,7 +1140,7 @@ void RenderLibraryGenerator::resetGeneratedContent()
 void RenderLibraryGenerator::appendSharedShaderHeader( std::string& hlslSource ) const
 {
     // TODO Find a way to conditionally add this (e.g. not required for screenspace stuff).
-    hlslSource.append( "#include <AutoExposure/Shared.hlsli>\n\n" );
+    hlslSource.append( "#include \"AutoExposure/Shared.hlsli\"\n\n" );
 
     // PerViewBuffer
     hlslSource.append( "cbuffer PerViewBuffer : register( b0 )\n{\n" );
@@ -1172,7 +1172,7 @@ void RenderLibraryGenerator::appendSharedShaderHeader( std::string& hlslSource )
 
     // PerWorldBuffer
     // TODO Find a way to conditionally add this (e.g. not required for screenspace stuff).
-    hlslSource.append( "#include <Light.h>\n\n" );
+    hlslSource.append( "#include \"Light.h\"\n\n" );
 
     hlslSource.append( "cbuffer PerWorldBuffer : register( b2 )\n{\n" );
     hlslSource.append( "\tDirectionalLightGPU   g_DirectionalLight;\n" );

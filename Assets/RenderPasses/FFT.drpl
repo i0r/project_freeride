@@ -63,7 +63,7 @@ lib FFT
     
     shared 
     {
-        #include <Shared.hlsli>
+        #include "Shared.hlsli"
         
         static const int FFT_SAMPLING_OFFSET = ( $BufferDimension * 0.5f );
                 

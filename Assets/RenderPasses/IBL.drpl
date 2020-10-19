@@ -26,7 +26,7 @@ lib IBL {
     }
     
     shared {
-        #include <ColorSpaces.hlsli>
+        #include "ColorSpaces.hlsli"
         
         float3 ThreadIDToDir(uint2 cubeCoord, uint cubeFace, float2 cubemapSize)
         {

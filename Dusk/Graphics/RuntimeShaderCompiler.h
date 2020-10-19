@@ -6,7 +6,8 @@
 
 class BaseAllocator;
 class VirtualFileSystem;
-class RuntimeInclude;
+class RuntimeIncludeSM5;
+class RuntimeIncludeSM6;
  
 #include <Rendering/RenderDevice.h>
 
@@ -76,8 +77,10 @@ private:
     // The memory allocator owning this instance.
     BaseAllocator*          memoryAllocator;
 
+#if DUSK_SUPPORT_SM5_COMPILATION
     // Helper to resolve HLSL include directives (when using D3DCompile).
-    RuntimeInclude*         runtimeInclude;
+    RuntimeIncludeSM5*         runtimeInclude;
+#endif
 
     // A pointer to the active Virtual File System instance.
     VirtualFileSystem*      virtualFileSystem;
@@ -91,5 +94,8 @@ private:
 
     // DXC compiler instance.
     IDxcCompiler*               dxcCompiler;
+
+    // Helper to resolve HLSL include directives (when using DXC).
+    RuntimeIncludeSM6*          runtimeIncludeSM6;
 #endif
 };

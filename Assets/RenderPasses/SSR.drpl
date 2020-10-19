@@ -48,7 +48,7 @@ lib SSR {
     }
    
     shared {
-        #include <GeometryUtils.hlsli>
+        #include "GeometryUtils.hlsli"
         
         static const float Weight[9] = {
             1.0f / 16,

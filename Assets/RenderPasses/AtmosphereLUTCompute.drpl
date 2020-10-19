@@ -67,7 +67,7 @@ lib AtmosphereLUTCompute {
     }
     
     shared {
-        #include <AtmosphereFunctions.hlsli>
+        #include "AtmosphereFunctions.hlsli"
         
         float ComputeOpticalLengthToTopAtmosphereBoundary(AtmosphereParameters atmosphere, DensityProfile profile, float r, Number mu) 
         {

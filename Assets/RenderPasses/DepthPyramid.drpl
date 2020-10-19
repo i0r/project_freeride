@@ -28,7 +28,7 @@ lib DepthPyramid {
     }
     
     shared { 
-        #include <GeometryUtils.hlsli>
+        #include "GeometryUtils.hlsli"
      
         static const uint ReductionTGSize = 16;      
         static const uint NumThreads = ReductionTGSize * ReductionTGSize;
