@@ -27,9 +27,15 @@ endif ( WIN32 )
 if ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
     target_link_libraries( DuskBaker d3d11 )
     target_link_libraries( DuskBaker dxgi )
-    target_link_libraries( DuskBaker d3dcompiler )
     target_link_libraries( DuskBaker dxguid )
 endif ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
+
+if ( WIN32 )
+    target_link_libraries( DuskBaker d3dcompiler )
+endif( WIN32 )
+ 
+# Required by dxc.use header.
+include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty" )
 
 if(MSVC)
   target_compile_options(DuskBaker PRIVATE /W3 /WX)
