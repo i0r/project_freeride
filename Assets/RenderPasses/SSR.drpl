@@ -381,7 +381,7 @@ lib SSR {
         float3 normal = DecodeNormals( thinGbuffer.rg );
 		float3 r = reflect(v, normal);
 
-		float2 tc = project_tc(P + dist.x * r, g_ViewProjectionMatrix);
+		float2 tc = project_tc(P + dist.x * r, g_ViewProjectionMatrix).rg;
         
         ResolvedOutput[pixelID] = ColorBuffer.SampleLevel( LinearSampler, tc, 0.0f );
     }

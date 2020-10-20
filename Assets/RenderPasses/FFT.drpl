@@ -146,8 +146,8 @@ lib FFT
         float3 C = Texture2SourceR[texelIdx];   
         float3 D = Texture2SourceI[texelIdx];
         
-        TextureTargetR[texelIdx] = float4(A*D + B*C, 0);
-        TextureTargetI[texelIdx] = float4(A*C - B*D, 0);
+        TextureTargetR[texelIdx] = A*D + B*C;
+        TextureTargetI[texelIdx] = A*C - B*D;
     }  
     
     shader FFTRow {

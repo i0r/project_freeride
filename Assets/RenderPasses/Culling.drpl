@@ -96,7 +96,7 @@ lib Culling {
 //#endif
 
             bool insideGuardBand = true;
-            for ( uint i = 0; i < 3; ++i ) {
+            for ( i = 0; i < 3; ++i ) {
                 float2 screenSpacePositionFP = vertices[i].xy * sceenSize;
                 
                 // Check if we would overflow after conversion

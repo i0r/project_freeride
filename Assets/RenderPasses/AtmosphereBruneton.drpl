@@ -269,22 +269,16 @@ lib AtmosphereBruneton {
     // The compute permutation should only be used for distant probe recapture (or anything not relying on
     // depth prepass).
     shader BrunetonSkyCS {
-        float2 ParamRenderTargetSize = ScreenSize;
-        float3 ParamViewDirection = ViewDirection;
-        float3 ParamRightVector = RightVector;
-        float3 ParamUpVector = UpVector;
-        float3 ParamWorldPosition = WorldPosition;
-        float ParamAspectRatio = AspectRatio;
-        
         // Generate a view ray (in world space).
-        float xPixelCoordShifted = (2 * (($SV_DispatchThreadId.x + 0.5f) / ParamRenderTargetSize.x) - 1) * ParamAspectRatio; 
-        float yPixelCoordShifted = (2 * (($SV_DispatchThreadId.y + 0.5f) / ParamRenderTargetSize.y) - 1); 
+        float xPixelCoordShifted = (2 * (($SV_DispatchThreadId.x + 0.5f) / ScreenSize.x) - 1) * AspectRatio; 
+        float yPixelCoordShifted = (2 * (($SV_DispatchThreadId.y + 0.5f) / ScreenSize.y) - 1); 
 
-        float3 rightShift = mul(xPixelCoordShifted, -ParamRightVector);
-        float3 upShift = mul(yPixelCoordShifted, -ParamUpVector);
-        float3 viewDirection =  normalize(ParamViewDirection + rightShift + upShift).xzy;
+        float3 rightShift = xPixelCoordShifted * -RightVector;
+        float3 upShift = yPixelCoordShifted * -UpVector;
+        float3 viewDirection =  normalize(ViewDirection + rightShift + upShift).xzy;
 
-        OutputRenderTarget[$SV_DispatchThreadId.xy] = EncodeRGBD( GetSkyColor( ParamWorldPosition, viewDirection ).rgb );
+        float3 skyColor = GetSkyColor( WorldPosition, viewDirection ).rgb;
+        OutputRenderTarget[$SV_DispatchThreadId.xy] = EncodeRGBD( skyColor );
     }
     
     pass BrunetonSky {

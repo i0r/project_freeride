@@ -37,7 +37,7 @@ lib EditorGrid {
     
     shader GridPixel {
         uint2 texelPos = $SV_Position.xy;
-        float zbufferSample = DepthBuffer[texelPos];
+        float zbufferSample = DepthBuffer[texelPos].r;
         
         clip( $SV_Position.z - zbufferSample );
 
