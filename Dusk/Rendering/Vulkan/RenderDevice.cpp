@@ -877,6 +877,11 @@ void RenderDevice::waitForPendingFrameCompletion()
     vkDeviceWaitIdle( renderContext->device );
 }
 
+void RenderDevice::resizeBackbuffer( const u32 width, const u32 height )
+{
+    
+}
+
 const dkChar_t* RenderDevice::getBackendName()
 {
     return DUSK_STRING( "Vulkan" );
