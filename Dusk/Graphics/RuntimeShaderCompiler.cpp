@@ -152,6 +152,7 @@ public:
         FileSystemObject* file = virtualFileSystem->openFile( filePath.c_str(), eFileOpenMode::FILE_OPEN_MODE_READ );
 
         if ( file == nullptr || !file->isGood() ) {
+            DUSK_LOG_ERROR( "'%s': file not found!\n", filePath.c_str() );
             return S_FALSE;
         }
 
@@ -280,7 +281,7 @@ RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderMod
     const wchar_t* modelTarget = GetSM6StageTarget( shaderStage );
 
     IDxcBlobEncoding* blob = NULL;
-    dxcLibrary->CreateBlobWithEncodingFromPinned( ( LPBYTE )sourceCode, ( UINT32 )sourceCodeLength, 0, &blob );
+    dxcLibrary->CreateBlobWithEncodingOnHeapCopy( ( LPBYTE )sourceCode, ( UINT32 )sourceCodeLength, 0, &blob );
     
     const wchar_t* pArgs[] =
     {
@@ -288,16 +289,23 @@ RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderMod
         L"-WX",				//Warnings as errors
         L"-O2",				//Optimization level 2
     };
-
     
     IDxcOperationResult* shaderBlob = nullptr;
-    dxcCompiler->Compile( blob, NULL, DUSK_STRING( "EntryPoint" ), modelTarget, &pArgs[0], sizeof( pArgs ) / sizeof( pArgs[0] ), nullptr, 0, runtimeIncludeSM6, &shaderBlob );
+    HRESULT compilationResult = dxcCompiler->Compile( blob, NULL, DUSK_STRING( "EntryPoint" ), modelTarget, &pArgs[0], sizeof( pArgs ) / sizeof( pArgs[0] ), nullptr, 0, runtimeIncludeSM6, &shaderBlob );
+
+    blob->Release();
+
+    if ( FAILED( compilationResult ) ) {
+        DUSK_LOG_ERROR( "'%hs' : Compilation Failed: 0x%x!\n", shaderName, compilationResult );
+
+        return GeneratedBytecode( memoryAllocator, nullptr, 0ull );
+    }
 
     HRESULT hrCompilation;
     shaderBlob->GetStatus( &hrCompilation );
 
     if ( FAILED( hrCompilation ) ) {
-        IDxcBlobEncoding* printBlob;
+        IDxcBlobEncoding* printBlob; 
         shaderBlob->GetErrorBuffer( &printBlob );
 
         DUSK_LOG_ERROR( "'%hs' : Compilation Failed!\n%hs\n", shaderName, printBlob->GetBufferPointer() );

@@ -17,6 +17,8 @@ class RuntimeIncludeSM6;
 #define DUSK_SUPPORT_SM6_COMPILATION 1
 #endif
 
+#define DUSK_SUPPORT_SPIRV_COMPILATION 1
+
 #ifdef DUSK_SUPPORT_SM6_COMPILATION
 #include <d3dcompiler.h>
 #include <ThirdParty/dxc/dxcapi.use.h>
