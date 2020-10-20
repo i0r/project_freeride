@@ -13,13 +13,18 @@ class RuntimeIncludeSM6;
 
 // TODO We may want to make those flags modulable.
 #ifdef DUSK_WIN
+// Shader Model 5 is only supported on Windows (fxc isn't portable to unix + no point using sm5 on Unix).
 #define DUSK_SUPPORT_SM5_COMPILATION 1
-#define DUSK_SUPPORT_SM6_COMPILATION 1
 #endif
 
+// For now we'll use dxc to compile from hlsl to spirv/dx bytecode (sm6). Might worth checking spirv-cross parser/compiler if
+// unix support is bad.
+#ifdef DUSK_USE_DIRECTX_COMPILER
+#define DUSK_SUPPORT_SM6_COMPILATION 1
 #define DUSK_SUPPORT_SPIRV_COMPILATION 1
+#endif
 
-#ifdef DUSK_SUPPORT_SM6_COMPILATION
+#ifdef DUSK_USE_DIRECTX_COMPILER
 #include <d3dcompiler.h>
 #include <ThirdParty/dxc/dxcapi.use.h>
 
@@ -73,6 +78,7 @@ public:
     // Compile HLSL code to a blob with SM6.0 bytecode (D3D12 bytecode).
     // If the compilation failed, the Bytecode pointer will be null with a Length of 0.
     // ShaderName is an extra parameter used for logging/debugging (can be duplicated/null if you don't need shader dump).
+    template<bool CompileToSpirv>
     GeneratedBytecode       compileShaderModel6( const eShaderStage shaderStage, const char* sourceCode, const size_t sourceCodeLength, const char* shaderName );
 
 private:
@@ -87,7 +93,7 @@ private:
     // A pointer to the active Virtual File System instance.
     VirtualFileSystem*      virtualFileSystem;
 
-#if DUSK_SUPPORT_SM6_COMPILATION
+#if DUSK_USE_DIRECTX_COMPILER
     // Class helper to load DXC library (used for dxbytecode generation).
     dxc::DxcDllSupport          dxcHelper;
 

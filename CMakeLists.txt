@@ -52,6 +52,7 @@ set( DUSK_USE_NVAPI TRUE CACHE BOOL "Build with Nvidia API (NVAPI)" )
 set( DUSK_USE_AGS TRUE CACHE BOOL "Build with AMD GPU Services (AGS)" )
 set( DUSK_USE_UNITY_BUILD TRUE CACHE BOOL "Use UnityBuild for project compilation" )
 set( DUSK_ENABLE_GPU_DEBUG_MARKER TRUE CACHE BOOL "Enable GPU Debug Markers (resource/region markers, etc.)" )
+set( DUSK_USE_DIRECTX_COMPILER TRUE CACHE BOOL "Use DirectXCompiler for shader compilation (SPIRV/DXC bytecode)" )
 
 set_property(CACHE DUSK_GFX_API PROPERTY STRINGS DUSK_D3D11 DUSK_D3D12 DUSK_VULKAN DUSK_STUB)
 
@@ -100,6 +101,10 @@ endif ( DUSK_USE_NVAPI )
 if ( DUSK_USE_AGS )
     add_definitions( -DDUSK_USE_AGS )
 endif ( DUSK_USE_AGS )
+
+if ( DUSK_USE_DIRECTX_COMPILER )
+    add_definitions( -DDUSK_USE_DIRECTX_COMPILER )
+endif ( DUSK_USE_DIRECTX_COMPILER )
 
 # Add shared include directories (add paths here only if needed)
 include_directories( "${DUSK_BASE_FOLDER}/" )

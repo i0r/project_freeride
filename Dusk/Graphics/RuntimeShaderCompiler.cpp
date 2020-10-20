@@ -78,7 +78,7 @@ const char* GetSM5StageTarget( const eShaderStage shaderStage )
 }
 #endif
 
-#ifdef DUSK_SUPPORT_SM6_COMPILATION
+#ifdef DUSK_USE_DIRECTX_COMPILER
 template<typename... Ts, typename TObject>
 HRESULT DoBasicQueryInterface( TObject* self, REFIID iid, void** ppvObject )
 {
@@ -199,7 +199,7 @@ RuntimeShaderCompiler::RuntimeShaderCompiler( BaseAllocator* allocator, VirtualF
 #endif
     , virtualFileSystem( vfs )
 {
-#ifdef DUSK_SUPPORT_SM6_COMPILATION
+#ifdef DUSK_USE_DIRECTX_COMPILER
     dxcHelper.Initialize();
 
     HRESULT instanceCreationRes = dxcHelper.CreateInstance( CLSID_DxcLibrary, &dxcLibrary );
@@ -217,7 +217,7 @@ RuntimeShaderCompiler::~RuntimeShaderCompiler()
     dk::core::free( memoryAllocator, runtimeInclude );
 #endif
 
-#ifdef DUSK_SUPPORT_SM6_COMPILATION
+#ifdef DUSK_USE_DIRECTX_COMPILER
     dk::core::free( memoryAllocator, runtimeIncludeSM6 );
 #endif
 
@@ -275,20 +275,32 @@ RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderMod
 }
 #endif
 
-#ifdef DUSK_SUPPORT_SM6_COMPILATION
+#ifdef DUSK_USE_DIRECTX_COMPILER
+template<bool CompileToSpirv>
 RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderModel6( const eShaderStage shaderStage, const char* sourceCode, const size_t sourceCodeLength, const char* shaderName )
 {
     const wchar_t* modelTarget = GetSM6StageTarget( shaderStage );
 
     IDxcBlobEncoding* blob = NULL;
     dxcLibrary->CreateBlobWithEncodingOnHeapCopy( ( LPBYTE )sourceCode, ( UINT32 )sourceCodeLength, 0, &blob );
-    
-    const wchar_t* pArgs[] =
+
+    constexpr wchar_t* pArgsDxc[] =
     {
         L"-Zpr",			//Row-major matrices
         L"-WX",				//Warnings as errors
         L"-O2",				//Optimization level 2
     };
+
+    constexpr wchar_t* pArgsSpirv[] =
+    {
+        L"-Zpr",			//Row-major matrices
+        L"-WX",				//Warnings as errors
+        L"-O2",				//Optimization level 2
+        L"-spirv",		    //Compile to Spirv bytecode
+    };
+
+    // TODO Better args list generation (make stuff modular; dont hardcode it).
+    const wchar_t** pArgs = ( CompileToSpirv ) ? pArgsSpirv : pArgsDxc;
     
     IDxcOperationResult* shaderBlob = nullptr;
     HRESULT compilationResult = dxcCompiler->Compile( blob, NULL, DUSK_STRING( "EntryPoint" ), modelTarget, &pArgs[0], sizeof( pArgs ) / sizeof( pArgs[0] ), nullptr, 0, runtimeIncludeSM6, &shaderBlob );

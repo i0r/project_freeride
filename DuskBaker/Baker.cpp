@@ -210,7 +210,7 @@ void dk::baker::Start( const char* cmdLineArgs )
                     shaderStream.close();
 
                     // Use DXC for Shader model 6.0; use spirv-cross for SPIRV bytecode
-                    RuntimeShaderCompiler::GeneratedBytecode compiledShaderSM6 = runtimeShaderCompiler->compileShaderModel6( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), ( shader.OriginalName + "." + shader.Hashcode ).c_str() );
+                    RuntimeShaderCompiler::GeneratedBytecode compiledShaderSM6 = runtimeShaderCompiler->compileShaderModel6<false>( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), ( shader.OriginalName + "." + shader.Hashcode ).c_str() );
                     if ( compiledShaderSM6.Length == 0ull || compiledShaderSM6.Bytecode == nullptr ) {
                         // At least one pass is invalid; flag the file as invalid.
                         isLibraryValid = false;
