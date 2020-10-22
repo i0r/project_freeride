@@ -347,7 +347,8 @@ struct ImageDesc
     // Misc. Flags
     enum {
         IS_CUBE_MAP                     = 1 << 1,
-        ENABLE_HARDWARE_MIP_GENERATION  = 1 << 2
+        ENABLE_HARDWARE_MIP_GENERATION  = 1 << 2,
+        DISABLE_TILING                  = 1 << 3,
     };
 
     eViewFormat     format;

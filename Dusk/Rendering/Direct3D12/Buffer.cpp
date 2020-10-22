@@ -187,11 +187,11 @@ Buffer* RenderDevice::createBuffer( const BufferDesc& description, const void* i
             D3D12_RESOURCE_BARRIER transitionDstBarrier;
             transitionDstBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
             transitionDstBarrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-            transitionDstBarrier.Transition.pResource = buffer->resource[0];
+            transitionDstBarrier.Transition.pResource = buffer->resource[i];
             transitionDstBarrier.Transition.StateBefore = stateFlags;
             transitionDstBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
             transitionDstBarrier.Transition.Subresource = 0;
-
+            
             copyCmdList->ResourceBarrier( 1, &transitionDstBarrier );
         }
 
@@ -199,8 +199,6 @@ Buffer* RenderDevice::createBuffer( const BufferDesc& description, const void* i
             copyCmdList->CopyBufferRegion( buffer->resource[i], 0, uploadResource, 0, alignedSize );
         }
         uploadResource->Unmap( 0, &readRange );
-
-        stateFlags = GetResourceStateFlags( description.BindFlags );
 
         for ( i32 i = 0; i < resourceCount; i++ ) {
             D3D12_RESOURCE_BARRIER transitionDstBarrier2;

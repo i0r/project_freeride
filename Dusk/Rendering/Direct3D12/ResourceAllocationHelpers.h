@@ -7,6 +7,11 @@
 #if DUSK_D3D12
 #include <d3d12.h>
 
+namespace
+{
+    static constexpr size_t RESOURCE_ALLOC_ALIGNMENT = 256;
+}
+
 DUSK_INLINE D3D12_RESOURCE_FLAGS GetNativeResourceFlags( const u32 bindFlags )
 {
     D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
@@ -64,6 +69,45 @@ DUSK_INLINE D3D12_RESOURCE_STATES GetResourceStateFlags( const u32 bindFlags )
     }
 
     return D3D12_RESOURCE_STATE_COMMON;
+}
+
+// Helper function to create a resource on a given heap.
+DUSK_INLINE HRESULT CreatePlacedResource( 
+    ID3D12Device* device, 
+    ID3D12Heap* heap, 
+    const D3D12_RESOURCE_DESC& resourceDesc, 
+    const D3D12_RESOURCE_STATES stateFlags, 
+    const u64 heapOffset,
+    ID3D12Resource** resourceToCreate,
+    const D3D12_CLEAR_VALUE* optimizedClear = nullptr )
+{
+    HRESULT operationResult = device->CreatePlacedResource(
+        heap,
+        heapOffset,
+        &resourceDesc,
+        stateFlags,
+        optimizedClear,
+        __uuidof( ID3D12Resource ),
+        reinterpret_cast< void** >( resourceToCreate )
+    );
+
+    DUSK_DEV_ASSERT( SUCCEEDED( operationResult ), "ID3D12Resource creation failed! (error code: 0x%x)", operationResult );
+
+    return operationResult;
+}
+
+// Realign a given heap offset to satisfy alignment restrictions from D3D12. Note that this resource should be used
+// for static resource allocation (realignment for dynamic resources allocation will lead to heap fragmentation).
+// Dynamic resources allocation should either use volatile memory allocation or use proper allocation scheme (managed at
+// a higher level).
+DUSK_INLINE u64 RealignHeapOffset( const D3D12_RESOURCE_ALLOCATION_INFO& allocInfos, const u64 heapOffset )
+{
+    // Realign heap offset.
+    size_t alignedOffset = ( allocInfos.SizeInBytes < RESOURCE_ALLOC_ALIGNMENT )
+        ? ( heapOffset + RESOURCE_ALLOC_ALIGNMENT )
+        : heapOffset + ( allocInfos.SizeInBytes + ( RESOURCE_ALLOC_ALIGNMENT - ( allocInfos.SizeInBytes % RESOURCE_ALLOC_ALIGNMENT ) ) );
+
+    return alignedOffset;
 }
 
 static constexpr D3D12_RESOURCE_STATES RESOURCE_STATE_LUT[16] = {

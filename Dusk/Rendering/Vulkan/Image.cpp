@@ -13,6 +13,8 @@
 #include "ImageHelpers.h"
 #include "ResourceAllocationHelpers.h"
 
+#include "Core/StringHelpers.h"
+
 static VkImageCreateFlags GetTextureCreateFlags( const ImageDesc& description )
 {
     VkImageCreateFlags flagset = 0;

@@ -373,19 +373,22 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
     renderContext->dynamicBufferHeapOffset = 0;
 
     // Dynamic image heap (same as above)
+
+    constexpr u64 PER_FRAME_CAPACITY = ( 512 << 20 );
+
     heapDesc.Flags = D3D12_HEAP_FLAG_ALLOW_ONLY_RT_DS_TEXTURES; // Tier1 devices need to know the type of resources that'll be allocated on the heap
-    heapDesc.SizeInBytes = ( 256 << 20 );
+    heapDesc.SizeInBytes = PER_FRAME_CAPACITY * RenderDevice::PENDING_FRAME_COUNT;
     renderContext->device->CreateHeap( &heapDesc, __uuidof( ID3D12Heap ), reinterpret_cast< void** >( &renderContext->dynamicImageHeap ) );
 
-    renderContext->dynamicImageHeapPerFrameCapacity = 65536 * 20;
+    renderContext->dynamicImageHeapPerFrameCapacity = PER_FRAME_CAPACITY;
     renderContext->dynamicImageHeapOffset = 0;
 
     // Dynamic image heap (same as above)
     heapDesc.Flags = D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES; // Tier1 devices need to know the type of resources that'll be allocated on the heap
-    heapDesc.SizeInBytes = ( 256 << 20 );
+    heapDesc.SizeInBytes = PER_FRAME_CAPACITY * RenderDevice::PENDING_FRAME_COUNT;
     renderContext->device->CreateHeap( &heapDesc, __uuidof( ID3D12Heap ), reinterpret_cast< void** >( &renderContext->dynamicUavImageHeap ) );
 
-    renderContext->dynamicUavImageHeapPerFrameCapacity = 65536 * 20;
+    renderContext->dynamicUavImageHeapPerFrameCapacity = PER_FRAME_CAPACITY;
     renderContext->dynamicUavImageHeapOffset = 0;
 
     heapDesc.Flags = D3D12_HEAP_FLAG_DENY_RT_DS_TEXTURES | D3D12_HEAP_FLAG_DENY_NON_RT_DS_TEXTURES; // Tier1 devices need to know the type of resources that'll be allocated on the heap

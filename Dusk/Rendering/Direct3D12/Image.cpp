@@ -22,6 +22,8 @@
 
 Image* RenderDevice::createImage( const ImageDesc& description, const void* initialData, const size_t initialDataSize )
 {
+    DXGI_FORMAT nativeFormat = static_cast< DXGI_FORMAT >( description.format );
+
     D3D12_RESOURCE_DESC resourceDesc;
     if ( description.dimension == ImageDesc::DIMENSION_1D ) {
         resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE1D;
@@ -40,16 +42,17 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
         resourceDesc.DepthOrArraySize = description.depth * description.arraySize;
     }
 
-    DXGI_FORMAT nativeFormat = static_cast< DXGI_FORMAT >( description.format );
     resourceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
     resourceDesc.MipLevels = description.mipCount;
     resourceDesc.Format = nativeFormat;
     resourceDesc.SampleDesc.Count = description.samplerCount;
     resourceDesc.SampleDesc.Quality = ( description.samplerCount > 1 ) ? DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN : 0;
-    resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE;
+    resourceDesc.Layout = ( description.miscFlags & ImageDesc::DISABLE_TILING ) ? D3D12_TEXTURE_LAYOUT_ROW_MAJOR : D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE;
     resourceDesc.Flags = GetNativeResourceFlags( description.bindFlags );
     
     ID3D12Device* device = renderContext->device;
+
+    // If we need to upload data from a staging buffer, initialize the resource as common (we can skip a resource barrier).
     D3D12_RESOURCE_STATES stateFlags = ( initialData == nullptr ) ? GetResourceStateFlags( description.bindFlags ) : D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON;
     
     Image* image = dk::core::allocate<Image>( memoryAllocator );
@@ -62,6 +65,7 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
     image->dimension = description.dimension;
     image->defaultFormat = nativeFormat;
 
+    // Set initial resource state for each buffered resource.
     for ( i32 i = 0; i < PENDING_FRAME_COUNT; i++ ) {
         image->currentResourceState[i] = stateFlags;
     }
@@ -69,28 +73,22 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
     D3D12_RESOURCE_ALLOCATION_INFO allocInfos;
     HRESULT operationResult = S_OK;
     switch ( description.usage ) {
-    case RESOURCE_USAGE_STATIC: {
-        operationResult = device->CreatePlacedResource(
-            renderContext->staticImageHeap,
-            renderContext->heapOffset,
-            &resourceDesc,  
-            stateFlags,
-            nullptr,
-            __uuidof( ID3D12Resource ),
-            reinterpret_cast< void** >( &image->resource[0] )
-        );
-        DUSK_DEV_ASSERT( SUCCEEDED( operationResult ), "Image creation FAILED! (error code: 0x%x)", operationResult );
+    case RESOURCE_USAGE_STATIC: { 
+        operationResult = CreatePlacedResource( device, renderContext->staticImageHeap, resourceDesc, stateFlags, renderContext->heapOffset, &image->resource[0] );
 
         // Static images are single-buffered; copy the original handle for convenience in the other slots
         for ( i32 i = 1; i < PENDING_FRAME_COUNT; i++ ) {
             image->resource[i] = image->resource[0];
         }
 
-        // TODO Should we take alignment in account? Or assume every allocation will be memory aligned by default?
         allocInfos = device->GetResourceAllocationInfo( 0, 1, &resourceDesc );
-        renderContext->heapOffset += allocInfos.SizeInBytes;
+
+        // Realign heap offset (we don't really care about fragmentation since static resources will stay during the whole application lifetime).
+        renderContext->heapOffset = RealignHeapOffset( allocInfos, renderContext->heapOffset );
     } break;
     case RESOURCE_USAGE_STAGING: {
+        // Staging resource allocation is only a single frame timed so it is best to let the driver decide where the allocation
+        // should be made.
         D3D12_HEAP_PROPERTIES readbackHeapProperties;
         readbackHeapProperties.Type = D3D12_HEAP_TYPE_READBACK;
         readbackHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
@@ -98,7 +96,7 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
         readbackHeapProperties.CreationNodeMask = 0;
         readbackHeapProperties.VisibleNodeMask = 0;
 
-        operationResult = device->CreateCommittedResource(
+        operationResult &= device->CreateCommittedResource(
             &readbackHeapProperties,
             D3D12_HEAP_FLAG_NONE,
             &resourceDesc,
@@ -127,47 +125,28 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
         bool isRtvOrDsv = ( description.bindFlags & RESOURCE_BIND_RENDER_TARGET_VIEW || description.bindFlags & RESOURCE_BIND_DEPTH_STENCIL );
         if ( description.bindFlags & RESOURCE_BIND_UNORDERED_ACCESS_VIEW && !isRtvOrDsv ) {
             for ( i32 i = 0; i < RenderDevice::PENDING_FRAME_COUNT; i++ ) {
-                operationResult = device->CreatePlacedResource(
-                    renderContext->dynamicUavImageHeap,
-                    renderContext->dynamicUavImageHeapPerFrameCapacity * i + renderContext->dynamicUavImageHeapOffset,
-                    &resourceDesc,
-                    stateFlags,
-                    pOptimizedClear,
-                    __uuidof( ID3D12Resource ),
-                    reinterpret_cast< void** >( &image->resource[i] )
-                );
+                const u64 heapOffset = renderContext->dynamicUavImageHeapPerFrameCapacity * i + renderContext->dynamicUavImageHeapOffset;
 
-                // TODO Should we take alignment in account? Or assume every allocation will be memory aligned by default?
-                allocInfos = device->GetResourceAllocationInfo( 0, 1, &resourceDesc );
-                renderContext->dynamicUavImageHeapOffset += allocInfos.SizeInBytes;
-
-                DUSK_DEV_ASSERT( SUCCEEDED( operationResult ), "Image creation FAILED! (error code: 0x%x)", operationResult );
+                operationResult &= CreatePlacedResource( device, renderContext->dynamicUavImageHeap, resourceDesc, stateFlags, heapOffset, &image->resource[i], pOptimizedClear );
             }
         } else if ( isRtvOrDsv ) {
             for ( i32 i = 0; i < RenderDevice::PENDING_FRAME_COUNT; i++ ) {
-                operationResult = device->CreatePlacedResource(
-                    renderContext->dynamicImageHeap,
-                    renderContext->dynamicImageHeapPerFrameCapacity * i + renderContext->dynamicImageHeapOffset,
-                    &resourceDesc,
-                    stateFlags,
-                    pOptimizedClear,
-                    __uuidof( ID3D12Resource ),
-                    reinterpret_cast< void** >( &image->resource[i] )
-                );
+                const u64 heapOffset = renderContext->dynamicImageHeapPerFrameCapacity * i + renderContext->dynamicImageHeapOffset;
 
-                // TODO Should we take alignment in account? Or assume every allocation will be memory aligned by default?
-                allocInfos = device->GetResourceAllocationInfo( 0, 1, &resourceDesc );
-                renderContext->dynamicImageHeapOffset += allocInfos.SizeInBytes;
-
-                DUSK_DEV_ASSERT( SUCCEEDED( operationResult ), "Image creation FAILED! (error code: 0x%x)", operationResult );
+                operationResult &= CreatePlacedResource( device, renderContext->dynamicImageHeap, resourceDesc, stateFlags, heapOffset, &image->resource[i], pOptimizedClear );
             }
         } else {
             DUSK_RAISE_FATAL_ERROR( false, "Invalid bindFlags combination! (An Image with a usage DEFAULT must be writable using a RTV or a UAV)" );
         }
+
+        // TODO This is only temporary; in the future allocation strategy will be managed at a higher level.
+        allocInfos = device->GetResourceAllocationInfo( 0, 1, &resourceDesc );
+
+        renderContext->dynamicUavImageHeapOffset = RealignHeapOffset( allocInfos, renderContext->dynamicUavImageHeapOffset );
     } break;
     }
 
-    if ( initialData != nullptr ) {
+    if ( SUCCEEDED( operationResult ) && initialData != nullptr ) {
         D3D12_HEAP_PROPERTIES uploadHeapProperties;
         uploadHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
         uploadHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
