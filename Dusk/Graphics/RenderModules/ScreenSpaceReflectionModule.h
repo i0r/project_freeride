@@ -9,7 +9,9 @@ class GraphicsAssetCache;
 class RenderDevice;
 
 struct Image;
-struct FGHandle;
+
+#include "Graphics/FrameGraph.h"
+#include "Graphics/ShaderHeaders/Light.h"
 
 class SSRModule 
 {
