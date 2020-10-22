@@ -192,6 +192,24 @@ const wchar_t* GetSM6StageTarget( const eShaderStage shaderStage )
 }
 #endif
 
+void RuntimeShaderCompiler::SaveToDisk( VirtualFileSystem* virtualFileSystem, const dkString_t& shaderFolder, const RuntimeShaderCompiler::GeneratedBytecode& compiledShader, const std::string& shaderFilename )
+{
+    if ( compiledShader.Length == 0ull || compiledShader.Bytecode == nullptr ) {
+        DUSK_LOG_DEBUG( "'%hs' : shader compilation failed; skipping save to disk!\n", shaderFilename.c_str() );
+        return;
+    }
+
+    dkString_t shaderBinPath = shaderFolder + StringToWideString( shaderFilename );
+
+    FileSystemObject* compiledShaderBin = virtualFileSystem->openFile( shaderBinPath, eFileOpenMode::FILE_OPEN_MODE_WRITE | eFileOpenMode::FILE_OPEN_MODE_BINARY );
+    if ( compiledShaderBin->isGood() ) {
+        compiledShaderBin->write( compiledShader.Bytecode, compiledShader.Length );
+        compiledShaderBin->close();
+
+        DUSK_LOG_DEBUG( "'%hs' : shader has been saved successfully!\n", shaderFilename.c_str() );
+    }
+}
+
 RuntimeShaderCompiler::RuntimeShaderCompiler( BaseAllocator* allocator, VirtualFileSystem* vfs )
     : memoryAllocator( allocator )
 #ifdef DUSK_SUPPORT_SM5_COMPILATION
@@ -276,7 +294,6 @@ RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderMod
 #endif
 
 #ifdef DUSK_USE_DIRECTX_COMPILER
-template<bool CompileToSpirv>
 RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderModel6( const eShaderStage shaderStage, const char* sourceCode, const size_t sourceCodeLength, const char* shaderName )
 {
     const wchar_t* modelTarget = GetSM6StageTarget( shaderStage );
@@ -284,23 +301,12 @@ RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderMod
     IDxcBlobEncoding* blob = NULL;
     dxcLibrary->CreateBlobWithEncodingOnHeapCopy( ( LPBYTE )sourceCode, ( UINT32 )sourceCodeLength, 0, &blob );
 
-    constexpr wchar_t* pArgsDxc[] =
+    const wchar_t* pArgs[] =
     {
         L"-Zpr",			//Row-major matrices
         L"-WX",				//Warnings as errors
         L"-O2",				//Optimization level 2
     };
-
-    constexpr wchar_t* pArgsSpirv[] =
-    {
-        L"-Zpr",			//Row-major matrices
-        L"-WX",				//Warnings as errors
-        L"-O2",				//Optimization level 2
-        L"-spirv",		    //Compile to Spirv bytecode
-    };
-
-    // TODO Better args list generation (make stuff modular; dont hardcode it).
-    const wchar_t** pArgs = ( CompileToSpirv ) ? pArgsSpirv : pArgsDxc;
     
     IDxcOperationResult* shaderBlob = nullptr;
     HRESULT compilationResult = dxcCompiler->Compile( blob, NULL, DUSK_STRING( "EntryPoint" ), modelTarget, &pArgs[0], sizeof( pArgs ) / sizeof( pArgs[0] ), nullptr, 0, runtimeIncludeSM6, &shaderBlob );
@@ -318,6 +324,79 @@ RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderMod
 
     if ( FAILED( hrCompilation ) ) {
         IDxcBlobEncoding* printBlob; 
+        shaderBlob->GetErrorBuffer( &printBlob );
+
+        DUSK_LOG_ERROR( "'%hs' : Compilation Failed!\n%hs\n", shaderName, printBlob->GetBufferPointer() );
+
+        if ( DumpFailedShaders ) {
+            dkString_t dumpFile = DUSK_STRING( "GameData/failed_shaders/" ) + StringToWideString( shaderName ) + DUSK_STRING( ".sm6.hlsl" );
+            FileSystemObject* dumpStream = virtualFileSystem->openFile( dumpFile.c_str(), eFileOpenMode::FILE_OPEN_MODE_WRITE | eFileOpenMode::FILE_OPEN_MODE_BINARY );
+            if ( dumpStream->isGood() ) {
+                dumpStream->writeString( "/***********\n" );
+                dumpStream->write( static_cast< u8* >( printBlob->GetBufferPointer() ), printBlob->GetBufferSize() - 1 );
+                dumpStream->writeString( "***********/\n\n" );
+                dumpStream->writeString( sourceCode, sourceCodeLength );
+                dumpStream->close();
+            }
+        }
+
+        if ( printBlob != nullptr ) {
+            printBlob->Release();
+        }
+
+        if ( shaderBlob != nullptr ) {
+            shaderBlob->Release();
+        }
+
+        return GeneratedBytecode( memoryAllocator, nullptr, 0ull );
+    }
+
+    DUSK_LOG_DEBUG( "'%hs' : Compilation Suceeded!\n", shaderName );
+
+    IDxcBlob* result = nullptr;
+    shaderBlob->GetResult( &result );
+
+    size_t bytecodeLength = result->GetBufferSize();
+    u8* bytecodeArray = dk::core::allocateArray<u8>( memoryAllocator, bytecodeLength );
+    memcpy( bytecodeArray, result->GetBufferPointer(), bytecodeLength );
+
+    result->Release();
+    shaderBlob->Release();
+
+    return GeneratedBytecode( memoryAllocator, bytecodeArray, bytecodeLength );
+}
+
+RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderModel6Spirv( const eShaderStage shaderStage, const char* sourceCode, const size_t sourceCodeLength, const char* shaderName )
+{
+    const wchar_t* modelTarget = GetSM6StageTarget( shaderStage );
+
+    IDxcBlobEncoding* blob = NULL;
+    dxcLibrary->CreateBlobWithEncodingOnHeapCopy( ( LPBYTE )sourceCode, ( UINT32 )sourceCodeLength, 0, &blob );
+
+    const wchar_t* pArgs[] =
+    {
+        L"-Zpr",			//Row-major matrices
+        L"-WX",				//Warnings as errors
+        L"-O2",				//Optimization level 2
+        L"-spirv",		    //Compile to Spirv bytecode
+    };
+
+    IDxcOperationResult* shaderBlob = nullptr;
+    HRESULT compilationResult = dxcCompiler->Compile( blob, NULL, DUSK_STRING( "EntryPoint" ), modelTarget, &pArgs[0], sizeof( pArgs ) / sizeof( pArgs[0] ), nullptr, 0, runtimeIncludeSM6, &shaderBlob );
+
+    blob->Release();
+
+    if ( FAILED( compilationResult ) ) {
+        DUSK_LOG_ERROR( "'%hs' : Compilation Failed: 0x%x!\n", shaderName, compilationResult );
+
+        return GeneratedBytecode( memoryAllocator, nullptr, 0ull );
+    }
+
+    HRESULT hrCompilation;
+    shaderBlob->GetStatus( &hrCompilation );
+
+    if ( FAILED( hrCompilation ) ) {
+        IDxcBlobEncoding* printBlob;
         shaderBlob->GetErrorBuffer( &printBlob );
 
         DUSK_LOG_ERROR( "'%hs' : Compilation Failed!\n%hs\n", shaderName, printBlob->GetBufferPointer() );
