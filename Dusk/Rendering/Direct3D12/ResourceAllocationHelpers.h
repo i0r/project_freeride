@@ -9,7 +9,7 @@
 
 namespace
 {
-    static constexpr size_t RESOURCE_ALLOC_ALIGNMENT = 256;
+    static constexpr size_t RESOURCE_ALLOC_ALIGNMENT = 65536;
 }
 
 DUSK_INLINE D3D12_RESOURCE_FLAGS GetNativeResourceFlags( const u32 bindFlags )
@@ -100,12 +100,12 @@ DUSK_INLINE HRESULT CreatePlacedResource(
 // for static resource allocation (realignment for dynamic resources allocation will lead to heap fragmentation).
 // Dynamic resources allocation should either use volatile memory allocation or use proper allocation scheme (managed at
 // a higher level).
-DUSK_INLINE u64 RealignHeapOffset( const D3D12_RESOURCE_ALLOCATION_INFO& allocInfos, const u64 heapOffset )
+DUSK_INLINE u64 RealignHeapOffset( const D3D12_RESOURCE_ALLOCATION_INFO& allocInfos, const u64 heapOffset, const size_t alignmentInBytes = RESOURCE_ALLOC_ALIGNMENT )
 {
     // Realign heap offset.
-    size_t alignedOffset = ( allocInfos.SizeInBytes < RESOURCE_ALLOC_ALIGNMENT )
-        ? ( heapOffset + RESOURCE_ALLOC_ALIGNMENT )
-        : heapOffset + ( allocInfos.SizeInBytes + ( RESOURCE_ALLOC_ALIGNMENT - ( allocInfos.SizeInBytes % RESOURCE_ALLOC_ALIGNMENT ) ) );
+    size_t alignedOffset = ( allocInfos.SizeInBytes < alignmentInBytes )
+        ? ( heapOffset + alignmentInBytes )
+        : heapOffset + ( allocInfos.SizeInBytes + ( alignmentInBytes - ( allocInfos.SizeInBytes % alignmentInBytes ) ) );
 
     return alignedOffset;
 }

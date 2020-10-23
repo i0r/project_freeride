@@ -20,6 +20,12 @@
 
 #include <d3d12.h>
 
+// Return true if the given format is typeless (i.e. not strongly typed); false otherwise.
+bool IsTypelessFormat( const DXGI_FORMAT format )
+{
+    return format == DXGI_FORMAT_R32_TYPELESS;
+}
+
 Image* RenderDevice::createImage( const ImageDesc& description, const void* initialData, const size_t initialDataSize )
 {
     DXGI_FORMAT nativeFormat = static_cast< DXGI_FORMAT >( description.format );
@@ -74,7 +80,7 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
     HRESULT operationResult = S_OK;
     switch ( description.usage ) {
     case RESOURCE_USAGE_STATIC: { 
-        operationResult = CreatePlacedResource( device, renderContext->staticImageHeap, resourceDesc, stateFlags, renderContext->heapOffset, &image->resource[0] );
+        operationResult = CreatePlacedResource( device, renderContext->staticImageHeap, resourceDesc, stateFlags, renderContext->imageheapOffset, &image->resource[0] );
 
         // Static images are single-buffered; copy the original handle for convenience in the other slots
         for ( i32 i = 1; i < PENDING_FRAME_COUNT; i++ ) {
@@ -84,7 +90,7 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
         allocInfos = device->GetResourceAllocationInfo( 0, 1, &resourceDesc );
 
         // Realign heap offset (we don't really care about fragmentation since static resources will stay during the whole application lifetime).
-        renderContext->heapOffset = RealignHeapOffset( allocInfos, renderContext->heapOffset );
+        renderContext->imageheapOffset = RealignHeapOffset( allocInfos, renderContext->imageheapOffset, resourceDesc.Alignment );
     } break;
     case RESOURCE_USAGE_STAGING: {
         // Staging resource allocation is only a single frame timed so it is best to let the driver decide where the allocation
@@ -117,10 +123,13 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
         optimizedClearValue.Color[1] = 0.0f;
         optimizedClearValue.Color[2] = 0.0f;
         optimizedClearValue.Color[3] = 0.0f;
-        optimizedClearValue.Format = nativeFormat;
+        optimizedClearValue.Format = ( IsTypelessFormat( nativeFormat ) ) ? static_cast<DXGI_FORMAT>( description.DefaultView.ViewFormat ) : nativeFormat;
 
         // Check if optimized clear is available (based on resource's bind flagset)
         D3D12_CLEAR_VALUE* pOptimizedClear = ( description.bindFlags & RESOURCE_BIND_RENDER_TARGET_VIEW ) ? &optimizedClearValue : nullptr;
+
+        // TODO This is only temporary; in the future allocation strategy will be managed at a higher level.
+        allocInfos = device->GetResourceAllocationInfo( 0, 1, &resourceDesc );
 
         bool isRtvOrDsv = ( description.bindFlags & RESOURCE_BIND_RENDER_TARGET_VIEW || description.bindFlags & RESOURCE_BIND_DEPTH_STENCIL );
         if ( description.bindFlags & RESOURCE_BIND_UNORDERED_ACCESS_VIEW && !isRtvOrDsv ) {
@@ -129,20 +138,19 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
 
                 operationResult &= CreatePlacedResource( device, renderContext->dynamicUavImageHeap, resourceDesc, stateFlags, heapOffset, &image->resource[i], pOptimizedClear );
             }
+
+            renderContext->dynamicUavImageHeapOffset = RealignHeapOffset( allocInfos, renderContext->dynamicUavImageHeapOffset );
         } else if ( isRtvOrDsv ) {
             for ( i32 i = 0; i < RenderDevice::PENDING_FRAME_COUNT; i++ ) {
                 const u64 heapOffset = renderContext->dynamicImageHeapPerFrameCapacity * i + renderContext->dynamicImageHeapOffset;
 
                 operationResult &= CreatePlacedResource( device, renderContext->dynamicImageHeap, resourceDesc, stateFlags, heapOffset, &image->resource[i], pOptimizedClear );
             }
+
+            renderContext->dynamicImageHeapOffset = RealignHeapOffset( allocInfos, renderContext->dynamicImageHeapOffset );
         } else {
             DUSK_RAISE_FATAL_ERROR( false, "Invalid bindFlags combination! (An Image with a usage DEFAULT must be writable using a RTV or a UAV)" );
         }
-
-        // TODO This is only temporary; in the future allocation strategy will be managed at a higher level.
-        allocInfos = device->GetResourceAllocationInfo( 0, 1, &resourceDesc );
-
-        renderContext->dynamicUavImageHeapOffset = RealignHeapOffset( allocInfos, renderContext->dynamicUavImageHeapOffset );
     } break;
     }
 
