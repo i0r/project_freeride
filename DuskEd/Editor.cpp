@@ -156,6 +156,7 @@ DUSK_DEV_VAR_PERSISTENT( UseRenderDocCapture, false, bool );// "Use RenderDoc fr
                                                            // (note: renderdoc dynamic lib must be present in the working dir)
 DUSK_DEV_VAR( DisplayCulledPrimCount, "Display the number of primitive culled for the Viewport[0]", false, bool );
 DUSK_DEV_VAR( DisplayFramerate, "Display basic framerate infos", true, bool );
+DUSK_ENV_VAR( MonitorIndex, 0, i32 ) // "Monitor index used for render device creation. If 0, will use the primary monitor as a display."
 
 void UpdateFreeCamera( MappedInput& input, f32 deltaTime )
 {
@@ -443,7 +444,7 @@ void InitializeRenderSubsystems()
 #endif
 
     g_DisplaySurface = dk::core::allocate<DisplaySurface>( g_GlobalAllocator, g_GlobalAllocator );
-    g_DisplaySurface->create( ScreenSize.x, ScreenSize.y, eDisplayMode::WINDOWED );
+    g_DisplaySurface->create( ScreenSize.x, ScreenSize.y, eDisplayMode::WINDOWED, MonitorIndex );
     g_DisplaySurface->setCaption( DUSK_STRING( "DuskEd" ) );
 
     switch ( WindowMode ) {

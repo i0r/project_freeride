@@ -11,6 +11,9 @@ DisplaySurface::DisplaySurface( BaseAllocator* allocator )
     , displayMode( eDisplayMode::WINDOWED )
     , width( 0u )
     , height( 0u )
+    , originX( 0 )
+    , originY( 0 )
+    , monitorIndex( 0u )
 {
 
 }

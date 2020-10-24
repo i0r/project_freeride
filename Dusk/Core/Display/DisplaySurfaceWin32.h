@@ -25,6 +25,20 @@ struct NativeDisplaySurface
         u32     HasBeenResized : 1;
     } Flags;
 
+    NativeDisplaySurface()
+        : Instance( NULL )
+        , Handle( NULL )
+        , ClassName( nullptr )
+        , DrawContext( NULL )
+        , WindowWidth( 0u )
+        , WindowHeight( 0u )
+        , ClientWidth( 0u )
+        , ClientHeight( 0u )
+        , Flags{ 0 }
+    {
+
+    }
+
     ~NativeDisplaySurface()
     {
         ShowWindow( Handle, SW_HIDE );
