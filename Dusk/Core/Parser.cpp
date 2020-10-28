@@ -256,6 +256,51 @@ void Parser::parseMaterial()
     }
 }
 
+void Parser::parseEditableMaterial()
+{
+    Token token;
+    if ( !lexer.expectToken( Token::STRING, token ) ) {
+        return;
+    }
+
+    Token::StreamRef name = token.streamReference;
+
+    if ( !lexer.expectToken( Token::OPEN_BRACE, token ) ) {
+        return;
+    }
+
+    TypeAST& type = types[typesCount++];
+    type.Name = name;
+    type.Type = TypeAST::EDITABLE_MATERIAL;
+    type.Exportable = true;
+
+    while ( !lexer.equalToken( Token::CLOSE_BRACE, token ) ) {
+        if ( token.type == Token::IDENTIFIER ) {
+            if ( dk::core::ExpectKeyword( token.streamReference.StreamPointer, 5, "layer" ) ) {
+                if ( !lexer.expectToken( Token::OPEN_BRACE, token ) ) {
+                    return;
+                }
+
+                TypeAST& layer = types[typesCount++];
+                layer.Type = TypeAST::EDITABLE_MATERIAL_LAYER;
+                layer.Exportable = true;
+
+                type.Types.push_back( &layer );
+
+                while ( !lexer.equalToken( Token::CLOSE_BRACE, token ) ) {
+                    if ( token.type == Token::IDENTIFIER ) {
+                        // Parse flags/typeless variables.
+                        parseVariable( token.streamReference, layer, true );
+                    }
+                }
+            } else {
+                // Parse flags/typeless variables.
+                parseVariable( token.streamReference, type, true );
+            }
+        }
+    }
+}
+
 void Parser::parseShaderPermutation( Token& token, TypeAST& scenarioType )
 {
     Token::StreamRef stageName = token.streamReference;
@@ -357,6 +402,10 @@ void Parser::parseIdentifier( const Token& token )
                     return;
                 }
 
+                if ( dk::core::ExpectKeyword( token.streamReference.StreamPointer, 17, "editable_material" ) ) {
+                    parseEditableMaterial();
+                    return;
+                }
                 break;
             }
                     

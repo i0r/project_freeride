@@ -20,20 +20,10 @@ float3 DecodeNormals( float2 enc )
     return float3(scth.y*scphi.x, scth.x*scphi.x, scphi.y);
 }
 
-// Return linearized depth. Note that if the app is using reversed z, you should use ConvertFromReversedDepth
-// instead (the depth will already be linearized).
 float LinearizeDepth(float depth, float near, float far)
 {
     float z = depth * 2.0 - 1.0; // back to NDC 
     return (2.0 * near * far) / (far + near - z * (far - near));    
-}
-
-// Return Linear depth from a reversed depth sample. Required so that we don't have
-// to modify raymarching algorithm for reversed z.
-float ConvertFromReversedDepth(float d,float zNear)
-{
-    float safeDepth = d; //max( 0.0000001f, d );
-    return zNear / safeDepth;
 }
 
 // Return screen position from uv coordinates (0..1) and linearized depth.
@@ -64,5 +54,20 @@ float4 TangentToWorld(float3 N, float4 H)
 	float3 B = cross(N, T);
 
 	return float4((T * H.x) + (B * H.y) + (N * H.z), H.w);
+}
+
+// Return linearized depth (projection does not matter).
+inline float Linear01Depth( float z, float far, float near)
+{
+	return (z * near) / (far - z * (far - near));
+    
+    // float zc0 = 1.0 - far / near;
+    // float zc1 = far / near;
+    // return 1.0 / ( zc0 * z + zc1 );
+}
+
+float ViewDepth(float depth, float far, float near)
+{
+	return (far * near) / (far - depth * (far - near));
 }
 #endif

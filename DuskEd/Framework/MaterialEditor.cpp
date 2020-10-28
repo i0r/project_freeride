@@ -122,6 +122,68 @@ isMaterialDirty = true;\
             }
         }
 
+        if ( ImGui::Button( "Load" ) ) {
+            // TODO Legacy shit. Should be removed once the asset browser is implemented.
+            dkString_t fullPathToAsset;
+            if ( dk::core::DisplayFileSelectionPrompt( fullPathToAsset,
+                                                       dk::core::SelectionType::OpenFile,
+                                                       DUSK_STRING( "Dusk Editable Material (*.dem)\0*.dem\0" ) ) ) {
+                dk::core::SanitizeFilepathSlashes( fullPathToAsset );
+
+                dkString_t workingDirectory;
+                dk::core::RetrieveWorkingDirectory( workingDirectory );
+                dk::core::RemoveWordFromString( workingDirectory, DUSK_STRING( "build/bin/" ) );
+
+                if ( !dk::core::ContainsString( fullPathToAsset, workingDirectory ) ) {
+                    // TODO Copy resource to the working directory.
+                } else {
+                    dk::core::RemoveWordFromString( fullPathToAsset, workingDirectory );
+                    dk::core::RemoveWordFromString( fullPathToAsset, DUSK_STRING( "data/" ) );
+                    dk::core::RemoveWordFromString( fullPathToAsset, DUSK_STRING( "Assets/" ) );
+
+                    dkString_t fileSystemPath = dkString_t( DUSK_STRING( "EditorAssets/" ) ) + fullPathToAsset + DUSK_STRING( ".dem" );
+
+                    FileSystemObject* materialDescriptor = virtualFileSystem->openFile( fileSystemPath, eFileOpenMode::FILE_OPEN_MODE_READ );
+                    if ( materialDescriptor->isGood() ) {
+                        editedMaterial.loadFromFile( materialDescriptor, memoryAllocator, graphicsAssetCache );
+                        materialDescriptor->close();
+                    }
+                }
+            }
+        }
+
+        ImGui::SameLine();
+
+        if ( ImGui::Button( "Save" ) ) {
+            // TODO Legacy shit. Should be removed once the asset browser is implemented.
+            dkString_t fullPathToAsset;
+            if ( dk::core::DisplayFileSelectionPrompt( fullPathToAsset,
+                                                       dk::core::SelectionType::SaveFile,
+                                                       DUSK_STRING( "Dusk Editable Material (*.dem)\0*.dem\0" ) ) ) {
+                dk::core::SanitizeFilepathSlashes( fullPathToAsset );
+
+                dkString_t workingDirectory;
+                dk::core::RetrieveWorkingDirectory( workingDirectory );
+                dk::core::RemoveWordFromString( workingDirectory, DUSK_STRING( "build/bin/" ) );
+
+                if ( !dk::core::ContainsString( fullPathToAsset, workingDirectory ) ) {
+                    // TODO Copy resource to the working directory.
+                } else {
+                    dk::core::RemoveWordFromString( fullPathToAsset, workingDirectory );
+                    dk::core::RemoveWordFromString( fullPathToAsset, DUSK_STRING( "data/" ) );
+                    dk::core::RemoveWordFromString( fullPathToAsset, DUSK_STRING( "Assets/" ) );
+
+                    dkString_t fileSystemPath = dkString_t( DUSK_STRING( "EditorAssets/" ) ) + fullPathToAsset + DUSK_STRING( ".dem" );
+
+                    FileSystemObject* materialDescriptor = virtualFileSystem->openFile( fileSystemPath, eFileOpenMode::FILE_OPEN_MODE_WRITE );
+                    if ( materialDescriptor->isGood() ) {
+                        editedMaterial.serialize( materialDescriptor );
+                        materialDescriptor->close();
+                    }
+                }
+            }
+        }
+
         // Material Description.
         ImGui::InputText( "Name", editedMaterial.Name, DUSK_MAX_PATH );
 
