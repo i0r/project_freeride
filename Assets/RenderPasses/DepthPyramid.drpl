@@ -43,7 +43,7 @@ lib DepthPyramid {
         uint2 samplePos = $SV_GroupID.xy * ReductionTGSize + $SV_GroupThreadID.xy;
         samplePos = min(samplePos, TextureSize - 1);
 
-        float depthSample = ConvertFromReversedDepth( DepthBuffer[samplePos], g_ClippingPlanes.x, g_ClippingPlanes.y );
+        float depthSample = Linear01Depth( DepthBuffer[samplePos], g_ClippingPlanes.x, g_ClippingPlanes.y );
 
         if(depthSample < 1.0f)
         {
