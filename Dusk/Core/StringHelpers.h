@@ -13,6 +13,23 @@ namespace dk
 {
     namespace core
     {
+        template<typename T>
+        std::string ToHexString( const T value )
+        {
+            static_assert( std::is_integral<T>(), "Input type is not a integer" );
+
+            static constexpr const char* LUT = "0123456789ABCDEF";
+            static constexpr size_t TYPE_SIZE = sizeof( T ) << 1;
+            
+            std::string result;
+            for ( size_t i = 0, j = ( TYPE_SIZE - 1 ) * 4; i < TYPE_SIZE; ++i, j -= 4 ) {
+                result += ( LUT[( value >> j ) & 0x0f] );
+            }
+
+            return result;
+
+        }
+
         DUSK_INLINE bool ExpectKeyword( const char* str, const size_t keywordLength, const char* keyword )
         {
             return ( strncmp( str, keyword, keywordLength ) == 0 );
