@@ -24,9 +24,7 @@ public:
     };
 
 public:
-    // TODO MSVC Bug - For some retarded reason, we MUST declare the local matrix getter FIRST (otherwise the compiler
-    // crashes somehow). I guess it might be related to a compiler optimization which fucks up the memory alignment.
-	DUSK_INLINE const dkMat4x4f&    getLocalMatrix( const Instance instance ) const { return instanceData.Local[instance.getIndex()]; }
+   DUSK_INLINE const dkMat4x4f&     getLocalMatrix( const Instance instance ) const { return instanceData.Local[instance.getIndex()]; }
 	DUSK_INLINE const dkMat4x4f&    getWorldMatrix( const Instance instance ) const { return instanceData.World[instance.getIndex()]; }
     DUSK_INLINE dkMat4x4f&          referenceToLocalMatrix( const Instance instance ) { return instanceData.Local[instance.getIndex()]; }
 

@@ -80,6 +80,13 @@ public:
     // false otherwise.
     bool            castShadow() const;
 
+    // Return true if this material is opaque; false otherwise.
+    bool            isOpaque() const;
+
+    // Return this material instance sort key (i.e. an integer used for sorting
+    // draw commands with minimal state change count).
+    u32             getSortKey() const;
+
 private:
     struct MutableParameter {
         // Cached Parameter value converted to Float3.
@@ -127,11 +134,13 @@ private:
     // Pipeline binding for the default render scenario in the material editor (forward+ light pass).
     RenderScenarioBinding defaultEditorScenario;
 
+#if DUSKED
     // (EDITOR ONLY) defaultScenario when picking is required.
     RenderScenarioBinding defaultPickingScenario;
 
     // (EDITOR ONLY) defaultEditorScenario when picking is required.
     RenderScenarioBinding defaultPickingEditorScenario;
+#endif
 
 	// Pipeline binding for depth only render scenario (depth prepass or shadow capture).
 	RenderScenarioBinding depthOnlyScenario;

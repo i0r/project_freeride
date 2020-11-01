@@ -792,6 +792,8 @@ void FrameGraph::enableProfiling( RenderDevice* renderDevice )
 
 void FrameGraph::waitPendingFrameCompletion()
 {
+    DUSK_CPU_PROFILE_FUNCTION;
+    
     while ( !graphScheduler.isReady() ) {
         std::this_thread::yield();
     }

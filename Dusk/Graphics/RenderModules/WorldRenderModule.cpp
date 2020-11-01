@@ -29,6 +29,8 @@ struct PerPassData
 	u32         __PADDING__[2];
 };
 
+static constexpr dkStringHash_t ItemListBufferHashcode = DUSK_STRING_HASH( "ItemList" );
+static constexpr dkStringHash_t ClustersBufferHashcode = DUSK_STRING_HASH( "Clusters" );
 static constexpr dkStringHash_t PickingBufferHashcode = DUSK_STRING_HASH( "PickingBuffer" );
 static constexpr dkStringHash_t BrdfDfgLUTHascode = DUSK_STRING_HASH( "BrdfDfgLut" );
 static constexpr dkStringHash_t IBLDiffuseHascode = DUSK_STRING_HASH( "IBLDiffuse" );
@@ -98,7 +100,7 @@ void WorldRenderModule::loadCachedResources( RenderDevice& renderDevice, Graphic
 #endif
 }
 
-FGHandle WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, FGHandle perSceneBuffer, FGHandle depthPrepassBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular, const dkMat4x4f& globalShadowMatrix )
+FGHandle WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, FGHandle perSceneBuffer, FGHandle lightClusters, FGHandle itemList, FGHandle depthPrepassBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular, const dkMat4x4f& globalShadowMatrix )
 {
     struct PassData {
         FGHandle output;
@@ -106,6 +108,8 @@ FGHandle WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, FGHan
         FGHandle PerPassBuffer;
         FGHandle PerViewBuffer;
         FGHandle PerSceneBuffer;
+        FGHandle PerClusterLightListBuffer;
+        FGHandle ClustersItemListBuffer;
 		FGHandle MaterialEdBuffer;
 		FGHandle VectorDataBuffer;
         FGHandle MaterialInputSampler;
@@ -146,6 +150,7 @@ FGHandle WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, FGHan
             passData.MaterialEdBuffer = builder.retrieveMaterialEdBuffer();
 
             passData.PerSceneBuffer = builder.readReadOnlyBuffer( perSceneBuffer );
+            passData.PerClusterLightListBuffer = builder.readReadOnlyImage( lightClusters );
 
 			SamplerDesc materialSamplerDesc;
 			materialSamplerDesc.addressU = eSamplerAddress::SAMPLER_ADDRESS_WRAP;
@@ -174,6 +179,7 @@ FGHandle WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, FGHan
 			passData.MaterialInputSampler = builder.allocateSampler( materialSamplerDesc );
             passData.CSMSliceBuffer = builder.retrievePersistentBuffer( CascadedShadowRenderModule::SliceBufferHashcode );
             passData.CSMSlices = builder.retrievePersistentImage( CascadedShadowRenderModule::SliceImageHashcode );
+            passData.ClustersItemListBuffer = builder.readReadOnlyBuffer( itemList );
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
             Image* outputTarget = resources->getImage( passData.output );
@@ -187,6 +193,9 @@ FGHandle WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, FGHan
             Buffer* materialEdBuffer = resources->getPersistentBuffer( passData.MaterialEdBuffer );
             Buffer* vectorBuffer = resources->getPersistentBuffer( passData.VectorDataBuffer );
             Buffer* sliceBuffer = resources->getPersistentBuffer( passData.CSMSliceBuffer );
+
+            Buffer* itemList = resources->getBuffer( passData.ClustersItemListBuffer );
+            Image* lightClusters = resources->getImage( passData.PerClusterLightListBuffer );
 
             Sampler* materialSampler = resources->getSampler( passData.MaterialInputSampler );
 
@@ -272,7 +281,10 @@ FGHandle WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, FGHan
                     cmdList->bindBuffer( PickingBufferHashcode, pickingBuffer );
                 }
 
-				cmdList->bindBuffer( CascadedShadowRenderModule::SliceBufferHashcode, sliceBuffer );
+                cmdList->bindBuffer( CascadedShadowRenderModule::SliceBufferHashcode, sliceBuffer );
+
+                cmdList->bindImage( ClustersBufferHashcode, lightClusters );
+                cmdList->bindBuffer( ItemListBufferHashcode, itemList );
 
                 // Re-setup the framebuffer (some permutations have a different framebuffer layout).
                 cmdList->setupFramebuffer( FramebufferAttachments, FramebufferAttachment( zbufferTarget ) );

@@ -12,7 +12,7 @@
 #ifndef __DXCAPI_USE_H__
 #define __DXCAPI_USE_H__
 
-#include "dxc/dxcapi.h"
+#include "dxcapi.h"
 
 namespace dxc {
 

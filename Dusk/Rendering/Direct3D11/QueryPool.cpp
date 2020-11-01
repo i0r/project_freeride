@@ -95,7 +95,11 @@ void CommandList::getQueryResult( QueryPool& queryPool, u64* resultsArray, const
         ID3D11Query* queryHandle = queryPool.queryHandles[i];
         
         u64& queryResult = resultsArray[retrievedResultCount++];
+        
         HRESULT dataRetrieveResult = deviceContext->GetData( queryHandle, &queryResult, sizeof( uint64_t ), 0 );
+        if ( FAILED( dataRetrieveResult ) ) {
+            return;
+        }
 
         if ( queryPool.targetType == D3D11_QUERY_TIMESTAMP ) {
             u32 disjointQueryIndex = queryPool.queryDisjointTable[i];

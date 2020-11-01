@@ -14,9 +14,7 @@ struct QueryPool;
 class GpuProfiler
 {
 public:
-    using SectionHandle_t = u32;
-public:
-	struct SectionInfos
+	struct SectionData
 	{
 		// Index in the timestampQueries array pointing to the section start query handle.
 		u32     BeginQueryHandle;
@@ -24,12 +22,46 @@ public:
 		// Index in the timestampQueries array pointing to the section end query handle.
 		u32     EndQueryHandle;
 
-		// Timing measured for this section (in ms).
-		f64     Result;
+        // Sum of all the samples timing. 
+        f64     Sum;
+
+        // Number of sample for this section.
+        u64     SampleCount;
+
+        // Call count for this section (per frame).
+        u64     CallCount;
+
+        // Max timing for this section.
+        f32     Maximum;
+
+        // Min timing for this section.
+        f32     Minimum;
+
+        // Pointer to the parent for hierarchal profiling. Null if this section is orphan.
+        SectionData* Parent;
+
+        // Name of the section (used to calculate the hashcode of the function).
+        std::string Name;
+
+        SectionData()
+            : BeginQueryHandle( 0 )
+            , EndQueryHandle( 0 )
+            , Sum( 0.0 )
+            , SampleCount( 0ull )
+            , CallCount( 0ull )
+            , Maximum( -std::numeric_limits<f32>::max() )
+            , Minimum( +std::numeric_limits<f32>::max() )
+            , Parent( nullptr )
+            , Name( "" )
+        {
+
+        }
+
+        static f64 CalculateAverage( const SectionData& section )
+        {
+            return section.Sum / static_cast< f64 >( section.SampleCount );
+        }
 	};
-public:
-    DUSK_INLINE const SectionInfos* begin() const { return static_cast< const SectionInfos* >( &sections[0] ); }
-	DUSK_INLINE const SectionInfos* end() const { return static_cast< const SectionInfos* >( &sections[sectionCount] ); }
 
 public:
                     GpuProfiler();
@@ -44,14 +76,10 @@ public:
 
     // Start a new profiling section. Return a valid section handle if the 
     // operation was successful; return an invalid handle otherwise.
-    SectionHandle_t beginSection( CommandList& cmdList );
+    void            beginSection( CommandList& cmdList, const std::string& sectionName );
 
     // End the latest section pushed to the session stack.
     void            endSection( CommandList& cmdList );
-
-    // Return the measured timing (in ms) of a given section. Return < 0 if
-    // the section result is not available yet).
-    f64             getSectionResultInMs( const SectionHandle_t handle ) const;
 
 private:
     // The number of frame to wait until the Profiler can readback from the GPU.
@@ -65,38 +93,18 @@ private:
 
 private:
     // The QueryPool used for timestamp query allocation.
-    QueryPool*      timestampQueryPool;
+    QueryPool*       timestampQueryPool;
 
-    // The number of section recorded for a given frame. Must be atomic
-    // since it will modified from multiple thread at once.
-    std::atomic<u32> sectionCount;
-    
-    // Index pointing to the latest section read by the Profiler.
-    u32             sectionReadIndex;
+    // Last update frame index. 
+    size_t           lastUpdateFrameIndex;
 
-    // Index pointing to the next writable section.
-    u32             sectionWriteIndex;
-
-    // Index pointing to the next query allocable in timestampQueries array.
-    u32             queryCount;
+    // Hashmap keeping track of the sections across several frames.
+    std::unordered_map<dkStringHash_t, SectionData> profiledSections;
 
     // Stack keeping track of the active sections being recorded.
     // We allocate one stack per command list to guarantee thread safeness
     // and avoid heavy synchronizations.
-    std::stack<SectionHandle_t> sectionsStacks[RenderDevice::CMD_LIST_POOL_CAPACITY];
-
-	// Array holding active profiling sections.
-    SectionInfos                sections[TOTAL_SECTION_COUNT];
-
-    // Query handle allocated for section profiling.
-    u32                         timestampQueries[TOTAL_SECTION_COUNT];
-
-    // Query result retrieved from the GPU. The result is API specific.
-    u64                         timestampResults[TOTAL_SECTION_COUNT];
-
-    // Query result as milliseconds. This is basically timestampResults as
-    // milliseconds.
-    f64                         timestampResultsAsMs[TOTAL_SECTION_COUNT];
+    std::stack<u32> sectionsStacks[RenderDevice::CMD_LIST_POOL_CAPACITY];
 
 private:
     // Retrieve query timing from the GPU until we reach the end of the queries
@@ -112,16 +120,14 @@ extern GpuProfiler g_GpuProfiler;
 struct GpuScopedSection
 {
 private:
-    GpuProfiler::SectionHandle_t    sectionHandle;
-
+    // The command list used to execute GPU operations.
     CommandList&                    commandList;
 
 public:
-    GpuScopedSection( CommandList& cmdList )
-        : sectionHandle( g_GpuProfiler.beginSection( cmdList ) )
-        , commandList( cmdList )
+    GpuScopedSection( CommandList& cmdList, const std::string& sectionName )
+        : commandList( cmdList )
     {
-
+        g_GpuProfiler.beginSection( commandList, sectionName );
     }
 
     ~GpuScopedSection()
@@ -131,4 +137,4 @@ public:
 };
 
 // Automatically profile GPU operations for the active scope (brace enclosed).
-#define DUSK_GPU_PROFILE_SCOPED( cmdList ) GpuScopedSection __ProfilingSection__( cmdList );
+#define DUSK_GPU_PROFILE_SCOPED( cmdList, sectionName ) GpuScopedSection __GpuProfilingSection__( cmdList, sectionName );

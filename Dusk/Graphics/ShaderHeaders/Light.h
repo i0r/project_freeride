@@ -23,8 +23,8 @@
 // guards.
 
 // Lights Constants
-#define MAX_POINT_LIGHT_COUNT               32
-#define MAX_SPOT_LIGHT_COUNT                256
+#define MAX_POINT_LIGHT_COUNT               256
+#define MAX_SPOT_LIGHT_COUNT                127
 #define MAX_DIRECTIONAL_LIGHT_COUNT         1
 
 #define MAX_LOCAL_IBL_PROBE_COUNT           31
@@ -159,6 +159,28 @@ struct IBLProbeGPU
 };
 DUSK_IS_MEMORY_ALIGNED_STATIC( IBLProbeGPU, 16 );
 
+// GPU data structure updated per scene/streaming update.
+struct PerSceneBufferData
+{
+    DirectionalLightGPU SunLight;
+
+    float3              ClustersScale;
+    float               SceneAABBMinX;
+
+    float3              ClustersInverseScale;
+    float               SceneAABBMinY;
+
+    float3              ClustersBias;
+    float               SceneAABBMinZ;
+
+    float3              SceneAABBMax;
+    uint                PointLightCount;
+
+    PointLightGPU       PointLights[MAX_POINT_LIGHT_COUNT];
+    //IBLProbeGPU       IBLProbes[MAX_IBL_PROBE_COUNT];
+};
+DUSK_IS_MEMORY_ALIGNED_STATIC( PerSceneBufferData, 16 );
+
 struct SmallBatchDrawConstants
 {
     float4x4  ModelMatrix;
@@ -223,4 +245,8 @@ struct CSMSliceInfos
     float4  CascadeScales; 
     float   CascadeSplits;
 };
+
+static const int CLUSTER_X = 16;
+static const int CLUSTER_Y = 8;
+static const int CLUSTER_Z = 24;
 #endif

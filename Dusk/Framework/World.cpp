@@ -41,6 +41,8 @@ void World::create()
 
 void World::collectRenderables( DrawCommandBuilder* drawCmdBuilder ) const
 {
+    DUSK_CPU_PROFILE_FUNCTION;
+
 	for ( const Entity& geom : staticGeometry ) {
 		const Model* model = staticGeometryDatabase->getModel( staticGeometryDatabase->lookup( geom ) );
         const dkMat4x4f& modelMatrix = transformDatabase->getWorldMatrix( transformDatabase->lookup( geom ) );

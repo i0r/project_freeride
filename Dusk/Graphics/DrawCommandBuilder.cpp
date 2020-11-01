@@ -230,11 +230,10 @@ void AddCommand( WorldRenderer* worldRenderer, const LODBatch& batch, const u8 c
     // Allocate a depth render command
     DrawCmd& drawCmd = worldRenderer->allocateDrawCmd();
 
-    // TODO Add back sort key / depth sort / sort Order infos.
     auto& key = drawCmd.key.bitfield;
-    key.materialSortKey = 0; // subMesh.material->getSortKey();
+    key.materialSortKey = material->getSortKey();
     key.depth = DepthToBits( batch.ClosestDistance );
-    key.sortOrder = DrawCommandKey::SORT_FRONT_TO_BACK; // ( subMesh.material->isOpaque() ) ? DrawCommandKey::SORT_FRONT_TO_BACK : DrawCommandKey::SORT_BACK_TO_FRONT;
+    key.sortOrder = ( material->isOpaque() ) ? DrawCommandKey::SORT_FRONT_TO_BACK : DrawCommandKey::SORT_BACK_TO_FRONT;
     key.layer = layer;
     key.viewportLayer = viewportLayer;
     key.viewportId = cameraIdx;
