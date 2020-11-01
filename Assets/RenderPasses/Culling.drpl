@@ -35,13 +35,26 @@ lib Culling {
         
         StructuredBuffer SliceInfos {
             swizzle = CSMSliceInfos;
-        }      
+        }
+        
+        RWTexture3D g_LightClusters {
+            swizzle = uint2;
+        }
+        
+        RWBuffer g_ItemList {
+            swizzle = uint;
+            format = uint;
+        }
     }
     
     shared { 
         groupshared uint g_WorkGroupOutputSlot;
         groupshared uint g_WorkGroupIndexCount;
         
+        groupshared uint g_ClusterItems[( MAX_POINT_LIGHT_COUNT + MAX_LOCAL_IBL_PROBE_COUNT )];
+
+        static const uint CLUSTER_COUNT = ( CLUSTER_Z * CLUSTER_Y * CLUSTER_X );
+
         float3 LoadVertex(uint index, uint vertexOffset) {
             return asfloat(VertexBuffer.Load3(vertexOffset + index * 12));
         }
@@ -228,6 +241,153 @@ lib Culling {
         }
     }
 
+    shader CullAndClusterizeLightsCS {
+        for ( int x = 0; x < ( MAX_POINT_LIGHT_COUNT + MAX_LOCAL_IBL_PROBE_COUNT ); x++ ) {
+            g_ClusterItems[x] = 0;
+        }
+        GroupMemoryBarrierWithGroupSync();
+        
+        int3 groupClusterOffset = int3( $SV_GroupID * int3( 1, 1, 1 ) );
+        int3 clusterIdx = int3( $SV_GroupThreadID ) + groupClusterOffset;
+        
+        // uint localIdxFlattened = localIdx.x + localIdx.y * NUM_THREADS_X + localIdx.z * NUM_THREADS_X * NUM_THREADS_Y; 
+        // uint localItemListOffset = localIdxFlattened * ( MAX_POINT_LIGHT_COUNT + MAX_LOCAL_IBL_PROBE_COUNT );
+
+        uint threadListOffset = 0;
+        
+        float3 g_SceneAABBMin = float3( g_SceneAABBMinX, g_SceneAABBMinY, g_SceneAABBMinZ );
+        
+        // PointLight Culling
+        for ( uint i = 0; i < MAX_POINT_LIGHT_COUNT; i++ ) {
+            PointLightGPU light = g_PointLights[i];
+            
+            const float3 p = ( light.WorldPosition - g_SceneAABBMin );
+            const float3 pMin = ( p - light.WorldRadius ) * g_ClustersScale;
+            const float3 pMax = ( p + light.WorldRadius ) * g_ClustersScale;
+
+            // Cluster for the center of the light
+            const int px = (int)( floor( p.x * g_ClustersScale.x ) );
+            const int py = (int)( floor( p.y * g_ClustersScale.y ) );
+            const int pz = (int)( floor( p.z * g_ClustersScale.z ) );
+        
+            // Cluster bounds for the light
+            const int x0 = max( ( int )floor( pMin.x ), 0 );
+            const int x1 = min( ( int )ceil( pMax.x ), CLUSTER_X );
+            
+            const int y0 = max( ( int )floor( pMin.y ), 0 );
+            const int y1 = min( ( int )ceil( pMax.y ), CLUSTER_Y );
+            
+            const int z0 = max( ( int )floor( pMin.z ), 0 );
+            const int z1 = min( ( int )ceil( pMax.z ), CLUSTER_Z );
+            
+            const float squaredRadius = Square( light.WorldRadius );
+            
+            // Skip if light is outside current cluster bounds
+            [branch]
+            if ( clusterIdx.x < x0 
+                || clusterIdx.x > x1 
+                || clusterIdx.y < y0 
+                || clusterIdx.y > y1 
+                || clusterIdx.z < z0 
+                || clusterIdx.z > z1 ) {
+                continue;
+            }
+            
+            float dz = ( pz == clusterIdx.z ) 
+                ? 0.0f 
+                : g_SceneAABBMin.z + ( ( pz < clusterIdx.z ) ? clusterIdx.z : clusterIdx.z + 1 ) * g_ClustersInverseScale.z - light.WorldPosition.z;
+            dz *= dz;
+            
+            float dy = ( py == clusterIdx.y ) 
+                ? 0.0f 
+                : g_SceneAABBMin.y + ( ( py < clusterIdx.y ) ? clusterIdx.y : clusterIdx.y + 1 ) * g_ClustersInverseScale.y - light.WorldPosition.y;
+            dy *= dy;
+            dy += dz;
+            
+            float dx = ( px == clusterIdx.x ) 
+                ? 0.0f 
+                : g_SceneAABBMin.x + ( ( px < clusterIdx.x ) ? clusterIdx.x : clusterIdx.x + 1 ) * g_ClustersInverseScale.x - light.WorldPosition.x;
+            dx *= dx;
+            dx += dy;
+                                
+            if ( dx < squaredRadius ) {
+                g_ClusterItems[threadListOffset] = i;
+                threadListOffset++;
+            }
+        }
+        
+        const uint pointLightCount = threadListOffset;
+        
+        // // IBLProbe Culling
+        // for ( uint j = 0; j < MAX_LOCAL_IBL_PROBE_COUNT; j++ ) {
+            // IBLProbe probe = g_IBLProbes[j + 1u];
+            
+            // const float3 p = ( probe.PositionAndRadius.xyz - g_SceneAABBMin );
+            // const float3 pMin = ( p - probe.PositionAndRadius.w ) * g_ClustersScale;
+            // const float3 pMax = ( p + probe.PositionAndRadius.w ) * g_ClustersScale;
+
+            // // Cluster for the center of the light
+            // const int px = ( int )floor( p.x * g_ClustersScale.x );
+            // const int py = ( int )floor( p.y * g_ClustersScale.y );
+            // const int pz = ( int )floor( p.z * g_ClustersScale.z );
+        
+            // // Cluster bounds for the light
+            // const int x0 = max( ( int )floor( pMin.x ), 0 );
+            // const int x1 = min( ( int )ceil( pMax.x ), CLUSTER_X );
+            // const int y0 = max( ( int )floor( pMin.y ), 0 );
+            // const int y1 = min( ( int )ceil( pMax.y ), CLUSTER_Y );
+            // const int z0 = max( ( int )floor( pMin.z ), 0 );
+            // const int z1 = min( ( int )ceil( pMax.z ), CLUSTER_Z );
+            
+            // const float squaredRadius = probe.PositionAndRadius.w * probe.PositionAndRadius.w;
+            
+            // // Skip if probe is outside current cluster bounds
+            // [branch]
+            // if ( clusterIdx.x < x0 
+                // || clusterIdx.x > x1 
+                // || clusterIdx.y < y0 
+                // || clusterIdx.y > y1 
+                // || clusterIdx.z < z0 
+                // || clusterIdx.z > z1 ) {
+                // continue;
+            // }
+            
+            // float dz = ( pz == clusterIdx.z ) 
+                // ? 0.0f 
+                // : g_SceneAABBMin.z + ( ( pz < clusterIdx.z ) ? clusterIdx.z : clusterIdx.z + 1 ) * g_ClustersInverseScale.z - probe.PositionAndRadius.z;
+            // dz *= dz;
+            
+            // float dy = ( py == clusterIdx.y ) 
+                // ? 0.0f 
+                // : g_SceneAABBMin.y + ( ( py < clusterIdx.y ) ? clusterIdx.y : clusterIdx.y + 1 ) * g_ClustersInverseScale.y - probe.PositionAndRadius.y;
+            // dy *= dy;
+            // dy += dz;
+            
+            // float dx = ( px == clusterIdx.x ) 
+                // ? 0.0f 
+                // : g_SceneAABBMin.x + ( ( px < clusterIdx.x ) ? clusterIdx.x : clusterIdx.x + 1 ) * g_ClustersInverseScale.x - probe.PositionAndRadius.x;
+            // dx *= dx;
+            // dx += dy;
+                                
+            // if ( dx < squaredRadius ) {
+                // g_ClusterItems[threadListOffset] = j;
+                // threadListOffset++;
+            // }
+        // }
+        
+        //uint iblProbeCount = ( threadListOffset - pointLightCount );	
+        //uint spotLightCount = 0u;
+        
+        uint itemListOffset = ( $SV_DispatchThreadID.x + $SV_DispatchThreadID.y * CLUSTER_X + $SV_DispatchThreadID.z * CLUSTER_X * CLUSTER_Y ) * ( MAX_POINT_LIGHT_COUNT + MAX_LOCAL_IBL_PROBE_COUNT );	
+        g_LightClusters[$SV_DispatchThreadID] = uint2( itemListOffset, pointLightCount );
+        //( pointLightCount << 20 ) & 0xFFF00000 | ( spotLightCount << 8 ) & 0x000FFF00 | ( iblProbeCount & 0x000000FF ) );
+        
+        // Write from LDS memory to UAV
+        for ( int x = 0; x < ( MAX_POINT_LIGHT_COUNT + MAX_LOCAL_IBL_PROBE_COUNT ); x++ ) {
+            g_ItemList[itemListOffset+x] = g_ClusterItems[x];
+        }
+    }
+    
     pass ClearArgsBuffer {
         compute       = ClearArgsBufferCS;
         dispatch      = { 256, 1, 1 };
@@ -244,5 +404,10 @@ lib Culling {
         dispatch      = { 256, 1, 1 };
         CullCSMShadows = true;
         CullBackface  = false;
+    }
+    
+    pass CullLights {
+        compute = CullAndClusterizeLightsCS;
+        dispatch = { 1, 1, 1 };
     }
 }

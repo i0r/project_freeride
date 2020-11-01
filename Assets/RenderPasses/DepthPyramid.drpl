@@ -84,8 +84,8 @@ lib DepthPyramid {
         float minDepth = CurrentDepthMip[samplePos].x;
         float maxDepth = CurrentDepthMip[samplePos].y;
 
-        if ( maxDepth == 0.0f ) {
-            maxDepth = 1.0f;
+        if ( minDepth == 0.0f ) {
+            minDepth = 1.0f;
         }
         
         // Store in shared memory

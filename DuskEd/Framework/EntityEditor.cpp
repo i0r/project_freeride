@@ -164,7 +164,7 @@ void EntityEditor::displayTransformSection( const dkVec4f& viewportBounds, Camer
         ImGuizmo::SetDrawlist();
         ImGuizmo::Manipulate(
             viewportCamera.viewMatrix.toArray(),
-            viewportCamera.finiteProjectionMatrix.toArray(),
+            viewportCamera.projectionMatrix.toArray(),
             static_cast< ImGuizmo::OPERATION >( activeManipulationMode ),
             ImGuizmo::MODE::LOCAL,
             modelMatrix->toArray(),

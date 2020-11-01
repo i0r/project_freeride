@@ -81,6 +81,8 @@ EditorInterface::~EditorInterface()
 
 void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* renderModule )
 {
+	DUSK_CPU_PROFILE_FUNCTION
+
 	const dkVec2u& ScreenSize = *EnvironmentVariables::getVariable<dkVec2u>( DUSK_STRING_HASH( "ScreenSize" ) );
 	const bool IsFirstLaunch = *EnvironmentVariables::getVariable<bool>( DUSK_STRING_HASH( "IsFirstLaunch" ) );
 
@@ -242,7 +244,7 @@ void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* render
 
 					CameraData& cameraData = g_FreeCamera->getData();
 
-					const dkMat4x4f& projMat = cameraData.finiteProjectionMatrix;
+					const dkMat4x4f& projMat = cameraData.projectionMatrix;
 					const dkMat4x4f& viewMat = cameraData.viewMatrix;
 
 					dkMat4x4f inverseViewProj = ( viewMat * projMat ).inverse();

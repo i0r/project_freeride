@@ -568,6 +568,8 @@ void Initialize( const char* cmdLineArgs )
 
 void BuildThisFrameGraph( FrameGraph& frameGraph, const Material::RenderScenario scenario, const dkVec2f& viewportSize )
 {
+    DUSK_CPU_PROFILE_FUNCTION;
+
     // Append the regular render pipeline.
     FGHandle presentRt = g_WorldRenderer->buildDefaultGraph( frameGraph, scenario, viewportSize, g_RenderWorld );
 
@@ -655,6 +657,8 @@ void MainLoop()
         accumulator += static_cast< f64 >( frameTime );
 
         while ( accumulator >= LOGIC_DELTA ) {
+            DUSK_CPU_PROFILE_SCOPED( "Fixed Step Update" );
+
             // Update Input
             g_InputReader->onFrame( g_InputMapper );
 
@@ -676,8 +680,6 @@ void MainLoop()
             accumulator -= LOGIC_DELTA;
         }
 
-        g_GpuProfiler.update( *g_RenderDevice );
-
         // Convert screenspace cursor position to viewport space.
 		shiftedMouseX = dk::maths::clamp( static_cast< i32 >( g_CursorPosition.x - g_ViewportWindowPosition.x ), 0, vp.Width );
 		shiftedMouseY = dk::maths::clamp( static_cast< i32 >( g_CursorPosition.y - g_ViewportWindowPosition.y ), 0, vp.Height );
@@ -689,7 +691,17 @@ void MainLoop()
         frameGraph.acquireCurrentMaterialEdData( g_MaterialEditor->getRuntimeEditionData() );
         frameGraph.setScreenSize( ScreenSize );
         frameGraph.updateMouseCoordinates( shiftedMouse );
-        
+
+        g_GpuProfiler.update( *g_RenderDevice );
+
+        // TEST
+        for ( i32 i = 0; i < 8; i++ ) {
+            for ( i32 j = 0; j < 4; j++ ) {
+                g_WorldRenderer->getLightGrid()->addPointLightData( PointLightGPU{ dkVec3f( static_cast< f32 >( i % 2 ), static_cast<f32>( j % 3 ), 1 ), 1000.0f, dkVec3f(i * 10.0f, 0, j * 10.0f ), 2.0f } );
+            }
+        }
+        //END TEST
+
         // TODO We should use a snapshot of the world instead of having to wait the previous frame completion...
 		g_World->collectRenderables( g_DrawCommandBuilder );
 
@@ -715,6 +727,18 @@ void MainLoop()
             std::string culledPrimitiveCount = "Culled Primitive(s): " + std::to_string( g_DrawCommandBuilder->getCulledGeometryPrimitiveCount() );
             g_HUDRenderer->drawText( culledPrimitiveCount.c_str(), 0.4f, 8.0f, 24.0f, dkVec4f( 1, 1, 1, 1 ), 0.5f );
         }
+
+        std::string sectionResult;
+        for ( auto& section : g_CpuProfiler ) {
+            sectionResult.append( section.second.Name );
+            sectionResult.append( " | " );
+            sectionResult.append( std::to_string( CpuProfiler::SectionData::CalculateAverage( section.second ) ) + "ms" );
+            sectionResult.append( " | " );
+            sectionResult.append( std::to_string( section.second.Minimum ) + "ms" );
+            sectionResult.append( " | " );
+            sectionResult.append( std::to_string( section.second.Maximum ) + "ms\n" );
+        }
+        g_HUDRenderer->drawText( sectionResult.c_str(), 0.4f, 8.0f, 48.0f, dkVec4f( 1, 1, 1, 1 ), 0.5f );
 
         dkMat4x4f rotationMat = g_FreeCamera->getData().viewMatrix;
 
