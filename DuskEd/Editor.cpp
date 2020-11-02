@@ -720,18 +720,6 @@ void MainLoop()
             g_HUDRenderer->drawText( culledPrimitiveCount.c_str(), 0.4f, 8.0f, 24.0f, dkVec4f( 1, 1, 1, 1 ), 0.5f );
         }
 
-        std::string sectionResult;
-        for ( auto& section : g_CpuProfiler ) {
-            sectionResult.append( section.second.Name );
-            sectionResult.append( " | " );
-            sectionResult.append( std::to_string( CpuProfiler::SectionData::CalculateAverage( section.second ) ) + "ms" );
-            sectionResult.append( " | " );
-            sectionResult.append( std::to_string( section.second.Minimum ) + "ms" );
-            sectionResult.append( " | " );
-            sectionResult.append( std::to_string( section.second.Maximum ) + "ms\n" );
-        }
-        g_HUDRenderer->drawText( sectionResult.c_str(), 0.4f, 8.0f, 48.0f, dkVec4f( 1, 1, 1, 1 ), 0.5f );
-
         dkMat4x4f rotationMat = g_FreeCamera->getData().viewMatrix;
 
         // Remove translation.

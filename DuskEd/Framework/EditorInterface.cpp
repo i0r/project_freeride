@@ -43,6 +43,7 @@ extern RenderDocHelper* g_RenderDocHelper;
 #endif
 
 #include "Framework/EditorWidgets/FrameGraphDebug.h"
+#include "Framework/EditorWidgets/CpuProfiler.h"
 
 // TODO Refactor this to avoid weird dependencies
 extern MaterialEditor* g_MaterialEditor;
@@ -64,6 +65,7 @@ EditorInterface::EditorInterface( BaseAllocator* allocator )
 	, renderDocWidget( dk::core::allocate<RenderDocHelperWidget>( memoryAllocator, g_RenderDocHelper ) )
 #endif
 	, frameGraphWidget( dk::core::allocate<FrameGraphDebugWidget>( memoryAllocator ) )
+	, cpuProfilerWidget( dk::core::allocate<CpuProfilerWidget>( memoryAllocator ) )
 	, menuBarHeight( 0.0f )  
 	, isResizing( true )
 {
@@ -76,7 +78,8 @@ EditorInterface::~EditorInterface()
 	dk::core::free( memoryAllocator, renderDocWidget );
 #endif
 
-	dk::core::free( memoryAllocator, frameGraphWidget );
+    dk::core::free( memoryAllocator, frameGraphWidget );
+    dk::core::free( memoryAllocator, cpuProfilerWidget );
 }
 
 void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* renderModule )
@@ -134,6 +137,9 @@ void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* render
 
 	ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
 	frameGraphWidget->displayEditorWindow( &frameGraph );
+
+    ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
+	cpuProfilerWidget->displayEditorWindow();
 
 	ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
 	if ( ImGui::Begin( ICON_MD_ACCESS_TIME " Time Of Day" ) ) {
@@ -353,11 +359,14 @@ void EditorInterface::displayWindowMenu()
 			g_EntityEditor->openEditorWindow();
 		}
 
-
 		if ( ImGui::MenuItem( "FrameGraph Debug" ) ) {
 			frameGraphWidget->openWindow();
 		}
 
+        if ( ImGui::MenuItem( "CPU Profiler" ) ) {
+			cpuProfilerWidget->openWindow();
+        }
+		
 		ImGui::EndMenu();
 	}
 }

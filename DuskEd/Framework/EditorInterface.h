@@ -10,6 +10,7 @@ class BaseAllocator;
 class GraphicsAssetCache;
 class FrameGraph;
 class FrameGraphDebugWidget;
+class CpuProfilerWidget;
 
 class EditorInterface
 {
@@ -35,6 +36,9 @@ private:
 
     // Widget for FrameGraph debugging.
     FrameGraphDebugWidget* frameGraphWidget;
+
+    // Widget for CPU Profiling.
+    CpuProfilerWidget* cpuProfilerWidget;
 
     // Height of the main menubar (0 if the bar is disabled).
     f32             menuBarHeight;
