@@ -23,7 +23,7 @@
 // guards.
 
 // Lights Constants
-#define MAX_POINT_LIGHT_COUNT               256
+#define MAX_POINT_LIGHT_COUNT               64
 #define MAX_SPOT_LIGHT_COUNT                127
 #define MAX_DIRECTIONAL_LIGHT_COUNT         1
 

@@ -5,6 +5,8 @@
 #include "Shared.h"
 #include "GpuProfiler.h"
 
+#include "Rendering/CommandList.h"
+
 GpuProfiler::GpuProfiler()
 	: timestampQueryPool( nullptr )
 	, lastUpdateFrameIndex( 0ull )

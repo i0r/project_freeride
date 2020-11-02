@@ -132,6 +132,7 @@ void Material::deserialize( FileSystemObject* object )
                             dkStringHash_t key = dk::core::CRC32( type.Names[i].StreamPointer, type.Names[i].Length );
                             std::string value( type.Values[i].StreamPointer, type.Values[i].Length );
 
+                            // TODO Quantify value parsing (same logic is used in EditableMaterial.cpp).
                             MutableParameter param;
                             if ( value.front() == '{' && value.back() == '}' ) {
                                 param.Type = MutableParameter::ParamType::Float3;
@@ -314,6 +315,6 @@ u32 Material::getSortKey() const
     sortKey |= ( isAlphaTested << 3 );
     sortKey |= ( isWireframe << 4 );
     sortKey |= ( isShadeless << 5 );
-
+    
     return sortKey;
 }

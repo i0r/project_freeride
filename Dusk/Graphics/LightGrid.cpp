@@ -22,7 +22,7 @@ LightGrid::LightGrid( BaseAllocator* allocator )
     , perSceneBufferData{ 0 }
 {
     memset( &perSceneBufferData, 0, sizeof( PerSceneBufferData ) );
-    setSceneBounds( dkVec3f( 64.0f, 64.0f, 64.0f ), -dkVec3f( 64.0f, 64.0f, 64.0f ) );
+    setSceneBounds( dkVec3f( 2048.0f, 2048.0f, 2048.0f ), -dkVec3f( 2048.0f, 2048.0f, 2048.0f ) );
 
     // Set Default directional light values.
     perSceneBufferData.SunLight.SphericalCoordinates = dkVec2f( 0.5f, 0.5f );
@@ -75,16 +75,18 @@ LightGrid::Data LightGrid::updateClusters( FrameGraph& frameGraph )
             lightClusterDesc.mipCount = 1u;
             passData.LightClusters = builder.allocateImage( lightClusterDesc );
 
-            u32 itemListElementCount = CLUSTER_X * CLUSTER_Y * CLUSTER_Z * ( MAX_POINT_LIGHT_COUNT + MAX_LOCAL_IBL_PROBE_COUNT );
+            u32 itemListElementCount = CLUSTER_X * CLUSTER_Y * CLUSTER_Z * MAX_POINT_LIGHT_COUNT;
 
             BufferDesc itemListDesc;
             itemListDesc.Usage = RESOURCE_USAGE_DEFAULT;
-            itemListDesc.BindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
+            itemListDesc.BindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW | RESOURCE_BIND_RAW;
             itemListDesc.SizeInBytes = sizeof( u32 ) * itemListElementCount;
-            itemListDesc.StrideInBytes = itemListElementCount;
-            itemListDesc.DefaultView.ViewFormat = eViewFormat::VIEW_FORMAT_R32_UINT;
-            itemListDesc.DefaultView.NumElements = itemListElementCount;
+            itemListDesc.StrideInBytes = sizeof( u32 );
             
+            itemListDesc.DefaultView.ViewFormat = eViewFormat::VIEW_FORMAT_R32_UINT;
+            itemListDesc.DefaultView.FirstElement = 0;
+            itemListDesc.DefaultView.NumElements = 0;
+
             passData.ItemList = builder.allocateBuffer( itemListDesc, SHADER_STAGE_COMPUTE );
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
@@ -100,7 +102,7 @@ LightGrid::Data LightGrid::updateClusters( FrameGraph& frameGraph )
             cmdList->updateBuffer( *perSceneBuffer, &perSceneBufferData, sizeof( PerSceneBufferData ) );
 
             cmdList->bindImage( Culling::CullLights_g_LightClusters_Hashcode, lightsClusters );
-            cmdList->bindBuffer( Culling::CullLights_g_ItemList_Hashcode, itemList, VIEW_FORMAT_R32_UINT );
+            cmdList->bindBuffer( Culling::CullLights_ItemList_Hashcode, itemList );
             cmdList->bindConstantBuffer( PerWorldBufferHashcode, perSceneBuffer );
             cmdList->prepareAndBindResourceList();
 

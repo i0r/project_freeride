@@ -29,6 +29,7 @@
 #include "Framework/Transform.h"
 #include "Framework/EntityNameRegister.h"
 
+#include "Graphics/Mesh.h"
 #include <Graphics/GraphicsAssetCache.h>
 #include <Graphics/Model.h>
 #include <Graphics/RenderWorld.h>

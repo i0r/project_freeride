@@ -32,4 +32,7 @@ private:
 
 private:
     std::list<FileSystemEntry>  fileSystemEntries;
+
+private:
+    static bool SortFS( FileSystemEntry& lEntry, FileSystemEntry& rEntry );
 };

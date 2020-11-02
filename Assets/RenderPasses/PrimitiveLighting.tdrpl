@@ -71,8 +71,8 @@ lib PrimitiveLighting {
             swizzle = CSMSliceInfos;
         }
         
-        Buffer ItemList {
-            swizzle = uint;
+        ByteAddressBuffer ItemList {
+            format = uint;
         }
         
         Texture3D Clusters {
@@ -509,11 +509,13 @@ lib PrimitiveLighting {
 
         // Iterate point lights and accumulate calculated lighting.
         for ( uint i = 0; i < entityCount.r; i++ ) {
-           float3 L;
-           PointLightGPU light = g_PointLights[ItemList[light_mask.r + i]];
-           float3 pointLightIlluminance = GetPointLightIlluminance( light, $POSITION0, depthVS, L );   
-           
-           LightContribution.rgb += BRDF_Default( L, V, N, BlendedMaterial, F0, albedo ) * pointLightIlluminance;	
+            const uint lightIndex = ItemList.Load(light_mask.r + i * 4 );
+            
+            float3 L;
+            PointLightGPU light = g_PointLights[lightIndex];
+            
+            float3 pointLightIlluminance = GetPointLightIlluminance( light, $POSITION0, depthVS, L );   
+            LightContribution.rgb += BRDF_Default( L, V, N, BlendedMaterial, F0, albedo ) * pointLightIlluminance;	
         }
     
         // Add indirect contribution (Image-based lighting).

@@ -696,8 +696,15 @@ void MainLoop()
 
         // TEST
         for ( i32 i = 0; i < 8; i++ ) {
+            constexpr dkVec3f COLORS[4] = {
+                dkVec3f( 1, 0, 0 ),
+                dkVec3f( 0, 1, 0 ),
+                dkVec3f( 0, 0, 1 ),
+                dkVec3f( 1, 1, 0 ),
+            };
+
             for ( i32 j = 0; j < 4; j++ ) {
-                g_WorldRenderer->getLightGrid()->addPointLightData( PointLightGPU{ dkVec3f( static_cast< f32 >( i % 2 ), static_cast<f32>( j % 3 ), 1 ), 1000.0f, dkVec3f(i * 10.0f, 0, j * 10.0f ), 2.0f } );
+                g_WorldRenderer->getLightGrid()->addPointLightData( PointLightGPU{ COLORS[j], 500.0f, dkVec3f( i * 4.0f, 0, j * 4.0f ), 4.0f } );
             }
         }
         //END TEST

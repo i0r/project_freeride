@@ -16,6 +16,8 @@
 #include <Core/StringHelpers.h>
 #include <Core/Environment.h>
 
+#include "FileSystem/VirtualFileSystem.h"
+
 #include <Graphics/GraphicsAssetCache.h>
 #include <Rendering/RenderDevice.h>
 

@@ -9,7 +9,9 @@ class GraphicsAssetCache;
 class RenderDevice;
 
 struct Image;
-struct FGHandle;
+
+#include "Graphics/FrameGraph.h"
+#include "Graphics/ShaderHeaders/Light.h" // Required by SSR_MAX_MIP_LEVEL
 
 class SSRModule 
 {

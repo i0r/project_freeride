@@ -8,6 +8,7 @@
 #include "Io/TextStreamHelpers.h"
 #include "Core/Parser.h"
 #include "MaterialEditor.h" // Required for MaterialEditor::MAX_CODE_PIECE_LENGTH
+#include "Graphics/GraphicsAssetCache.h"
 
 static constexpr const char* LAYER_BLEND_MODE_LUT[LayerBlendMode::BlendModeCount] = {
     "Additive",
