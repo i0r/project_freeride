@@ -27,6 +27,7 @@ public:
    DUSK_INLINE const dkMat4x4f&     getLocalMatrix( const Instance instance ) const { return instanceData.Local[instance.getIndex()]; }
 	DUSK_INLINE const dkMat4x4f&    getWorldMatrix( const Instance instance ) const { return instanceData.World[instance.getIndex()]; }
     DUSK_INLINE dkMat4x4f&          referenceToLocalMatrix( const Instance instance ) { return instanceData.Local[instance.getIndex()]; }
+    DUSK_INLINE const dkVec3f&      getWorldPosition( const Instance instance ) const { return instanceData.Position[instance.getIndex()]; }
 
 public:
             TransformDatabase( BaseAllocator* allocator );

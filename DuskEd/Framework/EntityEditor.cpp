@@ -27,6 +27,7 @@
 #include "Framework/MaterialEditor.h"
 #include "Framework/StaticGeometry.h"
 #include "Framework/Transform.h"
+#include "Framework/PointLight.h"
 #include "Framework/EntityNameRegister.h"
 
 #include "Graphics/Mesh.h"
@@ -114,7 +115,8 @@ void EntityEditor::displayEditorWindow( CameraData& viewportCamera, const dkVec4
 			// Display component edition. We have a finite number of component type so it shouldn't
 			// be too bad to manage this by hand...
 			displayTransformSection( viewportBounds, viewportCamera );
-			displayStaticGeometrySection();
+            displayStaticGeometrySection();
+            displayPointLightSection();
         }
 	}
 	ImGui::End();
@@ -386,6 +388,27 @@ void EntityEditor::displayStaticGeometrySection()
 		ImGui::TreePop();
 	}
 }
+
+void EntityEditor::displayPointLightSection()
+{
+    bool hasPointLightAttachment = activeWorld->getPointLightDatabase()->hasComponent( *activeEntity );
+    if ( !hasPointLightAttachment ) {
+        return;
+    }
+
+    ImGui::SetNextItemOpen( true );
+    if ( ImGui::TreeNode( ICON_MD_LIGHTBULB_OUTLINE " Point Light" ) ) {
+        PointLightDatabase* pointLightDb = activeWorld->getPointLightDatabase();
+        PointLightGPU& pointLightInfos = pointLightDb->getLightData( pointLightDb->lookup( *activeEntity ) );
+
+        ImGui::DragFloat( "Radius", &pointLightInfos.WorldRadius, 0.01f, 0.01f, 64.0f );
+        dk::imgui::LightIntensity( pointLightInfos.PowerInLux );
+        dk::imgui::LightColor( pointLightInfos.ColorLinearSpace );
+
+        ImGui::TreePop();
+    }
+}
+
 #endif
 
 void EntityEditor::openEditorWindow()

@@ -54,4 +54,6 @@ private:
 	void    displayEditMenu();
 
     void    displayFileMenu();
+
+    void    placeNewEntityInWorld( ImVec2& viewportWinSize );
 };

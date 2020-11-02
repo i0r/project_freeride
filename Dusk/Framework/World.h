@@ -10,6 +10,8 @@ class EntityDatabase;
 class EntityNameRegister;
 class TransformDatabase;
 class StaticGeometryDatabase;
+class PointLightDatabase;
+class LightGrid;
 
 #include <list>
 #include "Entity.h"
@@ -30,11 +32,13 @@ public:
 
     // Iterate over the streamed entities in the World and collect any
     // entity that is renderable (e.g. static geometry; lights; etc.).
-    void                    collectRenderables( DrawCommandBuilder* drawCmdBuilder ) const;
+    void                    collectRenderables( DrawCommandBuilder* drawCmdBuilder, LightGrid* lightGrid ) const;
 
     void                    update( const f32 deltaTime );
 
     Entity                  createStaticMesh( const char* name = "Static Mesh" );
+
+    Entity                  createPointLight( const char* name = "Point Light" );
 
     void                    releaseEntity( Entity& entity );
 
@@ -42,9 +46,13 @@ public:
 
     void                    attachStaticGeometryComponent( Entity& entity );
 
+    void                    attachPointLightComponent( Entity& entity );
+
     TransformDatabase*      getTransformDatabase() const;
 
     StaticGeometryDatabase* getStaticGeometryDatabase() const;
+
+    PointLightDatabase*     getPointLightDatabase() const;
 
     EntityNameRegister*     getEntityNameRegister() const;
 
@@ -56,9 +64,13 @@ private:
     // TODO Might need allocation/logic improvement.
     std::list<Entity>       staticGeometry;
 
+    std::list<Entity>       pointLights;
+
     TransformDatabase*      transformDatabase;
 
     StaticGeometryDatabase* staticGeometryDatabase;
+
+    PointLightDatabase*     pointLightDatabase;
 
     EntityNameRegister*     entityNameRegister;
 

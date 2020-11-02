@@ -241,46 +241,12 @@ void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* render
 			if ( ImGui::BeginMenu( ICON_MD_CREATE " New Entity..." ) ) {
 				if ( ImGui::MenuItem( "Static Mesh" ) ) {
 					g_PickedEntity = g_World->createStaticMesh();
-
-					CameraData& cameraData = g_FreeCamera->getData();
-
-					const dkMat4x4f& projMat = cameraData.projectionMatrix;
-					const dkMat4x4f& viewMat = cameraData.viewMatrix;
-
-					dkMat4x4f inverseViewProj = ( viewMat * projMat ).inverse();
-
-					extern i32 shiftedMouseX;
-					extern i32 shiftedMouseY;
-					dkVec3f ray = {
-						( ( ( 2.0f * shiftedMouseX ) / viewportWinSize.x ) - 1 ) / inverseViewProj[0][0],
-						-( ( ( 2.0f * shiftedMouseY ) / viewportWinSize.y ) - 1 ) / inverseViewProj[1][1],
-						1.0f
-					};
-
-					dkVec3f rayDirection =
-					{
-						ray.x * inverseViewProj[0][0] + ray.y * inverseViewProj[1][0] + ray.z * inverseViewProj[2][0],
-						ray.x * inverseViewProj[0][1] + ray.y * inverseViewProj[1][1] + ray.z * inverseViewProj[2][1],
-						ray.x * inverseViewProj[0][2] + ray.y * inverseViewProj[1][2] + ray.z * inverseViewProj[2][2]
-					};
-
-					f32 w = ray.x * inverseViewProj[0][3] + ray.y * inverseViewProj[1][3] + ray.z * inverseViewProj[2][3];
-
-					rayDirection *= ( 1.0f / w );
-
-					f32 backup = rayDirection.y;
-					rayDirection.y = rayDirection.z;
-					rayDirection.z = backup;
-
-					dkVec3f entityPosition = cameraData.worldPosition + ( g_FreeCamera->getEyeDirection() * 10.0f + rayDirection );
-					TransformDatabase* transformDatabase = g_World->getTransformDatabase();
-
-					TransformDatabase::EdInstanceData instanceData = transformDatabase->getEditorInstanceData( transformDatabase->lookup( g_PickedEntity ) );
-					instanceData.Position->x = entityPosition.x;
-					instanceData.Position->y = entityPosition.y;
-					instanceData.Position->z = entityPosition.z;
+					placeNewEntityInWorld( viewportWinSize );
 				}
-
+                if ( ImGui::MenuItem( ICON_MD_LIGHTBULB_OUTLINE " Point Light" ) ) {
+                    g_PickedEntity = g_World->createPointLight();
+                    placeNewEntityInWorld( viewportWinSize );
+                }
 				ImGui::EndMenu();
 			}
 
@@ -304,6 +270,47 @@ void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* render
 	ImGui::Render();
 
 	renderModule->unlock();
+}
+
+void EditorInterface::placeNewEntityInWorld( ImVec2& viewportWinSize )
+{
+    CameraData& cameraData = g_FreeCamera->getData();
+
+    const dkMat4x4f& projMat = cameraData.projectionMatrix;
+    const dkMat4x4f& viewMat = cameraData.viewMatrix;
+
+    dkMat4x4f inverseViewProj = ( viewMat * projMat ).inverse();
+
+    extern i32 shiftedMouseX;
+    extern i32 shiftedMouseY;
+    dkVec3f ray = {
+        ( ( ( 2.0f * shiftedMouseX ) / viewportWinSize.x ) - 1 ) / inverseViewProj[0][0],
+        -( ( ( 2.0f * shiftedMouseY ) / viewportWinSize.y ) - 1 ) / inverseViewProj[1][1],
+        1.0f
+    };
+
+    dkVec3f rayDirection =
+    {
+        ray.x * inverseViewProj[0][0] + ray.y * inverseViewProj[1][0] + ray.z * inverseViewProj[2][0],
+        ray.x * inverseViewProj[0][1] + ray.y * inverseViewProj[1][1] + ray.z * inverseViewProj[2][1],
+        ray.x * inverseViewProj[0][2] + ray.y * inverseViewProj[1][2] + ray.z * inverseViewProj[2][2]
+    };
+
+    f32 w = ray.x * inverseViewProj[0][3] + ray.y * inverseViewProj[1][3] + ray.z * inverseViewProj[2][3];
+
+    rayDirection *= ( 1.0f / w );
+
+    f32 backup = rayDirection.y;
+    rayDirection.y = rayDirection.z;
+    rayDirection.z = backup;
+
+    dkVec3f entityPosition = cameraData.worldPosition + ( g_FreeCamera->getEyeDirection() * 10.0f + rayDirection );
+    TransformDatabase* transformDatabase = g_World->getTransformDatabase();
+
+    TransformDatabase::EdInstanceData instanceData = transformDatabase->getEditorInstanceData( transformDatabase->lookup( g_PickedEntity ) );
+    instanceData.Position->x = entityPosition.x;
+    instanceData.Position->y = entityPosition.y;
+    instanceData.Position->z = entityPosition.z;
 }
 
 void EditorInterface::loadCachedResources( GraphicsAssetCache* graphicsAssetCache )

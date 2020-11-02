@@ -9,8 +9,10 @@
 #include "EntityNameRegister.h"
 #include "Transform.h"
 #include "StaticGeometry.h"
+#include "PointLight.h"
 
 #include "Graphics/DrawCommandBuilder.h"
+#include "Graphics/LightGrid.h"
 
 static constexpr size_t MAX_ENTITY_COUNT = 10000;
 
@@ -20,6 +22,7 @@ World::World( BaseAllocator* allocator )
     , entityNameRegister( dk::core::allocate<EntityNameRegister>( allocator, allocator ) )
     , transformDatabase( dk::core::allocate<TransformDatabase>( allocator, allocator ) )
     , staticGeometryDatabase( dk::core::allocate<StaticGeometryDatabase>( allocator, allocator ) )
+    , pointLightDatabase( dk::core::allocate<PointLightDatabase>( allocator, allocator ) )
 {
 
 }
@@ -29,7 +32,8 @@ World::~World()
 	dk::core::free( memoryAllocator, entityDatabase );
 	dk::core::free( memoryAllocator, entityNameRegister );
 	dk::core::free( memoryAllocator, transformDatabase );
-	dk::core::free( memoryAllocator, staticGeometryDatabase );
+    dk::core::free( memoryAllocator, staticGeometryDatabase );
+    dk::core::free( memoryAllocator, pointLightDatabase );
 }
 
 void World::create()
@@ -37,9 +41,10 @@ void World::create()
     entityNameRegister->create( MAX_ENTITY_COUNT );
     transformDatabase->create( MAX_ENTITY_COUNT );
     staticGeometryDatabase->create( MAX_ENTITY_COUNT );
+    pointLightDatabase->create( MAX_ENTITY_COUNT );
 }
 
-void World::collectRenderables( DrawCommandBuilder* drawCmdBuilder ) const
+void World::collectRenderables( DrawCommandBuilder* drawCmdBuilder, LightGrid* lightGrid ) const
 {
     DUSK_CPU_PROFILE_FUNCTION;
 
@@ -55,6 +60,15 @@ void World::collectRenderables( DrawCommandBuilder* drawCmdBuilder ) const
 #endif
 
         drawCmdBuilder->addStaticModelInstance( model, modelMatrix, geom.getIdentifier() );
+    }
+
+    for ( const Entity& pointLight : pointLights ) {
+        PointLightGPU& pointLightInfos = pointLightDatabase->getLightData( pointLightDatabase->lookup( pointLight ) );
+
+        const dkVec3f& worldPosition = transformDatabase->getWorldPosition( transformDatabase->lookup( pointLight ) );
+        pointLightInfos.WorldPosition = worldPosition;
+
+        lightGrid->addPointLightData( std::forward<PointLightGPU>( pointLightInfos ) );
     }
 }
 
@@ -74,6 +88,19 @@ Entity World::createStaticMesh( const char* name )
     attachStaticGeometryComponent( entity );
 
     staticGeometry.push_back( entity );
+
+    return entity;
+}
+
+Entity World::createPointLight( const char* name )
+{
+    Entity entity = entityDatabase->allocateEntity();
+    assignEntityName( entity, name );
+
+    attachTransformComponent( entity );
+    attachPointLightComponent( entity );
+
+    pointLights.push_back( entity );
 
     return entity;
 }
@@ -99,6 +126,11 @@ void World::attachStaticGeometryComponent( Entity& entity )
     staticGeometryDatabase->allocateComponent( entity );
 }
 
+void World::attachPointLightComponent( Entity& entity )
+{
+    pointLightDatabase->allocateComponent( entity );
+}
+
 TransformDatabase* World::getTransformDatabase() const
 {
     return transformDatabase;
@@ -107,6 +139,11 @@ TransformDatabase* World::getTransformDatabase() const
 StaticGeometryDatabase* World::getStaticGeometryDatabase() const
 {
     return staticGeometryDatabase;
+}
+
+PointLightDatabase* World::getPointLightDatabase() const
+{
+    return pointLightDatabase;
 }
 
 EntityNameRegister* World::getEntityNameRegister() const
