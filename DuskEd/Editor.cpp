@@ -748,7 +748,6 @@ void MainLoop()
         if ( g_WorldRenderer->WorldRendering->isPickingResultAvailable() ) {
             g_PickedEntity.setIdentifier( g_WorldRenderer->WorldRendering->getAndConsumePickedEntityId() );
         }
-
         // Build this frame FrameGraph
         BuildThisFrameGraph( frameGraph, scenario, viewportSize );
 

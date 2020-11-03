@@ -751,7 +751,16 @@ public:
     // Fill a given vector with debug infos for buffers allocated by this graph.
     DUSK_INLINE void retrieveBufferEditorInfos( std::vector<FGBufferInfosEditor>& infos ) const { graphBuilder.fillBufferEditorInfos( infos ); }
 
+    // Fill a given vector with debug infos for images allocated by this graph.
     DUSK_INLINE void retrieveImageEditorInfos( std::vector<FGImageInfosEditor>& infos ) const { graphBuilder.fillImageEditorInfos( infos, &graphResources ); }
+
+    // Return the number of render passes enqueued for this frame. Note that this call should be
+    // done after the FrameGraph acquire and before the renderpasses dispatch.
+    DUSK_INLINE const i32 getRenderPassCount() const { return renderPassCount; }
+
+    // Return the name of the renderpass stored at a given index.
+    // This function DOES NOT check the sanity of the index.
+    DUSK_INLINE const char* getRenderPassName( const i32 renderPassIndex ) const { return renderPasses[renderPassIndex].Name.c_str(); }
 #endif
 
 public:
