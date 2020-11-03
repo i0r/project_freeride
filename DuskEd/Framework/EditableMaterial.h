@@ -101,7 +101,9 @@ struct EditableMaterialLayer
     MaterialAttribute   Normal;
     MaterialAttribute   BlendMask;
     MaterialAttribute   AlphaMask;
-    
+    MaterialAttribute   ClearCoat;
+    MaterialAttribute   ClearCoatGlossiness;
+
     // Scale of the current layer.
     dkVec2f             Scale;
 
@@ -126,6 +128,8 @@ struct EditableMaterialLayer
         , Normal()
         , BlendMask()
         , AlphaMask()
+        , ClearCoat()
+        , ClearCoatGlossiness()
         , Scale( dkVec2f( 1.0f, 1.0f ) )
         , Offset( dkVec2f( 0.0f, 0.0f ) )
         , BlendMode( LayerBlendMode::Additive )
@@ -157,6 +161,12 @@ struct EditableMaterialLayer
 
         AlphaMask.Type = MaterialAttribute::Constant_1D;
         AlphaMask.AsFloat = 1.0f;
+
+        ClearCoat.Type = MaterialAttribute::Constant_1D;
+        ClearCoat.AsFloat = 0.0f;
+
+        ClearCoatGlossiness.Type = MaterialAttribute::Constant_1D;
+        ClearCoatGlossiness.AsFloat = 1.0f;
     }
 };
 

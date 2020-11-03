@@ -88,6 +88,8 @@ void AppendEditableLayer( std::string& output, const EditableMaterialLayer& laye
     AppendMaterialAttribute( output, "\t\tNormal", layer.Normal );
     AppendMaterialAttribute( output, "\t\tBlendMask", layer.BlendMask );
     AppendMaterialAttribute( output, "\t\tAlphaMask", layer.AlphaMask );
+    AppendMaterialAttribute( output, "\t\tClearCoat", layer.ClearCoat );
+    AppendMaterialAttribute( output, "\t\tClearCoatGlossiness", layer.ClearCoatGlossiness );
 
     output.append( "\t\tScale = {" );
     output.append( std::to_string( layer.Scale[0] ) );
@@ -315,6 +317,10 @@ void EditableMaterial::loadFromFile( FileSystemObject* stream, BaseAllocator* al
                                 attribute = &layer.BlendMask;
                             } else if ( dk::core::ExpectKeyword( name.StreamPointer, 9, "AlphaMask" ) ) {
                                 attribute = &layer.AlphaMask;
+                            } else if ( dk::core::ExpectKeyword( name.StreamPointer, 9, "ClearCoat" ) ) {
+                                attribute = &layer.ClearCoat;
+                            } else if ( dk::core::ExpectKeyword( name.StreamPointer, 19, "ClearCoatGlossiness" ) ) {
+                                attribute = &layer.ClearCoatGlossiness;
                             } else if ( dk::core::ExpectKeyword( name.StreamPointer, 5, "Scale" ) ) {
                                 layer.Scale = dk::io::StringTo2DVector( value );
                                 continue;

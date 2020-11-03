@@ -33,7 +33,9 @@ struct MaterialEdLayer
     MaterialEdAttribute Metalness;
     MaterialEdAttribute AmbientOcclusion;
     MaterialEdAttribute Emissivity;    
-    MaterialEdAttribute BlendMask;    
+    MaterialEdAttribute BlendMask;
+    MaterialEdAttribute ClearCoat;
+    MaterialEdAttribute ClearCoatGlossiness;
     float2              LayerScale;
     float2              LayerOffset;
     

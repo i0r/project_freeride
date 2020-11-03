@@ -87,6 +87,8 @@ lib PrimitiveLighting {
         #include <Material.hlsli>
         #include <GeometryUtils.hlsli>
         
+        // NOTE Adding a new custom BRDF must be done on the application side (see DUSK_MAT_BRDF in the preprocessing step of
+        // material compilation).
         #ifdef $MaterialEditor
         
         // Injected at Material compile-time. Bakes texture sampling for interactive material
@@ -500,7 +502,7 @@ lib PrimitiveLighting {
         float3 L;
         float3 dirLightIlluminance = GetDirectionalLightIlluminance( g_DirectionalLight, $POSITION0, depthVS, R, N, L );   
 
-        LightContribution.rgb = BRDF_Default( L, V, N, BlendedMaterial, F0, albedo ) * dirLightIlluminance;
+        LightContribution.rgb = DUSK_MAT_BRDF( L, V, N, BlendedMaterial, F0, albedo ) * dirLightIlluminance;
         
         // Retrieve cluster index for the current quad.
         int4 coord = int4( $POSITION0.xyz * g_ClustersScale + g_ClustersBias, 0 );
@@ -515,7 +517,7 @@ lib PrimitiveLighting {
             PointLightGPU light = g_PointLights[lightIndex];
             
             float3 pointLightIlluminance = GetPointLightIlluminance( light, $POSITION0, depthVS, L );   
-            LightContribution.rgb += BRDF_Default( L, V, N, BlendedMaterial, F0, albedo ) * pointLightIlluminance;	
+            LightContribution.rgb += DUSK_MAT_BRDF( L, V, N, BlendedMaterial, F0, albedo ) * pointLightIlluminance;	
         }
     
         // Add indirect contribution (Image-based lighting).

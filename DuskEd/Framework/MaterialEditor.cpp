@@ -55,6 +55,8 @@ void FillRuntimeMaterialLayer( const EditableMaterialLayer& layer, MaterialEdLay
     FillRuntimeMaterialAttribute( layer.AmbientOcclusion, runtimeLayer.AmbientOcclusion );
     FillRuntimeMaterialAttribute( layer.Emissivity, runtimeLayer.Emissivity );
     FillRuntimeMaterialAttribute( layer.BlendMask, runtimeLayer.BlendMask );
+    FillRuntimeMaterialAttribute( layer.ClearCoat, runtimeLayer.ClearCoat );
+    FillRuntimeMaterialAttribute( layer.ClearCoatGlossiness, runtimeLayer.ClearCoatGlossiness );
 
     runtimeLayer.LayerScale = layer.Scale;
     runtimeLayer.LayerOffset = layer.Offset;
@@ -268,6 +270,8 @@ isMaterialDirty = true;\
                 displayMaterialAttribute<true>( layerIdx, "Metalness", layer.Metalness );
                 displayMaterialAttribute<true>( layerIdx, "AmbientOcclusion", layer.AmbientOcclusion );
                 displayMaterialAttribute<false>( layerIdx, "Normal", layer.Normal );
+                displayMaterialAttribute<true>( layerIdx, "ClearCoat", layer.ClearCoat );
+                displayMaterialAttribute<true>( layerIdx, "ClearCoatGlossiness", layer.ClearCoatGlossiness );
 
                 if ( editedMaterial.IsAlphaTested ) {
                     displayMaterialAttribute<true>( layerIdx, "AlphaMask", layer.AlphaMask );
