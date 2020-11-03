@@ -114,7 +114,14 @@ lib DepthPyramid {
         if ( all( $SV_DispatchThreadID.xy < TextureSize.xy ) ) {
           float4 depths = DepthBuffer.Gather( SamplerPoint, ( $SV_DispatchThreadID.xy + 0.5f ) / TextureSize.xy );
           
-          DownsampledepthMip[$SV_DispatchThreadID.xy] = max( max( depths.x, depths.y ), max( depths.z, depths.w ) );
+          float maxDepth = 1.0f;
+          
+          [unroll]
+          for ( int i = 0; i < 4; i++ ) {
+            maxDepth = min( maxDepth, depths[i] );
+          }
+          
+          DownsampledepthMip[$SV_DispatchThreadID.xy] = maxDepth;
         }
     }
     
