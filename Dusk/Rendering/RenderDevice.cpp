@@ -5,6 +5,9 @@
 #include <Shared.h>
 #include "RenderDevice.h"
 
+DUSK_ENV_VAR( DisableVendorExtensions, false, bool ); // If true, disable the usage of graphics vendor extension (AMD/Nvidia/Intel/etc.).
+DUSK_ENV_VAR( AutomaticOutputSelection, false, bool ); // If true, automatically chose the output for swapchain creation (overrides user's monitor request).
+
 RenderDevice::RenderDevice( BaseAllocator* allocator )
     : memoryAllocator( allocator )
     , pipelineStateCacheAllocator( nullptr )
