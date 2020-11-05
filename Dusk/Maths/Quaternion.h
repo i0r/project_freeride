@@ -282,6 +282,15 @@ struct Quaternion
             dk::maths::degrees<Precision>( static_cast<Precision>( atan2( static_cast<Precision>( 2 ) * ( x * y + w * z ), w * w + x * x - y * y - z * z ) ) )
         );
     }
+
+    constexpr Quaternion<Precision> rotate( const Precision angleInRadians, const Vector<Precision, 3>& rotationAxis )
+    {
+        // TODO We could assume that the rotation axis is always normalize and save us a call...
+        Vector<Precision, 3> normalizedRotationAxis = rotationAxis.normalize();
+        normalizedRotationAxis *= sin( angleInRadians * static_cast< Precision >( 0.5 ) );
+
+        return Quaternion<Precision>( normalizedRotationAxis, cos( angleInRadians * static_cast< Precision >( 0.5 ) ) ) * *this;
+    }
 };
 
 template<typename Precision>

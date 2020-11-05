@@ -59,7 +59,7 @@
 #include "ThirdParty/Google/IconsMaterialDesign.h"
 #endif
 
-#include "Physics/BulletDynamicsWorld.h"
+#include "Physics/DynamicsWorld.h"
 
 #include "Framework/MaterialEditor.h"
 #include "Framework/EntityEditor.h"

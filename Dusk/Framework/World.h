@@ -12,6 +12,7 @@ class TransformDatabase;
 class StaticGeometryDatabase;
 class PointLightDatabase;
 class LightGrid;
+class VehicleDatabase;
 
 #include <list>
 #include "Entity.h"
@@ -66,6 +67,8 @@ private:
 
     std::list<Entity>       pointLights;
 
+    std::list<Entity>       vehicles;
+
     TransformDatabase*      transformDatabase;
 
     StaticGeometryDatabase* staticGeometryDatabase;
@@ -73,6 +76,8 @@ private:
     PointLightDatabase*     pointLightDatabase;
 
     EntityNameRegister*     entityNameRegister;
+
+    VehicleDatabase*        vehicleDatabase;
 
 private:
 	// Update this World area streaming.
