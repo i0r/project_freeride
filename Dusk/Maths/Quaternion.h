@@ -250,7 +250,7 @@ struct Quaternion
         return sqrt( lengthSquared() );
     }
 
-    constexpr Matrix<Precision, 4, 4> toMat4x4() const
+    constexpr Matrix<Precision, 3, 3> toMat3x3() const
     {
         Precision twoX( x + x );
         Precision twoY( y + y );
@@ -267,10 +267,20 @@ struct Quaternion
         Precision wy2( w * twoY );
         Precision wz2( w * twoZ );
 
+        return Matrix<Precision, 3, 3>(
+            ( Precision )1 - yy2 - zz2, xy2 + wz2, xz2 - wy2,
+            xy2 - wz2, ( Precision )1 - xx2 - zz2, yz2 + wx2,
+            xz2 + wy2, yz2 - wx2, ( Precision )1 - xx2 - yy2 );
+    }
+
+    constexpr Matrix<Precision, 4, 4> toMat4x4() const
+    {
+        Matrix<Precision, 3, 3> mat33 = toMat3x3();
+
         return Matrix<Precision, 4, 4>(
-            (Precision)1 - yy2 - zz2, xy2 + wz2, xz2 - wy2, 0,
-            xy2 - wz2, ( Precision )1 - xx2 - zz2, yz2 + wx2, 0,
-            xz2 + wy2, yz2 - wx2, ( Precision )1 - xx2 - yy2, 0,
+            mat33[0][0], mat33[0][1], mat33[0][2], ( Precision )0,
+            mat33[1][0], mat33[1][1], mat33[1][2], ( Precision )0,
+            mat33[2][0], mat33[2][1], mat33[2][2], ( Precision )0,
             (Precision)0, ( Precision )0, ( Precision )0, ( Precision )1 );
     }
 

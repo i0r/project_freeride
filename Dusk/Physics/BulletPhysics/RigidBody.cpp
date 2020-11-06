@@ -9,40 +9,86 @@
 
 #include "Physics/RigidBody.h"
 
-RigidBody::RigidBody( BaseAllocator* allocator, const f32 massInKg, const dkVec3f& positionWorldSpace, const dkQuatf& orientation )
-    : memoryAllocator( allocator )
-    , nativeObject( dk::core::allocate<NativeRigidBody>( allocator ) )
-    , bodyMassInKg( massInKg )
+void CreateInternalObjects( BaseAllocator* memoryAllocator, NativeRigidBody* nativeObject, const dkVec3f& positionWorldSpace, const f32 bodyMassInKg, const dkQuatf& orientation )
 {
     const btQuaternion btMotionStateRotation = btQuaternion( orientation.x, orientation.y, orientation.z, orientation.w );
     const btVector3 btMotionStateTranslation = btVector3( positionWorldSpace.x, positionWorldSpace.y, positionWorldSpace.z );
     const btTransform btMotionStateTransform = btTransform( btMotionStateRotation, btMotionStateTranslation );
 
     nativeObject->BodyMotionState = dk::core::allocate<btDefaultMotionState>( memoryAllocator, btMotionStateTransform );
-    
+
     btVector3 localInertia( 0, 0, 0 );
-
-    /*if ( bodyMassInKg > 0.0f ) {
+    if ( bodyMassInKg > 0.0f ) {
         nativeObject->CollisionShape->calculateLocalInertia( bodyMassInKg, localInertia );
-    }*/
+    }
 
-    btRigidBody::btRigidBodyConstructionInfo rigidBodyConstructionInfos( 
-        bodyMassInKg, 
-        nativeObject->BodyMotionState, 
+    btRigidBody::btRigidBodyConstructionInfo rigidBodyConstructionInfos(
+        bodyMassInKg,
+        nativeObject->BodyMotionState,
         nativeObject->CollisionShape,
-        localInertia 
+        localInertia
     );
 
-    nativeObject = dk::core::allocate<btRigidBody>( memoryAllocator, rigidBodyConstructionInfos );
-    nativeObject->setActivationState( ACTIVE_TAG );
-    nativeObject->setRestitution( 0.0f );
-    nativeObject->setFriction( 0.0f );
-    nativeObject->setRollingFriction( 0.0f );
+    nativeObject->RigidBodyInstance = dk::core::allocate<btRigidBody>( memoryAllocator, rigidBodyConstructionInfos );
+
+    btRigidBody* rigidBody = nativeObject->RigidBodyInstance;
+    rigidBody->setActivationState( ACTIVE_TAG );
+    rigidBody->setRestitution( 0.0f );
+    rigidBody->setFriction( 0.0f );
+    rigidBody->setRollingFriction( 0.0f );
+}
+
+RigidBody::RigidBody( BaseAllocator* allocator, const f32 massInKg )
+    : memoryAllocator( allocator )
+    , nativeObject( dk::core::allocate<NativeRigidBody>( allocator ) )
+    , bodyMassInKg( massInKg )
+{
+
 }
 
 RigidBody::~RigidBody()
 {
 
+}
+
+void RigidBody::createWithBoxCollider( const dkVec3f& positionWorldSpace, const dkQuatf& orientation, const dkVec3f& boxHalfExtents )
+{
+    nativeObject->CollisionShape = dk::core::allocate<btBoxShape>( memoryAllocator, btVector3( boxHalfExtents.x, boxHalfExtents.y, boxHalfExtents.z ) );
+
+    CreateInternalObjects( memoryAllocator, nativeObject, positionWorldSpace, bodyMassInKg, orientation );
+}
+
+void RigidBody::createWithSphereCollider( const dkVec3f& positionWorldSpace, const dkQuatf& orientation, const f32 sphereRadius )
+{
+    nativeObject->CollisionShape = dk::core::allocate<btSphereShape>( memoryAllocator, static_cast<btScalar>( sphereRadius ) );
+
+    CreateInternalObjects( memoryAllocator, nativeObject, positionWorldSpace, bodyMassInKg, orientation );
+}
+
+void RigidBody::createWithPlaneCollider( const dkVec3f& positionWorldSpace, const dkQuatf& orientation, const dkVec3f& planeNormal, const f32 planeHeight )
+{
+    nativeObject->CollisionShape = dk::core::allocate<btStaticPlaneShape>( memoryAllocator, btVector3( planeNormal.x, planeNormal.y, planeNormal.z ), static_cast<btScalar>( planeHeight ) );
+
+    CreateInternalObjects( memoryAllocator, nativeObject, positionWorldSpace, bodyMassInKg, orientation );
+}
+
+void RigidBody::createWithCylinderCollider( const dkVec3f& positionWorldSpace, const dkQuatf& orientation, const f32 cylinderRadius, const f32 cylinderDepth )
+{
+    nativeObject->CollisionShape = dk::core::allocate<btCylinderShapeX>( memoryAllocator, btVector3( cylinderDepth, cylinderRadius, cylinderRadius ) );
+
+    CreateInternalObjects( memoryAllocator, nativeObject, positionWorldSpace, bodyMassInKg, orientation );
+}
+
+void RigidBody::createWithConvexHullCollider( const dkVec3f& positionWorldSpace, const dkQuatf& orientation, const f32* hullVertices, const i32 vertexCount )
+{
+    btConvexHullShape* shape = dk::core::allocate<btConvexHullShape>( memoryAllocator );
+    for ( i32 i = 0; i < vertexCount; i++ ) {
+        shape->addPoint( btVector3( hullVertices[i * 3 + 0], hullVertices[i * 3 + 1], hullVertices[i * 3 + 2] ), false );
+    }
+    shape->recalcLocalAabb();
+
+    nativeObject->CollisionShape = shape;
+    CreateInternalObjects( memoryAllocator, nativeObject, positionWorldSpace, bodyMassInKg, orientation );
 }
 
 void RigidBody::keepAlive()

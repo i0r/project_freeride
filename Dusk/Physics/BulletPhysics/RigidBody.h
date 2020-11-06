@@ -7,14 +7,14 @@
 #ifdef DUSK_USE_BULLET
 class btRigidBody;
 struct btDefaultMotionState;
-class btCollisionObject;
+class btCollisionShape;
 
 struct NativeRigidBody
 {
     btRigidBody*            RigidBodyInstance;
     btDefaultMotionState*   BodyMotionState;
-    btCollisionObject*      CollisionShape;
-
+    btCollisionShape*       CollisionShape;
+    
     NativeRigidBody()
         : RigidBodyInstance( nullptr )
         , BodyMotionState( nullptr )

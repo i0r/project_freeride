@@ -10,11 +10,6 @@
 class BaseAllocator;
 struct NativeRigidBody;
 
-enum class PhysicsCollisionShape 
-{
-        
-};
-
 class RigidBody 
 {
 public:
@@ -23,8 +18,24 @@ public:
     DUSK_INLINE NativeRigidBody* getNativeObject() const { return nativeObject; }
 
 public:
-                    RigidBody( BaseAllocator* allocator, const f32 massInKg, const dkVec3f& positionWorldSpace, const dkQuatf& orientation );
+                    RigidBody( BaseAllocator* allocator, const f32 massInKg );
                     ~RigidBody();
+
+    // Create and instantiate this rigid body with a box collider.
+    void            createWithBoxCollider( const dkVec3f& positionWorldSpace, const dkQuatf& orientation, const dkVec3f& boxHalfExtents );
+
+    // Create and instantiate this rigid body with a sphere collider.
+    void            createWithSphereCollider( const dkVec3f& positionWorldSpace, const dkQuatf& orientation, const f32 sphereRadius );
+
+    // Create and instantiate this rigid body with a plane collider. Note that the plane is implicitly infinite,
+    void            createWithPlaneCollider( const dkVec3f& positionWorldSpace, const dkQuatf& orientation, const dkVec3f& planeNormal, const f32 planeHeight );
+
+    // Create and instantiate this rigid body with a cylinder collider.
+    void            createWithCylinderCollider( const dkVec3f& positionWorldSpace, const dkQuatf& orientation, const f32 cylinderRadius, const f32 cylinderDepth );
+
+    // Create and instantiate this rigid body with a convex hull collider. The vertices provided as the scalar array 'hullVertices'
+    // must contain position attributes only.
+    void            createWithConvexHullCollider( const dkVec3f& positionWorldSpace, const dkQuatf& orientation, const f32* hullVertices, const i32 vertexCount );
 
     // Disable simulation deactivation for this body. Shouldn't be used anywhere outside vehicle simulation.
     // To re-enable deactivation, you should simply call 'setSimulationState'.
@@ -59,11 +70,11 @@ public:
 
 private:
     // The allocator owning this instance.
-    BaseAllocator*  memoryAllocator;
+    BaseAllocator*      memoryAllocator;
 
     // Opaque object holding API-specific handle/objects (defined in the body implementation).
-    NativeRigidBody*   nativeObject;
+    NativeRigidBody*    nativeObject;
 
     // Mass of the object (in kilograms).
-    f32             bodyMassInKg;
+    f32                 bodyMassInKg;
 };

@@ -3,12 +3,11 @@
     Copyright (C) 2020 Prevost Baptiste
 */
 #include "Shared.h"
+#include "MotorizedVehicle.h"
 
-#if 0
-#include "MotorizedVehiclePhysics.h"
-
-MotorizedVehiclePhysics::MotorizedVehiclePhysics()
-    : velocity( 0, 0, 0 )
+MotorizedVehiclePhysics::MotorizedVehiclePhysics( BaseAllocator* allocator )
+    : memoryAllocator( allocator )
+    , velocity( 0, 0, 0 )
     , forceAccumulator( 0, 0, 0 )
     , torqueAccumulator( 0, 0, 0 )
     , steer( 0.0f )
@@ -31,25 +30,26 @@ MotorizedVehiclePhysics::MotorizedVehiclePhysics()
 
 }
 
-void MotorizedVehiclePhysics::create( const VehicleParameters& parameters, const dkVec3f& positionWorldSpace, const dkQuatf& orientationWorldSpace, ConvexHullLoadData* hullData )
+void MotorizedVehiclePhysics::create( const VehicleParameters& parameters, const dkVec3f& positionWorldSpace, const dkQuatf& orientationWorldSpace )
 {
     vehicleParameters = parameters;
 
-    // Build chassis' collider 
-    auto convexHull = new CollisionShapeConvexHull( hullData->Vertices, hullData->VertexCount );
-    auto collisionShape = new CollisionShapeCompound();
-    collisionShape->AddChildShape( convexHull, parameters.CenterOfMassPosition );
-    auto chassisCollider = new Collider( collisionShape, positionWorldSpace, orientationWorldSpace );
-    chassisRigidBody.reset( new RigidBody( vehicleParameters.TotalMass, chassisCollider, positionWorldSpace, orientationWorldSpace ) );
-    chassisRigidBody->KeepAlive();
+    chassisRigidBody = dk::core::allocate<RigidBody>( memoryAllocator, memoryAllocator, vehicleParameters.TotalMass );
+    chassisRigidBody->createWithBoxCollider( positionWorldSpace, orientationWorldSpace, dkVec3f( 8.0f, 0.25, 4.0f ) );
+    chassisRigidBody->keepAlive();
+
+    //// Build chassis collider 
+    //auto convexHull = new CollisionShapeConvexHull( hullData->Vertices, hullData->VertexCount );
+    //auto collisionShape = new CollisionShapeCompound();
+    //collisionShape->AddChildShape( convexHull, parameters.CenterOfMassPosition );
 
     // Since this is a raycast-based vehicle, wheels don't exist in the physics world
-    for ( i32 wheelIdx = 0; wheelIdx < vehicleParameters.TiresParameters.WheelCount; wheelIdx++ ) {
+    for ( u32 wheelIdx = 0; wheelIdx < vehicleParameters.TiresParameters.WheelCount; wheelIdx++ ) {
         VehicleWheel& wheel = wheels[wheelIdx];
 
         wheel.BasePosition = dkVec3f( vehicleParameters.WheelDistanceLateral, 0.0f, vehicleParameters.WheelDistanceLongitudinal ) * WHEEL_POSITION_OFFSET[wheelIdx];
         wheel.BaseOrientation = dkQuatf( 0, 0, 0, 1 );
-        wheel.OrientationMatrix = glm::toMat3( wheel.BaseOrientation );
+        wheel.OrientationMatrix = wheel.BaseOrientation.toMat3x3();
 
         wheel.SuspensionRestLength = 0.2f;
         wheel.SuspensionForce = 15000.0f;
@@ -98,37 +98,38 @@ void MotorizedVehiclePhysics::create( const VehicleParameters& parameters, const
     }
 }
 
-void MotorizedVehiclePhysics::PreStepUpdate( const f32 frameTime, btDynamicsWorld* dynamicsWorld )
+void MotorizedVehiclePhysics::preStepUpdate( const f32 frameTime, btDynamicsWorld* dynamicsWorld )
 {
     // Update chassis simulation
-    auto angularVelocity = chassisRigidBody->GetNativeObject()->getAngularVelocity();
-    auto linearVelocity = chassisRigidBody->GetNativeObject()->getLinearVelocity();
+    dkVec3f angularVelocity = chassisRigidBody->getAngularVelocity();
+    dkVec3f linearVelocity = chassisRigidBody->getLinearVelocity();
 
-    f32 inputSteer = inputSteering / ( 1 + ( ( glm::pow( glm::max( abs( linearVelocity.getZ() ) - vehicleParameters.DecayThreshold, 0.0f ), 0.9f ) ) * vehicleParameters.DecayControl ) );
+    f32 inputSteer = inputSteering / ( 1 + ( ( pow( Max( abs( linearVelocity.z ) - vehicleParameters.DecayThreshold, 0.0f ), 0.9f ) ) * vehicleParameters.DecayControl ) );
 
     f32 slideSteer = 0.0f;
-    glm::vec2 slideVector = glm::vec2( linearVelocity.getX(), linearVelocity.getZ() );
-    f32 slideVelocity = glm::length( slideVector );
+    dkVec2f slideVector = dkVec2f( linearVelocity.x, linearVelocity.z );
+    f32 slideVelocity = slideVector.length();
 
     if ( slideVector.y > 0.0f ) {
-        slideSteer = glm::angle( slideVector, glm::vec2( 0, 1 ) ) * ( static_cast< f32 >( slideVector.x > 0.0f ) - 0.5f ) * 2.0f;
+        slideSteer = dk::maths::angle( slideVector, dkVec2f( 0, 1 ) ) * ( static_cast< f32 >( slideVector.x > 0.0f ) - 0.5f ) * 2.0f;
     } else if ( slideVector.y < 0.0f ) {
-        slideSteer = glm::angle( slideVector, glm::vec2( 0, -1 ) ) * ( static_cast< f32 >( slideVector.x > 0.0f ) - 0.5f ) * 2.0f;
+        slideSteer = dk::maths::angle( slideVector, dkVec2f( 0, -1 ) ) * ( static_cast< f32 >( slideVector.x > 0.0f ) - 0.5f ) * 2.0f;
     }
 
     slideSteer = slideSteer * ( ( 1 - ( 1 / ( 1 + slideVelocity ) ) ) * vehicleParameters.SlideControl );
     slideSteer *= static_cast<f32>( abs( slideVector.y ) > 6.0f );
 
-    f32 spinSteer = angularVelocity.getY() * vehicleParameters.SlideControl;
-    steer = glm::clamp( inputSteer + slideSteer + spinSteer, -1.0f, 1.0f );
+    f32 spinSteer = angularVelocity.y * vehicleParameters.SlideControl;
+    steer = dk::maths::clamp( inputSteer + slideSteer + spinSteer, -1.0f, 1.0f );
 
-    auto bpos = chassisRigidBody->GetWorldPosition();
-    auto bmat = glm::mat3_cast( chassisRigidBody->GetWorldRotation() );
+    dkVec3f bpos = chassisRigidBody->getWorldPosition();
+    dkMat3x3f bmat = chassisRigidBody->getRotation().toMat3x3();
+
     auto Towards = [&]( f32 current, f32 target, f32 amount ) {
         if ( current > target ) {
-            return current - glm::min( abs( target - current ), amount );
+            return current - Min( abs( target - current ), amount );
         } else if ( current < target ) {
-            return current + glm::min( abs( target - current ), amount );
+            return current + Min( abs( target - current ), amount );
         }
 
         return current;
@@ -136,18 +137,18 @@ void MotorizedVehiclePhysics::PreStepUpdate( const f32 frameTime, btDynamicsWorl
 
     auto VecTrack = [&]( const dkVec3f& v0, const dkVec3f& v1, int lockAxis = 1, int trackAxis = 2 ) {
         if ( lockAxis == trackAxis ) {
-            return glm::mat3( 1.0f );
+            return dkMat3x3f::Identity;
         }
 
-        auto lock = glm::normalize( v0 );
-        auto track = glm::normalize( v1 );
+        auto lock = v0.normalize();
+        auto track = v1.normalize();
 
-        if ( abs( glm::dot( lock, track ) ) == 1.0f ) {
-            return glm::mat3( 1.0f );
+        if ( abs( dkVec3f::dot( lock, track ) ) == 1.0f ) {
+            return dkMat3x3f::Identity;
         }
 
-        auto other = glm::normalize( glm::cross( track, lock ) );
-        track = glm::cross( lock, other );
+        auto other = dkVec3f::cross( track, lock ).normalize();
+        track = dkVec3f::cross( lock, other );
 
         auto otherAxis = 3 - ( lockAxis + trackAxis );
 
@@ -155,7 +156,7 @@ void MotorizedVehiclePhysics::PreStepUpdate( const f32 frameTime, btDynamicsWorl
             other = -other;
         }
 
-        glm::mat3 r = glm::mat3( 0.0f );
+        dkMat3x3f r = dkMat3x3f( 0.0f );
         r[lockAxis] = lock;
         r[trackAxis] = track;
         r[otherAxis] = other;
@@ -164,12 +165,12 @@ void MotorizedVehiclePhysics::PreStepUpdate( const f32 frameTime, btDynamicsWorl
     };
 
     auto veclineproject = [&]( const dkVec3f& vec, const dkVec3f& nor ) {
-        dkVec3f n = glm::normalize( nor );
-        return nor * glm::dot( nor, vec );
+        dkVec3f n = nor.normalize();
+        return nor * dkVec3f::dot( nor, vec );
     };
 
     auto vecplaneproject = [&]( const dkVec3f& vec, const dkVec3f& nor ) {
-        dkVec3f n = glm::normalize( nor );
+        dkVec3f n = nor.normalize();
         return vec - veclineproject( vec, n );
     };
 
@@ -178,7 +179,7 @@ void MotorizedVehiclePhysics::PreStepUpdate( const f32 frameTime, btDynamicsWorl
     };
 
     auto limit = [&]( f32 value, f32 lower, f32 upper ) {
-        return glm::max( glm::min( value, upper ), lower );
+        return Max( Min( value, upper ), lower );
     };
 
     auto lerp = [&]( f32 p0, f32 p1, f32 t ) {
@@ -188,7 +189,7 @@ void MotorizedVehiclePhysics::PreStepUpdate( const f32 frameTime, btDynamicsWorl
     auto SafeNormalize = [&]( dkVec3f& vectorToNormalize ) {
         // For some reason, glm allows null vector normalization (which leads to a division by zero)
         // So we need to check if the vector length is null to avoid evilish NaN
-        vectorToNormalize = ( glm::length( vectorToNormalize ) == 0.0f ) ? dkVec3f( 0.0f ) : glm::normalize( vectorToNormalize );
+        vectorToNormalize = ( vectorToNormalize.length() == 0.0f ) ? dkVec3f::Zero : vectorToNormalize.normalize();
         return vectorToNormalize;
     };
 
@@ -199,7 +200,7 @@ void MotorizedVehiclePhysics::PreStepUpdate( const f32 frameTime, btDynamicsWorl
         wheel.SteerAngle = Towards( wheel.SteerAngle, wheel.SteerLock * steer, wheel.SteerRate * frameTime );
 
         // Generate wheel matrix and apply steering
-        auto wmat = bmat * ( wheel.OrientationMatrix * glm::mat3_cast( glm::rotate( glm::quat( 1, 0, 0, 0 ), wheel.SteerAngle, dkVec3f( 0, 1, 0 ) ) ) );
+        auto wmat = bmat * wheel.OrientationMatrix * dkQuatf( 0, 0, 0, 1 ).rotate( wheel.SteerAngle, dkVec3f( 0, 1, 0 ) ).toMat3x3();
 
         // Ray coordinates
         auto p0 = wheel.Position;
@@ -215,12 +216,12 @@ void MotorizedVehiclePhysics::PreStepUpdate( const f32 frameTime, btDynamicsWorl
         if ( rayResult.hasHit() ) {
             // Retrieve hit infos and compute common terms for the rest of the update
             auto hob = rayResult.m_collisionObject;
-            auto hitNormal = glm::normalize( dkVec3f( rayResult.m_hitNormalWorld.getX(), rayResult.m_hitNormalWorld.getY(), rayResult.m_hitNormalWorld.getZ() ) );
+            auto hitNormal = dkVec3f( rayResult.m_hitNormalWorld.getX(), rayResult.m_hitNormalWorld.getY(), rayResult.m_hitNormalWorld.getZ() ).normalize();
             auto hmat = VecTrack( hitNormal, wmat[2] );
 
             auto hpos = dkVec3f( rayResult.m_hitPointWorld.getX(), rayResult.m_hitPointWorld.getY(), rayResult.m_hitPointWorld.getZ() );
 
-            f32 flatness = glm::dot( hmat[1], wmat[1] );
+            f32 flatness = dkVec3f::dot( hmat[1], wmat[1] );
 
             auto hitPositionBody = hpos - bpos;
 
@@ -228,7 +229,6 @@ void MotorizedVehiclePhysics::PreStepUpdate( const f32 frameTime, btDynamicsWorl
             auto hitObjectWorldPosition = dkVec3f( btHitObjectWorldPosition.getX(), btHitObjectWorldPosition.getY(), btHitObjectWorldPosition.getZ() );
             auto hitOriginBody = hpos - hitObjectWorldPosition;
 
-            btVector3 hpos_body = btVector3( hitPositionBody.x, hitPositionBody.y, hitPositionBody.z );
             btVector3 hpos_hob = btVector3( hitOriginBody.x, hitOriginBody.y, hitOriginBody.z );
 
             auto rigidBodyHitObject = btRigidBody::upcast( hob );
@@ -237,55 +237,55 @@ void MotorizedVehiclePhysics::PreStepUpdate( const f32 frameTime, btDynamicsWorl
                 continue;
             }
 
-            auto hitPointVelocity = chassisRigidBody->GetNativeObject()->getVelocityInLocalPoint( hpos_body ) - rigidBodyHitObject->getVelocityInLocalPoint( hpos_hob );
-            auto hvel = dkVec3f( hitPointVelocity.getX(), hitPointVelocity.getY(), hitPointVelocity.getZ() );
-
+            btVector3 hitObjVelocity = rigidBodyHitObject->getVelocityInLocalPoint( hpos_hob );
+            dkVec3f hvel = chassisRigidBody->getVelocityInLocalPoint( hitPositionBody ) - dkVec3f( hitObjVelocity.getX(), hitObjVelocity.getY(), hitObjVelocity.getZ() );
+            
             // Update suspension length based on raycast's result with the rest of the world
-            wheel.CurrentSuspensionLength = glm::max( glm::length( p0 - hpos ) - vehicleParameters.TiresParameters.WheelRadius, 0.0f );
+            wheel.CurrentSuspensionLength = Max( ( p0 - hpos ).length() - vehicleParameters.TiresParameters.WheelRadius, 0.0f );
 
             f32 suspensionFac = 1.0f - wheel.CurrentSuspensionLength / wheel.SuspensionRestLength;
-            f32 suspensionSpringForce = glm::pow( suspensionFac, wheel.SuspensionExponent ) * wheel.SuspensionForce;
-            suspensionSpringForce -= glm::dot( hvel, hmat[1] ) * wheel.SuspensionDampingFactor;
+            f32 suspensionSpringForce = pow( suspensionFac, wheel.SuspensionExponent ) * wheel.SuspensionForce;
+            suspensionSpringForce -= dkVec3f::dot( hvel, hmat[1] ) * wheel.SuspensionDampingFactor;
 
             // Update per-wheel traction
             auto tp_pos = wheel.PatchAveragePosition;
             tp_pos -= hvel * frameTime;
             f32 rollDistance = wheel.AngularVelocity * vehicleParameters.TiresParameters.WheelRadius * frameTime;
             f32 rollFactor = abs( rollDistance ) / ( wheel.PatchRadius * 2.0f );
-            tp_pos += rollDistance * hmat[2];
+            tp_pos += hmat[2] * rollDistance;
 
             tp_pos = vecplaneproject( tp_pos, hmat[1] );
             tp_pos += vecToLine( tp_pos, hmat[2] ) * ( 1.0f - 1.0f / ( 1.0f + rollFactor ) ) * wheel.PatchSlipingFactor;
 
-            auto fNormal = glm::max( suspensionSpringForce, 0.0f );
+            auto fNormal = Max( suspensionSpringForce, 0.0f );
             auto fTraction = wheel.FricitionCoefficient * fNormal * lerp( wheel.WheelTiltEdgeFactor, 1.0f, flatness );
 
             auto tp_max = fTraction / wheel.PatchSpringRate;
-            tp_pos = SafeNormalize( tp_pos ) * ( glm::min( tp_max, glm::length( tp_pos ) ) );
+            tp_pos = SafeNormalize( tp_pos ) * ( Min( tp_max, tp_pos.length() ) );
 
-            wheel.PatchAveragePosition = SafeNormalize( wheel.PatchAveragePosition ) * glm::min( tp_max, glm::length( wheel.PatchAveragePosition ) );
+            wheel.PatchAveragePosition = SafeNormalize( wheel.PatchAveragePosition ) * Min( tp_max, wheel.PatchAveragePosition.length() );
 
             wheel.PatchAverageVelocity = ( tp_pos - wheel.PatchAveragePosition ) / frameTime;
             wheel.PatchAveragePosition = tp_pos;
 
             auto fPatch = wheel.PatchAveragePosition * wheel.PatchSpringRate + wheel.PatchAverageVelocity * wheel.PatchCriticalDampingCoefficient / ( 1.0f + rollFactor );
 
-            if ( glm::length( fPatch ) > fTraction ) {
-                fPatch = glm::normalize( fPatch ) * ( fTraction * wheel.LostGripSlidingFactor );
+            if ( fPatch.length() > fTraction ) {
+                fPatch = fPatch.normalize() * ( fTraction * wheel.LostGripSlidingFactor );
             }
 
             if ( fTraction != 0.0f ) {
-                wheel.GripState = limit( 1.0f - ( glm::length( wheel.PatchAveragePosition ) * wheel.PatchSpringRate ) / fTraction, 0.0f, 1.0f );
+                wheel.GripState = limit( 1.0f - ( wheel.PatchAveragePosition.length() * wheel.PatchSpringRate ) / fTraction, 0.0f, 1.0f );
             } else {
                 wheel.GripState = 0.0f;
             }
 
-            wheel.PatchTensionTorque = -( glm::dot( fPatch, hmat[2] ) * vehicleParameters.TiresParameters.WheelRadius );
+            wheel.PatchTensionTorque = -( dkVec3f::dot( fPatch, hmat[2] ) * vehicleParameters.TiresParameters.WheelRadius );
 
-            auto force = fNormal * hmat[1] + fPatch;
+            auto force = hmat[1] * fNormal + fPatch;
 
             forceAccumulator += force;
-            torqueAccumulator += glm::cross( hitPositionBody, force );
+            torqueAccumulator += dkVec3f::cross( hitPositionBody, force );
         } else {
             wheel.CurrentSuspensionLength = wheel.SuspensionRestLength;
             wheel.PatchAveragePosition = { 0, 0, 0 };
@@ -299,7 +299,7 @@ void MotorizedVehiclePhysics::PreStepUpdate( const f32 frameTime, btDynamicsWorl
         auto torque = wheel.PatchTensionTorque;
         torque -= wheel.AngularVelocity * wheel.DragCoefficient;
 
-        torque += GetTorque( wheel.AngularVelocity ) / vehicleParameters.TiresParameters.WheelCount;
+        torque += getTorque( wheel.AngularVelocity ) / vehicleParameters.TiresParameters.WheelCount;
         torque = Towards( torque, -( wheel.AngularVelocity * wheel.MomentOfInertia ) / frameTime, wheel.MaxBrakeTorque * inputBraking );
 
         wheel.FinalTorque = torque;
@@ -316,11 +316,11 @@ void MotorizedVehiclePhysics::PreStepUpdate( const f32 frameTime, btDynamicsWorl
     torque -= patchDragSum;
 
     if ( vehicleParameters.TransmissionParameters.TransmissionType == VehicleTransmissionParameters::TRANSMISSION_RWD ) {
-        torque += GetTorque( wheels[2].AngularVelocity );
+        torque += getTorque( wheels[2].AngularVelocity );
     } else if ( vehicleParameters.TransmissionParameters.TransmissionType == VehicleTransmissionParameters::TRANSMISSION_FWD ) {
-        torque += GetTorque( wheels[0].AngularVelocity );
+        torque += getTorque( wheels[0].AngularVelocity );
     } else if ( vehicleParameters.TransmissionParameters.TransmissionType == VehicleTransmissionParameters::TRANSMISSION_AWD ) {
-        torque += GetTorque( wheels[0].AngularVelocity );
+        torque += getTorque( wheels[0].AngularVelocity );
     }
 
     f32 brake = 0.0f;
@@ -356,21 +356,18 @@ void MotorizedVehiclePhysics::PreStepUpdate( const f32 frameTime, btDynamicsWorl
     //forceAccumulator += dragForce;
 }
 
-void MotorizedVehiclePhysics::PostStepUpdate( const f32 frameTime )
+void MotorizedVehiclePhysics::postStepUpdate( const f32 frameTime )
 {
     velocity += ( forceAccumulator / vehicleParameters.TotalMass ) * frameTime;
     position += velocity * frameTime;
 
     // Physics Steppin'
     // Apply wheel forces to hull
-    auto btForceAccumulation = btVector3( forceAccumulator.x, forceAccumulator.y, forceAccumulator.z );
-    auto btTorqueAccumulation = btVector3( torqueAccumulator.x, torqueAccumulator.y, torqueAccumulator.z );
+    chassisRigidBody->applyForceCentral( forceAccumulator );
+    chassisRigidBody->applyTorque( torqueAccumulator );
 
-    chassisRigidBody->GetNativeObject()->applyCentralForce( btForceAccumulation );
-    chassisRigidBody->GetNativeObject()->applyTorque( btTorqueAccumulation );
-
-    auto bpos = chassisRigidBody->GetWorldPosition();
-    auto bmat = glm::mat3_cast( chassisRigidBody->GetWorldRotation() );
+    auto bpos = chassisRigidBody->getWorldPosition();
+    auto bmat = chassisRigidBody->getRotation().toMat3x3();
 
     f32 currentGearRatio = vehicleParameters.TransmissionParameters.GearRatio.at( currentGearIndex );
     f32 G = currentGearRatio * vehicleParameters.TransmissionParameters.FinalDriveRatio;
@@ -381,19 +378,19 @@ void MotorizedVehiclePhysics::PostStepUpdate( const f32 frameTime )
         wheel.AxialAngle += wheel.AngularVelocity * frameTime;
 
         // Update wheel position according to suspension length
-        auto updatedWheelPosition = wheel.BasePosition - wheel.OrientationMatrix[1] * wheel.CurrentSuspensionLength;
-        updatedWheelPosition = bpos + bmat * updatedWheelPosition;
+        dkVec3f updatedWheelPosition = wheel.BasePosition - wheel.OrientationMatrix[1] * wheel.CurrentSuspensionLength;
+        updatedWheelPosition = updatedWheelPosition * bmat + bpos;
 
         // Update wheel rotation
-        wheel.AxialAngle = glm::fmod( wheel.AxialAngle, 2.0f * glm::pi<f32>() );
-        auto wheelSteer = glm::mat3_cast( glm::rotate( glm::quat( 1, 0, 0, 0 ), wheel.SteerAngle, dkVec3f( 0, 1, 0 ) ) );
-        auto wheelSpin = glm::mat3_cast( glm::rotate( glm::quat( 1, 0, 0, 0 ), -wheel.AxialAngle, dkVec3f( 1, 0, 0 ) ) );
+        wheel.AxialAngle = std::fmod( wheel.AxialAngle, 2.0f * dk::maths::PI<f32>() );
+        auto wheelSteer = dkQuatf( 0, 0, 0, 1 ).rotate( wheel.SteerAngle, dkVec3f( 0, 1, 0 ) ).toMat3x3();
+        auto wheelSpin = dkQuatf( 0, 0, 0, 1 ).rotate( -wheel.AxialAngle, dkVec3f( 1, 0, 0 ) ).toMat3x3();
 
         auto updatedWheelOrientation = wheel.OrientationMatrix * wheelSteer * wheelSpin;
 
         // Update wheel transform
         wheel.Position = updatedWheelPosition;
-        wheel.Orientation = glm::quat( bmat * updatedWheelOrientation );
+        wheel.Orientation = dkQuatf( bmat * updatedWheelOrientation );
 
         //wheel.SpeedInKmh = wheel.AngularVelocity * vehicleParameters.TiresParameters.WheelRadius * -3.60f;
 
@@ -409,17 +406,17 @@ void MotorizedVehiclePhysics::PostStepUpdate( const f32 frameTime )
     inputBraking = 0.0f;*/
 }
 
-void MotorizedVehiclePhysics::SetSteeringState( const f32 steeringState )
+void MotorizedVehiclePhysics::setSteeringState( const f32 steeringState )
 {
     inputSteering = steeringState;
 }
 
-void MotorizedVehiclePhysics::SetThrottleState( const f32 throttleState )
+void MotorizedVehiclePhysics::setThrottleState( const f32 throttleState )
 {
     inputThrottle = throttleState;
 }
 
-void MotorizedVehiclePhysics::SetBrakingState( const f32 brakeValue )
+void MotorizedVehiclePhysics::setBrakingState( const f32 brakeValue )
 {
     inputBraking = brakeValue;
 }
@@ -440,7 +437,7 @@ f32 MotorizedVehiclePhysics::getTorque( const f32 angularVelocity )
             return torqueCurve.at( 0 );
         }
 
-        f32 t = glm::clamp( abs( time ), 0.0f, 1.0f );
+        f32 t = dk::maths::clamp( abs( time ), 0.0f, 1.0f );
         if ( t == 1.0f ) {
             return torqueCurve.back();
         } else if ( t == 0.0f ) {
@@ -463,4 +460,3 @@ f32 MotorizedVehiclePhysics::getTorque( const f32 angularVelocity )
 
     return torque;
 }
-#endif

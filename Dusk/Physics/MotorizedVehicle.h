@@ -147,19 +147,21 @@ public:
     };
 
 public:
-                    MotorizedVehiclePhysics();
+                    MotorizedVehiclePhysics( BaseAllocator* allocator );
                     MotorizedVehiclePhysics( MotorizedVehiclePhysics& vehicle ) = default;
                     ~MotorizedVehiclePhysics() = default;
 
-    void            create( const VehicleParameters& parameters, const dkVec3f& positionWorldSpace, const dkQuatf& orientationWorldSpace, ConvexHullLoadData* hullData );
-    void            PreStepUpdate( const f32 frameTime, class btDynamicsWorld* dynamicsWorld );
-    void            PostStepUpdate( const f32 frameTime );
+    void            create( const VehicleParameters& parameters, const dkVec3f& positionWorldSpace, const dkQuatf& orientationWorldSpace );
+    void            preStepUpdate( const f32 frameTime, class btDynamicsWorld* dynamicsWorld );
+    void            postStepUpdate( const f32 frameTime );
 
-    void            SetSteeringState( const f32 steerValue );
-    void            SetThrottleState( const f32 gasValue );
-    void            SetBrakingState( const f32 brakeValue );
+    void            setSteeringState( const f32 steerValue );
+    void            setThrottleState( const f32 gasValue );
+    void            setBrakingState( const f32 brakeValue );
 
 private:
+    BaseAllocator* memoryAllocator;
+
     // Chassis
     RigidBody*                    chassisRigidBody;
 
