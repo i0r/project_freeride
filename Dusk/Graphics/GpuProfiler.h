@@ -11,16 +11,19 @@
 class CommandList;
 struct QueryPool;
 
+// The number of frame to wait until the Profiler can readback from the GPU.
+static constexpr i32 RESULT_RETRIVAL_FRAME_LAG = 5;
+
 class GpuProfiler
 {
 public:
 	struct SectionData
 	{
 		// Index in the timestampQueries array pointing to the section start query handle.
-		u32     BeginQueryHandle;
+		u32     BeginQueryHandle[RESULT_RETRIVAL_FRAME_LAG];
 
 		// Index in the timestampQueries array pointing to the section end query handle.
-		u32     EndQueryHandle;
+		u32     EndQueryHandle[RESULT_RETRIVAL_FRAME_LAG];
 
         // Sum of all the samples timing. 
         f64     Sum;
@@ -44,9 +47,7 @@ public:
         std::string Name;
 
         SectionData()
-            : BeginQueryHandle( 0 )
-            , EndQueryHandle( 0 )
-            , Sum( 0.0 )
+            : Sum( 0.0 )
             , SampleCount( 0ull )
             , CallCount( 0ull )
             , Maximum( -std::numeric_limits<f32>::max() )
@@ -54,7 +55,8 @@ public:
             , Parent( nullptr )
             , Name( "" )
         {
-
+            memset( BeginQueryHandle, 0, sizeof( u32 ) * RESULT_RETRIVAL_FRAME_LAG );
+            memset( EndQueryHandle, 0, sizeof( u32 ) * RESULT_RETRIVAL_FRAME_LAG );
         }
 
         static f64 CalculateAverage( const SectionData& section )
@@ -62,6 +64,10 @@ public:
             return section.Sum / static_cast< f64 >( section.SampleCount );
         }
 	};
+
+public:
+    DUSK_INLINE auto begin() const { return profiledSections.begin(); }
+    DUSK_INLINE auto end() const { return profiledSections.end(); }
 
 public:
                     GpuProfiler();
@@ -82,9 +88,6 @@ public:
     void            endSection( CommandList& cmdList );
 
 private:
-    // The number of frame to wait until the Profiler can readback from the GPU.
-	static constexpr i32 RESULT_RETRIVAL_FRAME_LAG = 5;
-
     // The maximum number of profiling section (per frame).
 	static constexpr i32 MAX_PROFILE_SECTION_COUNT = 128;
 
@@ -95,8 +98,7 @@ private:
     // The QueryPool used for timestamp query allocation.
     QueryPool*       timestampQueryPool;
 
-    // Last update frame index. 
-    size_t           lastUpdateFrameIndex;
+    i32              internalIndex;
 
     // Hashmap keeping track of the sections across several frames.
     std::unordered_map<dkStringHash_t, SectionData> profiledSections;
@@ -104,15 +106,16 @@ private:
     // Stack keeping track of the active sections being recorded.
     // We allocate one stack per command list to guarantee thread safeness
     // and avoid heavy synchronizations.
-    std::stack<u32> sectionsStacks[RenderDevice::CMD_LIST_POOL_CAPACITY];
+    std::stack<dkStringHash_t> sectionsStacks[RenderDevice::CMD_LIST_POOL_CAPACITY];
+
+    u32 perInternalFrameSectionCount[RESULT_RETRIVAL_FRAME_LAG];
+
+    u32 perInternalFrameSectionStartIndex[RESULT_RETRIVAL_FRAME_LAG];
 
 private:
     // Retrieve query timing from the GPU until we reach the end of the queries
     // or an unavailable query.
     void getSectionsResult( RenderDevice& renderDevice, CommandList& cmdList );
-
-    // Allocate a query from the timestamp pool and return its index in the timestampQueries array.
-    u32  allocateQueryHandle( CommandList& cmdList );
 };
 
 extern GpuProfiler g_GpuProfiler;
