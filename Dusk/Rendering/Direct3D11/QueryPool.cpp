@@ -123,8 +123,9 @@ void CommandList::getQueryResult( QueryPool& queryPool, u64* resultsArray, const
 
 u32 CommandList::allocateQuery( QueryPool& queryPool )
 {
+    u32 queryHandle = queryPool.currentAllocableIndex;
     queryPool.currentAllocableIndex = ( ++queryPool.currentAllocableIndex % queryPool.capacity );
-    return queryPool.currentAllocableIndex;
+    return queryHandle;
 }
 
 void CommandList::beginQuery( QueryPool& queryPool, const u32 queryIndex )
