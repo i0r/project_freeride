@@ -120,7 +120,8 @@ namespace dk
                 GetHaltonValue( SampleIndex & 1023, 3 )
             );
 
-            SampleIndex = ++SampleIndex % SAMPLE_COUNT;
+            SampleIndex++;
+            SampleIndex = SampleIndex % SAMPLE_COUNT;
 
             return offset;
         }

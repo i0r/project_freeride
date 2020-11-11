@@ -20,9 +20,9 @@ class DisplaySurface
 {
 public:
     DUSK_INLINE NativeDisplaySurface*   getNativeDisplaySurface() const { return displaySurface; }
-    DUSK_INLINE const eDisplayMode      getDisplayMode() const          { return displayMode; }
-    DUSK_INLINE const u32               getWidth() const                { return width; }
-    DUSK_INLINE const u32               getHeight() const               { return height; }
+    DUSK_INLINE eDisplayMode      getDisplayMode() const          { return displayMode; }
+    DUSK_INLINE u32               getWidth() const                { return width; }
+    DUSK_INLINE u32               getHeight() const               { return height; }
 
 public:
                             DisplaySurface( BaseAllocator* allocator );

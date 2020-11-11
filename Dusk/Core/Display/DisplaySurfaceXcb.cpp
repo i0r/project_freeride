@@ -33,7 +33,7 @@ DisplaySurface::~DisplaySurface()
     displaySurface = nullptr;
 }
 
-void DisplaySurface::create( const u32 surfaceWidth, const u32 surfaceHeight, const eDisplayMode initialDisplayMode )
+void DisplaySurface::create( const u32 surfaceWidth, const u32 surfaceHeight, const eDisplayMode initialDisplayMode, const i32 initialMonitorIndex )
 {
     DUSK_LOG_INFO( "Creating display surface (XCB)\n" );
 

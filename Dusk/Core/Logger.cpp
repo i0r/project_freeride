@@ -60,7 +60,11 @@ void Logger::Write( const dkStringHash_t categoryHashcode, const dkChar_t* forma
 #endif
 
 #if DUSK_LOGGING_USE_CONSOLE_OUTPUT
+#if DUSK_UNICODE
     wprintf( DUSK_STRING( "%s" ), BUFFER );
+#else
+    printf( DUSK_STRING( "%s" ), BUFFER );
+#endif
 #endif
 
 #if DUSK_LOGGING_USE_FILE_OUTPUT

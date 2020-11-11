@@ -4,8 +4,9 @@
 */
 #pragma once
 
-#include <Core/ViewFormat.h>
-#include <Core/DebugHelpers.h>
+#include "Core/ViewFormat.h"
+#include "Core/DebugHelpers.h"
+#include "Maths/Helpers.h"
 
 class BaseAllocator;
 class DisplaySurface;
@@ -284,13 +285,13 @@ struct BlendStateDesc
         const decltype( BlendConfColor ) blendConfColor = { BLEND_SOURCE_ONE, BLEND_SOURCE_ONE, BLEND_OPERATION_ADD },
         const decltype( BlendConfAlpha ) blendConfAlpha = { BLEND_SOURCE_ONE, BLEND_SOURCE_ONE, BLEND_OPERATION_ADD }
     )
-        : EnableBlend( enableBlend )
-        , UseSeperateAlpha( useSeparateAlpha )
-        , EnableAlphaToCoverage( enableAlphaToCoverage )
-        , WriteR( writeR )
+        : WriteR( writeR )
         , WriteG( writeG )
         , WriteB( writeB )
         , WriteA( writeA )
+        , EnableBlend( enableBlend )
+        , UseSeperateAlpha( useSeparateAlpha )
+        , EnableAlphaToCoverage( enableAlphaToCoverage )
         , BlendConfColor( blendConfColor )
         , BlendConfAlpha( blendConfAlpha )
     {
@@ -432,6 +433,7 @@ struct BufferViewDesc
         : FirstElement( firstElement )
         , NumElements( numElements )
         , ViewFormat( viewFormat )
+        , __PADDING__( 0 ) // Required since ctor must initialize all members (if cpp standard is < 20).
     {
 
     }
@@ -518,17 +520,16 @@ struct DepthStencilStateDesc
         const decltype( Front ) frontStencil = { COMPARISON_FUNCTION_ALWAYS, STENCIL_OPERATION_KEEP, STENCIL_OPERATION_KEEP, STENCIL_OPERATION_KEEP },
         const decltype( Back ) backStencil = { COMPARISON_FUNCTION_ALWAYS, STENCIL_OPERATION_KEEP, STENCIL_OPERATION_KEEP, STENCIL_OPERATION_KEEP }
     )
-        : SortKey{ 0, 0 }
-        , EnableDepthTest( enableDepthTest )
+        : EnableDepthTest( enableDepthTest )
         , EnableStencilTest( enableStencilTest )
         , EnableDepthWrite( enableDepthWrite )
         , EnableDepthBoundsTest( enableDepthBoundsTest )
-        , DepthBoundsMin( depthBoundsMin )
-        , DepthBoundsMax( depthBoundsMax )
         , DepthComparisonFunc( depthComparisonFunc )
         , StencilRefValue( stencilRefValue )
         , StencilWriteMask( stencilWriteMask )
         , StencilReadMask( stencilReadMask )
+        , DepthBoundsMin( depthBoundsMin )
+        , DepthBoundsMax( depthBoundsMax )
         , Front( frontStencil )
         , Back( backStencil )
     {
@@ -589,8 +590,7 @@ struct RasterizerStateDesc
         const f32 slopeScale = 0.0f,
         const f32 depthBiasClamp = 0.0f
     )
-        : SortKey{ 0, 0 }
-        , DepthBias( depthBias )
+        : DepthBias( depthBias )
         , SlopeScale( slopeScale )
         , DepthBiasClamp( depthBiasClamp )
         , CullMode( cullMode )

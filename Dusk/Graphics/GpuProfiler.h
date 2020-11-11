@@ -5,7 +5,7 @@
 #pragma once
 
 #include <stack>
-
+#include <cstring> // Required by memset
 #include "Rendering/RenderDevice.h" // Required by CMD_LIST_POOL_CAPACITY.
 
 class CommandList;

@@ -13,6 +13,8 @@
 #include "Core/Hashing/Helpers.h"
 #include "Core/Hashing/HashingSeeds.h"
 
+#include <list>
+
 DUSK_INLINE void StorePassStage( std::string* stageShaderNames, const i32 stageIdx, const Token::StreamRef& paramValue )
 {
     stageShaderNames[stageIdx].append( paramValue.StreamPointer, paramValue.Length );

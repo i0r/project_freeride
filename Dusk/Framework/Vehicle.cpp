@@ -6,6 +6,7 @@
 #include "Vehicle.h"
 
 #include "Entity.h"
+#include "Transform.h"
 
 #include "Maths/Quaternion.h"
 #include "Maths/Helpers.h"

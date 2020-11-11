@@ -16,7 +16,7 @@ EntityNameRegister::EntityNameRegister( BaseAllocator* allocator )
 
 EntityNameRegister::~EntityNameRegister()
 {
-    dk::core::free( memoryAllocator, registerData );
+    dk::core::free( memoryAllocator, static_cast<u8*>( registerData ) );
     names = nullptr;
 }
 

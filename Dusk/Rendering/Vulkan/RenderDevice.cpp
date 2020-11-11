@@ -34,6 +34,7 @@
 #endif
 
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #define DUSK_GET_INSTANCE_PROC_ADDR( inst, entrypoint )\
         PFN_vk##entrypoint vk##entrypoint = reinterpret_cast<PFN_vk##entrypoint>( vkGetInstanceProcAddr( inst, "vk"#entrypoint ) );\
@@ -226,7 +227,7 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
     VkPhysicalDeviceProperties tmpProperties = {};
     u32 deviceIdx = 0, bestDeviceIdx = 0;
 
-    static constexpr const char* DEVICE_TYPE_TO_STRING_LUT[VK_PHYSICAL_DEVICE_TYPE_RANGE_SIZE] = {
+    static constexpr const char* DEVICE_TYPE_TO_STRING_LUT[5] = {
         "Other",
         "Integrated GPU",
         "Discrete GPU",

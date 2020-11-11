@@ -171,5 +171,5 @@ private:
     u8 isShadeless : 1;
 
 private:
-    const PipelineStateCache::ShaderBinding& Material::getScenarioShaderBinding( const RenderScenario scenario ) const;
+    const PipelineStateCache::ShaderBinding& getScenarioShaderBinding( const RenderScenario scenario ) const;
 };

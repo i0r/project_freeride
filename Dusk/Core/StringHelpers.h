@@ -252,10 +252,8 @@ DUSK_INLINE std::string WideStringToString( const dkString_t& str )
     return str;
 }
 
-DUSK_INLINE std::wstring StringToWideString( const std::string& str )
+DUSK_INLINE std::string StringToWideString( const std::string& str )
 {
-    std::wstring wstr;
-    wstr.assign( str.begin(), str.end() );
-    return wstr;
+    return str;
 }
 #endif

@@ -30,6 +30,9 @@ void DisplaySurface::changeDisplayMode( const eDisplayMode newDisplayMode )
 	case BORDERLESS:
 		setFullscreenBorderlessDisplayMode();
         break;
+    default:
+        DUSK_DEV_ASSERT( false, "Invalid Usage!" );
+        break;
     }
 
     displayMode = newDisplayMode;

@@ -10,11 +10,14 @@
 #include <Core/Types.h>
 #include <Core/DebugHelpers.h>
 
+#include "Helpers.h"
+
 namespace dk
 {
     namespace maths
     {
         template< typename T, typename R > constexpr T max( const T a, const R b );
+        template<typename T> constexpr T clamp( const T x, const T minVal, const T maxVal);
     }
 }
 
@@ -1067,7 +1070,7 @@ namespace dk
         template <typename Precision, i32 ScalarCount>
         constexpr Precision angle( const Vector<Precision, ScalarCount>& l, const Vector<Precision, ScalarCount>& r )
         {
-            return acos( clamp( Vector<Precision, ScalarCount>::dot( l, r ), Precision( -1 ), Precision( 1 ) ) );
+            return acos( dk::maths::clamp( Vector<Precision, ScalarCount>::dot( l, r ), Precision( -1 ), Precision( 1 ) ) );
         }
     }
 }

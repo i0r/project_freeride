@@ -18,6 +18,7 @@ struct DrawCmd;
 #include <atomic>
 #include <thread>
 #include <functional>
+#include <vector>
 
 #include <Framework/Cameras/Camera.h>
 #include <Rendering/RenderDevice.h>
