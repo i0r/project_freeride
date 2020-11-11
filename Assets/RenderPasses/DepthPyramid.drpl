@@ -43,7 +43,7 @@ lib DepthPyramid {
         uint2 samplePos = $SV_GroupID.xy * ReductionTGSize + $SV_GroupThreadID.xy;
         samplePos = min(samplePos, TextureSize - 1);
 
-        float depthSample = ConvertFromReversedDepth( DepthBuffer[samplePos], g_ClippingPlanes.x );
+        float depthSample = Linear01Depth( DepthBuffer[samplePos], g_ClippingPlanes.x, g_ClippingPlanes.y );
 
         if(depthSample < 1.0f)
         {
@@ -84,10 +84,6 @@ lib DepthPyramid {
         float minDepth = CurrentDepthMip[samplePos].x;
         float maxDepth = CurrentDepthMip[samplePos].y;
 
-        if ( maxDepth == 0.0f ) {
-            maxDepth = 1.0f;
-        }
-        
         // Store in shared memory
         depthSamples[$SV_GroupIndex] = float2( minDepth, maxDepth );
         GroupMemoryBarrierWithGroupSync();
@@ -118,7 +114,14 @@ lib DepthPyramid {
         if ( all( $SV_DispatchThreadID.xy < TextureSize.xy ) ) {
           float4 depths = DepthBuffer.Gather( SamplerPoint, ( $SV_DispatchThreadID.xy + 0.5f ) / TextureSize.xy );
           
-          DownsampledepthMip[$SV_DispatchThreadID.xy] = max( max( depths.x, depths.y ), max( depths.z, depths.w ) );
+          float maxDepth = 1.0f;
+          
+          [unroll]
+          for ( int i = 0; i < 4; i++ ) {
+            maxDepth = min( maxDepth, depths[i] );
+          }
+          
+          DownsampledepthMip[$SV_DispatchThreadID.xy] = maxDepth;
         }
     }
     

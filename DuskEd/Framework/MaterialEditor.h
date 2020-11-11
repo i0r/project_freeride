@@ -20,6 +20,10 @@ class VirtualFileSystem;
 class MaterialEditor
 {
 public:
+    // The maximum length of a code piece attribute (in characters count).
+    static constexpr u32 MAX_CODE_PIECE_LENGTH = 1024;
+
+public:
                         MaterialEditor( BaseAllocator* allocator, GraphicsAssetCache* gfxCache, VirtualFileSystem* vfs );
                         ~MaterialEditor();
 
@@ -71,10 +75,6 @@ private:
 
     // Material editor data.
     MaterialEdData      bufferData;
-
-private:
-    // The maximum length of a code piece attribute (in characters count).
-    static constexpr u32 MAX_CODE_PIECE_LENGTH = 1024;
 
 private:
     // Display GUI for a given Material Attribute.

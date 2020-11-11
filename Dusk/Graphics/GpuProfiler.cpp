@@ -5,17 +5,14 @@
 #include "Shared.h"
 #include "GpuProfiler.h"
 
+#include "Rendering/CommandList.h"
+
 GpuProfiler::GpuProfiler()
 	: timestampQueryPool( nullptr )
-	, sectionCount( 0u )
-	, sectionReadIndex( 0u )
-	, sectionWriteIndex( 0u )
-	, queryCount( 0u )
+	, internalIndex( -1 )
 {
-	memset( sections, 0, sizeof( SectionInfos ) * TOTAL_SECTION_COUNT );
-	memset( timestampQueries, 0, sizeof( u32 ) * TOTAL_SECTION_COUNT );
-	memset( timestampResults, 0, sizeof( u64 ) * TOTAL_SECTION_COUNT );
-	memset( timestampResultsAsMs, 0, sizeof( f64 ) * TOTAL_SECTION_COUNT );
+    memset( perInternalFrameSectionCount, 0, sizeof( u32 ) * RESULT_RETRIVAL_FRAME_LAG );
+    memset( perInternalFrameSectionStartIndex, 0, sizeof( u32 ) * RESULT_RETRIVAL_FRAME_LAG );
 }
 
 GpuProfiler::~GpuProfiler()
@@ -38,106 +35,106 @@ void GpuProfiler::destroy( RenderDevice& renderDevice )
 
 void GpuProfiler::update( RenderDevice& renderDevice )
 {
-#if 0
-	const size_t frameIndex = renderDevice.getFrameIndex();
+	internalIndex = ( ++internalIndex % RESULT_RETRIVAL_FRAME_LAG );
 
-	if ( ( frameIndex - RESULT_RETRIVAL_FRAME_LAG ) >= 0 ) {
-		// Note: We explicitly request a cmdlist for query readback since 
-		// Vulkan query readback must be done on a Graphics or Compute queue.
-		CommandList& readBackCmdList = renderDevice.allocateComputeCommandList();
-		readBackCmdList.begin();
-		getSectionsResult( renderDevice, readBackCmdList );
-		readBackCmdList.end();
-		renderDevice.submitCommandList( readBackCmdList );
+    const size_t frameIndex = renderDevice.getFrameIndex();
+    if ( frameIndex < RESULT_RETRIVAL_FRAME_LAG - 1 ) {
+        return;
+    }
 
-		sectionReadIndex = ( sectionReadIndex + MAX_PROFILE_SECTION_COUNT ) % TOTAL_SECTION_COUNT;
-	}
+    const u32 retrievalInternalIndex = static_cast<u32>( frameIndex - ( RESULT_RETRIVAL_FRAME_LAG - 1 ) ) % RESULT_RETRIVAL_FRAME_LAG;
 
-	sectionWriteIndex = ( sectionWriteIndex + MAX_PROFILE_SECTION_COUNT ) % TOTAL_SECTION_COUNT;
-	sectionCount = 0;
-#endif
+	// Note: We explicitly request a cmdlist for query readback since 
+	// Vulkan query readback must be done on a Graphics or Compute queue.
+	CommandList& readBackCmdList = renderDevice.allocateComputeCommandList();
+    readBackCmdList.begin();
+    readBackCmdList.retrieveQueryResults( *timestampQueryPool, 
+                                            perInternalFrameSectionStartIndex[retrievalInternalIndex], 
+                                            perInternalFrameSectionCount[retrievalInternalIndex] * 2 );
+
+    // Readback query results from the GPU.
+    u64 timestampsResults[MAX_PROFILE_SECTION_COUNT];
+    memset( timestampsResults, 0, sizeof( u64 ) * MAX_PROFILE_SECTION_COUNT );
+
+    readBackCmdList.getQueryResult( *timestampQueryPool, 
+                                    timestampsResults, 
+                                    perInternalFrameSectionStartIndex[retrievalInternalIndex],
+                                    perInternalFrameSectionCount[retrievalInternalIndex] * 2 );
+
+    // Update section records.
+    i32 timestampIdx = 0;
+    for ( auto& sectionEntry : profiledSections ) {
+        SectionData& section = sectionEntry.second;
+            
+        u64 beginTiming = timestampsResults[timestampIdx + 0];
+        u64 endTiming = timestampsResults[timestampIdx + 1];
+
+        f64 beginTimingMs = renderDevice.convertTimestampToMs( beginTiming );
+        f64 endTimingMs = renderDevice.convertTimestampToMs( endTiming );
+
+        f32 sectionTiming = static_cast<f32>( endTimingMs - beginTimingMs );
+
+        section.Sum += sectionTiming;
+        section.SampleCount++;
+        section.CallCount++;
+
+        section.Maximum = Max( section.Maximum, sectionTiming );
+        section.Minimum = Min( section.Minimum, sectionTiming );
+
+        timestampIdx += 2;
+    }
+	readBackCmdList.end();
+
+	renderDevice.submitCommandList( readBackCmdList );
+
+    perInternalFrameSectionCount[retrievalInternalIndex] = 0;
+    perInternalFrameSectionStartIndex[retrievalInternalIndex] = 0;
 }
 
-GpuProfiler::SectionHandle_t GpuProfiler::beginSection( CommandList& cmdList )
+void GpuProfiler::beginSection( CommandList& cmdList, const std::string& sectionName )
 {
-    const SectionHandle_t handle = ( sectionWriteIndex + sectionCount );
-#if 0
-	SectionInfos& section = sections[handle];
-	section.BeginQueryHandle = allocateQueryHandle( cmdList );
-	section.EndQueryHandle = allocateQueryHandle( cmdList );
-	section.Result = -1.0;
+    dkStringHash_t sectionHashcode = dk::core::CRC32( sectionName.c_str() );
 
-	sectionCount++;
+    SectionData& section = profiledSections[sectionHashcode];
+	section.Name = sectionName;
+    section.BeginQueryHandle[internalIndex] = cmdList.allocateQuery( *timestampQueryPool );
+    section.EndQueryHandle[internalIndex] = cmdList.allocateQuery( *timestampQueryPool );
 
-	// Write start timestamp.
-	cmdList.writeTimestamp( *timestampQueryPool, timestampQueries[section.BeginQueryHandle] );
+	std::stack<dkStringHash_t>& sectionsStack = sectionsStacks[cmdList.getCommandListPooledIndex()];
+    section.Parent = ( !sectionsStack.empty() ) ? &profiledSections[sectionsStack.top()] : nullptr;
+    
+    sectionsStack.push( sectionHashcode );
 
-	std::stack<SectionHandle_t>& sectionsStack = sectionsStacks[cmdList.getCommandListPooledIndex()];
-	sectionsStack.push( handle );
-#endif
-
-	return handle;
+	cmdList.writeTimestamp( *timestampQueryPool, section.BeginQueryHandle[internalIndex] );
 }
 
 void GpuProfiler::endSection( CommandList& cmdList )
 {
-#if 0
-	std::stack<SectionHandle_t>& sectionsStack = sectionsStacks[cmdList.getCommandListPooledIndex()];
+    std::stack<dkStringHash_t>& sectionsStack = sectionsStacks[cmdList.getCommandListPooledIndex()];
+    DUSK_ASSERT( !sectionsStack.empty(), "There is no active profiling section..." );
 
-	DUSK_ASSERT( !sectionsStack.empty(), "There is no active profiling section..." );
-	if ( !sectionsStack.empty() ) {
-		return;
-	}
+    if ( sectionsStack.empty() ) {
+        return;
+    }
 
-	SectionHandle_t latestSectionIdx = sectionsStack.top();
-	const SectionInfos& section = sections[latestSectionIdx];
+    dkStringHash_t latestSectionIdx = sectionsStack.top();
 
-	// Write end timestamp.
-	cmdList.writeTimestamp( *timestampQueryPool, timestampQueries[section.EndQueryHandle] );
+    SectionData& section = profiledSections[latestSectionIdx];
+
+    // We linearly allocate handles from the pool. Therefore the first handle allocated is the first begin timestamp
+    // allocated for a given frame.
+    if ( perInternalFrameSectionCount[internalIndex] == 0 ) {
+        perInternalFrameSectionStartIndex[internalIndex] = section.BeginQueryHandle[internalIndex];
+    }
+    perInternalFrameSectionCount[internalIndex]++;
+
+    cmdList.writeTimestamp( *timestampQueryPool, section.EndQueryHandle[internalIndex] );
 
     sectionsStack.pop();
-#endif
-}
-
-f64 GpuProfiler::getSectionResultInMs( const SectionHandle_t handle ) const
-{
-	const SectionHandle_t readHandle = ( sectionReadIndex + sectionCount );
-	return sections[readHandle].Result;
 }
 
 void GpuProfiler::getSectionsResult( RenderDevice& renderDevice, CommandList& cmdList )
 {
-#if 0
-	cmdList.retrieveQueryResults( *timestampQueryPool, sectionReadIndex, sectionCount );
-	cmdList.getQueryResult( *timestampQueryPool, timestampResults, sectionReadIndex, sectionCount );
-
-	for ( std::size_t sectionIdx = 0; sectionIdx < sectionCount; sectionIdx++ ) {
-		const std::size_t sectionArrayIdx = ( sectionReadIndex + sectionIdx );
-		SectionInfos& section = sections[sectionArrayIdx];
-
-		const uint64_t beginQueryResult = timestampResults[section.BeginQueryHandle];
-		const uint64_t endQueryResult = timestampResults[section.EndQueryHandle];
-
-		// Check if the current handle is valid and available.
-		// If not, stop the retrieval here.
-		if ( beginQueryResult <= 0ull || endQueryResult <= 0ull ) {
-			return;
-		}
-
-		u64 elapsedTicks = ( endQueryResult - beginQueryResult );
-		section.Result = renderDevice.convertTimestampToMs( elapsedTicks );
-    }
-#endif
-}
-
-u32 GpuProfiler::allocateQueryHandle( CommandList& cmdList )
-{
-    const u32 handle = queryCount;
-#if 0
-	timestampQueries[handle] = cmdList.allocateQuery( *timestampQueryPool );
-    queryCount = ( ++queryCount % TOTAL_SECTION_COUNT );
-#endif
-	return handle;
 }
 
 GpuProfiler g_GpuProfiler;

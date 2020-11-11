@@ -1063,6 +1063,12 @@ namespace dk
 
             return v;
         }
+
+        template <typename Precision, i32 ScalarCount>
+        constexpr Precision angle( const Vector<Precision, ScalarCount>& l, const Vector<Precision, ScalarCount>& r )
+        {
+            return acos( clamp( Vector<Precision, ScalarCount>::dot( l, r ), Precision( -1 ), Precision( 1 ) ) );
+        }
     }
 }
 

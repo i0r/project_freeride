@@ -15,9 +15,7 @@
 
 #include <Maths/Helpers.h>
 
-static constexpr i32 CLUSTER_X = 16;
-static constexpr i32 CLUSTER_Y = 8;
-static constexpr i32 CLUSTER_Z = 24;
+#include "Graphics/RenderModules/Generated/Culling.generated.h"
 
 LightGrid::LightGrid( BaseAllocator* allocator )
     : memoryAllocator( allocator )
@@ -38,6 +36,8 @@ LightGrid::LightGrid( BaseAllocator* allocator )
 
     perSceneBufferData.SunLight.IlluminanceInLux = 100000.0f * solidAngle;
     perSceneBufferData.SunLight.ColorLinearSpace = dkVec3f( 1.0f, 1.0f, 1.0f );
+    
+    perSceneBufferData.PointLightCount = 0;
 }
 
 LightGrid::~LightGrid()
@@ -51,6 +51,8 @@ LightGrid::Data LightGrid::updateClusters( FrameGraph& frameGraph )
 
     struct PassData {
         FGHandle PerSceneBuffer;
+        FGHandle LightClusters;
+        FGHandle ItemList;
     };
 
     PassData& passData = frameGraph.addRenderPass<PassData>(
@@ -62,7 +64,7 @@ LightGrid::Data LightGrid::updateClusters( FrameGraph& frameGraph )
             sceneClustersBufferDesc.SizeInBytes = sizeof( PerSceneBufferData );
             passData.PerSceneBuffer = builder.allocateBuffer( sceneClustersBufferDesc, SHADER_STAGE_COMPUTE );
 
-            /*     ImageDesc lightClusterDesc;
+            ImageDesc lightClusterDesc;
             lightClusterDesc.dimension = ImageDesc::DIMENSION_3D;
             lightClusterDesc.format = eViewFormat::VIEW_FORMAT_R32G32_UINT;
             lightClusterDesc.usage = RESOURCE_USAGE_DEFAULT;
@@ -73,41 +75,53 @@ LightGrid::Data LightGrid::updateClusters( FrameGraph& frameGraph )
             lightClusterDesc.mipCount = 1u;
             passData.LightClusters = builder.allocateImage( lightClusterDesc );
 
+            u32 itemListElementCount = CLUSTER_X * CLUSTER_Y * CLUSTER_Z * MAX_POINT_LIGHT_COUNT;
+
             BufferDesc itemListDesc;
             itemListDesc.Usage = RESOURCE_USAGE_DEFAULT;
-            itemListDesc.BindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
-            itemListDesc.SizeInBytes = sizeof( u32 ) * CLUSTER_X * CLUSTER_Y * CLUSTER_Z * ( MAX_POINT_LIGHT_COUNT + MAX_LOCAL_IBL_PROBE_COUNT );
-            itemListDesc.StrideInBytes = static_cast<u32>( itemListDesc.SizeInBytes / sizeof( u32 ) );
+            itemListDesc.BindFlags = RESOURCE_BIND_SHADER_RESOURCE | RESOURCE_BIND_UNORDERED_ACCESS_VIEW | RESOURCE_BIND_RAW;
+            itemListDesc.SizeInBytes = sizeof( u32 ) * itemListElementCount;
+            itemListDesc.StrideInBytes = sizeof( u32 );
+            
             itemListDesc.DefaultView.ViewFormat = eViewFormat::VIEW_FORMAT_R32_UINT;
+            itemListDesc.DefaultView.FirstElement = 0;
+            itemListDesc.DefaultView.NumElements = 0;
 
-            passData.ItemList = builder.allocateBuffer( itemListDesc, SHADER_STAGE_COMPUTE );*/
+            passData.ItemList = builder.allocateBuffer( itemListDesc, SHADER_STAGE_COMPUTE );
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
-  /*          Image* lightsClusters = resources->getImage( passData.LightClusters );
-            Buffer* itemList = resources->getBuffer( passData.ItemList );*/
+            Image* lightsClusters = resources->getImage( passData.LightClusters );
+            Buffer* itemList = resources->getBuffer( passData.ItemList );
             Buffer* perSceneBuffer = resources->getBuffer( passData.PerSceneBuffer );
 
-            //PipelineState* pipelineState = psoCache->getOrCreatePipelineState( DefaultPipelineState, Scene::LightCulling_ShaderBinding );
+            PipelineState* pipelineState = psoCache->getOrCreatePipelineState( DefaultPipelineState, Culling::CullLights_ShaderBinding );
 
-           /*
+            cmdList->pushEventMarker( Culling::CullLights_EventName );
             cmdList->bindPipelineState( pipelineState );
 
-            cmdList->bindImage( Scene::LightCulling_LightClusters_Hashcode, lightsClusters );
-            cmdList->bindBuffer( Scene::LightCulling_ItemList_Hashcode, itemList, VIEW_FORMAT_R32_UINT );
-            cmdList->bindConstantBuffer( PerWorldBufferHashcode, perSceneBuffer );*/
-            cmdList->pushEventMarker( DUSK_STRING( "LightCulling Buffer Update" ) );
             cmdList->updateBuffer( *perSceneBuffer, &perSceneBufferData, sizeof( PerSceneBufferData ) );
 
-            //cmdList->prepareAndBindResourceList();
+            cmdList->bindImage( Culling::CullLights_g_LightClusters_Hashcode, lightsClusters );
+            cmdList->bindBuffer( Culling::CullLights_ItemList_Hashcode, itemList );
+            cmdList->bindConstantBuffer( PerWorldBufferHashcode, perSceneBuffer );
+            cmdList->prepareAndBindResourceList();
 
-            //cmdList->dispatchCompute( CLUSTER_X, CLUSTER_Y, CLUSTER_Z );
+            cmdList->dispatchCompute( CLUSTER_X, CLUSTER_Y, CLUSTER_Z );
 
             cmdList->popEventMarker();
+
+            // Reset the light count for the next frame.
+            // TODO Right now we discard and reupload all the streamed entities each frame.
+            // I guess we could adopt a more clever way to stream/update content...
+            perSceneBufferData.PointLightCount = 0;
         }
     );
 
+
     LightGrid::Data returnData;
     returnData.PerSceneBuffer = passData.PerSceneBuffer;
+    returnData.LightClusters = passData.LightClusters;
+    returnData.ItemList = passData.ItemList;
 
     return returnData;
 }
@@ -128,113 +142,12 @@ DirectionalLightGPU* LightGrid::getDirectionalLightData()
     return &perSceneBufferData.SunLight;
 }
 
-//
-//uint32_t LightGrid::allocatePointLightData( const PointLightData&& lightData )
-//{
-//    uint32_t i = 0u;
-//    for ( ; i < MAX_POINT_LIGHT_COUNT; i++ ) {
-//        if ( !pointLightsUsed[i] ) {
-//            break;
-//        }
-//    }
-//
-//    if ( i == MAX_POINT_LIGHT_COUNT ) {
-//        DUSK_DEV_ASSERT( false, "Too many Point Lights! (max is set to %i)", MAX_POINT_LIGHT_COUNT );
-//        return std::numeric_limits<uint32_t>::max();
-//    }
-//
-//    pointLightsUsed[i] = true;
-//
-//    PointLightData& light = cpuBuffer.PointLights[i];
-//    light = std::move( lightData );
-//
-//    needBufferRebuild = true;
-//
-//    return i;
-//}
-//
-//uint32_t LightGrid::allocateLocalIBLProbeData( const IBLProbeData&& probeData )
-//{
-//    // NOTE Offset probe array index (first probe should be the global IBL probe)
-//    uint32_t i = 1u;
-//    for ( ; i < MAX_POINT_LIGHT_COUNT; i++ ) {
-//        if ( !iblProbesUsed[i] ) {
-//            break;
-//        }
-//    }
-//
-//    if ( i == MAX_LOCAL_IBL_PROBE_COUNT ) {
-//        DUSK_DEV_ASSERT( false, "Too many Local IBL Probes! (max is set to %i)", MAX_LOCAL_IBL_PROBE_COUNT );
-//        return std::numeric_limits<uint32_t>::max();
-//    }
-//
-//    iblProbesUsed[i] = true;
-//
-//    IBLProbeData& light = cpuBuffer.IBLProbes[i];
-//    light = std::move( probeData );
-//    light.ProbeIndex = i;
-//
-//    needBufferRebuild = true;
-//
-//    return i;
-//}
-//
-//void LightGrid::releasePointLight( const uint32_t pointLightIndex )
-//{
-//    cpuBuffer.PointLights[pointLightIndex] = { 0 };
-//    pointLightsUsed[pointLightIndex] = false;
-//}
-//
-//void LightGrid::releaseIBLProbe( const uint32_t iblProbeIndex )
-//{
-//    cpuBuffer.IBLProbes[iblProbeIndex] = { 0 };
-//    iblProbesUsed[iblProbeIndex] = false;
-//}
-//
-//DirectionalLightData* LightGrid::updateDirectionalLightData( const DirectionalLightData&& lightData )
-//{
-//    cpuBuffer.DirectionalLight = std::move( lightData );
-//    return &cpuBuffer.DirectionalLight;
-//}
-//
-//IBLProbeData* LightGrid::updateGlobalIBLProbeData( const IBLProbeData&& probeData )
-//{
-//    cpuBuffer.IBLProbes[0] = std::move( probeData );
-//    cpuBuffer.IBLProbes[0].ProbeIndex = 0u;
-//
-//    return &cpuBuffer.IBLProbes[0];
-//}
-//
-//const DirectionalLightData* LightGrid::getDirectionalLightData() const
-//{
-//    return &cpuBuffer.DirectionalLight;
-//}
-//
-//const IBLProbeData* LightGrid::getGlobalIBLProbeData() const
-//{
-//    return &cpuBuffer.IBLProbes[0];
-//}
-//
-//PointLightData* LightGrid::getPointLightData( const uint32_t pointLightIndex )
-//{
-//    DUSK_DEV_ASSERT( pointLightIndex != std::numeric_limits<uint32_t>::max(), "Invalid point light index provided!" );
-//
-//    return &cpuBuffer.PointLights[pointLightIndex];
-//}
-//
-//IBLProbeData* LightGrid::getIBLProbeData( const uint32_t iblProbeIndex )
-//{
-//    DUSK_DEV_ASSERT( iblProbeIndex != std::numeric_limits<uint32_t>::max(), "Invalid IBL probe index provided!" );
-//
-//    return &cpuBuffer.IBLProbes[iblProbeIndex];
-//}
-//
-//#if DUSK_DEVBUILD
-//DirectionalLightData& LightGrid::getDirectionalLightDataRW() 
-//{
-//    return cpuBuffer.DirectionalLight;
-//}
-//#endif
+u32 LightGrid::addPointLightData( const PointLightGPU&& lightData )
+{
+    u32 entityIndex = perSceneBufferData.PointLightCount++;
+    perSceneBufferData.PointLights[entityIndex] = std::move( lightData );
+    return entityIndex;
+}
 
 void LightGrid::updateClustersInfos()
 {

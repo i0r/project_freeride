@@ -43,6 +43,7 @@ extern RenderDocHelper* g_RenderDocHelper;
 #endif
 
 #include "Framework/EditorWidgets/FrameGraphDebug.h"
+#include "Framework/EditorWidgets/CpuProfiler.h"
 
 // TODO Refactor this to avoid weird dependencies
 extern MaterialEditor* g_MaterialEditor;
@@ -64,6 +65,7 @@ EditorInterface::EditorInterface( BaseAllocator* allocator )
 	, renderDocWidget( dk::core::allocate<RenderDocHelperWidget>( memoryAllocator, g_RenderDocHelper ) )
 #endif
 	, frameGraphWidget( dk::core::allocate<FrameGraphDebugWidget>( memoryAllocator ) )
+	, cpuProfilerWidget( dk::core::allocate<CpuProfilerWidget>( memoryAllocator ) )
 	, menuBarHeight( 0.0f )  
 	, isResizing( true )
 {
@@ -76,11 +78,14 @@ EditorInterface::~EditorInterface()
 	dk::core::free( memoryAllocator, renderDocWidget );
 #endif
 
-	dk::core::free( memoryAllocator, frameGraphWidget );
+    dk::core::free( memoryAllocator, frameGraphWidget );
+    dk::core::free( memoryAllocator, cpuProfilerWidget );
 }
 
 void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* renderModule )
 {
+	DUSK_CPU_PROFILE_FUNCTION
+
 	const dkVec2u& ScreenSize = *EnvironmentVariables::getVariable<dkVec2u>( DUSK_STRING_HASH( "ScreenSize" ) );
 	const bool IsFirstLaunch = *EnvironmentVariables::getVariable<bool>( DUSK_STRING_HASH( "IsFirstLaunch" ) );
 
@@ -132,6 +137,9 @@ void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* render
 
 	ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
 	frameGraphWidget->displayEditorWindow( &frameGraph );
+
+    ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
+	cpuProfilerWidget->displayEditorWindow();
 
 	ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
 	if ( ImGui::Begin( ICON_MD_ACCESS_TIME " Time Of Day" ) ) {
@@ -239,46 +247,12 @@ void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* render
 			if ( ImGui::BeginMenu( ICON_MD_CREATE " New Entity..." ) ) {
 				if ( ImGui::MenuItem( "Static Mesh" ) ) {
 					g_PickedEntity = g_World->createStaticMesh();
-
-					CameraData& cameraData = g_FreeCamera->getData();
-
-					const dkMat4x4f& projMat = cameraData.finiteProjectionMatrix;
-					const dkMat4x4f& viewMat = cameraData.viewMatrix;
-
-					dkMat4x4f inverseViewProj = ( viewMat * projMat ).inverse();
-
-					extern i32 shiftedMouseX;
-					extern i32 shiftedMouseY;
-					dkVec3f ray = {
-						( ( ( 2.0f * shiftedMouseX ) / viewportWinSize.x ) - 1 ) / inverseViewProj[0][0],
-						-( ( ( 2.0f * shiftedMouseY ) / viewportWinSize.y ) - 1 ) / inverseViewProj[1][1],
-						1.0f
-					};
-
-					dkVec3f rayDirection =
-					{
-						ray.x * inverseViewProj[0][0] + ray.y * inverseViewProj[1][0] + ray.z * inverseViewProj[2][0],
-						ray.x * inverseViewProj[0][1] + ray.y * inverseViewProj[1][1] + ray.z * inverseViewProj[2][1],
-						ray.x * inverseViewProj[0][2] + ray.y * inverseViewProj[1][2] + ray.z * inverseViewProj[2][2]
-					};
-
-					f32 w = ray.x * inverseViewProj[0][3] + ray.y * inverseViewProj[1][3] + ray.z * inverseViewProj[2][3];
-
-					rayDirection *= ( 1.0f / w );
-
-					f32 backup = rayDirection.y;
-					rayDirection.y = rayDirection.z;
-					rayDirection.z = backup;
-
-					dkVec3f entityPosition = cameraData.worldPosition + ( g_FreeCamera->getEyeDirection() * 10.0f + rayDirection );
-					TransformDatabase* transformDatabase = g_World->getTransformDatabase();
-
-					TransformDatabase::EdInstanceData instanceData = transformDatabase->getEditorInstanceData( transformDatabase->lookup( g_PickedEntity ) );
-					instanceData.Position->x = entityPosition.x;
-					instanceData.Position->y = entityPosition.y;
-					instanceData.Position->z = entityPosition.z;
+					placeNewEntityInWorld( viewportWinSize );
 				}
-
+                if ( ImGui::MenuItem( ICON_MD_LIGHTBULB_OUTLINE " Point Light" ) ) {
+                    g_PickedEntity = g_World->createPointLight();
+                    placeNewEntityInWorld( viewportWinSize );
+                }
 				ImGui::EndMenu();
 			}
 
@@ -302,6 +276,47 @@ void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* render
 	ImGui::Render();
 
 	renderModule->unlock();
+}
+
+void EditorInterface::placeNewEntityInWorld( ImVec2& viewportWinSize )
+{
+    CameraData& cameraData = g_FreeCamera->getData();
+
+    const dkMat4x4f& projMat = cameraData.projectionMatrix;
+    const dkMat4x4f& viewMat = cameraData.viewMatrix;
+
+    dkMat4x4f inverseViewProj = ( viewMat * projMat ).inverse();
+
+    extern i32 shiftedMouseX;
+    extern i32 shiftedMouseY;
+    dkVec3f ray = {
+        ( ( ( 2.0f * shiftedMouseX ) / viewportWinSize.x ) - 1 ) / inverseViewProj[0][0],
+        -( ( ( 2.0f * shiftedMouseY ) / viewportWinSize.y ) - 1 ) / inverseViewProj[1][1],
+        1.0f
+    };
+
+    dkVec3f rayDirection =
+    {
+        ray.x * inverseViewProj[0][0] + ray.y * inverseViewProj[1][0] + ray.z * inverseViewProj[2][0],
+        ray.x * inverseViewProj[0][1] + ray.y * inverseViewProj[1][1] + ray.z * inverseViewProj[2][1],
+        ray.x * inverseViewProj[0][2] + ray.y * inverseViewProj[1][2] + ray.z * inverseViewProj[2][2]
+    };
+
+    f32 w = ray.x * inverseViewProj[0][3] + ray.y * inverseViewProj[1][3] + ray.z * inverseViewProj[2][3];
+
+    rayDirection *= ( 1.0f / w );
+
+    f32 backup = rayDirection.y;
+    rayDirection.y = rayDirection.z;
+    rayDirection.z = backup;
+
+    dkVec3f entityPosition = cameraData.worldPosition + ( g_FreeCamera->getEyeDirection() * 10.0f + rayDirection );
+    TransformDatabase* transformDatabase = g_World->getTransformDatabase();
+
+    TransformDatabase::EdInstanceData instanceData = transformDatabase->getEditorInstanceData( transformDatabase->lookup( g_PickedEntity ) );
+    instanceData.Position->x = entityPosition.x;
+    instanceData.Position->y = entityPosition.y;
+    instanceData.Position->z = entityPosition.z;
 }
 
 void EditorInterface::loadCachedResources( GraphicsAssetCache* graphicsAssetCache )
@@ -344,11 +359,14 @@ void EditorInterface::displayWindowMenu()
 			g_EntityEditor->openEditorWindow();
 		}
 
-
 		if ( ImGui::MenuItem( "FrameGraph Debug" ) ) {
 			frameGraphWidget->openWindow();
 		}
 
+        if ( ImGui::MenuItem( "CPU Profiler" ) ) {
+			cpuProfilerWidget->openWindow();
+        }
+		
 		ImGui::EndMenu();
 	}
 }

@@ -89,5 +89,8 @@ private:
 
     // Display Static geometry edition section.
     void displayStaticGeometrySection();
+
+    // Display Point Light edition section.
+    void displayPointLightSection();
 #endif
 };

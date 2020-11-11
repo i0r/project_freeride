@@ -75,7 +75,29 @@ namespace dk
             return vec;
         }
 
-        static dkVec2f StringTo2DVector( const dkString_t& str )
+        //static dkVec2f StringTo2DVector( const dkString_t& str )
+        //{
+        //    if ( str.front() != '{' || str.back() != '}' ) {
+        //        return dkVec2f();
+        //    }
+
+        //    dkVec2f vec = {};
+
+        //    std::size_t offsetX = str.find_first_of( ',' ),
+        //        offsetY = str.find_last_of( ',' ),
+
+        //        vecEnd = str.find_last_of( '}' );
+
+        //    dkString_t vecX = str.substr( 1, offsetX - 1 );
+        //    dkString_t vecY = str.substr( offsetX + 1, vecEnd - offsetY - 1 );
+
+        //    vec.x = std::stof( vecX );
+        //    vec.y = std::stof( vecY );
+
+        //    return vec;
+        //}
+
+        static dkVec2f StringTo2DVector( const std::string& str )
         {
             if ( str.front() != '{' || str.back() != '}' ) {
                 return dkVec2f();
@@ -88,8 +110,8 @@ namespace dk
 
                 vecEnd = str.find_last_of( '}' );
 
-            dkString_t vecX = str.substr( 1, offsetX - 1 );
-            dkString_t vecY = str.substr( offsetX + 1, vecEnd - offsetY - 1 );
+            std::string vecX = str.substr( 1, offsetX - 1 );
+            std::string vecY = str.substr( offsetX + 1, vecEnd - offsetY - 1 );
 
             vec.x = std::stof( vecX );
             vec.y = std::stof( vecY );

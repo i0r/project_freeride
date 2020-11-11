@@ -78,6 +78,8 @@ Material FetchMaterialEdLayer( MaterialEdLayer layer, int layerIndex, float2 uvM
     builtLayer.AmbientOcclusion = FetchAttribute1D( layer.AmbientOcclusion, uvMapTexCoords, layerIndex, 4, layer.LayerScale, layer.LayerOffset );
     builtLayer.Emissivity = FetchAttribute1D( layer.Emissivity, uvMapTexCoords, layerIndex, 5, layer.LayerScale, layer.LayerOffset );
     builtLayer.BlendMask = FetchAttribute1D( layer.BlendMask, uvMapTexCoords, layerIndex, 6, layer.LayerScale, layer.LayerOffset );
+    builtLayer.ClearCoat = FetchAttribute1D( layer.ClearCoat, uvMapTexCoords, layerIndex, 7, layer.LayerScale, layer.LayerOffset );
+    builtLayer.ClearCoatGlossiness = FetchAttribute1D( layer.ClearCoatGlossiness, uvMapTexCoords, layerIndex, 8, layer.LayerScale, layer.LayerOffset );
     return builtLayer;
 }
 
@@ -88,11 +90,15 @@ void BlendMaterials( inout Material blendedMaterial, Material otherMaterial, Mat
         blendedMaterial.Reflectance = BlendAdditive1D( blendedMaterial.Reflectance, otherMaterial.Reflectance, otherMaterial.BlendMask, blendInfos.SpecularContribution ); 
         blendedMaterial.Roughness = BlendAdditive1D( blendedMaterial.Roughness, otherMaterial.Roughness, otherMaterial.BlendMask, blendInfos.SpecularContribution ); 
         blendedMaterial.Metalness = BlendAdditive1D( blendedMaterial.Metalness, otherMaterial.Metalness, otherMaterial.BlendMask, blendInfos.SpecularContribution );
+        blendedMaterial.ClearCoat = BlendAdditive1D( blendedMaterial.ClearCoat, otherMaterial.ClearCoat, otherMaterial.BlendMask, blendInfos.SpecularContribution );
+        blendedMaterial.ClearCoatGlossiness = BlendAdditive1D( blendedMaterial.ClearCoatGlossiness, otherMaterial.ClearCoatGlossiness, otherMaterial.BlendMask, blendInfos.SpecularContribution );
     } else if ( blendInfos.BlendMode == BLEND_MULTIPLICATIVE ) {
         blendedMaterial.BaseColor = BlendMultiplicative3D( blendedMaterial.BaseColor, otherMaterial.BaseColor, otherMaterial.BlendMask, blendInfos.DiffuseContribution ); 
         blendedMaterial.Reflectance = BlendMultiplicative1D( blendedMaterial.Reflectance, otherMaterial.Reflectance, otherMaterial.BlendMask, blendInfos.SpecularContribution ); 
         blendedMaterial.Roughness = BlendMultiplicative1D( blendedMaterial.Roughness, otherMaterial.Roughness, otherMaterial.BlendMask, blendInfos.SpecularContribution ); 
         blendedMaterial.Metalness = BlendMultiplicative1D( blendedMaterial.Metalness, otherMaterial.Metalness, otherMaterial.BlendMask, blendInfos.SpecularContribution );
+        blendedMaterial.ClearCoat = BlendMultiplicative1D( blendedMaterial.ClearCoat, otherMaterial.ClearCoat, otherMaterial.BlendMask, blendInfos.SpecularContribution );
+        blendedMaterial.ClearCoatGlossiness = BlendMultiplicative1D( blendedMaterial.ClearCoatGlossiness, otherMaterial.ClearCoatGlossiness, otherMaterial.BlendMask, blendInfos.SpecularContribution );
     }
 }
 

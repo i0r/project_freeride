@@ -75,6 +75,32 @@ if ( DUSK_USE_FBXSDK )
     target_link_libraries( DuskEd debug ${ZLIB_LIBRARY_DEBUG} optimized ${ZLIB_LIBRARY} )
 endif( DUSK_USE_FBXSDK )
 
+if ( DUSK_USE_NVAPI )
+    target_link_libraries( DuskEd "${DUSK_BASE_FOLDER}Dusk/ThirdParty/nvapi/amd64/nvapi64.lib" ) 
+endif ( DUSK_USE_NVAPI )
+
+if ( DUSK_USE_AGS )
+target_link_libraries( DuskEd 
+                        debug "${DUSK_BASE_FOLDER}Dusk/ThirdParty/ags/lib/amd_ags_x64_2019_MDd.lib" 
+                        optimized "${DUSK_BASE_FOLDER}Dusk/ThirdParty/ags/lib/amd_ags_x64_2019_MD.lib" ) 
+endif ( DUSK_USE_AGS )
+
+if ( DUSK_USE_BULLET )
+include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/bullet3/src" )
+
+target_link_libraries( DuskEd 
+                        debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/BulletDynamics_Debug.lib" 
+                        optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/BulletDynamics_RelWithDebugInfo.lib" ) 
+                        
+target_link_libraries( DuskEd 
+                        debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/BulletCollision_Debug.lib" 
+                        optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/BulletCollision_RelWithDebugInfo.lib" ) 
+                        
+target_link_libraries( DuskEd 
+                        debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/LinearMath_Debug.lib" 
+                        optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/LinearMath_RelWithDebugInfo.lib" ) 
+endif ( DUSK_USE_BULLET )
+
 include_directories( "${DUSK_BASE_FOLDER}DuskEd" )
 include_directories( "${DUSK_BASE_FOLDER}Dusk" )
 include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/" )

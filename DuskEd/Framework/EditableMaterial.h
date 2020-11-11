@@ -7,6 +7,10 @@
 #include <Graphics/Material.h>
 #include <Maths/Vector.h>
 
+class BaseAllocator;
+class FileSystemObject;
+class GraphicsAssetCache;
+
 struct Image;
 
 enum ShadingModel : i32 {
@@ -97,7 +101,9 @@ struct EditableMaterialLayer
     MaterialAttribute   Normal;
     MaterialAttribute   BlendMask;
     MaterialAttribute   AlphaMask;
-    
+    MaterialAttribute   ClearCoat;
+    MaterialAttribute   ClearCoatGlossiness;
+
     // Scale of the current layer.
     dkVec2f             Scale;
 
@@ -122,6 +128,8 @@ struct EditableMaterialLayer
         , Normal()
         , BlendMask()
         , AlphaMask()
+        , ClearCoat()
+        , ClearCoatGlossiness()
         , Scale( dkVec2f( 1.0f, 1.0f ) )
         , Offset( dkVec2f( 0.0f, 0.0f ) )
         , BlendMode( LayerBlendMode::Additive )
@@ -153,6 +161,12 @@ struct EditableMaterialLayer
 
         AlphaMask.Type = MaterialAttribute::Constant_1D;
         AlphaMask.AsFloat = 1.0f;
+
+        ClearCoat.Type = MaterialAttribute::Constant_1D;
+        ClearCoat.AsFloat = 0.0f;
+
+        ClearCoatGlossiness.Type = MaterialAttribute::Constant_1D;
+        ClearCoatGlossiness.AsFloat = 1.0f;
     }
 };
 
@@ -162,6 +176,12 @@ struct EditableMaterialLayer
 // (see MaterialGenerator).
 struct EditableMaterial 
 {
+public:
+    // Version of the structure. Should be bumped every time a change has been made to the structure (to ensure backward
+    // compatibility).
+    static constexpr i32    VERSION = 1;
+
+public:
     // The name of this material.
     char                    Name[DUSK_MAX_PATH];
 
@@ -210,21 +230,15 @@ struct EditableMaterial
 	// special/debug materials.
 	u8                      IsShadeless : 1;
 
-    EditableMaterial()
-        : SModel( ShadingModel::Default )
-        , LayerCount( 1 )
-        , Layers()
-        , IsDoubleFace( false )
-        , IsAlphaTested( false )
-        , IsAlphaBlended( false )
-        , UseAlphaToCoverage( false )
-        , WriteVelocity( true )
-        , ReceiveShadow( true )
-        , ScaleUVByModelScale( false )
-        , UseRefraction( false )
-        , IsWireframe( false )
-        , IsShadeless( false )
-    {
-        memset( Name, 0, sizeof( char ) * DUSK_MAX_PATH );
-    }
+public:
+                            EditableMaterial();
+
+    // Serialize the editable material instance (as text) to a stream.
+    void                    serialize( FileSystemObject* stream ) const;
+
+    // Parse and load a serialized editable material to this instance.
+    void                    loadFromFile( FileSystemObject* stream, BaseAllocator* allocator, GraphicsAssetCache* graphicsAssetCache );
+
+    // Clear this material layers/attributes.
+    void                    clear();
 };

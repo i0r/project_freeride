@@ -38,4 +38,18 @@ float Diffuse_MultiScatteringDiffuseBRDF(float LoH, float NoL, float NoV, float 
     
     return max(fd + fb, 0.f);
 }
+
+float Visibility_Kelemen( float LoH )
+{
+    return rcp( 4 * Square( LoH ) );
+}
+
+float Visibility_Schlick( in float Roughness, in float NoV, in float NoL )
+{
+    float k = Square( Roughness ) * 0.5;
+    float Vis_SchlickV = NoV * ( 1 - k ) + k;
+    float Vis_SchlickL = NoL * ( 1 - k ) + k;
+    
+    return 0.25 / ( Vis_SchlickV * Vis_SchlickL );
+}
 #endif

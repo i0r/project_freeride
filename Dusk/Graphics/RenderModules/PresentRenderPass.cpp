@@ -43,6 +43,8 @@ void AddPresentRenderPass( FrameGraph& frameGraph, FGHandle imageToPresent )
             passData.swapchain = builder.retrieveSwapchainBuffer();
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+            DUSK_GPU_PROFILE_SCOPED( *cmdList, BuiltIn::PresentPass_Name );
+
             Image* outputTarget = resources->getPersitentImage( passData.swapchain );
             Image* inputTarget = resources->getImage( passData.input );
 

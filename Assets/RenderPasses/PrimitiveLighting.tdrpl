@@ -71,6 +71,14 @@ lib PrimitiveLighting {
             swizzle = CSMSliceInfos;
         }
         
+        ByteAddressBuffer ItemList {
+            format = uint;
+        }
+        
+        Texture3D Clusters {
+            swizzle = uint2;
+        }
+        
         // Injected at Material compile-time. DO NOT REMOVE.
         DUSK_LAYERS_RESOURCES;
     }
@@ -79,6 +87,8 @@ lib PrimitiveLighting {
         #include "Material.hlsli"
         #include "GeometryUtils.hlsli"
         
+        // NOTE Adding a new custom BRDF must be done on the application side (see DUSK_MAT_BRDF in the preprocessing step of
+        // material compilation).
         #ifdef $MaterialEditor
         
         // Injected at Material compile-time. Bakes texture sampling for interactive material
@@ -417,6 +427,23 @@ lib PrimitiveLighting {
             return illuminance + lightIlluminance;
         }
         
+        float3 GetPointLightIlluminance( in PointLightGPU light, in float4 positionWS, in float depthVs, inout float3 L )
+        {
+            float3 unormalizedL = light.WorldPosition - positionWS.xyz;
+            float distance = length( unormalizedL );
+            L = normalize( unormalizedL );
+
+            float illuminance = pow( saturate( 1 - pow( ( distance / light.WorldRadius ), 4 ) ), 2 ) / ( distance * distance + 1 );
+            float luminancePower = light.PowerInLux / ( 4.0f * sqrt( light.WorldRadius * PI ) );
+
+            return light.ColorLinearSpace * luminancePower * illuminance;
+        }
+        
+        uint3 UnpackUint_12_12_8( in uint coords )
+        {
+            return uint3( asuint( ( coords >> 20 ) & 0x00000FFF ), asuint( ( coords >> 8 ) & 0x00000FFF ), asuint( coords & 0x000000FF ) );
+        }
+
         // Injected at Material compile-time. DO NOT REMOVE.
         DUSK_LAYERS_FUNCTIONS;
     }
@@ -425,15 +452,16 @@ lib PrimitiveLighting {
         uint entityIdx = 0;
         float4x4 ModelMatrix = GetInstanceModelMatrix( InstanceVectorBuffer, $SV_InstanceID, entityIdx );
         float4 positionWS = mul( float4( $POSITION.xyz, 1.0f ), ModelMatrix );
-        float4 positionCS = mul( g_ViewProjectionMatrix, float4( positionWS.xyz, 1.0f ) );
-	     
+        float4 positionCS = mul( g_ViewProjectionMatrix, float4( positionWS.xyz, 1.0f ) ); 
+        float4 PositionVS = mul( g_ViewMatrix, float4( positionWS.xyz, 1.0f ) );
+    
         $TEXCOORD0 = $TEXCOORD;
         
 #ifdef $DoPickingCheck
         $BLENDINDICES0 = entityIdx;
 #endif
 
-        $POSITION0 = positionWS;
+        $POSITION0 = float4( positionWS.xyz, ( PositionVS.z / PositionVS.w ) );
         $NORMAL0 = normalize( mul( float4( $NORMAL.xyz, 0.0f ), ModelMatrix ) );
         $SV_POSITION = positionCS;
     }
@@ -474,6 +502,25 @@ lib PrimitiveLighting {
         float3 L;
         float3 dirLightIlluminance = GetDirectionalLightIlluminance( g_DirectionalLight, $POSITION0, depthVS, R, N, L );   
 
+        LightContribution.rgb = DUSK_MAT_BRDF( L, V, N, BlendedMaterial, F0, albedo ) * dirLightIlluminance;
+        
+        // Retrieve cluster index for the current quad.
+        int4 coord = int4( $POSITION0.xyz * g_ClustersScale + g_ClustersBias, 0 );
+        uint2 light_mask = Clusters.Load( coord );
+        uint3 entityCount = light_mask.ggg; //UnpackUint_12_12_8( light_mask.g );
+
+        // Iterate point lights and accumulate calculated lighting.
+        for ( uint i = 0; i < entityCount.r; i++ ) {
+            const uint lightIndex = ItemList.Load(light_mask.r + i * 4 );
+            
+            float3 L;
+            PointLightGPU light = g_PointLights[lightIndex];
+            
+            float3 pointLightIlluminance = GetPointLightIlluminance( light, $POSITION0, depthVS, L );   
+            LightContribution.rgb += DUSK_MAT_BRDF( L, V, N, BlendedMaterial, F0, albedo ) * pointLightIlluminance;	
+        }
+    
+        // Add indirect contribution (Image-based lighting).
         const float NoV = saturate( dot( N, V ) );
         const float NoL = max( 0.00001f, dot( N, L ) ); // Avoid division per zero and NaN...
         float2 f_ab = BrdfDfgLut.Sample( BilinearSampler, float2( NoV, BlendedMaterial.Roughness ) );
@@ -481,8 +528,6 @@ lib PrimitiveLighting {
 
         float3 radiance = IBLSpecular.SampleLevel( BilinearSampler, getSpecularDominantDir( N, R, BlendedMaterial.Roughness ), lodLevel ).rgb;
         float3 irradiance = IBLDiffuse.SampleLevel( BilinearSampler, getDiffuseDominantDir( N, V, NoV, BlendedMaterial.Roughness ), 0 ).rgb;
-        
-        LightContribution.rgb = BRDF_Default( L, V, N, BlendedMaterial, F0, albedo ) * dirLightIlluminance;
         
         float3 Fr = max(float3( smoothness, smoothness, smoothness ), F0) - F0;
         float3 k_S = F0 + Fr * Pow5(1.0 - NoV);
@@ -497,7 +542,7 @@ lib PrimitiveLighting {
         float3 iblContribution = FssEss * radiance + (FmsEms + k_D) * irradiance;
         LightContribution.rgb += iblContribution;
 #endif
-      
+
         $SV_TARGET0 = LightContribution;
     
 #ifdef $DoPickingCheck

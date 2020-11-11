@@ -178,6 +178,8 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
     constexpr i32 INTEL_VENDOR_ID = 0x8086;
 
 #if DUSK_USE_NVAPI
+    bool DisableVendorExtensions = *EnvironmentVariables::getVariable<bool>( DUSK_STRING_HASH( "DisableVendorExtensions" ) );
+
     if ( !DisableVendorExtensions && bestVendorId == NVIDIA_VENDOR_ID ) {
         _NvAPI_Status initializationResult = NvAPI_Initialize();
 

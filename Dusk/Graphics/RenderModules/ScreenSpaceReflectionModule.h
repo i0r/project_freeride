@@ -11,7 +11,7 @@ class RenderDevice;
 struct Image;
 
 #include "Graphics/FrameGraph.h"
-#include "Graphics/ShaderHeaders/Light.h"
+#include "Graphics/ShaderHeaders/Light.h" // Required by SSR_MAX_MIP_LEVEL
 
 class SSRModule 
 {

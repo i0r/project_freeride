@@ -55,6 +55,7 @@ lib AntiAliasing {
         #include "Shared.hlsli"
         #include "Photometry.hlsli"
         #include "ColorSpaces.hlsli"
+        #include "GeometryUtils.hlsli"
         
 #if $SamplerCount == 8
         // MSAA x8
@@ -117,9 +118,9 @@ lib AntiAliasing {
                         int2 samplePos = pixelPos + int2( vx, vy );
                         
                         float2 neighborVelocity = VelocityTexture.Load( samplePos, vsIdx ).rg;
-                        float neighborDepth = DepthBuffer.Load( samplePos, vsIdx ).r;
+                        float neighborDepth = Linear01Depth( DepthBuffer.Load( samplePos, vsIdx ).r, g_ClippingPlanes.x, g_ClippingPlanes.y );
                         
-                        if ( neighborDepth >= closestDepth ) {
+                        if ( neighborDepth > closestDepth ) {
                             velocity = neighborVelocity;
                             closestDepth = neighborDepth;
                         }

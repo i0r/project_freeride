@@ -1186,9 +1186,9 @@ void RenderLibraryGenerator::appendSharedShaderHeader( std::string& hlslSource )
     hlslSource.append( "\tfloat	                g_SceneAABBMinZ;\n" );
 
     hlslSource.append( "\tfloat3	            g_SceneAABBMax;\n" );
-    //hlslSource.append( "\tuint	            PADDING;\n" );
+    hlslSource.append( "\tuint	                g_PointLightCount;\n" );
 
-    //hlslSource.append( "\tPointLightGPU       g_PointLights[MAX_POINT_LIGHT_COUNT];\n" );
+    hlslSource.append( "\tPointLightGPU         g_PointLights[MAX_POINT_LIGHT_COUNT];\n" );
     //hlslSource.append( "\tIBLProbeGPU         g_IBLProbes[MAX_IBL_PROBE_COUNT];\n" );
     hlslSource.append( "};\n" );
 }

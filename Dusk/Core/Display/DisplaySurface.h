@@ -28,7 +28,10 @@ public:
                             DisplaySurface( BaseAllocator* allocator );
                             ~DisplaySurface();
 
-    void                    create( const u32 surfaceWidth, const u32 surfaceHeight, const eDisplayMode initialDisplayMode );
+    // Create a system display surface with a given width/height and display mode. For multi screen systems, monitor index
+    // is the index of the monitor used to place the window (if 0 will use the primary display). Note that the index is 
+    // system specific (you should use user preferences to find the correct index).
+    void                    create( const u32 surfaceWidth, const u32 surfaceHeight, const eDisplayMode initialDisplayMode, const i32 initialMonitorIndex = 0u );
     
     // Set this surface caption (if the underlying implementation allows it).
     void                    setCaption( const dkChar_t* caption );
@@ -51,11 +54,20 @@ public:
     void                    changeDisplayMode( const eDisplayMode newDisplayMode );
 
 private:
+    // Memory allocator owning this instance.
     BaseAllocator*          memoryAllocator;
+    
+    // Opaque structure holding system specifics infos (handle; flags; etc.).
     NativeDisplaySurface*   displaySurface;
+
+    // Current display mode for this surface.
     eDisplayMode            displayMode;
+
     u32                     width;
     u32                     height;
+    i32                     originX;
+    i32                     originY;
+    u32                     monitorIndex;
 
 private:
     void                    setWindowedDisplayMode();

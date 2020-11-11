@@ -7,6 +7,11 @@
 
 #include "FileSystem.h"
 
+bool VirtualFileSystem::SortFS( FileSystemEntry& lEntry, FileSystemEntry& rEntry )
+{
+    return lEntry.MountPoint.length() > rEntry.MountPoint.length() && lEntry.MountOrder < rEntry.MountOrder;
+}
+
 VirtualFileSystem::VirtualFileSystem()
 {
 
@@ -21,9 +26,7 @@ void VirtualFileSystem::mount( FileSystem* media, const dkString_t& mountPoint, 
 {
     fileSystemEntries.push_back( { media, mountOrder, mountPoint } );
 
-    fileSystemEntries.sort( [=]( FileSystemEntry& lEntry, FileSystemEntry& rEntry ) {
-        return lEntry.MountPoint.length() >= rEntry.MountPoint.length() && lEntry.MountOrder <= rEntry.MountOrder;
-    } );
+    fileSystemEntries.sort( SortFS );
 }
 
 void VirtualFileSystem::unmount( FileSystem* media )

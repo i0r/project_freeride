@@ -77,6 +77,11 @@ struct TypeAST {
         RENDER_SCENARIO,
         SHADER_PERMUTATION,
         MATERIAL_PARAMETER,
+
+#ifdef DUSKED
+        EDITABLE_MATERIAL,
+        EDITABLE_MATERIAL_LAYER,
+#endif
     };
 
     eTypes                       Type;
@@ -228,6 +233,7 @@ private:
     void            parseVariable( const Token::StreamRef& typeName, TypeAST& type, const bool isTypeless = false );
     void            parseFont();
     void            parseMaterial();
+    void            parseEditableMaterial();
 
     void            parseShaderPermutation( Token& token, TypeAST& scenarioType );
 

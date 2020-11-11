@@ -339,6 +339,22 @@ static constexpr Matrix<Precision, 4, 4> operator * ( const Matrix<Precision, 4,
 }
 
 template<typename Precision>
+static constexpr Matrix<Precision, 3, 3> operator * ( const Matrix<Precision, 3, 3>& l, const Matrix<Precision, 3, 3>& r )
+{
+    return Matrix<Precision, 3, 3>(
+        r[0][0] * l[0][0] + r[0][1] * l[1][0] + r[0][2] * l[2][0],
+        r[0][0] * l[0][1] + r[0][1] * l[1][1] + r[0][2] * l[2][1],
+        r[0][0] * l[0][2] + r[0][1] * l[1][2] + r[0][2] * l[2][2],
+        r[1][0] * l[0][0] + r[1][1] * l[1][0] + r[1][2] * l[2][0],
+        r[1][0] * l[0][1] + r[1][1] * l[1][1] + r[1][2] * l[2][1],
+        r[1][0] * l[0][2] + r[1][1] * l[1][2] + r[1][2] * l[2][2],
+        r[2][0] * l[0][0] + r[2][1] * l[1][0] + r[2][2] * l[2][0],
+        r[2][0] * l[0][1] + r[2][1] * l[1][1] + r[2][2] * l[2][1],
+        r[2][0] * l[0][2] + r[2][1] * l[1][2] + r[2][2] * l[2][2] );
+}
+
+
+template<typename Precision>
 static constexpr Vector<Precision, 4> operator * ( const Vector<Precision, 4>& l, const Matrix<Precision, 4, 4>& r )
 {
     return Vector<Precision, 4>(
@@ -346,6 +362,17 @@ static constexpr Vector<Precision, 4> operator * ( const Vector<Precision, 4>& l
         l.x * r[0][1] + l.y * r[1][1] + l.z * r[2][1] + l.w * r[3][1],
         l.x * r[0][2] + l.y * r[1][2] + l.z * r[2][2] + l.w * r[3][2],
         l.x * r[0][3] + l.y * r[1][3] + l.z * r[2][3] + l.w * r[3][3]
+    );
+}
+
+
+template<typename Precision>
+static constexpr Vector<Precision, 3> operator * ( const Vector<Precision, 3>& l, const Matrix<Precision, 3, 3>& r )
+{
+    return Vector<Precision, 3>(
+        l.x * r[0][0] + l.y * r[1][0] + l.z * r[2][0],
+        l.x * r[0][1] + l.y * r[1][1] + l.z * r[2][1],
+        l.x * r[0][2] + l.y * r[1][2] + l.z * r[2][2]
     );
 }
 

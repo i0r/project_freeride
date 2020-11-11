@@ -149,7 +149,17 @@ void FrameGraphDebugWidget::displayEditorWindow( const FrameGraph* frameGraph )
 	if ( ImGui::Begin( "FrameGraph Infos", &isOpen ) ) {
 		ImGui::Text( "MSAA Sampler Count: %u", frameGraphInstance->getMSAASamplerCount() );
 		ImGui::Text( "Image Quality: %f", frameGraphInstance->getImageQuality() );
-		ImGui::Text( "Buffer memory usage: %u bytes", frameGraphInstance->getBufferMemoryUsage() );
+        ImGui::Text( "Buffer memory usage: %u bytes", frameGraphInstance->getBufferMemoryUsage() );
+
+		const i32 renderPassCount = frameGraphInstance->getRenderPassCount();
+        ImGui::Text( "RenderPass count: %i", renderPassCount );
+
+        ImGui::Separator();
+		if ( ImGui::TreeNode( "RenderPasses" ) ) {
+			for ( i32 passIdx = 0; passIdx < renderPassCount; passIdx++ ) {
+				ImGui::TreeNodeEx( frameGraphInstance->getRenderPassName( passIdx ) );
+			}
+		}
 
 		ImGui::Separator();
 		if ( ImGui::TreeNode( "Buffers" ) ) {

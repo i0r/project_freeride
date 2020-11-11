@@ -35,7 +35,15 @@ lib Culling {
         
         StructuredBuffer SliceInfos {
             swizzle = CSMSliceInfos;
-        }      
+        }
+        
+        RWTexture3D g_LightClusters {
+            swizzle = uint2;
+        }
+        
+        RWByteAddressBuffer ItemList {
+            format = uint;
+        }
     }
     
     shared { 
@@ -64,11 +72,13 @@ lib Culling {
                 vertices[1].xyw, 
                 vertices[2].xyw
             };
-/*
+
 #ifdef $CullBackface
-            cull = cull || ( determinant( m ) > 0 );  
+            cull = cull || ( determinant( m ) > 0 ); 
+#else
+            cull = cull || ( determinant( m ) < 0 );     
 #endif
-*/
+
             int verticesInFrontOfNearPlane = 0;
 
             // Transform vertices[i].xy into normalized 0..1 screen space
@@ -89,11 +99,11 @@ lib Culling {
             int2 maxBB = int2( -( 1 << 30 ), -( 1 << 30 ) );
 
             
-//#ifdef $CullCSMShadows
+#ifdef $CullCSMShadows
             float2 sceenSize = float2( CSM_SLICE_DIMENSION, CSM_SLICE_DIMENSION );
-//#else
-//            float2 sceenSize = g_ScreenSize;
-//#endif
+#else
+            float2 sceenSize = g_ScreenSize;
+#endif
 
             bool insideGuardBand = true;
             for ( i = 0; i < 3; ++i ) {
@@ -178,8 +188,8 @@ lib Culling {
                 IndexBuffer[$SV_GroupThreadID.x * 3 + 2 + batchInputIndexOffset]
             };
 
-//#ifdef $CullCSMShadows
-            uint sliceIdx = ( CSM_SLICE_COUNT - 1 );
+#ifdef $CullCSMShadows
+            uint sliceIdx = 0; //( CSM_SLICE_COUNT - 1 );
 
             // Take the last slice matrices to do the culling.
             float4 r0 = SliceInfos[sliceIdx].RenderingMatrix[0];
@@ -187,10 +197,10 @@ lib Culling {
             float4 r2 = SliceInfos[sliceIdx].RenderingMatrix[2];
             float4 r3 = SliceInfos[sliceIdx].RenderingMatrix[3];
             
-            float4x4 ViewProjection = float4x4( r0, r1, r2, r3 );
-//#else
-//            float4x4 ViewProjection = g_ViewProjectionMatrix;
-//#endif
+           float4x4 ViewProjection = float4x4( r0, r1, r2, r3 );
+#else
+            float4x4 ViewProjection = g_ViewProjectionMatrix;
+#endif
           
             float4 vertices[3] = {
                 mul( mul( float4( LoadVertex( indices[0], batchInputVertexOffset ), 1 ), modelMatrix ), ViewProjection ),
@@ -228,6 +238,81 @@ lib Culling {
         }
     }
 
+    shader CullAndClusterizeLightsCS {
+        const uint itemListOffsetInBytes = ( $SV_DispatchThreadID.x + $SV_DispatchThreadID.y * CLUSTER_X + $SV_DispatchThreadID.z * CLUSTER_X * CLUSTER_Y ) * MAX_POINT_LIGHT_COUNT * 4;	
+        const int3 groupClusterOffset = int3( $SV_GroupID * int3( 1, 1, 1 ) );
+        const int3 clusterIdx = int3( $SV_GroupThreadID ) + groupClusterOffset;
+        
+        const float3 g_SceneAABBMin = float3( g_SceneAABBMinX, g_SceneAABBMinY, g_SceneAABBMinZ );
+        
+        uint indiceCount = 0u;
+        
+        // PointLight Culling
+        for ( uint i = 0; i < g_PointLightCount; i++ ) {
+            PointLightGPU light = g_PointLights[i];
+            
+            const float3 p = ( light.WorldPosition - g_SceneAABBMin );
+            const float3 pMin = ( p - light.WorldRadius ) * g_ClustersScale;
+            const float3 pMax = ( p + light.WorldRadius ) * g_ClustersScale;
+
+            // Cluster for the center of the light
+            const int px = (int)( floor( p.x * g_ClustersScale.x ) );
+            const int py = (int)( floor( p.y * g_ClustersScale.y ) );
+            const int pz = (int)( floor( p.z * g_ClustersScale.z ) );
+        
+            // Cluster bounds for the light
+            const int x0 = max( ( int )floor( pMin.x ), 0 );
+            const int x1 = min( ( int )ceil( pMax.x ), CLUSTER_X );
+            
+            const int y0 = max( ( int )floor( pMin.y ), 0 );
+            const int y1 = min( ( int )ceil( pMax.y ), CLUSTER_Y );
+            
+            const int z0 = max( ( int )floor( pMin.z ), 0 );
+            const int z1 = min( ( int )ceil( pMax.z ), CLUSTER_Z );
+            
+            const float squaredRadius = Square( light.WorldRadius );
+            
+            // Skip if light is outside current cluster bounds
+            [branch]
+            if ( clusterIdx.x < x0 
+                || clusterIdx.x > x1 
+                || clusterIdx.y < y0 
+                || clusterIdx.y > y1 
+                || clusterIdx.z < z0 
+                || clusterIdx.z > z1 ) {
+                continue;
+            }
+            
+            float dz = ( pz == clusterIdx.z ) 
+                ? 0.0f 
+                : g_SceneAABBMin.z + ( ( pz < clusterIdx.z ) ? clusterIdx.z : clusterIdx.z + 1 ) * g_ClustersInverseScale.z - light.WorldPosition.z;
+            dz *= dz;
+            
+            float dy = ( py == clusterIdx.y ) 
+                ? 0.0f 
+                : g_SceneAABBMin.y + ( ( py < clusterIdx.y ) ? clusterIdx.y : clusterIdx.y + 1 ) * g_ClustersInverseScale.y - light.WorldPosition.y;
+            dy *= dy;
+            dy += dz;
+            
+            float dx = ( px == clusterIdx.x ) 
+                ? 0.0f 
+                : g_SceneAABBMin.x + ( ( px < clusterIdx.x ) ? clusterIdx.x : clusterIdx.x + 1 ) * g_ClustersInverseScale.x - light.WorldPosition.x;
+            dx *= dx;
+            dx += dy;
+                                
+            if ( dx < squaredRadius ) {
+                uint itemListThreadOffsetInBytes = indiceCount * 4;
+                
+                ItemList.Store( itemListOffsetInBytes + itemListThreadOffsetInBytes, i );
+                indiceCount++;
+            }
+        }
+        
+        const uint pointLightCount = indiceCount;
+        
+        g_LightClusters[$SV_DispatchThreadID] = uint2( itemListOffsetInBytes, pointLightCount );
+    }
+    
     pass ClearArgsBuffer {
         compute       = ClearArgsBufferCS;
         dispatch      = { 256, 1, 1 };
@@ -244,5 +329,10 @@ lib Culling {
         dispatch      = { 256, 1, 1 };
         CullCSMShadows = true;
         CullBackface  = false;
+    }
+    
+    pass CullLights {
+        compute = CullAndClusterizeLightsCS;
+        dispatch = { 1, 1, 1 };
     }
 }

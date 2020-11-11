@@ -235,6 +235,8 @@ void WorldRenderer::drawDebugSphere( CommandList& cmdList )
 
 void WorldRenderer::drawWorld( RenderDevice* renderDevice, const f32 deltaTime )
 {
+    DUSK_CPU_PROFILE_FUNCTION;
+
     // Sort this frame draw commands.
     DrawCmd* drawCmds = static_cast< DrawCmd* >( drawCmdAllocator->getBaseAddress() );
     const size_t drawCmdCount = drawCmdAllocator->getAllocationCount();
@@ -282,6 +284,8 @@ GPUShadowDrawCmd& WorldRenderer::allocateGPUShadowCullDrawCmd()
 
 FrameGraph& WorldRenderer::prepareFrameGraph( const Viewport& viewport, const ScissorRegion& scissor, const CameraData* camera /*= nullptr */ )
 {
+    DUSK_CPU_PROFILE_FUNCTION;
+
     FrameGraph& graph = *frameGraph;
     graph.waitPendingFrameCompletion();
     graph.setViewport( viewport, scissor, camera );
@@ -301,6 +305,8 @@ const Material* WorldRenderer::getWireframeMaterial() const
 
 FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Material::RenderScenario scenario, const dkVec2f& viewportSize, RenderWorld* renderWorld )
 {
+    DUSK_CPU_PROFILE_FUNCTION;
+
     f32 imageQuality = frameGraph.getImageQuality();
     u32 msaaSamplerCount = frameGraph.getMSAASamplerCount();
 
@@ -346,7 +352,7 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
     SSRModule::HiZResult hiZMips = screenSpaceReflections->computeHiZMips( frameGraph, resolvedDepth, viewportWidth, viewportHeight );
 
     // LightPass.
-    FGHandle OutputRenderTarget = WorldRendering->addPrimitiveLightPass( frameGraph, lightGridData.PerSceneBuffer, prepass.OutputDepthTarget, scenario, environmentProbeStreaming->getReadDistantProbeIrradiance(), environmentProbeStreaming->getReadDistantProbeRadiance(), cascadedShadowMapRendering->getGlobalShadowMatrix() );
+    FGHandle OutputRenderTarget = WorldRendering->addPrimitiveLightPass( frameGraph, lightGridData.PerSceneBuffer, lightGridData.LightClusters, lightGridData.ItemList, prepass.OutputDepthTarget, scenario, environmentProbeStreaming->getReadDistantProbeIrradiance(), environmentProbeStreaming->getReadDistantProbeRadiance(), cascadedShadowMapRendering->getGlobalShadowMatrix() );
 
     // Atmosphere Rendering.
     OutputRenderTarget = atmosphereRendering->renderAtmosphere( frameGraph, OutputRenderTarget, prepass.OutputDepthTarget );

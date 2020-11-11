@@ -47,7 +47,7 @@ public:
     void                destroy( RenderDevice& renderDevice );
 	void                loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache );
 
-	FGHandle			addPrimitiveLightPass( FrameGraph& frameGraph, FGHandle perSceneBuffer, FGHandle depthPrepassBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular, const dkMat4x4f& globalShadowMatrix );
+	FGHandle			addPrimitiveLightPass( FrameGraph& frameGraph, FGHandle perSceneBuffer, FGHandle lightClusters, FGHandle itemList, FGHandle depthPrepassBuffer, Material::RenderScenario scenario, Image* iblDiffuse, Image* iblSpecular, const dkMat4x4f& globalShadowMatrix );
 
 	PrePassOutput		addGeometryPrepass( FrameGraph& frameGraph );
 

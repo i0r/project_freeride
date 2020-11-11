@@ -406,35 +406,39 @@ struct BufferViewDesc
     union {
         struct {
             // Index of the first element to be covered by the view. (the units is dependent on the ViewFormat)
-            u16             FirstElement;
+            u32             FirstElement;
 
             // If 0, will cover all the elements.
-            u16             NumElements;
+            u32             NumElements;
 
             // If VIEW_FORMAT_UNKNOWN, will use the default format of the resource associated to this view.
-            eViewFormat    ViewFormat;
+            eViewFormat     ViewFormat;
+
+            u32             __PADDING__;
         };
 
         // The buffer view interpreted as a 64bits integer (for hashmap indexing).
-        u64 SortKey;
+        u64 SortKey[2];
     };
 
     // Generates BufferViewDesc sort key (helper for constexpr constructor; the sort key shouldn't be manually updated
     // thanks to memory aliasing)
-    constexpr DUSK_INLINE u64 generateSortKey( const i16 firstElement = 0, const i16 numElements = -1, const eViewFormat viewFormat = VIEW_FORMAT_UNKNOWN ) const
+    constexpr DUSK_INLINE u64 generateSortKey( const u32 firstElement = 0, const u32 numElements = 0, const eViewFormat viewFormat = VIEW_FORMAT_UNKNOWN ) const
     {
         return ( firstElement ) | ( numElements << 16 ) | ( static_cast< u64 >( viewFormat ) << 32 );
     }
 
-    constexpr BufferViewDesc( const i16 firstElement = 0, const i16 numElements = 0, const eViewFormat viewFormat = VIEW_FORMAT_UNKNOWN )
-        : SortKey( generateSortKey( firstElement, numElements, viewFormat ) )
+    constexpr BufferViewDesc( const u32 firstElement = 0, const u32 numElements = 0, const eViewFormat viewFormat = VIEW_FORMAT_UNKNOWN )
+        : FirstElement( firstElement )
+        , NumElements( numElements )
+        , ViewFormat( viewFormat )
     {
 
     }
 
     constexpr bool operator == ( const BufferViewDesc& r )
     {
-        return ( SortKey ^ r.SortKey ) == 0ull;
+        return ( SortKey[0] ^ r.SortKey[0] ) == 0ull && ( SortKey[1] ^ r.SortKey[1] ) == 0ull;
     }
 };
 

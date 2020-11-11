@@ -16,6 +16,8 @@
 #include <Core/StringHelpers.h>
 #include <Core/Environment.h>
 
+#include "FileSystem/VirtualFileSystem.h"
+
 #include <Graphics/GraphicsAssetCache.h>
 #include <Rendering/RenderDevice.h>
 
@@ -53,6 +55,8 @@ void FillRuntimeMaterialLayer( const EditableMaterialLayer& layer, MaterialEdLay
     FillRuntimeMaterialAttribute( layer.AmbientOcclusion, runtimeLayer.AmbientOcclusion );
     FillRuntimeMaterialAttribute( layer.Emissivity, runtimeLayer.Emissivity );
     FillRuntimeMaterialAttribute( layer.BlendMask, runtimeLayer.BlendMask );
+    FillRuntimeMaterialAttribute( layer.ClearCoat, runtimeLayer.ClearCoat );
+    FillRuntimeMaterialAttribute( layer.ClearCoatGlossiness, runtimeLayer.ClearCoatGlossiness );
 
     runtimeLayer.LayerScale = layer.Scale;
     runtimeLayer.LayerOffset = layer.Offset;
@@ -118,6 +122,68 @@ isMaterialDirty = true;\
                 if ( activeMaterial != nullptr ) {
                     activeMaterial->invalidateCache();
                     activeMaterial->updateResourceStreaming( graphicsAssetCache );
+                }
+            }
+        }
+
+        if ( ImGui::Button( "Load" ) ) {
+            // TODO Legacy shit. Should be removed once the asset browser is implemented.
+            dkString_t fullPathToAsset;
+            if ( dk::core::DisplayFileSelectionPrompt( fullPathToAsset,
+                                                       dk::core::SelectionType::OpenFile,
+                                                       DUSK_STRING( "Dusk Editable Material (*.dem)\0*.dem\0" ) ) ) {
+                dk::core::SanitizeFilepathSlashes( fullPathToAsset );
+
+                dkString_t workingDirectory;
+                dk::core::RetrieveWorkingDirectory( workingDirectory );
+                dk::core::RemoveWordFromString( workingDirectory, DUSK_STRING( "build/bin/" ) );
+
+                if ( !dk::core::ContainsString( fullPathToAsset, workingDirectory ) ) {
+                    // TODO Copy resource to the working directory.
+                } else {
+                    dk::core::RemoveWordFromString( fullPathToAsset, workingDirectory );
+                    dk::core::RemoveWordFromString( fullPathToAsset, DUSK_STRING( "data/" ) );
+                    dk::core::RemoveWordFromString( fullPathToAsset, DUSK_STRING( "Assets/" ) );
+
+                    dkString_t fileSystemPath = dkString_t( DUSK_STRING( "EditorAssets/" ) ) + fullPathToAsset + DUSK_STRING( ".dem" );
+
+                    FileSystemObject* materialDescriptor = virtualFileSystem->openFile( fileSystemPath, eFileOpenMode::FILE_OPEN_MODE_READ );
+                    if ( materialDescriptor->isGood() ) {
+                        editedMaterial.loadFromFile( materialDescriptor, memoryAllocator, graphicsAssetCache );
+                        materialDescriptor->close();
+                    }
+                }
+            }
+        }
+
+        ImGui::SameLine();
+
+        if ( ImGui::Button( "Save" ) ) {
+            // TODO Legacy shit. Should be removed once the asset browser is implemented.
+            dkString_t fullPathToAsset;
+            if ( dk::core::DisplayFileSelectionPrompt( fullPathToAsset,
+                                                       dk::core::SelectionType::SaveFile,
+                                                       DUSK_STRING( "Dusk Editable Material (*.dem)\0*.dem\0" ) ) ) {
+                dk::core::SanitizeFilepathSlashes( fullPathToAsset );
+
+                dkString_t workingDirectory;
+                dk::core::RetrieveWorkingDirectory( workingDirectory );
+                dk::core::RemoveWordFromString( workingDirectory, DUSK_STRING( "build/bin/" ) );
+
+                if ( !dk::core::ContainsString( fullPathToAsset, workingDirectory ) ) {
+                    // TODO Copy resource to the working directory.
+                } else {
+                    dk::core::RemoveWordFromString( fullPathToAsset, workingDirectory );
+                    dk::core::RemoveWordFromString( fullPathToAsset, DUSK_STRING( "data/" ) );
+                    dk::core::RemoveWordFromString( fullPathToAsset, DUSK_STRING( "Assets/" ) );
+
+                    dkString_t fileSystemPath = dkString_t( DUSK_STRING( "EditorAssets/" ) ) + fullPathToAsset + DUSK_STRING( ".dem" );
+
+                    FileSystemObject* materialDescriptor = virtualFileSystem->openFile( fileSystemPath, eFileOpenMode::FILE_OPEN_MODE_WRITE );
+                    if ( materialDescriptor->isGood() ) {
+                        editedMaterial.serialize( materialDescriptor );
+                        materialDescriptor->close();
+                    }
                 }
             }
         }
@@ -204,6 +270,8 @@ isMaterialDirty = true;\
                 displayMaterialAttribute<true>( layerIdx, "Metalness", layer.Metalness );
                 displayMaterialAttribute<true>( layerIdx, "AmbientOcclusion", layer.AmbientOcclusion );
                 displayMaterialAttribute<false>( layerIdx, "Normal", layer.Normal );
+                displayMaterialAttribute<true>( layerIdx, "ClearCoat", layer.ClearCoat );
+                displayMaterialAttribute<true>( layerIdx, "ClearCoatGlossiness", layer.ClearCoatGlossiness );
 
                 if ( editedMaterial.IsAlphaTested ) {
                     displayMaterialAttribute<true>( layerIdx, "AlphaMask", layer.AlphaMask );

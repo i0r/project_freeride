@@ -59,7 +59,7 @@
 #include "ThirdParty/Google/IconsMaterialDesign.h"
 #endif
 
-#include "Physics/BulletDynamicsWorld.h"
+#include "Physics/DynamicsWorld.h"
 
 #include "Framework/MaterialEditor.h"
 #include "Framework/EntityEditor.h"
@@ -156,6 +156,7 @@ DUSK_DEV_VAR_PERSISTENT( UseRenderDocCapture, false, bool );// "Use RenderDoc fr
                                                            // (note: renderdoc dynamic lib must be present in the working dir)
 DUSK_DEV_VAR( DisplayCulledPrimCount, "Display the number of primitive culled for the Viewport[0]", false, bool );
 DUSK_DEV_VAR( DisplayFramerate, "Display basic framerate infos", true, bool );
+DUSK_ENV_VAR( MonitorIndex, 0, i32 ) // "Monitor index used for render device creation. If 0, will use the primary monitor as a display."
 
 void UpdateFreeCamera( MappedInput& input, f32 deltaTime )
 {
@@ -443,7 +444,7 @@ void InitializeRenderSubsystems()
 #endif
 
     g_DisplaySurface = dk::core::allocate<DisplaySurface>( g_GlobalAllocator, g_GlobalAllocator );
-    g_DisplaySurface->create( ScreenSize.x, ScreenSize.y, eDisplayMode::WINDOWED );
+    g_DisplaySurface->create( ScreenSize.x, ScreenSize.y, eDisplayMode::WINDOWED, MonitorIndex );
     g_DisplaySurface->setCaption( DUSK_STRING( "DuskEd" ) );
 
     switch ( WindowMode ) {
@@ -567,6 +568,8 @@ void Initialize( const char* cmdLineArgs )
 
 void BuildThisFrameGraph( FrameGraph& frameGraph, const Material::RenderScenario scenario, const dkVec2f& viewportSize )
 {
+    DUSK_CPU_PROFILE_FUNCTION;
+
     // Append the regular render pipeline.
     FGHandle presentRt = g_WorldRenderer->buildDefaultGraph( frameGraph, scenario, viewportSize, g_RenderWorld );
 
@@ -654,6 +657,8 @@ void MainLoop()
         accumulator += static_cast< f64 >( frameTime );
 
         while ( accumulator >= LOGIC_DELTA ) {
+            DUSK_CPU_PROFILE_SCOPED( "Fixed Step Update" );
+
             // Update Input
             g_InputReader->onFrame( g_InputMapper );
 
@@ -675,8 +680,6 @@ void MainLoop()
             accumulator -= LOGIC_DELTA;
         }
 
-        g_GpuProfiler.update( *g_RenderDevice );
-
         // Convert screenspace cursor position to viewport space.
 		shiftedMouseX = dk::maths::clamp( static_cast< i32 >( g_CursorPosition.x - g_ViewportWindowPosition.x ), 0, vp.Width );
 		shiftedMouseY = dk::maths::clamp( static_cast< i32 >( g_CursorPosition.y - g_ViewportWindowPosition.y ), 0, vp.Height );
@@ -688,9 +691,11 @@ void MainLoop()
         frameGraph.acquireCurrentMaterialEdData( g_MaterialEditor->getRuntimeEditionData() );
         frameGraph.setScreenSize( ScreenSize );
         frameGraph.updateMouseCoordinates( shiftedMouse );
-        
+
+        g_GpuProfiler.update( *g_RenderDevice );
+
         // TODO We should use a snapshot of the world instead of having to wait the previous frame completion...
-		g_World->collectRenderables( g_DrawCommandBuilder );
+		g_World->collectRenderables( g_DrawCommandBuilder, g_WorldRenderer->getLightGrid() );
 
         g_RenderWorld->update( g_RenderDevice );
 
@@ -743,7 +748,6 @@ void MainLoop()
         if ( g_WorldRenderer->WorldRendering->isPickingResultAvailable() ) {
             g_PickedEntity.setIdentifier( g_WorldRenderer->WorldRendering->getAndConsumePickedEntityId() );
         }
-
         // Build this frame FrameGraph
         BuildThisFrameGraph( frameGraph, scenario, viewportSize );
 

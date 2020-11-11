@@ -65,14 +65,16 @@ void SerializeScenario( FileSystemObject* stream, const char* scenarioName, cons
 
 // Material Layer HLSL name.
 // Root layer has the same name as the blended result since we use it as a base.
-constexpr const char* AttributesNames[7] = {
+constexpr const char* AttributesNames[9] = {
     "BaseColor",
     "Reflectance",
     "Roughness",
     "Metalness",
     "AmbientOcclusion",
     "Emissivity",
-    "BlendMask"
+    "BlendMask",
+    "ClearCoat",
+    "ClearCoatGlossiness"
 };
 
 MaterialGenerator::MaterialGenerator( BaseAllocator* allocator, VirtualFileSystem* virtualFileSystem )
@@ -158,8 +160,19 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
     dk::core::ReplaceWord( assetStr, "DUSK_LAYERS_FUNCTIONS;", materialSharedCode );
     dk::core::ReplaceWord( assetStr, "DUSK_LAYERS_GET;", materialLayersGetter );
 	dk::core::ReplaceWord( assetStr, "DUSK_BAKED_TEXTURE_FETCH;", bakedTextureCode );
-	dk::core::ReplaceWord( assetStr, "DUSK_COMPILE_TIME_FLAGS;", compileTimeFlags );
-    
+    dk::core::ReplaceWord( assetStr, "DUSK_COMPILE_TIME_FLAGS;", compileTimeFlags );
+
+    // Set this material BRDF function based on the current shading model.
+    switch ( editableMaterial.SModel ) {
+    case ClearCoat:
+        dk::core::ReplaceWord( assetStr, "DUSK_MAT_BRDF", "BRDF_ClearCoat" );
+        break;
+    default:
+    case Default:
+        dk::core::ReplaceWord( assetStr, "DUSK_MAT_BRDF", "BRDF_Default" );
+        break;
+    };
+
     dk::core::ReplaceWord( assetStr, "pass ", std::string( "pass " ) + editableMaterial.Name );
 
     // Generate permutations for this material.
@@ -320,6 +333,8 @@ void MaterialGenerator::appendLayerBlend( const EditableMaterialLayer& bottomLay
         appendAttributeBlendAdditive( "Reflectance", bottomLayerName, topLayerName, topLayer.SpecularContribution );
         appendAttributeBlendAdditive( "Roughness", bottomLayerName, topLayerName, topLayer.SpecularContribution );
         appendAttributeBlendAdditive( "Metalness", bottomLayerName, topLayerName, topLayer.SpecularContribution );
+        appendAttributeBlendAdditive( "ClearCoat", bottomLayerName, topLayerName, topLayer.SpecularContribution );
+        appendAttributeBlendAdditive( "ClearCoatGlossiness", bottomLayerName, topLayerName, topLayer.SpecularContribution );
         break;
     } break;
     case Multiplicative:
@@ -328,6 +343,8 @@ void MaterialGenerator::appendLayerBlend( const EditableMaterialLayer& bottomLay
         appendAttributeBlendMultiplicative( "Reflectance", bottomLayerName, topLayerName, topLayer.SpecularContribution );
         appendAttributeBlendMultiplicative( "Roughness", bottomLayerName, topLayerName, topLayer.SpecularContribution );
         appendAttributeBlendMultiplicative( "Metalness", bottomLayerName, topLayerName, topLayer.SpecularContribution );
+        appendAttributeBlendMultiplicative( "ClearCoat", bottomLayerName, topLayerName, topLayer.SpecularContribution );
+        appendAttributeBlendMultiplicative( "ClearCoatGlossiness", bottomLayerName, topLayerName, topLayer.SpecularContribution );
     } break;
     }
 }
@@ -360,6 +377,8 @@ void MaterialGenerator::buildMaterialParametersMap( const char* layerName, const
     processAttributeParameter( layerName, "AmbientOcclusion", layer.AmbientOcclusion );
     processAttributeParameter( layerName, "Emissivity", layer.Emissivity );
     processAttributeParameter( layerName, "BlendMask", layer.BlendMask );
+    processAttributeParameter( layerName, "ClearCoat", layer.ClearCoat );
+    processAttributeParameter( layerName, "ClearCoatGlossiness", layer.ClearCoatGlossiness );
 }
 
 void MaterialGenerator::appendAttributeBlendAdditive( const char* attributeName, const char* bottomLayerName, const char* topLayerName, const f32 contributionFactor )
@@ -453,6 +472,16 @@ void MaterialGenerator::appendLayerRead( const i32 layerIndex, const EditableMat
     materialLayersGetter.append( layerName );
     materialLayersGetter.append( ".BlendMask=" );
     appendAttributeFetch1D( 6, layerIndex, layer.BlendMask, layer.Scale, layer.Offset );
+    materialLayersGetter.append( ";\n" );
+
+    materialLayersGetter.append( layerName );
+    materialLayersGetter.append( ".ClearCoat=" );
+    appendAttributeFetch1D( 7, layerIndex, layer.ClearCoat, layer.Scale, layer.Offset );
+    materialLayersGetter.append( ";\n" );
+
+    materialLayersGetter.append( layerName );
+    materialLayersGetter.append( ".ClearCoatGlossiness=" );
+    appendAttributeFetch1D( 8, layerIndex, layer.ClearCoatGlossiness, layer.Scale, layer.Offset );
     materialLayersGetter.append( ";\n" );
 }
 

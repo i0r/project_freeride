@@ -16,6 +16,7 @@
 
 #include "Graphics/RenderModules/CascadedShadowRenderModule.h"
 #include "Graphics/ShaderHeaders/Light.h"
+#include "Graphics/RenderModules/CascadedShadowRenderModule.h"
 
 #include "Rendering/CommandList.h"
 
@@ -71,6 +72,7 @@ void RenderWorld::create( RenderDevice& renderDevice )
     shadowVbDesc.SizeInBytes = sizeof( dkVec3f ) * 10000 * MAX_MODEL_COUNT;
     shadowVbDesc.StrideInBytes = sizeof( dkVec3f );
     shadowVbDesc.DefaultView.ViewFormat = VIEW_FORMAT_R32_UINT;
+    shadowVbDesc.DefaultView.NumElements = 10000 * MAX_MODEL_COUNT;
 
     shadowCasterVertexBuffer = renderDevice.createBuffer( shadowVbDesc );
     

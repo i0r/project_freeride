@@ -78,6 +78,8 @@ FGHandle FrameCompositionModule::addFrameCompositionPass( FrameGraph& frameGraph
             passData.PerViewBuffer = builder.retrievePerViewBuffer();
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+            DUSK_GPU_PROFILE_SCOPED( *cmdList, PostEffects::Default_Name );
+
             const Viewport* vp = resources->getMainViewport();
 
             Image* outputTarget = resources->getImage( passData.output );
