@@ -12,7 +12,11 @@ FileSystemArchive::FileSystemArchive( BaseAllocator* allocator, const dkString_t
     , nativeZipObject( dk::core::allocate<mz_zip_archive>( allocator ) )
     , memoryAllocator( allocator )
 {
-    auto zipName = WideStringToString( archiveName );
+#if DUSK_UNICODE
+    std::string zipName = WideStringToString( archiveName );
+#else
+    std::string zipName = archiveName;
+#endif
 
     bool headerReadResult = mz_zip_reader_init_file( nativeZipObject, zipName.c_str(), 0 );
     DUSK_ASSERT( headerReadResult, "Failed to read archive '%s'\n", zipName.c_str() );

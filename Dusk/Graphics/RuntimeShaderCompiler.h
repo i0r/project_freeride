@@ -25,7 +25,10 @@ class RuntimeIncludeSM6;
 #endif
 
 #ifdef DUSK_USE_DIRECTX_COMPILER
+#if DUSK_WIN
 #include <d3dcompiler.h>
+#endif
+
 #include <ThirdParty/dxc/dxcapi.use.h>
 
 struct IDxcLibrary;

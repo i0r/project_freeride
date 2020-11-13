@@ -3,7 +3,7 @@
     Copyright (C) 2020 Prevost Baptiste
 */
 #include "Shared.h"
-#include "HUDRenderer.h"
+#include "HudRenderer.h"
 
 #include "RenderModules/TextRenderingModule.h"
 #include "RenderModules/LineRenderingModule.h"

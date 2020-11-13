@@ -7,6 +7,7 @@
 
 #include <Core/Hashing/MurmurHash3.h>
 #include <Core/Hashing/Helpers.h>
+#include <Core/Hashing/HashingSeeds.h>
 
 #include <Rendering/RenderDevice.h>
 

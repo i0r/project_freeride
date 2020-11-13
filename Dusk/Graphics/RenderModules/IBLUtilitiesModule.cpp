@@ -12,7 +12,7 @@
 #include <Core/ViewFormat.h>
 #include <Rendering/CommandList.h>
 
-#include "Generated/BRDFLut.generated.h"
+#include "Generated/BrdfLut.generated.h"
 #include "Generated/IBL.generated.h"
 
 #include <Graphics/ShaderHeaders/Light.h>

@@ -122,7 +122,14 @@ void RenderDevice::setDebugMarker( Buffer& buffer, const dkChar_t* objectName )
     dbgMarkerObjName.sType = VkStructureType::VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
     dbgMarkerObjName.pNext = nullptr;
     dbgMarkerObjName.objectType = VkDebugReportObjectTypeEXT::VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT;
-    dbgMarkerObjName.pObjectName = WideStringToString( objectName ).c_str();
+
+#if DUSK_UNICODE
+    std::string objName = WideStringToString( objectName );
+#else
+    std::string objName = objectName;
+#endif
+
+    dbgMarkerObjName.pObjectName = objName.c_str();
 
     for ( i32 i = 0; i < RenderDevice::PENDING_FRAME_COUNT; i++ ) {
         dbgMarkerObjName.object = reinterpret_cast< uint64_t >( buffer.resource[i] );

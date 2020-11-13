@@ -9,6 +9,8 @@
 
 #include "Physics/RigidBody.h"
 
+#include "ThirdParty/bullet3/src/btBulletDynamicsCommon.h"
+
 void CreateInternalObjects( BaseAllocator* memoryAllocator, NativeRigidBody* nativeObject, const dkVec3f& positionWorldSpace, const f32 bodyMassInKg, const dkQuatf& orientation )
 {
     const btQuaternion btMotionStateRotation = btQuaternion( orientation.x, orientation.y, orientation.z, orientation.w );

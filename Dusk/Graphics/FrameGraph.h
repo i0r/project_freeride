@@ -197,7 +197,7 @@ struct RenderPassExecutionInfos
     u32                                 DependencyCount;
 
 private:
-    DUSK_INLINE void CopyDependencies( State_t** dependencies )
+    DUSK_INLINE void CopyDependencies( State_t* const * dependencies )
     {
         DUSK_RAISE_FATAL_ERROR( DependencyCount < MAX_DEP_COUNT, "DependencyCount: too many dependencies for this RenderPass!" );
         memcpy( Dependencies, dependencies, sizeof( State_t* ) * DependencyCount );
@@ -212,13 +212,13 @@ public:
         CopyDependencies( dependencies );
     }
 
-    RenderPassExecutionInfos& operator = ( RenderPassExecutionInfos& r )
+    RenderPassExecutionInfos& operator = ( const RenderPassExecutionInfos& r )
     {
         RenderPass = r.RenderPass;
         ExecutionState = RP_EXECUTION_STATE_WAITING;
         DependencyCount = r.DependencyCount;
 
-        CopyDependencies( static_cast<State_t**>( r.Dependencies ) );
+        CopyDependencies( static_cast<State_t* const *>( r.Dependencies ) );
     
         return *this;
     }

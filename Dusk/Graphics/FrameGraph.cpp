@@ -1226,7 +1226,8 @@ void FrameGraphScheduler::addRenderPass( const FrameGraphRenderPass& renderPass,
         internalDependencies[depIdx] = &enqueuedRenderPass[dependencyHandle].ExecutionState;
     }
 
-    enqueuedRenderPass[enqueuedRenderPassCount++] = RenderPassExecutionInfos( &renderPass, internalDependencies, dependencyCount );
+    RenderPassExecutionInfos& execInfos = enqueuedRenderPass[enqueuedRenderPassCount++];
+    execInfos = RenderPassExecutionInfos( &renderPass, internalDependencies, dependencyCount );
 }
 
 void FrameGraphScheduler::addAsyncComputeRenderPass( const FrameGraphRenderPass& renderPass, const FrameGraphRenderPass::Handle_t* dependencies, const u32 dependencyCount )

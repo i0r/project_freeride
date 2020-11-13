@@ -79,22 +79,6 @@ const char* GetSM5StageTarget( const eShaderStage shaderStage )
 #endif
 
 #ifdef DUSK_USE_DIRECTX_COMPILER
-template<typename... Ts, typename TObject>
-HRESULT DoBasicQueryInterface( TObject* self, REFIID iid, void** ppvObject )
-{
-    if ( ppvObject == nullptr ) return E_POINTER;
-
-    // Support INoMarshal to void GIT shenanigans.
-    if ( IsEqualIID( iid, __uuidof( IUnknown ) ) ||
-         IsEqualIID( iid, __uuidof( INoMarshal ) ) ) {
-        *ppvObject = reinterpret_cast< IUnknown* >( self );
-        reinterpret_cast< IUnknown* >( self )->AddRef();
-        return S_OK;
-    }
-
-    return DoBasicQueryInterface_recurse<TObject, Ts...>( self, iid, ppvObject );
-}
-
 template<typename TObject>
 HRESULT DoBasicQueryInterface_recurse( TObject* self, REFIID iid, void** ppvObject )
 {
@@ -109,6 +93,22 @@ HRESULT DoBasicQueryInterface_recurse( TObject* self, REFIID iid, void** ppvObje
         self->AddRef();
         return S_OK;
     }
+    return DoBasicQueryInterface_recurse<TObject, Ts...>( self, iid, ppvObject );
+}
+
+template<typename... Ts, typename TObject>
+HRESULT DoBasicQueryInterface( TObject* self, REFIID iid, void** ppvObject )
+{
+    if ( ppvObject == nullptr ) return E_POINTER;
+
+    // Support INoMarshal to void GIT shenanigans.
+    if ( IsEqualIID( iid, __uuidof( IUnknown ) ) ||
+         IsEqualIID( iid, __uuidof( INoMarshal ) ) ) {
+        *ppvObject = reinterpret_cast< IUnknown* >( self );
+        reinterpret_cast< IUnknown* >( self )->AddRef();
+        return S_OK;
+    }
+
     return DoBasicQueryInterface_recurse<TObject, Ts...>( self, iid, ppvObject );
 }
 
@@ -148,7 +148,12 @@ public:
 
     HRESULT LoadSource( LPCWSTR pFilename, IDxcBlob** ppIncludeSource ) override
     {
-        dkString_t filePath = dkString_t( DUSK_STRING( "EditorAssets/ShaderHeaders/" ) ) + pFilename;
+#if DUSK_UNICODE
+        std::wstring filePath = std::wstring( L"EditorAssets/ShaderHeaders/" ) + pFilename;
+#else
+        std::string filePath = std::string( "EditorAssets/ShaderHeaders/" ) + WideStringToString( pFilename );
+#endif
+
         FileSystemObject* file = virtualFileSystem->openFile( filePath.c_str(), eFileOpenMode::FILE_OPEN_MODE_READ );
 
         if ( file == nullptr || !file->isGood() ) {
@@ -199,7 +204,13 @@ void RuntimeShaderCompiler::SaveToDisk( VirtualFileSystem* virtualFileSystem, co
         return;
     }
 
-    dkString_t shaderBinPath = shaderFolder + StringToWideString( shaderFilename );
+    dkString_t shaderBinPath = shaderFolder;
+
+#if DUSK_UNICODE
+    shaderBinPath += StringToWideString( shaderFilename );
+#else
+    shaderBinPath += shaderFilename;
+#endif
 
     FileSystemObject* compiledShaderBin = virtualFileSystem->openFile( shaderBinPath, eFileOpenMode::FILE_OPEN_MODE_WRITE | eFileOpenMode::FILE_OPEN_MODE_BINARY );
     if ( compiledShaderBin->isGood() ) {
@@ -382,7 +393,7 @@ RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderMod
     };
 
     IDxcOperationResult* shaderBlob = nullptr;
-    HRESULT compilationResult = dxcCompiler->Compile( blob, NULL, DUSK_STRING( "EntryPoint" ), modelTarget, &pArgs[0], sizeof( pArgs ) / sizeof( pArgs[0] ), nullptr, 0, runtimeIncludeSM6, &shaderBlob );
+    HRESULT compilationResult = dxcCompiler->Compile( blob, NULL, L"EntryPoint", modelTarget, &pArgs[0], sizeof( pArgs ) / sizeof( pArgs[0] ), nullptr, 0, runtimeIncludeSM6, &shaderBlob );
 
     blob->Release();
 

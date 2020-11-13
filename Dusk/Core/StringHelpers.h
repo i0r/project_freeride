@@ -8,6 +8,8 @@
 #include <string>
 #include <string.h>
 #include <algorithm>
+#include <locale>
+#include <codecvt>
 
 namespace dk
 {
@@ -175,12 +177,10 @@ namespace dk
 
         DUSK_INLINE void SanitizeFilepathSlashes( dkString_t& string )
         {
-#if DUSK_WIN
             size_t backslashOffset = dkString_t::npos;
             while ( ( backslashOffset = string.find_first_of( '\\' ) ) != dkString_t::npos ) {
                 string.replace( backslashOffset, 1, 1, '/' );
             }
-#endif
         }
 
         static dkString_t GetFilenameWithExtensionFromPath( const dkString_t& path )
@@ -230,11 +230,7 @@ namespace dk
     }
 }
 
-#include <locale>
-#include <codecvt>
-
-#if DUSK_UNICODE
-DUSK_INLINE std::string WideStringToString( const dkString_t& str )
+DUSK_INLINE std::string WideStringToString( const std::wstring& str )
 {
     std::wstring_convert<::std::codecvt_utf8_utf16<wchar_t>> converter;
     return converter.to_bytes( str );
@@ -246,14 +242,3 @@ DUSK_INLINE std::wstring StringToWideString( const std::string& str )
     wstr.assign( str.begin(), str.end() );
     return wstr;
 }
-#else
-DUSK_INLINE std::string WideStringToString( const dkString_t& str )
-{
-    return str;
-}
-
-DUSK_INLINE std::string StringToWideString( const std::string& str )
-{
-    return str;
-}
-#endif

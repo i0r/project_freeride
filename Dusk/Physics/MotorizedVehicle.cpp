@@ -5,6 +5,10 @@
 #include "Shared.h"
 #include "MotorizedVehicle.h"
 
+#include "RigidBody.h"
+
+#include "ThirdParty/bullet3/src/btBulletDynamicsCommon.h"
+
 MotorizedVehiclePhysics::MotorizedVehiclePhysics( BaseAllocator* allocator )
     : memoryAllocator( allocator )
     , velocity( 0, 0, 0 )
@@ -207,6 +211,7 @@ void MotorizedVehiclePhysics::preStepUpdate( const f32 frameTime, btDynamicsWorl
         auto depth = ( bmat * wheel.OrientationMatrix )[1] * ( wheel.SuspensionRestLength + vehicleParameters.TiresParameters.WheelRadius );
         auto p1 = p0 - depth;
 
+        // TODO This is Bullet3 specific; should be abstracted.
         btVector3 btP0 = btVector3( p0.x, p0.y, p0.z );
         btVector3 btP1 = btVector3( p1.x, p1.y, p1.z );
 

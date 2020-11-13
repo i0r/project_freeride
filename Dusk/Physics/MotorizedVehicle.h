@@ -6,6 +6,10 @@
 
 #include <vector>
 
+#include "Maths/Helpers.h"
+#include "Maths/Matrix.h"
+#include "Maths/Quaternion.h"
+
 struct ConvexHullLoadData;
 class RigidBody;
 
