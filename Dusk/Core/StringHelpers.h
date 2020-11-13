@@ -242,3 +242,9 @@ DUSK_INLINE std::wstring StringToWideString( const std::string& str )
     wstr.assign( str.begin(), str.end() );
     return wstr;
 }
+
+#if DUSK_UNICODE
+#define DUSK_NARROW_STRING( str ) WideStringToString( str )
+#else
+#define DUSK_NARROW_STRING( str ) std::string( str )
+#endif

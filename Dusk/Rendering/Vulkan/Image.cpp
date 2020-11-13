@@ -311,12 +311,7 @@ void RenderDevice::setDebugMarker( Image& image, const dkChar_t* objectName )
     const i32 resCount = ( image.resourceUsage == eResourceUsage::RESOURCE_USAGE_STATIC ) ? 1 : PENDING_FRAME_COUNT;
 
     dkString_t str( objectName );
-
-#if DUSK_UNICODE
-    std::string stdStr = WideStringToString( str );
-#else
-    std::string stdStr = str;
-#endif
+    std::string stdStr = DUSK_NARROW_STRING( str );
 
     for ( i32 i = 0; i < resCount; i++ ) {
         VkDebugMarkerObjectNameInfoEXT nameInfo;

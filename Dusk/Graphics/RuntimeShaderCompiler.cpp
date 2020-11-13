@@ -320,7 +320,7 @@ RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderMod
     };
     
     IDxcOperationResult* shaderBlob = nullptr;
-    HRESULT compilationResult = dxcCompiler->Compile( blob, NULL, DUSK_STRING( "EntryPoint" ), modelTarget, &pArgs[0], sizeof( pArgs ) / sizeof( pArgs[0] ), nullptr, 0, runtimeIncludeSM6, &shaderBlob );
+    HRESULT compilationResult = dxcCompiler->Compile( blob, NULL, L"EntryPoint", modelTarget, &pArgs[0], sizeof( pArgs ) / sizeof( pArgs[0] ), nullptr, 0, runtimeIncludeSM6, &shaderBlob );
 
     blob->Release();
 
@@ -340,7 +340,7 @@ RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderMod
         DUSK_LOG_ERROR( "'%hs' : Compilation Failed!\n%hs\n", shaderName, printBlob->GetBufferPointer() );
 
         if ( DumpFailedShaders ) {
-            dkString_t dumpFile = DUSK_STRING( "GameData/failed_shaders/" ) + StringToWideString( shaderName ) + DUSK_STRING( ".sm6.hlsl" );
+            dkString_t dumpFile = DUSK_STRING( "GameData/failed_shaders/" ) + DUSK_NARROW_STRING( shaderName ) + DUSK_STRING( ".sm6.hlsl" );
             FileSystemObject* dumpStream = virtualFileSystem->openFile( dumpFile.c_str(), eFileOpenMode::FILE_OPEN_MODE_WRITE | eFileOpenMode::FILE_OPEN_MODE_BINARY );
             if ( dumpStream->isGood() ) {
                 dumpStream->writeString( "/***********\n" );
@@ -413,7 +413,7 @@ RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderMod
         DUSK_LOG_ERROR( "'%hs' : Compilation Failed!\n%hs\n", shaderName, printBlob->GetBufferPointer() );
 
         if ( DumpFailedShaders ) {
-            dkString_t dumpFile = DUSK_STRING( "GameData/failed_shaders/" ) + StringToWideString( shaderName ) + DUSK_STRING( ".sm6.hlsl" );
+            dkString_t dumpFile = DUSK_STRING( "GameData/failed_shaders/" ) + DUSK_NARROW_STRING( shaderName ) + DUSK_STRING( ".sm6.hlsl" );
             FileSystemObject* dumpStream = virtualFileSystem->openFile( dumpFile.c_str(), eFileOpenMode::FILE_OPEN_MODE_WRITE | eFileOpenMode::FILE_OPEN_MODE_BINARY );
             if ( dumpStream->isGood() ) {
                 dumpStream->writeString( "/***********\n" );

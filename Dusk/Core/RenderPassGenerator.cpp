@@ -1046,7 +1046,7 @@ void RenderLibraryGenerator::processShaderStage( const i32 stageIndex, const std
     dkString_t filenameWithExtension = dk::core::GetHashcodeDigest128( permutationHashcode );
 
     // Create our generated shader output.
-    GeneratedShader generatedShader( SHADER_STAGE_LUT[stageIndex], WideStringToString( filenameWithExtension ).c_str(), baseShaderName.c_str(), passInfos.RenderPassName.c_str() );
+    GeneratedShader generatedShader( SHADER_STAGE_LUT[stageIndex], DUSK_NARROW_STRING( filenameWithExtension ).c_str(), baseShaderName.c_str(), passInfos.RenderPassName.c_str() );
 
     appendSharedShaderHeader( generatedShader.GeneratedSource );
 
@@ -1102,7 +1102,7 @@ void RenderLibraryGenerator::processShaderStage( const i32 stageIndex, const std
     generatedMetadata.append( "\tstatic constexpr const dkChar_t* " );
     generatedMetadata.append( stageNameVarName );
     generatedMetadata.append( " = DUSK_STRING( \"" );
-    generatedMetadata.append( WideStringToString( filenameWithExtension ) );
+    generatedMetadata.append( DUSK_NARROW_STRING( filenameWithExtension ) );
     generatedMetadata.append( "\" );\n" );
 
     // Append stage name to the ShaderBinding variable

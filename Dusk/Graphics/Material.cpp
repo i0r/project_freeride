@@ -22,9 +22,9 @@ void ParseScenario( Material::RenderScenarioBinding& binding, const TypeAST& nod
         case TypeAST::SHADER_PERMUTATION:
         {
             if ( dk::core::ExpectKeyword( name.StreamPointer, 6, "vertex" ) ) {
-                binding.VertexStage = StringToWideString( value );
+                binding.VertexStage = DUSK_NARROW_STRING( value );
             } else if ( dk::core::ExpectKeyword( name.StreamPointer, 5, "pixel" ) ) {
-                binding.PixelStage = StringToWideString( value );
+                binding.PixelStage = DUSK_NARROW_STRING( value );
             }
         } break;
         }
@@ -275,7 +275,7 @@ void Material::updateResourceStreaming( GraphicsAssetCache* graphicsAssetCache )
 {
     for ( auto& mutableParam : mutableParameters ) {
         if ( mutableParam.second.Type == MutableParameter::ParamType::Texture2D ) {
-            mutableParam.second.CachedImageAsset = graphicsAssetCache->getImage( StringToWideString( mutableParam.second.Value ).c_str() );
+            mutableParam.second.CachedImageAsset = graphicsAssetCache->getImage( DUSK_NARROW_STRING( mutableParam.second.Value ).c_str() );
         }
     }
 }

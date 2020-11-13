@@ -109,7 +109,7 @@ void CommandList::pushEventMarker( const dkChar_t* eventName )
     markerInfo.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
     markerInfo.pNext = nullptr;
     memset( markerInfo.color, 0, sizeof( float ) * 4 );
-    markerInfo.pMarkerName = WideStringToString( eventName ).c_str();
+    markerInfo.pMarkerName = DUSK_NARROW_STRING( eventName ).c_str();
 
     nativeCommandList->vkCmdDebugMarkerBegin( nativeCommandList->cmdList, &markerInfo );
 #endif
