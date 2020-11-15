@@ -245,6 +245,16 @@ DUSK_INLINE std::wstring StringToWideString( const std::string& str )
 
 #if DUSK_UNICODE
 #define DUSK_NARROW_STRING( str ) WideStringToString( str )
+
+static dkString_t StringToDuskString( const char* str )
+{
+    return StringToWideString( str );
+}
 #else
 #define DUSK_NARROW_STRING( str ) std::string( str )
+
+static dkString_t StringToDuskString( const char* str )
+{
+    return dkString_t( str );
+}
 #endif

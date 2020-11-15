@@ -248,7 +248,7 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
         matchingBinding->PixelShaderName = FindShaderPermutationHashcode( renderLibGenerator.getGeneratedShaders(), renderPass.StageShaderNames[3], renderPass.RenderPassName );
     }
 
-    FileSystemObject* materialDescriptor = virtualFs->openFile( dkString_t( DUSK_STRING( "EditorAssets/materials/" ) ) + StringToWideString( editableMaterial.Name ) + DUSK_STRING( ".mat" ), eFileOpenMode::FILE_OPEN_MODE_WRITE );
+    FileSystemObject* materialDescriptor = virtualFs->openFile( dkString_t( DUSK_STRING( "EditorAssets/materials/" ) ) + StringToDuskString( editableMaterial.Name ) + DUSK_STRING( ".mat" ), eFileOpenMode::FILE_OPEN_MODE_WRITE );
     if ( materialDescriptor->isGood() ) {
         materialDescriptor->writeString( "material \"" );
         materialDescriptor->writeString( editableMaterial.Name );
@@ -296,7 +296,7 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
     }
 
     // TEST crap test
-    FileSystemObject* TestmaterialDescriptor = virtualFs->openFile( dkString_t( DUSK_STRING( "EditorAssets/materials/" ) ) + StringToWideString( editableMaterial.Name ) + DUSK_STRING( ".mat" ), eFileOpenMode::FILE_OPEN_MODE_READ );
+    FileSystemObject* TestmaterialDescriptor = virtualFs->openFile( dkString_t( DUSK_STRING( "EditorAssets/materials/" ) ) + StringToDuskString( editableMaterial.Name ) + DUSK_STRING( ".mat" ), eFileOpenMode::FILE_OPEN_MODE_READ );
     Material* material = new Material( memoryAllocator );
     material->deserialize( TestmaterialDescriptor );
     materialDescriptor->close();
@@ -355,7 +355,7 @@ void MaterialGenerator::processAttributeParameter( const char* layerName, const 
     case MaterialAttribute::Texture_2D:
     {
         const std::string resourceName = buildTextureLayerName( attributeName, layerName );
-        const std::string resourceValue = WideStringToString( attribute.AsTexture.PathToTextureAsset );
+        const std::string resourceValue = DUSK_NARROW_STRING( attribute.AsTexture.PathToTextureAsset );
 
         mutableParameters.push_back( MutableParameter( resourceName.c_str(), resourceValue.c_str() ) );
     } break;

@@ -59,7 +59,7 @@
 #define DUSK_COMPILER DUSK_STRING( "Visual Studio 2012 (11.0)" )
 #endif
 #elif DUSK_GCC
-#if defined(__GNUC__) && (__GNUC__ > 5 || (__GNUC__ == 5 && __GNUC_MINOR__ >= 1))
+#if defined(__GNUC__)
 #define DUSK_COMPILER DUSK_STRING( "gcc 5.1" )
 #endif
 #else

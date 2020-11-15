@@ -59,5 +59,5 @@ private:
 
     void    displayFileMenu();
 
-    void    placeNewEntityInWorld( ImVec2& viewportWinSize );
+    void    placeNewEntityInWorld( const dkVec2f& viewportWinSize );
 };

@@ -145,7 +145,7 @@ void EntityEditor::displayTransformSection( const dkVec4f& viewportBounds, Camer
     if ( ImGui::TreeNode( ICON_MD_3D_ROTATION " Transform" ) ) {
         // Retrieve this instance transform information.
         TransformDatabase* transformDb = activeWorld->getTransformDatabase();
-        TransformDatabase::EdInstanceData& editorInstance = transformDb->getEditorInstanceData( transformDb->lookup( *activeEntity ) );
+        TransformDatabase::EdInstanceData editorInstance = transformDb->getEditorInstanceData( transformDb->lookup( *activeEntity ) );
 
         // TODO Move manipulation parameters to a toolbar
         static ImGuizmo::OPERATION mCurrentGizmoOperation( ImGuizmo::TRANSLATE );
@@ -284,7 +284,7 @@ void EntityEditor::displayStaticGeometrySection()
 
 		std::string infos;
 		if ( assignedModel != nullptr ) {
-            infos.append( WideStringToString( assignedModel->getName() ) );
+            infos.append( DUSK_NARROW_STRING( assignedModel->getName() ) );
             infos.append( "\nLOD Count: " );
             infos.append( std::to_string( assignedModel->getLevelOfDetailCount() ) );
 		}

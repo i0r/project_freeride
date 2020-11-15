@@ -47,7 +47,7 @@ void ImGuiManager::create( const DisplaySurface& displaySurface, VirtualFileSyst
 {
     dkString_t saveFolderPath;
     dk::core::RetrieveSavedGamesDirectory( saveFolderPath );
-    settingsFilePath = WideStringToString( saveFolderPath );
+    settingsFilePath = DUSK_NARROW_STRING( saveFolderPath );
     settingsFilePath.append( "/DuskEd/imgui.ini" );
 
     IMGUI_CHECKVERSION();

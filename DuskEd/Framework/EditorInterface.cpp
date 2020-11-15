@@ -245,13 +245,15 @@ void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* render
 			g_IsContextMenuOpened = false;
 
 			if ( ImGui::BeginMenu( ICON_MD_CREATE " New Entity..." ) ) {
+                dkVec2f viewportCastingDim( viewportWinSize.x, viewportWinSize.y );
+
 				if ( ImGui::MenuItem( "Static Mesh" ) ) {
 					g_PickedEntity = g_World->createStaticMesh();
-					placeNewEntityInWorld( viewportWinSize );
+                    placeNewEntityInWorld( viewportCastingDim );
 				}
                 if ( ImGui::MenuItem( ICON_MD_LIGHTBULB_OUTLINE " Point Light" ) ) {
                     g_PickedEntity = g_World->createPointLight();
-                    placeNewEntityInWorld( viewportWinSize );
+                    placeNewEntityInWorld( viewportCastingDim );
                 }
 				ImGui::EndMenu();
 			}
@@ -278,7 +280,7 @@ void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* render
 	renderModule->unlock();
 }
 
-void EditorInterface::placeNewEntityInWorld( ImVec2& viewportWinSize )
+void EditorInterface::placeNewEntityInWorld( const dkVec2f& viewportWinSize )
 {
     CameraData& cameraData = g_FreeCamera->getData();
 

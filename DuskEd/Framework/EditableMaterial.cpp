@@ -60,7 +60,7 @@ void AppendMaterialAttribute( std::string& output, const char* attributeName, co
         output.append( attributeName );
         output.append( " = \"" );
         output.append( attribute.AsTexture.IsSRGBSpace ? "srgb|" : "linear|" );
-        output.append( WideStringToString( attribute.AsTexture.PathToTextureAsset ).c_str() );
+        output.append( DUSK_NARROW_STRING( attribute.AsTexture.PathToTextureAsset ).c_str() );
         output.append( "\";\n" );
         break;
     case MaterialAttribute::Code_Piece:
@@ -169,7 +169,7 @@ void ReadMaterialAttribute( const std::string& value, MaterialAttribute& attribu
         std::string path = value.substr( colorSpaceSeparatorOff + 1 );
 
         attribute.AsTexture.IsSRGBSpace = ( colorSpace == "srgb" );
-        attribute.AsTexture.PathToTextureAsset = StringToWideString( path );
+        attribute.AsTexture.PathToTextureAsset = StringToDuskString( path.c_str() );
         attribute.AsTexture.TextureInstance = graphicsAssetCache->getImage( attribute.AsTexture.PathToTextureAsset.c_str(), true );
     } else {
         attribute.Type = MaterialAttribute::Constant_1D;

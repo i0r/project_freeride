@@ -113,8 +113,8 @@ void dk::baker::Start( const char* cmdLineArgs )
         return;
     }
 
-    dkString_t assetsPath = StringToWideString( bakingPaths.AssetsPath );
-    dkString_t generatedHeadersPath = StringToWideString( bakingPaths.GeneratedHeadersPath );
+    dkString_t assetsPath = StringToDuskString( bakingPaths.AssetsPath.c_str() );
+    dkString_t generatedHeadersPath = StringToDuskString( bakingPaths.GeneratedHeadersPath.c_str() );
 
 	DUSK_LOG_INFO( "Assets Path: %hs\n Generated Headers Path: %hs\n", bakingPaths.AssetsPath.c_str(), bakingPaths.GeneratedHeadersPath.c_str() );
 
@@ -124,7 +124,7 @@ void dk::baker::Start( const char* cmdLineArgs )
 
     RuntimeShaderCompiler* runtimeShaderCompiler = dk::core::allocate<RuntimeShaderCompiler>( globalAllocator, globalAllocator, virtualFileSystem );
 
-	dkString_t compiledShadersPath = StringToWideString( bakingPaths.CompiledShadersPath );
+    dkString_t compiledShadersPath = StringToDuskString( bakingPaths.CompiledShadersPath.c_str() );
 	dk::core::CreateFolderImpl( compiledShadersPath );
     dk::core::CreateFolderImpl( compiledShadersPath + DUSK_STRING( "/sm5/" ) );
     dk::core::CreateFolderImpl( compiledShadersPath + DUSK_STRING( "/sm6/" ) );
@@ -198,8 +198,10 @@ void dk::baker::Start( const char* cmdLineArgs )
                 for ( const RenderLibraryGenerator::GeneratedShader& shader : libraryShaders ) {
                     std::string shaderFilename = ( shader.OriginalName + "." + shader.Hashcode );
 
+#ifdef DUSK_SUPPORT_SM5_COMPILATION
                     RuntimeShaderCompiler::GeneratedBytecode compiledShaderSM5 = runtimeShaderCompiler->compileShaderModel5( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
                     RuntimeShaderCompiler::SaveToDisk( virtualFileSystem, DUSK_STRING( "EditorAssets/shaders/sm5/" ), compiledShaderSM5, shader.Hashcode );
+#endif
 
                     RuntimeShaderCompiler::GeneratedBytecode compiledShaderSM6 = runtimeShaderCompiler->compileShaderModel6( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
                     RuntimeShaderCompiler::SaveToDisk( virtualFileSystem, DUSK_STRING( "EditorAssets/shaders/sm6/" ), compiledShaderSM6, shader.Hashcode );

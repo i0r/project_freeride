@@ -88,7 +88,8 @@ endif ( DUSK_USE_AGS )
 if ( DUSK_USE_BULLET )
 include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/bullet3/src" )
 
-target_link_libraries( DuskEd 
+if ( WIN32 )
+target_link_libraries( DuskEd
                         debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/BulletDynamics_Debug.lib" 
                         optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/BulletDynamics_RelWithDebugInfo.lib" ) 
                         
@@ -98,7 +99,10 @@ target_link_libraries( DuskEd
                         
 target_link_libraries( DuskEd 
                         debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/LinearMath_Debug.lib" 
-                        optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/LinearMath_RelWithDebugInfo.lib" ) 
+                        optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/LinearMath_RelWithDebugInfo.lib" )
+else()
+target_link_libraries( DuskEd ${BULLET_LIBRARIES} )
+endif( WIN32 )
 endif ( DUSK_USE_BULLET )
 
 include_directories( "${DUSK_BASE_FOLDER}DuskEd" )

@@ -1056,13 +1056,14 @@ namespace dk
             return v;
         }
 
+        template< typename T > static DUSK_INLINE constexpr T radians( const T x );
+
         template <typename Precision, i32 ScalarCount>
         static constexpr Vector<Precision, ScalarCount> radians( const Vector<Precision, ScalarCount>& r )
         {
             Vector<Precision, ScalarCount> v = r;
 
-            for ( i32 i = 0; i < ScalarCount; i++ )
-                v[i] = dk::maths::radians( r[i] );
+            for ( i32 i = 0; i < ScalarCount; i++ ) v[i] = dk::maths::radians<Precision>( r[i] );
 
             return v;
         }

@@ -90,9 +90,9 @@ MaterialEditor::~MaterialEditor()
 void MaterialEditor::displayEditorWindow()
 {
 #define DUSK_DISPLAY_MATERIAL_FLAG( flagName )\
-bool flagName##flag = editedMaterial.##flagName;\
+bool flagName##flag = editedMaterial.flagName;\
 if ( ImGui::Checkbox( #flagName, ( bool* )&flagName##flag ) ) {\
-editedMaterial.##flagName = flagName##flag;\
+editedMaterial.flagName = flagName##flag;\
 \
 isMaterialDirty = true;\
 }
@@ -433,7 +433,7 @@ void MaterialEditor::displayMaterialAttribute( const i32 layerIndex, const char*
                     attribute.AsTexture.TextureInstance = graphicsAssetCache->getImage( attribute.AsTexture.PathToTextureAsset.c_str(), false );
 
                     if ( useInteractiveMode && activeMaterial != nullptr ) {
-                        activeMaterial->setParameterAsTexture2D( parameterHashcode, WideStringToString( attribute.AsTexture.PathToTextureAsset ) );
+                        activeMaterial->setParameterAsTexture2D( parameterHashcode, DUSK_NARROW_STRING( attribute.AsTexture.PathToTextureAsset ) );
 
                         activeMaterial->invalidateCache();
                         activeMaterial->updateResourceStreaming( graphicsAssetCache );
@@ -446,7 +446,7 @@ void MaterialEditor::displayMaterialAttribute( const i32 layerIndex, const char*
                 ImageDesc* imgDesc = graphicsAssetCache->getImageDescription( attribute.AsTexture.PathToTextureAsset.c_str() );
 
                 std::string infos;
-                infos.append( WideStringToString( attribute.AsTexture.PathToTextureAsset ).c_str() );
+                infos.append( DUSK_NARROW_STRING( attribute.AsTexture.PathToTextureAsset ).c_str() );
 
                 infos.append( "\nDimensions: " );
                 infos.append( std::to_string( imgDesc->width ) );

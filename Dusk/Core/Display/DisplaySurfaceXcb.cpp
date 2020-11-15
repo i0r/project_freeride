@@ -217,4 +217,9 @@ void DisplaySurface::pollSystemEvents( InputReader* inputReader )
         event = xcb_poll_for_event( displaySurface->Connection );
     }
 }
+
+bool DisplaySurface::hasReceivedResizeEvent() const
+{
+    return false;
+}
 #endif

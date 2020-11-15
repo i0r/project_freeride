@@ -131,9 +131,9 @@ void RenderDocHelper::attachTo( const DisplaySurface& displaySurface, const Rend
     dkString_t basePath = workingDirectory + DUSK_STRING( "captures/DuskEngine_" );
     basePath += renderDevice.getBackendName();
 
-    captureStorageFolder = WideStringToString( workingDirectory + DUSK_STRING( "captures/" ) );
+    captureStorageFolder = DUSK_NARROW_STRING( workingDirectory + DUSK_STRING( "captures/" ) );
 
-    renderDocAPI->SetCaptureFilePathTemplate( WideStringToString( basePath ).c_str() );
+    renderDocAPI->SetCaptureFilePathTemplate( DUSK_NARROW_STRING( basePath ).c_str() );
 }
 
 void RenderDocHelper::remove()

@@ -8,6 +8,7 @@ class VirtualFileSystem;
 class RuntimeShaderCompiler;
 class FileSystemObject;
 
+#include <vector>
 #include <Graphics/Material.h>
 #include "EditableMaterial.h"
 

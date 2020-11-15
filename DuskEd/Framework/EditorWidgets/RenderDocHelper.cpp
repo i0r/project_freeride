@@ -78,7 +78,7 @@ void RenderDocHelperWidget::displayEditorWindow()
 			const char* storageFolder = renderDocHelper->getCaptureStorageFolder();
 
 			std::vector<dkString_t> captureFiles;
-			dk::core::GetFilesByExtension( StringToWideString( storageFolder ), DUSK_STRING( "*.rdc*" ), captureFiles );
+            dk::core::GetFilesByExtension( StringToDuskString( storageFolder ), DUSK_STRING( "*.rdc*" ), captureFiles );
 
 			for ( const dkString_t& captureFile : captureFiles ) {
 				dk::core::DeleteFile( captureFile );

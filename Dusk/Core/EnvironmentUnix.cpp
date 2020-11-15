@@ -12,8 +12,30 @@
 #include <stdio.h>
 #include <errno.h>
 #include <fstream>
+#include <dirent.h>
 
+#include <sys/types.h>
 #include <sys/sysinfo.h>
+
+void dk::core::DeleteFile( const dkString_t& filePath )
+{
+    std::remove( filePath.c_str() );
+}
+
+void dk::core::GetFilesByExtension( const dkString_t& filePath, const dkString_t& extension, std::vector<dkString_t>& filesFound )
+{
+    dkString_t fullPath = filePath + extension;
+
+    DIR* workingDirectory = opendir( "." );
+
+    struct dirent* dirEntry = readdir( workingDirectory );
+    while ( dirEntry != nullptr ) {
+        filesFound.push_back( dirEntry->d_name );
+        dirEntry = readdir( workingDirectory );
+    }
+
+    closedir( workingDirectory );
+}
 
 void dk::core::RetrieveWorkingDirectory( dkString_t& workingDirectory )
 {
