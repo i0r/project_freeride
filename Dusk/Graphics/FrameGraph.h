@@ -39,6 +39,16 @@ static constexpr dkStringHash_t PerWorldBufferHashcode = DUSK_STRING_HASH( "PerW
 static constexpr dkStringHash_t MaterialEditorBufferHashcode = DUSK_STRING_HASH( "MaterialEditorBuffer" );
 static constexpr dkStringHash_t InstanceVectorBufferHashcode = DUSK_STRING_HASH( "InstanceVectorBuffer" );
 
+// Return dispatch size of a given thread group and a given number of element to be processed by a kernel.
+// Note that this is a one dimensional function (it should be called for each dimension of the thread grid).
+static constexpr u32 DispatchSize( const u32 threadGroupSize, const u32 numElements )
+{
+    u32 dispatchSize = numElements / threadGroupSize;
+    dispatchSize += ( ( numElements % threadGroupSize ) > 0 ) ? 1 : 0;
+
+    return dispatchSize;
+}
+
 // PerView buffer content. You must force RenderPass baking whenever the content (or the order
 // of this structure) is updated!
 struct PerViewBufferData

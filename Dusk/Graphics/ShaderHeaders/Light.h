@@ -81,8 +81,13 @@ struct DirectionalLightGPU
 
     float2 SphericalCoordinates;
 
+    // TODO Could be converted to a bitfield in case we get too many flags (but I doubt it'll be the case).
+
+    // Override ColorLinearSpace with the current solar radiance of the atmosphere (physically based).
+    uint    UseSolarRadiance;
+
 #ifdef __cplusplus
-    uint    PADDING[2];
+    uint    PADDING[1];
 #endif
 };
 DUSK_IS_MEMORY_ALIGNED_STATIC( DirectionalLightGPU, 16 );
@@ -249,4 +254,5 @@ struct CSMSliceInfos
 static const int CLUSTER_X = 16;
 static const int CLUSTER_Y = 8;
 static const int CLUSTER_Z = 24;
+static const int CLUSTER_NEAR = 2;
 #endif

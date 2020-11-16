@@ -309,7 +309,9 @@ FGHandle AddInverseFFTComputePass( FrameGraph& frameGraph, FFTPassOutput& inputI
 
             cmdList->prepareAndBindResourceList();
 
-            cmdList->dispatchCompute( FFT_TEXTURE_DIMENSION / FFT::FFTRealShift_DispatchX, FFT_TEXTURE_DIMENSION / FFT::FFTRealShift_DispatchY, FFT::FFTRealShift_DispatchZ );
+            u32 threadGroupX = DispatchSize( FFT::FFTRealShift_DispatchX, FFT_TEXTURE_DIMENSION );
+            u32 threadGroupY = DispatchSize( FFT::FFTRealShift_DispatchY, FFT_TEXTURE_DIMENSION );
+            cmdList->dispatchCompute( threadGroupX, threadGroupY, FFT::FFTRealShift_DispatchZ );
 
             cmdList->popEventMarker();
         }

@@ -17,6 +17,7 @@ class AtmosphereRenderModule
 {
 public:
     DUSK_INLINE void            setSunAngles( const f32 verticalAngle, const f32 horizontalAngle ) { sunVerticalAngle = verticalAngle; sunHorizontalAngle = horizontalAngle; }
+    DUSK_INLINE dkVec3f         getSolarRadiance() const { return parameters.solar_irradiance / ( dk::maths::PI<f32>() * parameters.sun_angular_radius * parameters.sun_angular_radius ); }
 
 public:
                                 AtmosphereRenderModule();

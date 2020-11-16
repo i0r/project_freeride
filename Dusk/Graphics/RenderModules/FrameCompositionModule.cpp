@@ -107,7 +107,9 @@ FGHandle FrameCompositionModule::addFrameCompositionPass( FrameGraph& frameGraph
             
             cmdList->prepareAndBindResourceList();
 
-            cmdList->dispatchCompute( vp->Width / PostEffects::Default_DispatchX, vp->Height / PostEffects::Default_DispatchY, PostEffects::Default_DispatchZ );
+            u32 ThreadGroupX = DispatchSize( PostEffects::Default_DispatchX, vp->Width );
+            u32 ThreadGroupY = DispatchSize( PostEffects::Default_DispatchY, vp->Height );
+            cmdList->dispatchCompute( ThreadGroupX, ThreadGroupY, PostEffects::Default_DispatchZ );
             cmdList->insertComputeBarrier( *outputTarget );
 
             cmdList->popEventMarker();

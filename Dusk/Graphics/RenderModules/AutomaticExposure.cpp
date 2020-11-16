@@ -119,7 +119,7 @@ FGHandle AutomaticExposureModule::addBinComputePass( FrameGraph& frameGraph, con
 
             cmdList->prepareAndBindResourceList();
 
-            cmdList->dispatchCompute( 1u, static_cast< u32 >( ceilf( screenSize.y / static_cast<f32>( AutoExposure::BinCompute_DispatchY ) ) ), 1u );
+            cmdList->dispatchCompute( 1u, DispatchSize( AutoExposure::BinCompute_DispatchY, screenSize.y ), 1u );
 
             cmdList->popEventMarker();
         }
