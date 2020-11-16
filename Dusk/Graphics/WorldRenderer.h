@@ -33,6 +33,7 @@ class IBLUtilitiesModule;
 class EnvironmentProbeStreaming;
 class CascadedShadowRenderModule;
 class SSRModule;
+class VolumetricLightModule;
 class RenderWorld;
 
 struct CameraData;
@@ -153,4 +154,7 @@ private:
 
     // Stochastic SSR Render Module (implicitly requires a hi-z compute).
     SSRModule* screenSpaceReflections;
+
+    // Volumetric Lighting Render Module (based on Frostbite presentation).
+    VolumetricLightModule* volumetricLighting;
 };

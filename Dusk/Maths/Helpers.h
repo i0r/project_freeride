@@ -124,5 +124,22 @@ namespace dk
 
             return offset;
         }
+
+        // Generate and return a three-dimensional random halton offset.
+        static DUSK_INLINE dkVec3f HaltonOffset3D()
+        {
+            constexpr i32 SAMPLE_COUNT = 64;
+            static i32 SampleIndex = 0;
+
+            dkVec3f offset = dkVec3f(
+                GetHaltonValue( SampleIndex & 1023, 2 ),
+                GetHaltonValue( SampleIndex & 1023, 3 ),
+                GetHaltonValue( SampleIndex & 1023, 4 )
+            );
+
+            SampleIndex = ++SampleIndex % SAMPLE_COUNT;
+
+            return offset;
+        }
     }
 }

@@ -1,24 +1,320 @@
 lib VolumetricLighting {
     properties {
-        
+        float3 VolDepthParams;
+        float3 VolJitter;
+        float3 VolInverseTexSize;
+        float4 VolScale;
+        float3 VolSize;
     }
     
     resources {
-        RWTexture3D VBuffer {
+        // Properties fetch pass.
+        RWTexture3D FroxelScatteringOut {
+            swizzle = float3;
+        }
+        
+        RWTexture3D FroxelExtinctionOut {
+            swizzle = float3;
+        }
+        
+        RWTexture3D FroxelEmissionOut {
+            swizzle = float3;
+        }
+        
+        RWTexture3D FroxelPhaseOut {
+            swizzle = float3;
+        }
+        
+        // Scattering pass.
+        RWTexture3D VBuffer0 {
+            swizzle = float3;
+        }
+        
+        RWTexture3D VBuffer1 {
+            swizzle = float3;
+        }
+        
+        Texture3D FroxelScattering {
+            swizzle = float3;
+        }
+        
+        Texture3D FroxelExtinction {
+            swizzle = float3;
+        }
+        
+        Texture3D FroxelEmission {
+            swizzle = float3;
+        }
+        
+        Texture3D FroxelPhase {
+            swizzle = float3;
+        }
+        
+        // Resolve Pass
+        Texture2D ResolvedDepthBuffer {
+            swizzle = float;
+        }
+        
+        Texture2D ColorBuffer {
             swizzle = float4;
+        }
+        
+        RWTexture2D ResolvedColorBuffer {
+            swizzle = float4;
+        }
+        
+        sampler LinearSampler {
+            format = LinearClampEdge;
+        }
+        
+        ByteAddressBuffer ItemList {
+            format = uint;
+        }
+        
+        Texture3D Clusters {
+            swizzle = uint2;
         }
     }
     
     shared { 
         #include <GeometryUtils.hlsli>
+        #include <Lighting.hlsli>
+        
+        float GetViewZFromDepth(float depth)
+        {
+            float d = 2.0 * depth - 1.0;
+            
+            float depthRange = g_ClippingPlanes.y - g_ClippingPlanes.x;
+            float rcpDepthRange = rcp( depthRange );       
+            float a = ( -g_ClippingPlanes.y * g_ClippingPlanes.x ) * rcpDepthRange;
+            float b = g_ClippingPlanes.y * rcpDepthRange;
+            
+            return -a / ( d + b );
+        }
+        
+        float VolumeZToViewZ(float z)
+        {
+            return ( exp2( z / VolDepthParams.z ) - VolDepthParams.x ) / VolDepthParams.y;
+        }
+        
+        float ViewZToVolumeZ(float depth)
+        {
+            return VolDepthParams.z * log2(depth * VolDepthParams.y + VolDepthParams.x);
+        }
+        
+        float DepthFromViewZ(float z)
+        {
+            float depthRange = g_ClippingPlanes.y - g_ClippingPlanes.x;
+            float rcpDepthRange = rcp( depthRange );       
+            float a = ( -g_ClippingPlanes.y * g_ClippingPlanes.x ) * rcpDepthRange;
+            float b = g_ClippingPlanes.y * rcpDepthRange;
+            
+            float d = (-a / z) - b;
+            return d * 0.5f + 0.5f;
+        }
+        
+        float3 VolumeToNDC(float3 coords) 
+        {
+            float viewZ = VolumeZToViewZ( coords.z );
+            float depth = DepthFromViewZ( viewZ );
+            
+            return float3(coords.xy / VolScale.xy, depth);
+        }
+        
+        float3 NDCToVolume(float3 coords)
+        {
+            float viewZ = GetViewZFromDepth( coords.z );
+            float volumeZ = ViewZToVolumeZ( viewZ );
+            
+            return float3(coords.xy * VolScale.xy, volumeZ);
+        }
+
+        float PhaseFunctionIsotropic()
+        {
+          return ( 1.0f / ( 4.0f * PI ) );
+        }
+        
+        float3 GetSunLightVolume( in DirectionalLightGPU light, float3 L )
+        {
+            float power = light.AngularRadius * light.AngularRadius * PI;
+            power /= 1.0f + (light.AngularRadius * light.AngularRadius * 0.5f);
+            power *= PI * 0.5;
+            
+            float lLength = length( L.xyz );
+            power /= (lLength * lLength);
+
+            float lum = dot(light.ColorLinearSpace, float3(0.3, 0.6, 0.1));
+            float3 tint = (lum > 0.0) ? light.ColorLinearSpace / lum : 1.0;
+            lum *= power;
+
+            return tint * lum;
+        }
+        
+        float PhaseFunction(float3 v, float3 l, float g)
+        {
+          /* Henyey-Greenstein */
+          float cos_theta = dot(v, l);
+          g = clamp(g, -1.0 + 1e-3, 1.0 - 1e-3);
+          float sqr_g = g * g;
+          return (1 - sqr_g) / max(1e-8, 4.0 * PI * pow(1 + sqr_g - 2 * g * cos_theta, 3.0 / 2.0));
+        }
+        
+        bool IsOutsideUnitCube(float3 pos)
+        {
+            return pos.x < 0.0f || pos.x > 1.0f || pos.y < 0.0f || pos.y > 1.0f || pos.z < 0.0f || pos.z > 1.0f;
+        }
     }
     
-    shader ScatteringCS {
-        VBuffer[$SV_DispatchThreadID.xyz] = float4( 0, 0, 0, 0 );
+    shader StorePropertiesIntoFroxels {
+        uint3 cellIndex = $SV_DispatchThreadId.xyz;
+        
+        FroxelScatteringOut[cellIndex] = float3( 0.0f, 0.0f, 0.0f );
+        FroxelExtinctionOut[cellIndex] = float3( 0.0f, 0.0f, 0.0f );
+        FroxelEmissionOut[cellIndex] = float3( 0.0f, 0.0f, 0.0f );
+        FroxelPhaseOut[cellIndex] = float3( 0.0f, 0.0f, 0.0f );
+        
+        float3 cellNDC = VolumeToNDC( ( float3( cellIndex ) + VolJitter ) * VolInverseTexSize );
+        float3 worldPosition = ReconstructPosition(cellNDC.xy, cellNDC.z, g_InverseViewProjectionMatrix);
+        
+        // TEST
+        // Box volume at world origin with 20, 20, 20 bounds.
+        float3 volumeBounds = float3( 20.0f, 20.0f, 20.0f );
+        float3 volumeCoords = worldPosition / volumeBounds * 0.5f + 0.5f; //mul( volumeInverseModelMatrix, worldPosition )
+        
+        if ( IsOutsideUnitCube( volumeCoords ) ) {
+            return;
+        }
+           
+        FroxelScatteringOut[cellIndex] = float3( 0.5f, 0.5f, 0.5f );
+        FroxelExtinctionOut[cellIndex] = float3( 0.0f, 0.0f, 0.0f ) + float3( 0.5f, 0.5f, 0.5f );
+        FroxelEmissionOut[cellIndex] = float3( 1.0f, 1.0f, 1.0f );
+        FroxelPhaseOut[cellIndex] = float3( 0.0f, 0.0f, 0.0f );
+    }
+    
+    shader ScatterCS {
+        uint3 cellIndex = $SV_DispatchThreadId.xyz;
+        
+        float3 scattering = FroxelEmission[cellIndex];
+        float3 transmittance = FroxelExtinction[cellIndex];
+        
+        float3 cellNDC = VolumeToNDC( ( float3( cellIndex ) + VolJitter ) * VolInverseTexSize );
+        float3 worldPosition = ReconstructPosition(cellNDC.xy, cellNDC.z, g_InverseViewProjectionMatrix);
+        
+        float3 V = normalize( -g_WorldPosition );
+        
+        float2 phase = FroxelPhase[cellIndex].rg;
+        
+        float anisotropy = phase.x / max( 1.0f, phase.y );
+        
+        float3 s_scattering = FroxelScattering[cellIndex];
+        scattering += s_scattering * PhaseFunctionIsotropic();
+       
+        // Add sun/moon contribution.
+        float3 L = -g_DirectionalLight.NormalizedDirection;
+        float3 sunVolumeColor = GetSunLightVolume( g_DirectionalLight, L );    
+        scattering += sunVolumeColor * s_scattering * PhaseFunction(V, L, anisotropy);
+  
+        // Retrieve cluster index for the current quad.
+        int4 coord = int4( worldPosition.xyz * g_ClustersScale + g_ClustersBias, 0 );
+        uint2 light_mask = Clusters.Load( coord );
+        uint3 entityCount = light_mask.ggg; //UnpackUint_12_12_8( light_mask.g );
+
+        // Iterate point lights and accumulate calculated lighting.
+        for ( uint i = 0; i < entityCount.r; i++ ) {
+            const uint lightIndex = ItemList.Load(light_mask.r + i * 4 );
+            
+            PointLightGPU light = g_PointLights[lightIndex];
+            
+            float3 pointLightIlluminance = GetPointLightIlluminance( light, worldPosition.xyzz, 0.0f, L );         
+            scattering += pointLightIlluminance * s_scattering * PhaseFunction(V, L, anisotropy);
+        }
+        
+        VBuffer0[cellIndex] = scattering;
+        VBuffer1[cellIndex] = transmittance;
+    }
+    
+    shader IntegrateCS {
+        float3 finalScattering = float3( 0, 0, 0 );
+        float3 finalTransmittance = float3( 1, 1, 1 );
+    
+        uint3 cellIndex = $SV_DispatchThreadId.xyz;
+        float2 uvCoords = ( cellIndex.xy + 0.5f ) * rcp( VolSize.xy );
+            
+        float3 cellNDC = VolumeToNDC( float3( uvCoords, 1e-5 ) );
+        float3 viewPosition = ReconstructPosition(cellNDC.xy, cellNDC.z, g_InverseProjectionMatrix);
+         
+        float prev_ray_len = length( viewPosition );
+        float orig_ray_len = prev_ray_len / viewPosition.z;
+        
+        int slice = VolSize.z;
+        uint2 texco = $SV_DispatchThreadId.xy;
+        
+        for (int i = 0; i <= slice; i++) {
+            uint3 volume_cell = uint3($SV_DispatchThreadId.xy, i);
+
+            float3 Lscat = FroxelScattering[volume_cell].rgb;
+            float3 s_extinction = FroxelExtinction[volume_cell].rgb;
+
+            float cell_depth = VolumeZToViewZ( ( float( i ) + 1.0f ) / VolSize.z );
+            float ray_len = orig_ray_len * cell_depth;
+
+            /* Emission does not work of there is no extinction because
+            * Tr evaluates to 1.0 leading to Lscat = 0.0. (See T65771) */
+            s_extinction = max(float3(1e-7, 1e-7, 1e-7) * step(1e-5, Lscat), s_extinction);
+
+            /* Evaluate Scattering */
+            float s_len = abs(ray_len - prev_ray_len);
+            prev_ray_len = ray_len;
+            float3 Tr = exp(-s_extinction * s_len);
+
+            /* integrate along the current step segment */
+            Lscat = (Lscat - Lscat * Tr) / max(float3(1e-8, 1e-8, 1e-8), s_extinction);
+            
+            /* accumulate and also take into account the transmittance from previous steps */
+            finalScattering += finalTransmittance * Lscat;
+
+            finalTransmittance *= Tr;
+
+            uint3 coord = uint3(texco, i);
+            
+            VBuffer0[coord] = finalScattering;
+            VBuffer1[coord] = finalTransmittance;
+        }
+    }
+    
+    shader ResolveVolCS {       
+        uint2 threadIndex = $SV_DispatchThreadId.xy;
+        float2 uvCoords = ( threadIndex.xy + 0.5f ) * rcp( g_ScreenSize.xy );
+        
+        float4 color = ColorBuffer[threadIndex];
+        float depth = ResolvedDepthBuffer[threadIndex];
+        
+        float3 volumeCos = NDCToVolume( float3( uvCoords, depth ) );
+        
+        float3 scattering = FroxelScattering.SampleLevel(LinearSampler, volumeCos, 0.0f).rgb;
+        float3 transmittance = FroxelEmission.SampleLevel(LinearSampler, volumeCos, 0.0f).rgb;
+        
+        float alpha = dot(transmittance, 1.0f / 3.0f);
+        ResolvedColorBuffer[threadIndex] = float4(scattering, 1.0f - alpha) + float4(transmittance, alpha) * color;
+    }
+    
+    pass StoreProperties {
+        compute       = StorePropertiesIntoFroxels;
+        dispatch      = { 8, 8, 16 };
     }
     
     pass Scattering {
-        compute       = ScatteringCS;
+        compute       = ScatterCS;
         dispatch      = { 8, 8, 16 };
+    }
+    
+    pass Integration {
+        compute       = IntegrateCS;
+        dispatch      = { 8, 8, 16 };
+    }
+    
+    pass Resolve {
+        compute       = ResolveVolCS;
+        dispatch      = { 16, 16, 1 };
     }
 }

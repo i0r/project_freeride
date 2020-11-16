@@ -116,6 +116,7 @@ WorldRenderer::WorldRenderer( BaseAllocator* allocator )
     , environmentProbeStreaming( dk::core::allocate<EnvironmentProbeStreaming>( allocator, allocator ) )
     , cascadedShadowMapRendering( dk::core::allocate<CascadedShadowRenderModule>( allocator, allocator ) )
     , screenSpaceReflections( dk::core::allocate<SSRModule>( allocator ) )
+    , volumetricLighting( dk::core::allocate<VolumetricLightModule>( allocator ) )
 {
 
 }
@@ -135,7 +136,8 @@ WorldRenderer::~WorldRenderer()
     dk::core::free( memoryAllocator, lightGrid );
     dk::core::free( memoryAllocator, environmentProbeStreaming );
 	dk::core::free( memoryAllocator, cascadedShadowMapRendering );
-	dk::core::free( memoryAllocator, screenSpaceReflections );
+    dk::core::free( memoryAllocator, screenSpaceReflections );
+    dk::core::free( memoryAllocator, volumetricLighting );
     
     memoryAllocator = nullptr;
 }
@@ -161,6 +163,7 @@ void WorldRenderer::destroy( RenderDevice* renderDevice )
     environmentProbeStreaming->destroyResources( *renderDevice );
 	cascadedShadowMapRendering->destroy( *renderDevice );
 	screenSpaceReflections->destroy( *renderDevice );
+    volumetricLighting->destroy( *renderDevice );
 
     automaticExposure->destroy( *renderDevice );
     glareRendering->destroy( *renderDevice );
@@ -180,6 +183,7 @@ void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache
     atmosphereRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
     WorldRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
     screenSpaceReflections->loadCachedResources( *renderDevice, *graphicsAssetCache );
+    volumetricLighting->loadCachedResources( *renderDevice, *graphicsAssetCache );
 
     environmentProbeStreaming->createResources( *renderDevice );
     cascadedShadowMapRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
@@ -374,9 +378,16 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
 
     FGHandle presentRt = resolvedColor;
 
+    // Volumetric Lighting
+    volumetricLighting->addFroxelDataFetchPass( frameGraph, viewportWidth, viewportHeight );
+    volumetricLighting->addFroxelScatteringPass( frameGraph, viewportWidth, viewportHeight, lightGridData.LightClusters, lightGridData.ItemList );
+    volumetricLighting->addIntegrationPass( frameGraph, viewportWidth, viewportHeight );
+
+    presentRt = volumetricLighting->addResolvePass( frameGraph, presentRt, resolvedDepth, viewportWidth, viewportHeight );
+
     // SSR Rendering.
-    SSRModule::TraceResult ssrTrace = screenSpaceReflections->rayTraceHiZ( frameGraph, resolvedGbuffer, resolvedColor, hiZMips, viewportWidth, viewportHeight );
-    presentRt = screenSpaceReflections->resolveRaytrace( frameGraph, ssrTrace, resolvedColor, resolvedGbuffer, hiZMips, viewportWidth, viewportHeight );
+    SSRModule::TraceResult ssrTrace = screenSpaceReflections->rayTraceHiZ( frameGraph, resolvedGbuffer, presentRt, hiZMips, viewportWidth, viewportHeight );
+    presentRt = screenSpaceReflections->resolveRaytrace( frameGraph, ssrTrace, presentRt, resolvedGbuffer, hiZMips, viewportWidth, viewportHeight );
     
       /*  FGHandle ssrTemporalResolved = screenSpaceReflections->temporalRebuild( frameGraph, ssrTrace.TraceBuffer, ssrResolved, viewportWidth, viewportHeight );
 	 frameGraph.saveLastFrameSSRRenderTarget( ssrResolved );
@@ -384,7 +395,7 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
 	 presentRt = screenSpaceReflections->combineResult(frameGraph, ssrTemporalResolved, presentRt, resolvedDepth, resolvedGbuffer, viewportWidth, viewportHeight );*/
 
     // Glare Rendering.
-    FFTPassOutput frequencyDomainRt = AddFFTComputePass( frameGraph, presentRt, viewportSize.x, viewportSize.y );
+    FFTPassOutput frequencyDomainRt = AddFFTComputePass( frameGraph, resolvedColor, viewportSize.x, viewportSize.y );
     FFTPassOutput convolutedFFT = glareRendering->addGlareComputePass( frameGraph, frequencyDomainRt );
     FGHandle inverseFFT = AddInverseFFTComputePass( frameGraph, convolutedFFT, viewportSize.x, viewportSize.y );
 

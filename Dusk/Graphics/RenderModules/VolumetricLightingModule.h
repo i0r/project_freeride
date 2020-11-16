@@ -15,9 +15,6 @@ struct Image;
 // TODO Define me as a world entity (to make volume editable in the editor).
 struct ParticipatingMedia
 {
-    static constexpr f32 ScatterScale = 0.00692f;
-    static constexpr f32 AbsorptScale = 0.00077f;
-
     enum class VolumeType
     {
         Constant,
@@ -25,21 +22,21 @@ struct ParticipatingMedia
         Sphere
     };
 
-    enum class BlendType
-    {
-        Additive,
-        AlphaBlended
-    };
+    dkVec3f     ScatterColor;
 
-    dkVec3f     Albedo; // [0..1] * Scale
+    f32         Density;
 
-    f32         Absorption; // [0..1] * Scale
+    Image*      ScatterMask;
 
-    f32         Phase; // [0..1]
+    Image*      EmissivityMask;
+
+    dkVec3f     Absorption;
+
+    f32         Anisotropy;
+
+    dkVec3f     Emissivity;
 
     VolumeType  Type;
-    
-    BlendType   Blending;
 };
 
 class VolumetricLightModule 
@@ -50,11 +47,30 @@ public:
                                 VolumetricLightModule& operator = ( VolumetricLightModule& ) = delete;
                                 ~VolumetricLightModule();
 
-    FGHandle                    addVolumeScatteringPass( FrameGraph& frameGraph, FGHandle resolvedDepthBuffer, const u32 width, const u32 height );
+    void                        addFroxelDataFetchPass( FrameGraph& frameGraph, const u32 width, const u32 height );
+
+    void                        addFroxelScatteringPass( FrameGraph& frameGraph, const u32 width, const u32 height, FGHandle clusterList, FGHandle itemList );
+
+    void                        addIntegrationPass( FrameGraph& frameGraph, const u32 width, const u32 height );
+
+    FGHandle                    addResolvePass( FrameGraph& frameGraph, FGHandle colorBuffer, FGHandle depthBuffer, const u32 width, const u32 height );
 
     // Release and destroy persistent resources created by this module.
     void                        destroy( RenderDevice& renderDevice );
 
     // Load cached resource from the hard drive and pre-allocate resources for this module.
     void                        loadCachedResources( RenderDevice& renderDevice, GraphicsAssetCache& graphicsAssetCache );
+
+private:
+    FGHandle                    froxelsData[4];
+
+    FGHandle                    vbuffers[2];
+
+    FGHandle                    integratedVbuffers[2];
+
+private:
+    DUSK_INLINE FGHandle&       getScatteringFroxelTexHandle() { return froxelsData[0]; }
+    DUSK_INLINE FGHandle&       getExtinctionFroxelTexHandle() { return froxelsData[1]; }
+    DUSK_INLINE FGHandle&       getEmissionTexHandle() { return froxelsData[2]; }
+    DUSK_INLINE FGHandle&       getPhaseTexHandle() { return froxelsData[3]; }
 };
