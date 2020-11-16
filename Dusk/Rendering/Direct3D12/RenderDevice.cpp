@@ -43,8 +43,8 @@ RenderContext::RenderContext()
     , dsvDescriptorHeapOffset( 0 )
     , srvDescriptorHeap( nullptr )
     , srvDescriptorCountPerFrame( 0 )
-    , staticBufferHeap( nullptr )
-    , heapOffset( 0 )
+    , StaticBufferHeap( nullptr )
+    , bufferheapOffset( 0 )
     , staticImageHeap( nullptr )
     , imageheapOffset( 0 )
     , dynamicBufferHeap( nullptr )
@@ -171,10 +171,14 @@ RenderDevice::~RenderDevice()
     destroyImage( swapChainImage );
 
     dk::core::free( memoryAllocator, renderContext->volatileAllocatorsPool );
+
+    // Release memory heaps.
+    dk::core::free( memoryAllocator, renderContext->StaticBufferHeap );
+
     dk::core::free( memoryAllocator, renderContext );
 }
 
-void RenderDevice::create( DisplaySurface& displaySurface, const bool useDebugContext )
+void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefreshRate, const bool useDebugContext )
 {
     const NativeDisplaySurface* displaySurf = displaySurface.getNativeDisplaySurface();
 
@@ -343,8 +347,10 @@ void RenderDevice::create( DisplaySurface& displaySurface, const bool useDebugCo
 
     DUSK_LOG_INFO( "Allocating heaps...\n" );
 
+    constexpr u64 PER_FRAME_CAPACITY = ( 512 << 20 );
+
     D3D12_HEAP_DESC heapDesc;
-    heapDesc.SizeInBytes = ( 64 << 20 ) * RenderDevice::PENDING_FRAME_COUNT;
+    heapDesc.SizeInBytes = PER_FRAME_CAPACITY * RenderDevice::PENDING_FRAME_COUNT;
     heapDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
     heapDesc.Properties.Type = D3D12_HEAP_TYPE_DEFAULT;
     heapDesc.Properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
@@ -362,38 +368,34 @@ void RenderDevice::create( DisplaySurface& displaySurface, const bool useDebugCo
 
     // Dynamic buffer heap (heap used for 'regular' buffer allocation) lifetime might depends on the current context/state of the application
     heapDesc.Flags = D3D12_HEAP_FLAG_DENY_RT_DS_TEXTURES | D3D12_HEAP_FLAG_DENY_NON_RT_DS_TEXTURES; // Tier1 devices need to know the type of resources that'll be allocated on the heap
-    heapDesc.SizeInBytes = ( 256 << 20 );
+    heapDesc.SizeInBytes = PER_FRAME_CAPACITY * PENDING_FRAME_COUNT;
     renderContext->device->CreateHeap( &heapDesc, __uuidof( ID3D12Heap ), reinterpret_cast< void** >( &renderContext->dynamicBufferHeap ) );
     
-    renderContext->dynamicBufferHeapPerFrameCapacity = ( heapDesc.SizeInBytes / PENDING_FRAME_COUNT );
-    
-    // Align frame offset to D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT to satify resource alignment restriction
-    renderContext->dynamicBufferHeapPerFrameCapacity += ( D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT - ( renderContext->dynamicBufferHeapPerFrameCapacity % D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT ) );
-
+    renderContext->dynamicBufferHeapPerFrameCapacity = PER_FRAME_CAPACITY;
     renderContext->dynamicBufferHeapOffset = 0;
 
     // Dynamic image heap (same as above)
     heapDesc.Flags = D3D12_HEAP_FLAG_ALLOW_ONLY_RT_DS_TEXTURES; // Tier1 devices need to know the type of resources that'll be allocated on the heap
-    heapDesc.SizeInBytes = ( 256 << 20 );
+    heapDesc.SizeInBytes = PER_FRAME_CAPACITY * RenderDevice::PENDING_FRAME_COUNT;
     renderContext->device->CreateHeap( &heapDesc, __uuidof( ID3D12Heap ), reinterpret_cast< void** >( &renderContext->dynamicImageHeap ) );
 
-    renderContext->dynamicImageHeapPerFrameCapacity = 65536 * 20;
+    renderContext->dynamicImageHeapPerFrameCapacity = PER_FRAME_CAPACITY;
     renderContext->dynamicImageHeapOffset = 0;
 
     // Dynamic image heap (same as above)
     heapDesc.Flags = D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES; // Tier1 devices need to know the type of resources that'll be allocated on the heap
-    heapDesc.SizeInBytes = ( 256 << 20 );
+    heapDesc.SizeInBytes = PER_FRAME_CAPACITY * RenderDevice::PENDING_FRAME_COUNT;
     renderContext->device->CreateHeap( &heapDesc, __uuidof( ID3D12Heap ), reinterpret_cast< void** >( &renderContext->dynamicUavImageHeap ) );
 
-    renderContext->dynamicUavImageHeapPerFrameCapacity = 65536 * 20;
+    renderContext->dynamicUavImageHeapPerFrameCapacity = PER_FRAME_CAPACITY;
     renderContext->dynamicUavImageHeapOffset = 0;
 
     heapDesc.Flags = D3D12_HEAP_FLAG_DENY_RT_DS_TEXTURES | D3D12_HEAP_FLAG_DENY_NON_RT_DS_TEXTURES; // Tier1 devices need to know the type of resources that'll be allocated on the heap
-    heapDesc.SizeInBytes = 65536 * 64 * PENDING_FRAME_COUNT;
+    heapDesc.SizeInBytes = PER_FRAME_CAPACITY * PENDING_FRAME_COUNT;
     heapDesc.Properties.Type = D3D12_HEAP_TYPE_UPLOAD;
     renderContext->device->CreateHeap( &heapDesc, __uuidof( ID3D12Heap ), reinterpret_cast< void** >( &renderContext->volatileBufferHeap ) );
 
-    renderContext->volatileBufferHeapPerFrameCapacity = 65536 * 64;
+    renderContext->volatileBufferHeapPerFrameCapacity = PER_FRAME_CAPACITY;
     renderContext->volatileBufferHeapOffset = 0;
 
     D3D12_RESOURCE_DESC resourceDesc;
@@ -500,7 +502,7 @@ void RenderDevice::create( DisplaySurface& displaySurface, const bool useDebugCo
         for ( i32 j = 0; j < CMD_LIST_POOL_CAPACITY; j++ ) {
             renderContext->device->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS( &renderContext->directCmdAllocator[i][j] ) );
 
-            CommandList* cmdList = dk::core::allocate<CommandList>( graphicsCmdListAllocator[i], CommandList::GRAPHICS );
+            CommandList* cmdList = dk::core::allocate<CommandList>( graphicsCmdListAllocator[i], CommandList::Type::GRAPHICS );
             cmdList->initialize( memoryAllocator, j );
 
             NativeCommandList* nativeCmdList = cmdList->getNativeCommandList();
@@ -535,7 +537,7 @@ void RenderDevice::create( DisplaySurface& displaySurface, const bool useDebugCo
         for ( i32 j = 0; j < CMD_LIST_POOL_CAPACITY; j++ ) {
             renderContext->device->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS( &renderContext->computeCmdAllocator[i][j] ) );
 
-            CommandList* cmdList = dk::core::allocate<CommandList>( computeCmdListAllocator[i], CommandList::COMPUTE );
+            CommandList* cmdList = dk::core::allocate<CommandList>( computeCmdListAllocator[i], CommandList::Type::COMPUTE );
             cmdList->initialize( memoryAllocator, j );
 
             NativeCommandList* nativeCmdList = cmdList->getNativeCommandList();
@@ -632,13 +634,28 @@ CommandList& RenderDevice::allocateComputeCommandList()
     return *cmdList;
 }
 
+CommandList& RenderDevice::allocateCopyCommandList()
+{
+    return allocateComputeCommandList();
+}
+
 void RenderDevice::submitCommandList( CommandList& cmdList )
 {
     NativeCommandList* nativeCmdList = cmdList.getNativeCommandList();
     ID3D12GraphicsCommandList* dxCmdList = nativeCmdList->graphicsCmdList;
 
-    ID3D12CommandQueue* submitQueue = ( cmdList.getCommandListType() == CommandList::GRAPHICS ) ? renderContext->directCmdQueue : renderContext->computeCmdQueue;
+    ID3D12CommandQueue* submitQueue = ( cmdList.getCommandListType() == CommandList::Type::GRAPHICS ) ? renderContext->directCmdQueue : renderContext->computeCmdQueue;
     submitQueue->ExecuteCommandLists( 1, reinterpret_cast< ID3D12CommandList** >( &dxCmdList ) );
+}
+
+void RenderDevice::submitCommandLists( CommandList** cmdLists, const u32 cmdListCount )
+{
+
+}
+ 
+void RenderDevice::resizeBackbuffer( const u32 width, const u32 height )
+{
+
 }
 
 void RenderDevice::present()

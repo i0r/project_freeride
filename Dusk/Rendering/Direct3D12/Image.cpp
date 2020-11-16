@@ -20,8 +20,16 @@
 
 #include <d3d12.h>
 
+// Return true if the given format is typeless (i.e. not strongly typed); false otherwise.
+bool IsTypelessFormat( const DXGI_FORMAT format )
+{
+    return format == DXGI_FORMAT_R32_TYPELESS;
+}
+
 Image* RenderDevice::createImage( const ImageDesc& description, const void* initialData, const size_t initialDataSize )
 {
+    DXGI_FORMAT nativeFormat = static_cast< DXGI_FORMAT >( description.format );
+
     D3D12_RESOURCE_DESC resourceDesc;
     if ( description.dimension == ImageDesc::DIMENSION_1D ) {
         resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE1D;
@@ -40,16 +48,17 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
         resourceDesc.DepthOrArraySize = description.depth * description.arraySize;
     }
 
-    DXGI_FORMAT nativeFormat = static_cast< DXGI_FORMAT >( description.format );
     resourceDesc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
     resourceDesc.MipLevels = description.mipCount;
     resourceDesc.Format = nativeFormat;
     resourceDesc.SampleDesc.Count = description.samplerCount;
     resourceDesc.SampleDesc.Quality = ( description.samplerCount > 1 ) ? DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN : 0;
-    resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE;
+    resourceDesc.Layout = ( description.miscFlags & ImageDesc::DISABLE_TILING ) ? D3D12_TEXTURE_LAYOUT_ROW_MAJOR : D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE;
     resourceDesc.Flags = GetNativeResourceFlags( description.bindFlags );
     
     ID3D12Device* device = renderContext->device;
+
+    // If we need to upload data from a staging buffer, initialize the resource as common (we can skip a resource barrier).
     D3D12_RESOURCE_STATES stateFlags = ( initialData == nullptr ) ? GetResourceStateFlags( description.bindFlags ) : D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_COMMON;
     
     Image* image = dk::core::allocate<Image>( memoryAllocator );
@@ -62,6 +71,7 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
     image->dimension = description.dimension;
     image->defaultFormat = nativeFormat;
 
+    // Set initial resource state for each buffered resource.
     for ( i32 i = 0; i < PENDING_FRAME_COUNT; i++ ) {
         image->currentResourceState[i] = stateFlags;
     }
@@ -69,28 +79,22 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
     D3D12_RESOURCE_ALLOCATION_INFO allocInfos;
     HRESULT operationResult = S_OK;
     switch ( description.usage ) {
-    case RESOURCE_USAGE_STATIC: {
-        operationResult = device->CreatePlacedResource(
-            renderContext->staticImageHeap,
-            renderContext->heapOffset,
-            &resourceDesc,  
-            stateFlags,
-            nullptr,
-            __uuidof( ID3D12Resource ),
-            reinterpret_cast< void** >( &image->resource[0] )
-        );
-        DUSK_DEV_ASSERT( SUCCEEDED( operationResult ), "Image creation FAILED! (error code: 0x%x)", operationResult );
+    case RESOURCE_USAGE_STATIC: { 
+        operationResult = CreatePlacedResource( device, renderContext->staticImageHeap, resourceDesc, stateFlags, renderContext->imageheapOffset, &image->resource[0] );
 
         // Static images are single-buffered; copy the original handle for convenience in the other slots
         for ( i32 i = 1; i < PENDING_FRAME_COUNT; i++ ) {
             image->resource[i] = image->resource[0];
         }
 
-        // TODO Should we take alignment in account? Or assume every allocation will be memory aligned by default?
         allocInfos = device->GetResourceAllocationInfo( 0, 1, &resourceDesc );
-        renderContext->heapOffset += allocInfos.SizeInBytes;
+
+        // Realign heap offset (we don't really care about fragmentation since static resources will stay during the whole application lifetime).
+        renderContext->imageheapOffset = RealignHeapOffset( allocInfos, renderContext->imageheapOffset, resourceDesc.Alignment );
     } break;
     case RESOURCE_USAGE_STAGING: {
+        // Staging resource allocation is only a single frame timed so it is best to let the driver decide where the allocation
+        // should be made.
         D3D12_HEAP_PROPERTIES readbackHeapProperties;
         readbackHeapProperties.Type = D3D12_HEAP_TYPE_READBACK;
         readbackHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
@@ -98,7 +102,7 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
         readbackHeapProperties.CreationNodeMask = 0;
         readbackHeapProperties.VisibleNodeMask = 0;
 
-        operationResult = device->CreateCommittedResource(
+        operationResult &= device->CreateCommittedResource(
             &readbackHeapProperties,
             D3D12_HEAP_FLAG_NONE,
             &resourceDesc,
@@ -119,55 +123,38 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
         optimizedClearValue.Color[1] = 0.0f;
         optimizedClearValue.Color[2] = 0.0f;
         optimizedClearValue.Color[3] = 0.0f;
-        optimizedClearValue.Format = nativeFormat;
+        optimizedClearValue.Format = ( IsTypelessFormat( nativeFormat ) ) ? static_cast<DXGI_FORMAT>( description.DefaultView.ViewFormat ) : nativeFormat;
 
         // Check if optimized clear is available (based on resource's bind flagset)
         D3D12_CLEAR_VALUE* pOptimizedClear = ( description.bindFlags & RESOURCE_BIND_RENDER_TARGET_VIEW ) ? &optimizedClearValue : nullptr;
 
+        // TODO This is only temporary; in the future allocation strategy will be managed at a higher level.
+        allocInfos = device->GetResourceAllocationInfo( 0, 1, &resourceDesc );
+
         bool isRtvOrDsv = ( description.bindFlags & RESOURCE_BIND_RENDER_TARGET_VIEW || description.bindFlags & RESOURCE_BIND_DEPTH_STENCIL );
         if ( description.bindFlags & RESOURCE_BIND_UNORDERED_ACCESS_VIEW && !isRtvOrDsv ) {
             for ( i32 i = 0; i < RenderDevice::PENDING_FRAME_COUNT; i++ ) {
-                operationResult = device->CreatePlacedResource(
-                    renderContext->dynamicUavImageHeap,
-                    renderContext->dynamicUavImageHeapPerFrameCapacity * i + renderContext->dynamicUavImageHeapOffset,
-                    &resourceDesc,
-                    stateFlags,
-                    pOptimizedClear,
-                    __uuidof( ID3D12Resource ),
-                    reinterpret_cast< void** >( &image->resource[i] )
-                );
+                const u64 heapOffset = renderContext->dynamicUavImageHeapPerFrameCapacity * i + renderContext->dynamicUavImageHeapOffset;
 
-                // TODO Should we take alignment in account? Or assume every allocation will be memory aligned by default?
-                allocInfos = device->GetResourceAllocationInfo( 0, 1, &resourceDesc );
-                renderContext->dynamicUavImageHeapOffset += allocInfos.SizeInBytes;
-
-                DUSK_DEV_ASSERT( SUCCEEDED( operationResult ), "Image creation FAILED! (error code: 0x%x)", operationResult );
+                operationResult &= CreatePlacedResource( device, renderContext->dynamicUavImageHeap, resourceDesc, stateFlags, heapOffset, &image->resource[i], pOptimizedClear );
             }
+
+            renderContext->dynamicUavImageHeapOffset = RealignHeapOffset( allocInfos, renderContext->dynamicUavImageHeapOffset );
         } else if ( isRtvOrDsv ) {
             for ( i32 i = 0; i < RenderDevice::PENDING_FRAME_COUNT; i++ ) {
-                operationResult = device->CreatePlacedResource(
-                    renderContext->dynamicImageHeap,
-                    renderContext->dynamicImageHeapPerFrameCapacity * i + renderContext->dynamicImageHeapOffset,
-                    &resourceDesc,
-                    stateFlags,
-                    pOptimizedClear,
-                    __uuidof( ID3D12Resource ),
-                    reinterpret_cast< void** >( &image->resource[i] )
-                );
+                const u64 heapOffset = renderContext->dynamicImageHeapPerFrameCapacity * i + renderContext->dynamicImageHeapOffset;
 
-                // TODO Should we take alignment in account? Or assume every allocation will be memory aligned by default?
-                allocInfos = device->GetResourceAllocationInfo( 0, 1, &resourceDesc );
-                renderContext->dynamicImageHeapOffset += allocInfos.SizeInBytes;
-
-                DUSK_DEV_ASSERT( SUCCEEDED( operationResult ), "Image creation FAILED! (error code: 0x%x)", operationResult );
+                operationResult &= CreatePlacedResource( device, renderContext->dynamicImageHeap, resourceDesc, stateFlags, heapOffset, &image->resource[i], pOptimizedClear );
             }
+
+            renderContext->dynamicImageHeapOffset = RealignHeapOffset( allocInfos, renderContext->dynamicImageHeapOffset );
         } else {
             DUSK_RAISE_FATAL_ERROR( false, "Invalid bindFlags combination! (An Image with a usage DEFAULT must be writable using a RTV or a UAV)" );
         }
     } break;
     }
 
-    if ( initialData != nullptr ) {
+    if ( SUCCEEDED( operationResult ) && initialData != nullptr ) {
         D3D12_HEAP_PROPERTIES uploadHeapProperties;
         uploadHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
         uploadHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
@@ -453,7 +440,7 @@ static D3D12_CPU_DESCRIPTOR_HANDLE CreateDepthStencilView( RenderContext* render
     return dsvHandle;
 }
 
-void CommandList::setupFramebuffer( Image** renderTargetViews, Image* depthStencilView )
+void CommandList::setupFramebuffer( FramebufferAttachment* renderTargetViews, FramebufferAttachment depthStencilView )
 {
     const PipelineState& pipelineState = *nativeCommandList->BindedPipelineState;
     bool hasDsv = pipelineState.hasDepthStencilView;
@@ -470,7 +457,7 @@ void CommandList::setupFramebuffer( Image** renderTargetViews, Image* depthStenc
 
     u32 rtvCount = pipelineState.rtvCount;
     for ( u32 i = 0; i < rtvCount; i++ ) {
-        Image* renderBuffer = renderTargetViews[i];
+        Image* renderBuffer = renderTargetViews[i].ImageAttachment;
         const PipelineState::RTVDesc& psoRtvDesc = pipelineState.renderTargetViewDesc[renderTargetCount];
 
         D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = CreateRenderTargetView( nativeCommandList->renderContext, resourceFrameIndex, psoRtvDesc, renderBuffer );
@@ -498,11 +485,12 @@ void CommandList::setupFramebuffer( Image** renderTargetViews, Image* depthStenc
     if ( pipelineState.hasDepthStencilView ) {
         const PipelineState::RTVDesc& psoDsvDesc = pipelineState.depthStencilViewDesc;
 
-        dsv = CreateDepthStencilView( nativeCommandList->renderContext, resourceFrameIndex, psoDsvDesc, depthStencilView );
+        Image* dsvAttachment = depthStencilView.ImageAttachment;
+        dsv = CreateDepthStencilView( nativeCommandList->renderContext, resourceFrameIndex, psoDsvDesc, dsvAttachment );
 
         // Pre-transition render target to the correct state (no idea if this is the right place to do it; it might need to be done at higher level?)
-        if ( depthStencilView->currentResourceState[resourceFrameIndex] != D3D12_RESOURCE_STATE_DEPTH_WRITE ) {
-            transitionImage( *depthStencilView, RESOURCE_STATE_DEPTH_WRITE, psoDsvDesc.mipIndex );
+        if ( dsvAttachment->currentResourceState[resourceFrameIndex] != D3D12_RESOURCE_STATE_DEPTH_WRITE ) {
+            transitionImage( *dsvAttachment, RESOURCE_STATE_DEPTH_WRITE, psoDsvDesc.mipIndex );
         }
 
         if ( psoDsvDesc.clearRenderTarget ) {
@@ -510,8 +498,8 @@ void CommandList::setupFramebuffer( Image** renderTargetViews, Image* depthStenc
             D3D12_RECT& clearRectangle = clearDepthRectangle;
             clearRectangle.top = 0;
             clearRectangle.left = 0;
-            clearRectangle.right = depthStencilView->width;
-            clearRectangle.bottom = depthStencilView->height;
+            clearRectangle.right = dsvAttachment->width;
+            clearRectangle.bottom = dsvAttachment->height;
 
             shouldClearDsv = true;
         }
@@ -527,5 +515,25 @@ void CommandList::setupFramebuffer( Image** renderTargetViews, Image* depthStenc
     }
 
     cmdList->OMSetRenderTargets( renderTargetCount, rtvs, FALSE, ( hasDsv ) ? &dsv : nullptr );
+}
+
+void RenderDevice::createImageView( Image& image, const ImageViewDesc& viewDescription, const u32 creationFlags )
+{
+
+}
+
+void CommandList::clearRenderTargets( Image** renderTargetViews, const u32 renderTargetCount, const f32 clearValues[4] )
+{
+
+}
+
+void CommandList::clearDepthStencil( Image* depthStencilView, const f32 clearValue, const bool clearStencil, const u8 clearStencilValue )
+{
+
+}
+
+void CommandList::resolveImage( Image& src, Image& dst )
+{
+
 }
 #endif

@@ -131,17 +131,17 @@ void RenderDevice::setDebugMarker( Buffer& buffer, const dkChar_t* objectName )
 #endif
 }
 
-void CommandList::bindVertexBuffer( const Buffer** buffers, const u32 bufferCount, const u32 startBindIndex )
+void CommandList::bindVertexBuffer( const Buffer** buffers, const u32* offsets, const u32 bufferCount, const u32 startBindIndex )
 {
-    VkDeviceSize offsets[8];
+    VkDeviceSize nativeOffsets[8];
     VkBuffer nativeBuffers[8];
 
     for ( u32 i = 0; i < bufferCount; i++ ) {
-        offsets[i] = 0;
+        nativeOffsets[i] = static_cast<VkDeviceSize>( offsets[i] );
         nativeBuffers[i] = buffers[i]->resource[resourceFrameIndex];
     }
 
-    vkCmdBindVertexBuffers( nativeCommandList->cmdList, startBindIndex, bufferCount, nativeBuffers, offsets );
+    vkCmdBindVertexBuffers( nativeCommandList->cmdList, startBindIndex, bufferCount, nativeBuffers, nativeOffsets );
 }
 
 void CommandList::bindIndiceBuffer( const Buffer* buffer, const bool use32bitsIndices )
@@ -168,6 +168,11 @@ void CommandList::unmapBuffer( Buffer& buffer )
 }
 
 void CommandList::transitionBuffer( Buffer& buffer, const eResourceState state )
+{
+
+}
+
+void CommandList::copyBuffer( Buffer* sourceBuffer, Buffer* destBuffer )
 {
 
 }

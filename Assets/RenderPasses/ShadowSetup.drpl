@@ -114,26 +114,26 @@ lib ShadowSetup {
         float splitDist = cascadeSplits[cascadeIdx];
 
         [unroll]
-        for(uint i = 0; i < 8; ++i) {
-            float4 corner = mul(float4(frustumCornersWS[i], 1.0f), ViewProjInv);
-            frustumCornersWS[i] = corner.xyz / corner.w;
+        for(uint j = 0; j < 8; ++j) {
+            float4 corner = mul(float4(frustumCornersWS[j], 1.0f), ViewProjInv);
+            frustumCornersWS[j] = corner.xyz / corner.w;
         }
         
         // Get the corners of the current cascade slice of the view frustum
         [unroll]
-        for(i = 0; i < 4; ++i) {
-            float3 cornerRay = frustumCornersWS[i + 4] - frustumCornersWS[i];
+        for(j = 0; j < 4; ++j) {
+            float3 cornerRay = frustumCornersWS[j + 4] - frustumCornersWS[j];
             float3 nearCornerRay = cornerRay * prevSplitDist;
             float3 farCornerRay = cornerRay * splitDist;
-            frustumCornersWS[i + 4] = frustumCornersWS[i] + farCornerRay;
-            frustumCornersWS[i] = frustumCornersWS[i] + nearCornerRay;
+            frustumCornersWS[j + 4] = frustumCornersWS[j] + farCornerRay;
+            frustumCornersWS[j] = frustumCornersWS[j] + nearCornerRay;
         }
 
         // Calculate the centroid of the view frustum slice
         float3 frustumCenter = 0.0f;
         [unroll]
-        for(i = 0; i < 8; ++i) {
-            frustumCenter += frustumCornersWS[i];
+        for(j = 0; j < 8; ++j) {
+            frustumCenter += frustumCornersWS[j];
         }
         frustumCenter /= 8.0f;
 
@@ -150,9 +150,9 @@ lib ShadowSetup {
         // Calculate the radius of a bounding sphere surrounding the frustum corners
         float sphereRadius = 0.0f;
         [unroll]
-        for(i = 0; i < 8; ++i)
+        for(j = 0; j < 8; ++j)
         {
-            float dist = length(frustumCornersWS[i] - frustumCenter);
+            float dist = length(frustumCornersWS[j] - frustumCenter);
             sphereRadius = max(sphereRadius, dist);
         }
 
@@ -214,10 +214,10 @@ lib ShadowSetup {
         };
 
         [unroll]
-        for(i = 0; i < 8; ++i)
+        for(j = 0; j < 8; ++j)
         {
-            float4 corner = mul(float4(corners[i], 1.0f), shadowRenderingInv);
-            corners[i] = corner.xyz / corner.w;
+            float4 corner = mul(float4(corners[j], 1.0f), shadowRenderingInv);
+            corners[j] = corner.xyz / corner.w;
         }
 
         float4 frustumPlanes[6];
@@ -229,8 +229,8 @@ lib ShadowSetup {
         frustumPlanes[5] = PlaneFromPoints(corners[1], corners[0], corners[3]);
 
         [unroll]
-        for(i = 0; i < 6; ++i) {
-            SliceInfos[cascadeIdx].CascadePlanes[i] = frustumPlanes[i];
+        for(j = 0; j < 6; ++j) {
+            SliceInfos[cascadeIdx].CascadePlanes[j] = frustumPlanes[j];
         }
         
         // Apply the scale/offset matrix, which transforms from [-1,1]

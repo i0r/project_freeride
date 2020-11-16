@@ -11,16 +11,6 @@ float convertEV100ToExposure(float EV100)
     return 1.0f / maxLuminance;
 }
 
-float Luminance2dB( float _Luminance )
-{
-    return 8.6858896380650365530225783783321 * log( _Luminance );
-}
-
-float dB2Luminance( float _dB )
-{
-    return pow( 10.0, 0.05 * _dB );
-}
-
 // RGB to luminance
 inline float RGBToLuminance( const in float3 linearRGB )
 {

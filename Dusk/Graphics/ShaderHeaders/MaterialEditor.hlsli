@@ -1,8 +1,8 @@
 #ifndef __MATERIAL_EDITOR_H__
 #define __MATERIAL_EDITOR_H__ 1
 
-#include <MaterialRuntimeEd.h>
-#include <Material.hlsli>
+#include "MaterialRuntimeEd.h"
+#include "Material.hlsli"
 
 #define BLEND_ADDITIVE 0
 #define BLEND_MULTIPLICATIVE 1

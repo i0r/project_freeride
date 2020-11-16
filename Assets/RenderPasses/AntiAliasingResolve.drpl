@@ -52,10 +52,10 @@ lib AntiAliasing {
     }
     
     shared {
-        #include <Shared.hlsli>
-        #include <Photometry.hlsli>
-        #include <ColorSpaces.hlsli>
-        #include <GeometryUtils.hlsli>
+        #include "Shared.hlsli"
+        #include "Photometry.hlsli"
+        #include "ColorSpaces.hlsli"
+        #include "GeometryUtils.hlsli"
         
 #if $SamplerCount == 8
         // MSAA x8

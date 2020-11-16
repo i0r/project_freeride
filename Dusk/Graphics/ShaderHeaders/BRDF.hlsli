@@ -1,6 +1,6 @@
 #ifndef __BRDF_H__
 #define __BRDF_H__ 1
-#include <Shared.hlsli>
+#include "Shared.hlsli"
 
 // Generalized Trowbridge-Reitz with gamma=2
 float Distribution_GGX( float NoHSquared, float alphaSquared ) 

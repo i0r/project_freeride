@@ -77,7 +77,8 @@ SSRModule::HiZResult SSRModule::computeHiZMips( FrameGraph& frameGraph, FGHandle
 				mipWidth >>= 1;
 				mipHeight >>= 1;
 			}
-
+#ifdef DUSK_D3D11
+            // We must merge the mips together since SM5/D3D11 does not support explicit array binding in shaders.
             ImageDesc mergedDesc;
 			mergedDesc.dimension = ImageDesc::DIMENSION_2D;
 			mergedDesc.bindFlags = RESOURCE_BIND_SHADER_RESOURCE;
@@ -88,6 +89,7 @@ SSRModule::HiZResult SSRModule::computeHiZMips( FrameGraph& frameGraph, FGHandle
 			mergedDesc.mipCount = passData.HiZMipCount;
 
             passData.DepthMipChain = builder.allocateImage( mergedDesc );
+#endif
 		},
 		[=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
 			Buffer* perPassBuffer = resources->getBuffer( passData.PerPassBuffer );

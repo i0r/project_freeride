@@ -14,6 +14,7 @@
 #include <Graphics/Material.h>
 #include <Graphics/GraphicsAssetCache.h>
 
+#include "Graphics/RenderModules/CascadedShadowRenderModule.h"
 #include "Graphics/ShaderHeaders/Light.h"
 #include "Graphics/RenderModules/CascadedShadowRenderModule.h"
 

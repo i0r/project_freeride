@@ -73,14 +73,16 @@ endif()
 
 add_msvc_filters( "${SOURCES}" )
 
+if ( WIN32 )
+    target_link_libraries( Dusk d3dcompiler )
+endif( WIN32 )
+  
 if ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D12" )
     find_package( DirectX REQUIRED )
 
     target_link_libraries( Dusk d3d12 )
     target_link_libraries( Dusk dxgi )
 	
-    target_link_libraries( Dusk d3dcompiler )
-        
     set_target_properties( Dusk PROPERTIES DEBUG_OUTPUT_NAME "Dusk" )
     set_target_properties( Dusk PROPERTIES RELEASE_OUTPUT_NAME "Dusk" )
     set_target_properties( Dusk PROPERTIES RELWITHDEBINFO_OUTPUT_NAME "Dusk" )
@@ -107,8 +109,6 @@ elseif ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
     target_link_libraries( Dusk d3d11 )
     target_link_libraries( Dusk dxgi )
 	
-    target_link_libraries( Dusk d3dcompiler )
-        
     set_target_properties( Dusk PROPERTIES DEBUG_OUTPUT_NAME "Dusk" )
     set_target_properties( Dusk PROPERTIES RELEASE_OUTPUT_NAME "Dusk" )
     set_target_properties( Dusk PROPERTIES RELWITHDEBINFO_OUTPUT_NAME "Dusk" )

@@ -1,7 +1,7 @@
 #ifndef __GEO_UTILS_H__
 #define __GEO_UTILS_H__ 1
 
-#include <Shared.hlsli>
+#include "Shared.hlsli"
 
 // Spherical Coordinates encoding (ALU heavy but suitable for world space normals).
 // Half precision should be good enough for screenspace techniques.

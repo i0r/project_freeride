@@ -134,8 +134,8 @@ void EnvironmentProbeStreaming::createResources( RenderDevice& renderDevice )
         cubemapDesc.mipCount = 1;
 		distantProbe[i][0] = renderDevice.createImage( cubemapDesc );
 
-		cubemapDesc.width = 64;
-		cubemapDesc.height = 64;
+		cubemapDesc.width = 128;
+		cubemapDesc.height = 128;
 		distantProbe[i][1] = renderDevice.createImage( cubemapDesc );
 
 		cubemapDesc.width = PROBE_FACE_SIZE;

@@ -196,18 +196,16 @@ void dk::baker::Start( const char* cmdLineArgs )
                 }
 
                 for ( const RenderLibraryGenerator::GeneratedShader& shader : libraryShaders ) {
-                    // TODO Compile for each Graphics API (only works for shader model 5.0 atm)
-                    // Use DXC for Shader model 6.0; use spirv-cross for SPIRV bytecode
-					RuntimeShaderCompiler::GeneratedBytecode compiledShader = runtimeShaderCompiler->compileShaderModel5( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), ( shader.OriginalName + "." + shader.Hashcode ).c_str() );
-					if ( compiledShader.Length == 0ull || compiledShader.Bytecode == nullptr ) {
-						// At least one pass is invalid; flag the file as invalid.
-						isLibraryValid = false;
-						continue;
-					}
+                    std::string shaderFilename = ( shader.OriginalName + "." + shader.Hashcode );
 
-                    std::ofstream shaderStream( bakingPaths.CompiledShadersPath + "/sm5/" + shader.Hashcode, std::ios::binary | std::ios::trunc );
-                    shaderStream.write( (const char*)compiledShader.Bytecode, compiledShader.Length );
-                    shaderStream.close();
+                    RuntimeShaderCompiler::GeneratedBytecode compiledShaderSM5 = runtimeShaderCompiler->compileShaderModel5( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
+                    RuntimeShaderCompiler::SaveToDisk( virtualFileSystem, DUSK_STRING( "EditorAssets/shaders/sm5/" ), compiledShaderSM5, shader.Hashcode );
+
+                    RuntimeShaderCompiler::GeneratedBytecode compiledShaderSM6 = runtimeShaderCompiler->compileShaderModel6( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
+                    RuntimeShaderCompiler::SaveToDisk( virtualFileSystem, DUSK_STRING( "EditorAssets/shaders/sm6/" ), compiledShaderSM6, shader.Hashcode );
+
+                    RuntimeShaderCompiler::GeneratedBytecode compiledShaderSpirv = runtimeShaderCompiler->compileShaderModel6Spirv( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
+                    RuntimeShaderCompiler::SaveToDisk( virtualFileSystem, DUSK_STRING( "EditorAssets/shaders/spirv/" ), compiledShaderSpirv, shader.Hashcode );
                 }
             } break;
             default:

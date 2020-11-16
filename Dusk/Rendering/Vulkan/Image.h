@@ -8,7 +8,7 @@
 #include <vulkan/vulkan.h>
 
 #include <Core/ViewFormat.h>
-#include <Rendering/Shared.h>
+#include <Rendering/RenderDevice.h>
 
 struct Image
 {

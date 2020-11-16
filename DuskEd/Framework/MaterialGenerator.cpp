@@ -191,20 +191,17 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
 
             const std::vector<RenderLibraryGenerator::GeneratedShader>& libraryShaders = renderLibGenerator.getGeneratedShaders();
             for ( const RenderLibraryGenerator::GeneratedShader& shader : libraryShaders ) {
-                RuntimeShaderCompiler::GeneratedBytecode compiledShader = shaderCompiler->compileShaderModel5( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), ( std::string( editableMaterial.Name ) + "." + shader.OriginalName + "." + shader.Hashcode ).c_str() );
-                if ( compiledShader.Length == 0ull || compiledShader.Bytecode == nullptr ) {
-                    continue;
-                }
-
-                dkString_t shaderBinPath = dkString_t( DUSK_STRING( "EditorAssets/shaders/sm5/" ) ) + StringToWideString( shader.Hashcode );
-                FileSystemObject* compiledShaderBin = virtualFs->openFile( shaderBinPath, eFileOpenMode::FILE_OPEN_MODE_WRITE | eFileOpenMode::FILE_OPEN_MODE_BINARY );
-                if ( compiledShaderBin->isGood() ) {
-                    compiledShaderBin->write( compiledShader.Bytecode, compiledShader.Length );
+                std::string shaderFilename = std::string( editableMaterial.Name ) + "." + shader.OriginalName + "." + shader.Hashcode;
                 
-                    compiledShaderBin->close();
+                // TODO Allow SM5/SM6/SPIRV conditional generation.
+                RuntimeShaderCompiler::GeneratedBytecode compiledShaderSm5 = shaderCompiler->compileShaderModel5( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
+                RuntimeShaderCompiler::SaveToDisk( virtualFs, DUSK_STRING( "EditorAssets/shaders/sm5/" ), compiledShaderSm5, shader.Hashcode );
+                
+                RuntimeShaderCompiler::GeneratedBytecode compiledShaderSm6 = shaderCompiler->compileShaderModel6( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
+                RuntimeShaderCompiler::SaveToDisk( virtualFs, DUSK_STRING( "EditorAssets/shaders/sm6/" ), compiledShaderSm5, shader.Hashcode );
 
-                    DUSK_LOG_INFO( "'%hs' : shader has been saved successfully!\n", shader.Hashcode.c_str() );
-                }
+                RuntimeShaderCompiler::GeneratedBytecode compiledShaderSpirvSm6 = shaderCompiler->compileShaderModel6Spirv( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
+                RuntimeShaderCompiler::SaveToDisk( virtualFs, DUSK_STRING( "EditorAssets/shaders/spirv/" ), compiledShaderSpirvSm6, shader.Hashcode );
             }
         } break;
         }

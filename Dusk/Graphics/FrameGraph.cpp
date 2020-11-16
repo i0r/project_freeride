@@ -1318,8 +1318,8 @@ void FrameGraphScheduler::jobDispatcherThread()
             }
         }
         enqueuedRenderPassCount = 0u;
-#else
-#pragma error "Async Compute needs to be implemented!"
+//#else
+//#pragma error "Async Compute needs to be implemented!"
 #endif
 
         // Update shared resources at the beginning of the frame (e.g. PerViewBuffer).

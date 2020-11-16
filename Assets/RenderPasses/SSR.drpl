@@ -48,7 +48,7 @@ lib SSR {
     }
    
     shared {
-        #include <GeometryUtils.hlsli>
+        #include "GeometryUtils.hlsli"
         
         static const int NUM_STEPS = 300;
         static const float BRDF_BIAS = 0.7f;
@@ -257,7 +257,7 @@ lib SSR {
         }
 
         // Rebuild pixel position from this pixel uvs.
-        float3 screenPos = GetScreenPos(uv, depth);
+        float3 screenPos = GetScreenPos(uv, depth).xyz;
         float3 P = ReconstructPosition(uv, depth, g_InverseViewProjectionMatrix);
 
         float roughness = thinGbuffer.a;      

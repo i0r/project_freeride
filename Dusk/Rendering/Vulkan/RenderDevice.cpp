@@ -176,10 +176,8 @@ RenderDevice::~RenderDevice()
     dk::core::free( memoryAllocator, renderContext );
 }
 
-void RenderDevice::create( DisplaySurface& displaySurface, const bool useDebugContext )
+void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefreshRate, const bool useDebugContext )
 {
-    DUSK_UNUSED_VARIABLE( useDebugContext );
-
     pipelineStateCacheAllocator = dk::core::allocate<LinearAllocator>( memoryAllocator, 4 << 20, memoryAllocator->allocate( 4 << 20 ) );
     renderContext = dk::core::allocate<RenderContext>( memoryAllocator );
 
@@ -322,19 +320,23 @@ void RenderDevice::create( DisplaySurface& displaySurface, const bool useDebugCo
     DUSK_GET_INSTANCE_PROC_ADDR( vulkanInstance, GetPhysicalDeviceSurfaceSupportKHR )
 
 #if DUSK_DEVBUILD
+#if DUSK_ENABLE_GPU_DEBUG_MARKER
     DUSK_GET_INSTANCE_PROC_ADDR( vulkanInstance, DebugMarkerSetObjectNameEXT )
     renderContext->debugObjectMarker = vkDebugMarkerSetObjectNameEXT;
+#endif
 
-    DUSK_GET_INSTANCE_PROC_ADDR( vulkanInstance, CreateDebugUtilsMessengerEXT )
+    if ( useDebugContext ) {
+        DUSK_GET_INSTANCE_PROC_ADDR( vulkanInstance, CreateDebugUtilsMessengerEXT )
 
-    VkDebugUtilsMessengerCreateInfoEXT dbgMessengerCreateInfos = {};
-    dbgMessengerCreateInfos.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-    dbgMessengerCreateInfos.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-    dbgMessengerCreateInfos.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-    dbgMessengerCreateInfos.pfnUserCallback = VkDebugCallback;
-    VkResult dbgMessengerCreateResult = vkCreateDebugUtilsMessengerEXT( vulkanInstance, &dbgMessengerCreateInfos, nullptr, &renderContext->debugCallback );
+        VkDebugUtilsMessengerCreateInfoEXT dbgMessengerCreateInfos = {};
+        dbgMessengerCreateInfos.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+        dbgMessengerCreateInfos.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        dbgMessengerCreateInfos.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        dbgMessengerCreateInfos.pfnUserCallback = VkDebugCallback;
+        VkResult dbgMessengerCreateResult = vkCreateDebugUtilsMessengerEXT( vulkanInstance, &dbgMessengerCreateInfos, nullptr, &renderContext->debugCallback );
 
-    DUSK_ASSERT( ( dbgMessengerCreateResult == VK_SUCCESS ), "Failed to create debug callback! (error code: %i)", dbgMessengerCreateResult )
+        DUSK_ASSERT( ( dbgMessengerCreateResult == VK_SUCCESS ), "Failed to create debug callback! (error code: %i)", dbgMessengerCreateResult )
+    }
 #endif
 
     // TODO A vector of boolean is garbage! :(
@@ -633,7 +635,7 @@ void RenderDevice::create( DisplaySurface& displaySurface, const bool useDebugCo
         );
 
         for ( i32 j = 0; j < CMD_LIST_POOL_CAPACITY; j++ ) {
-            CommandList* cmdList = dk::core::allocate<CommandList>( graphicsCmdListAllocator[i], CommandList::GRAPHICS );
+            CommandList* cmdList = dk::core::allocate<CommandList>( graphicsCmdListAllocator[i], CommandList::Type::GRAPHICS );
             cmdList->initialize( memoryAllocator, j );
 
             NativeCommandList* nativeCmdList = cmdList->getNativeCommandList();
@@ -674,7 +676,7 @@ void RenderDevice::create( DisplaySurface& displaySurface, const bool useDebugCo
         );
 
         for ( i32 j = 0; j < CMD_LIST_POOL_CAPACITY; j++ ) {
-            CommandList* cmdList = dk::core::allocate<CommandList>( computeCmdListAllocator[i], CommandList::COMPUTE );
+            CommandList* cmdList = dk::core::allocate<CommandList>( computeCmdListAllocator[i], CommandList::Type::COMPUTE );
             cmdList->initialize( memoryAllocator, j );
 
             NativeCommandList* nativeCmdList = cmdList->getNativeCommandList();
@@ -782,6 +784,30 @@ CommandList& RenderDevice::allocateComputeCommandList()
     return *cmdList;
 }
 
+CommandList& RenderDevice::allocateCopyCommandList()
+{
+    const size_t bufferIdx = frameIndex % PENDING_FRAME_COUNT;
+
+    // Reset the allocator (go back to the start of the allocator memory space)
+    if ( graphicsCmdListAllocator[bufferIdx]->getAllocationCount() == CMD_LIST_POOL_CAPACITY ) {
+        graphicsCmdListAllocator[bufferIdx]->clear();
+    }
+
+    CommandList* cmdList = static_cast< CommandList* >( graphicsCmdListAllocator[bufferIdx]->allocate( sizeof( CommandList ), alignof( CommandList ) ) );
+    NativeCommandList* nativeCmdList = cmdList->getNativeCommandList();
+
+    nativeCmdList->descriptorPool = renderContext->descriptorPool[bufferIdx];
+
+    cmdList->setFrameIndex( static_cast< i32 >( frameIndex ) );
+
+    return *cmdList;
+}
+
+void RenderDevice::submitCommandLists( CommandList** cmdList, const u32 cmdListCount )
+{
+
+}
+
 void RenderDevice::submitCommandList( CommandList& cmdList )
 {
     size_t bufferIdx = frameIndex % PENDING_FRAME_COUNT;
@@ -808,7 +834,7 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
         waitFence = renderContext->swapChainFence[nextFrameIdx % PENDING_FRAME_COUNT];
     }
 
-    VkQueue submitQueue = ( cmdList.getCommandListType() == CommandList::GRAPHICS ) ? renderContext->graphicsQueue : renderContext->computeQueue;
+    VkQueue submitQueue = ( cmdList.getCommandListType() == CommandList::Type::GRAPHICS ) ? renderContext->graphicsQueue : renderContext->computeQueue;
     vkQueueSubmit( submitQueue, 1u, &submitInfo, waitFence );
 }
 
@@ -849,6 +875,11 @@ void RenderDevice::waitForPendingFrameCompletion()
 {
     // Wait on the host for the completion of all queue ops.
     vkDeviceWaitIdle( renderContext->device );
+}
+
+void RenderDevice::resizeBackbuffer( const u32 width, const u32 height )
+{
+    
 }
 
 const dkChar_t* RenderDevice::getBackendName()

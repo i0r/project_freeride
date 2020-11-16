@@ -1,7 +1,5 @@
 #ifndef __AUTOEXPOSURE_H__
 #define __AUTOEXPOSURE_H__ 1
-#include <Photometry.hlsli>
-
 static const float	BISOU_TO_WORLD_LUMINANCE = 139.26;
 static const float	WORLD_TO_BISOU_LUMINANCE = 1.0 / BISOU_TO_WORLD_LUMINANCE;
 
@@ -18,6 +16,16 @@ static const float	TARGET_MONITOR_LUMINANCE_RANGE_DB = 48.1647993062369912341982
 static const uint	HISTOGRAM_BUCKETS_COUNT = 128;
 static const float	HISTOGRAM_BUCKET_RANGE_DB = SCENE_LUMINANCE_RANGE_DB / HISTOGRAM_BUCKETS_COUNT;
 static const float	ABSOLUTE_EV_REFERENCE_LUMINANCE = 0.15;
+
+float Luminance2dB( float _Luminance )
+{
+    return 8.6858896380650365530225783783321 * log( _Luminance );
+}
+
+float dB2Luminance( float _dB )
+{
+    return pow( 10.0, 0.05 * _dB );
+}
 
 float Luminance2HistogramBucketIndex( float _Luminance )
 {

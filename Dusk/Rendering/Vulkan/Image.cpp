@@ -13,6 +13,8 @@
 #include "ImageHelpers.h"
 #include "ResourceAllocationHelpers.h"
 
+#include "Core/StringHelpers.h"
+
 static VkImageCreateFlags GetTextureCreateFlags( const ImageDesc& description )
 {
     VkImageCreateFlags flagset = 0;
@@ -258,8 +260,8 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
             memcpy( data, initialData, initialDataSize );
         vkUnmapMemory(renderContext->device, stagingBufferMemory);
 
-        CommandList& cmdList = allocateGraphicsCommandList();
-        cmdList.begin( nullptr );
+        CommandList& cmdList = allocateCopyCommandList();
+        cmdList.begin();
 
         NativeCommandList* nativeCmdList = cmdList.getNativeCommandList();
         if ( description.usage == eResourceUsage::RESOURCE_USAGE_STATIC ) {
@@ -463,7 +465,7 @@ void CommandList::transitionImage( Image& image, const eResourceState state, con
     VkAccessFlags srcAccess = GetAccessMask( previousState );
     VkAccessFlags dstAccess = GetAccessMask( state );
 
-    VkPipelineStageFlags stageFlags = ( commandListType == GRAPHICS ) ? VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT : VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+    VkPipelineStageFlags stageFlags = ( commandListType == CommandList::Type::GRAPHICS ) ? VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT : VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
 
     VkPipelineStageFlags srcStage =  image.currentStage[resourceFrameIndex];
     VkPipelineStageFlags dstStage = GetStageFlags( dstAccess, stageFlags );
@@ -521,7 +523,12 @@ void CommandList::insertComputeBarrier( Image& image )
 
 }
 
-void CommandList::setupFramebuffer( Image** renderTargetViews, Image* depthStencilView )
+void RenderDevice::createImageView( Image& image, const ImageViewDesc& viewDescription, const u32 creationFlags )
+{
+    DUSK_DEV_ASSERT( false, "TODO IMPLEMENTATION MISSING" );
+}
+
+void CommandList::setupFramebuffer( FramebufferAttachment* renderTargetViews, FramebufferAttachment depthStencilView )
 {
     VkImageView imageViews[24];
     VkClearValue rtClear[24];
@@ -536,7 +543,8 @@ void CommandList::setupFramebuffer( Image** renderTargetViews, Image* depthStenc
     for ( u32 i = 0; i < attachmentCount; i++ ) {
         const FramebufferLayoutDesc::AttachmentDesc& attachment = fboLayout.Attachments[i];
 
-        imageViews[i] = renderTargetViews[i]->renderTargetView[attachment.viewFormat][resourceFrameIndex];
+        Image* imageResource = renderTargetViews[i].ImageAttachment;
+        imageViews[i] = imageResource->renderTargetView[attachment.viewFormat][resourceFrameIndex];
 
         // The cmdlist will write to the swapchain; add an implicit sync.
         if ( attachment.bindMode == FramebufferLayoutDesc::WRITE_SWAPCHAIN ) {
@@ -549,7 +557,9 @@ void CommandList::setupFramebuffer( Image** renderTargetViews, Image* depthStenc
     }
 
     if ( fboLayout.depthStencilAttachment.bindMode != FramebufferLayoutDesc::BindMode::UNUSED ) {
-        imageViews[attachmentCount++] = depthStencilView->renderTargetView[fboLayout.depthStencilAttachment.viewFormat][resourceFrameIndex];
+        Image* depthStencilImage = depthStencilView.ImageAttachment;
+
+        imageViews[attachmentCount++] = depthStencilImage->renderTargetView[fboLayout.depthStencilAttachment.viewFormat][resourceFrameIndex];
         rtClear[clearCount++] = nativeCommandList->BindedPipelineState->defaultDepthClearValue;
     }
 
@@ -583,5 +593,20 @@ void CommandList::setupFramebuffer( Image** renderTargetViews, Image* depthStenc
     vkCmdBeginRenderPass( nativeCommandList->cmdList, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
 
     nativeCommandList->isInRenderPass =  true;
+}
+
+void CommandList::clearRenderTargets( Image** renderTargetViews, const u32 renderTargetCount, const f32 clearValues[4] )
+{
+
+}
+
+void CommandList::clearDepthStencil( Image* depthStencilView, const f32 clearValue, const bool clearStencil, const u8 clearStencilValue )
+{
+
+}
+
+void CommandList::resolveImage( Image& src, Image& dst )
+{
+
 }
 #endif

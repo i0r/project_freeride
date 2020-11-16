@@ -34,6 +34,7 @@
 #include <Graphics/GraphicsAssetCache.h>
 #include <Graphics/Model.h>
 #include <Graphics/RenderWorld.h>
+#include <Graphics/Mesh.h>
 
 #include <Maths/Vector.h>
 

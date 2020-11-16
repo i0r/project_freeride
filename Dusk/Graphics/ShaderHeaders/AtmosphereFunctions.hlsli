@@ -1,7 +1,7 @@
 #ifndef __ATMOSPHERE_FUNCS_H__
 #define __ATMOSPHERE_FUNCS_H__ 1
 
-#include <Atmosphere.h>
+#include "Atmosphere.h"
 
 static const float2 IRRADIANCE_TEXTURE_SIZE = float2(IRRADIANCE_TEXTURE_WIDTH, IRRADIANCE_TEXTURE_HEIGHT);
 

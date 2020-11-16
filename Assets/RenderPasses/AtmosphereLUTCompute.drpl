@@ -67,7 +67,7 @@ lib AtmosphereLUTCompute {
     }
     
     shared {
-        #include <AtmosphereFunctions.hlsli>
+        #include "AtmosphereFunctions.hlsli"
         
         float ComputeOpticalLengthToTopAtmosphereBoundary(AtmosphereParameters atmosphere, DensityProfile profile, float r, Number mu) 
         {
@@ -343,7 +343,7 @@ lib AtmosphereLUTCompute {
         DeltaRayleigh[$SV_DispatchThreadId.xyz] = float4( deltaRayleigh, 1.0f );
         DeltaMie[$SV_DispatchThreadId.xyz] = float4( deltaMie, 1.0f );
         
-#if $UseBlending
+#ifdef $UseBlending
         Scattering[$SV_DispatchThreadId.xyz] = ScatteringTextureInput[$SV_DispatchThreadId.xyz] 
                                        + float4( mul( LuminanceFromRadiance, deltaRayleigh ).rgb, mul( LuminanceFromRadiance, deltaMie ).r );
 #else

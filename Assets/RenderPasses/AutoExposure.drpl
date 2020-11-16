@@ -40,9 +40,9 @@ lib AutoExposure {
     }
     
     shared {
-        #include <AutoExposure/Shared.hlsli>
-        #include <Photometry.hlsli>
-        #include <ColorSpaces.hlsli>
+        #include "AutoExposure/Shared.hlsli"
+        #include "Photometry.hlsli"
+        #include "ColorSpaces.hlsli"
         
         static const int BIN_COMPUTE_NUMTHREADX	= 32;
         static const int BIN_COMPUTE_NUMTHREADY	= 4;

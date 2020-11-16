@@ -1,8 +1,8 @@
 #ifndef __MATERIAL_H__
 #define __MATERIAL_H__ 1
-#include <BRDF.hlsli>
-#include <Photometry.hlsli>
-#include <ColorSpaces.hlsli>
+#include "BRDF.hlsli"
+#include "Photometry.hlsli"
+#include "ColorSpaces.hlsli"
 
 // Material data on the GPU.
 struct Material

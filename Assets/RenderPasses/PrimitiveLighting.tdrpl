@@ -84,8 +84,8 @@ lib PrimitiveLighting {
     }
     
     shared {
-        #include <Material.hlsli>
-        #include <GeometryUtils.hlsli>
+        #include "Material.hlsli"
+        #include "GeometryUtils.hlsli"
         
         // NOTE Adding a new custom BRDF must be done on the application side (see DUSK_MAT_BRDF in the preprocessing step of
         // material compilation).

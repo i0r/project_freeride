@@ -22,6 +22,32 @@ struct ID3D12Resource;
 #include <d3dcompiler.h>
 #include <ThirdParty/dxc/dxcapi.use.h>
 
+struct RenderMemoryHeap 
+{
+    // Heap handle (allocated by the active RenderContext).
+    ID3D12Heap*     Heap;
+
+    // Offset (in bytes) of the next free allocable memory section.
+    size_t          Offset;
+
+    // Memory capacity (in bytes) allocable for a single buffered frame (if the heap is used for multiple frame buffering).
+    // If the heap doesn't use multiple frame buffering, this should be equal to the total capacity of the heap.
+    size_t          PerFrameCapacity;
+
+    // Total size (in bytes) of the heap (should be = PerFrameCapacity * NumberOfFrameBuffered).
+    size_t          Size;
+
+
+    RenderMemoryHeap( ID3D12Heap* allocatedHeap, const size_t perFrameCapacity, const bool isUsingMultipleFrameBuffering )
+        : Heap( allocatedHeap )
+        , Offset( 0ull )
+        , PerFrameCapacity( perFrameCapacity )
+        , Size( ( isUsingMultipleFrameBuffering ) ? perFrameCapacity * RenderDevice::PENDING_FRAME_COUNT : perFrameCapacity )
+    {
+
+    }
+};
+
 struct RenderContext
 {
                                 RenderContext();
@@ -68,8 +94,10 @@ struct RenderContext
 
     PoolAllocator*              volatileAllocatorsPool;
 
+    RenderMemoryHeap*           StaticBufferHeap;
+
     ID3D12Heap*                 staticBufferHeap;    // RESOURCE_USAGE_STATIC
-    size_t                      heapOffset;
+    size_t                      bufferheapOffset;
 
     ID3D12Heap*                 staticImageHeap;    // RESOURCE_USAGE_STATIC
     size_t                      imageheapOffset;
