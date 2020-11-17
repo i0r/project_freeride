@@ -29,7 +29,7 @@ class RuntimeIncludeSM6;
 #include <d3dcompiler.h>
 #endif
 
-#include <ThirdParty/dxc/dxcapi.use.h>
+#include <ThirdParty/dxc/include/dxc/dxcapi.use.h>
 
 struct IDxcLibrary;
 struct IDxcCompiler;

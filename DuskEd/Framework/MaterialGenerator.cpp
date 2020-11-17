@@ -194,11 +194,13 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
                 std::string shaderFilename = std::string( editableMaterial.Name ) + "." + shader.OriginalName + "." + shader.Hashcode;
                 
                 // TODO Allow SM5/SM6/SPIRV conditional generation.
+#if DUSK_SUPPORT_SM5_COMPILATION
                 RuntimeShaderCompiler::GeneratedBytecode compiledShaderSm5 = shaderCompiler->compileShaderModel5( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
                 RuntimeShaderCompiler::SaveToDisk( virtualFs, DUSK_STRING( "EditorAssets/shaders/sm5/" ), compiledShaderSm5, shader.Hashcode );
-                
+#endif
+
                 RuntimeShaderCompiler::GeneratedBytecode compiledShaderSm6 = shaderCompiler->compileShaderModel6( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
-                RuntimeShaderCompiler::SaveToDisk( virtualFs, DUSK_STRING( "EditorAssets/shaders/sm6/" ), compiledShaderSm5, shader.Hashcode );
+                RuntimeShaderCompiler::SaveToDisk( virtualFs, DUSK_STRING( "EditorAssets/shaders/sm6/" ), compiledShaderSm6, shader.Hashcode );
 
                 RuntimeShaderCompiler::GeneratedBytecode compiledShaderSpirvSm6 = shaderCompiler->compileShaderModel6Spirv( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
                 RuntimeShaderCompiler::SaveToDisk( virtualFs, DUSK_STRING( "EditorAssets/shaders/spirv/" ), compiledShaderSpirvSm6, shader.Hashcode );
