@@ -34,6 +34,7 @@ class EnvironmentProbeStreaming;
 class CascadedShadowRenderModule;
 class SSRModule;
 class RenderWorld;
+class VolumetricCloudsModule;
 
 struct CameraData;
 struct Buffer;
@@ -153,4 +154,7 @@ private:
 
     // Stochastic SSR Render Module (implicitly requires a hi-z compute).
     SSRModule* screenSpaceReflections;
+
+    // Volumetric Clouds Render Module.
+    VolumetricCloudsModule* volumetricClouds;
 };

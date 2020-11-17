@@ -255,4 +255,6 @@ static const int CLUSTER_X = 16;
 static const int CLUSTER_Y = 8;
 static const int CLUSTER_Z = 24;
 static const int CLUSTER_NEAR = 2;
+
+static const float3 ShapeNoiseTexSize = float3( 128, 128, 32 );
 #endif

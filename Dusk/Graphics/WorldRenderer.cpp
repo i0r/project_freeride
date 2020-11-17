@@ -28,6 +28,7 @@
 #include "RenderModules/IBLUtilitiesModule.h"
 #include "RenderModules/CascadedShadowRenderModule.h"
 #include "RenderModules/ScreenSpaceReflectionModule.h"
+#include "RenderModules/VolumetricCloudsModule.h"
 
 DUSK_ENV_VAR( EnableTAA, false, bool ); // "Enable Temporal AntiAliasing [false/true]
 DUSK_ENV_VAR( ComputeDFGLUTRuntime, false, bool ); // "Compute BRDF DFG LUT at runtime (don't load from disk) [false/true]"
@@ -116,6 +117,7 @@ WorldRenderer::WorldRenderer( BaseAllocator* allocator )
     , environmentProbeStreaming( dk::core::allocate<EnvironmentProbeStreaming>( allocator, allocator ) )
     , cascadedShadowMapRendering( dk::core::allocate<CascadedShadowRenderModule>( allocator, allocator ) )
     , screenSpaceReflections( dk::core::allocate<SSRModule>( allocator ) )
+    , volumetricClouds( dk::core::allocate<VolumetricCloudsModule>( allocator ) )
 {
 
 }
@@ -135,7 +137,8 @@ WorldRenderer::~WorldRenderer()
     dk::core::free( memoryAllocator, lightGrid );
     dk::core::free( memoryAllocator, environmentProbeStreaming );
 	dk::core::free( memoryAllocator, cascadedShadowMapRendering );
-	dk::core::free( memoryAllocator, screenSpaceReflections );
+    dk::core::free( memoryAllocator, screenSpaceReflections );
+    dk::core::free( memoryAllocator, volumetricClouds );
     
     memoryAllocator = nullptr;
 }
@@ -161,6 +164,7 @@ void WorldRenderer::destroy( RenderDevice* renderDevice )
     environmentProbeStreaming->destroyResources( *renderDevice );
 	cascadedShadowMapRendering->destroy( *renderDevice );
 	screenSpaceReflections->destroy( *renderDevice );
+    volumetricClouds->destroy( *renderDevice );
 
     automaticExposure->destroy( *renderDevice );
     glareRendering->destroy( *renderDevice );
@@ -180,6 +184,7 @@ void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache
     atmosphereRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
     WorldRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
     screenSpaceReflections->loadCachedResources( *renderDevice, *graphicsAssetCache );
+    volumetricClouds->loadCachedResources( *renderDevice, *graphicsAssetCache );
 
     environmentProbeStreaming->createResources( *renderDevice );
     cascadedShadowMapRendering->loadCachedResources( *renderDevice, *graphicsAssetCache );
@@ -216,6 +221,8 @@ void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache
     if ( ComputeDFGLUTRuntime ) {
         AddBrdfDfgLutComputePass( graph, brdfDfgLut );
     }
+
+    volumetricClouds->precomputePipelineResources( graph );
 
     // Execute precompute step.
     graph.execute( renderDevice, 0.0f );
