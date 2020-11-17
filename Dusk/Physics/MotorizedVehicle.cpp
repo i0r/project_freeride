@@ -5,6 +5,10 @@
 #include "Shared.h"
 #include "MotorizedVehicle.h"
 
+#include "Physics/RigidBody.h"
+
+#include "ThirdParty/bullet3/src/btBulletDynamicsCommon.h"
+
 MotorizedVehiclePhysics::MotorizedVehiclePhysics( BaseAllocator* allocator )
     : memoryAllocator( allocator )
     , velocity( 0, 0, 0 )
