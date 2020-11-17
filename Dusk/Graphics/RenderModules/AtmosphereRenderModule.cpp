@@ -124,8 +124,6 @@ FGHandle AtmosphereRenderModule::renderSky( FrameGraph& frameGraph, FGHandle ren
             Image* depthBuffer = resources->getImage( passData.DepthBuffer );
 
             // Bind resources
-
-            cmdList->bindImage( AtmosphereBruneton::BrunetonSky_DepthBuffer_Hashcode, depthBuffer );
             cmdList->bindImage( AtmosphereBruneton::BrunetonSky_TransmittanceTextureInput_Hashcode, transmittanceLut );
             cmdList->bindImage( AtmosphereBruneton::BrunetonSky_IrradianceTextureInput_Hashcode, irradianceLut );
             cmdList->bindImage( AtmosphereBruneton::BrunetonSky_ScatteringTextureInput_Hashcode, scatteringLut );

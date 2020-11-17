@@ -1,6 +1,5 @@
 lib AtmosphereBruneton { 
     properties {
-        cflag UseDepthComparison = true;
         cflag UseAutomaticExposure = true;
         cflag UseCustomViewport = false;
         cflag RenderSunDisc = true;
@@ -25,10 +24,6 @@ lib AtmosphereBruneton {
     resources {
         RWTexture2D OutputRenderTarget {
             swizzle = float4;
-        }
-        
-        Texture2D DepthBuffer {
-            swizzle = float;
         }
         
         Texture2D TransmittanceTextureInput {
@@ -285,7 +280,6 @@ lib AtmosphereBruneton {
         vertex  = BrunetonSkyVS; 
         pixel   = BrunetonSkyPS;   
         rendertargets = { OutputRenderTarget };
-        UseDepthComparison = true;
         RenderSunDisc = true;
     }
     
@@ -293,7 +287,6 @@ lib AtmosphereBruneton {
         compute  = BrunetonSkyCS;   
         dispatch = { 16, 16, 1 };
         UseCustomViewport = true;
-        UseDepthComparison = false;
         RenderSunDisc = false;
     }
 }
