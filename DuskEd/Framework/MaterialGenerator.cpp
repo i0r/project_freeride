@@ -199,11 +199,13 @@ Material* MaterialGenerator::createMaterial( const EditableMaterial& editableMat
                 RuntimeShaderCompiler::SaveToDisk( virtualFs, DUSK_STRING( "EditorAssets/shaders/sm5/" ), compiledShaderSm5, shader.Hashcode );
 #endif
 
+#if DUSK_SUPPORT_SM6_COMPILATION
                 RuntimeShaderCompiler::GeneratedBytecode compiledShaderSm6 = shaderCompiler->compileShaderModel6( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
                 RuntimeShaderCompiler::SaveToDisk( virtualFs, DUSK_STRING( "EditorAssets/shaders/sm6/" ), compiledShaderSm6, shader.Hashcode );
 
                 RuntimeShaderCompiler::GeneratedBytecode compiledShaderSpirvSm6 = shaderCompiler->compileShaderModel6Spirv( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
                 RuntimeShaderCompiler::SaveToDisk( virtualFs, DUSK_STRING( "EditorAssets/shaders/spirv/" ), compiledShaderSpirvSm6, shader.Hashcode );
+#endif
             }
         } break;
         }

@@ -203,11 +203,13 @@ void dk::baker::Start( const char* cmdLineArgs )
                     RuntimeShaderCompiler::SaveToDisk( virtualFileSystem, DUSK_STRING( "EditorAssets/shaders/sm5/" ), compiledShaderSM5, shader.Hashcode );
 #endif
 
+#ifdef DUSK_SUPPORT_SM6_COMPILATION
                     RuntimeShaderCompiler::GeneratedBytecode compiledShaderSM6 = runtimeShaderCompiler->compileShaderModel6( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
                     RuntimeShaderCompiler::SaveToDisk( virtualFileSystem, DUSK_STRING( "EditorAssets/shaders/sm6/" ), compiledShaderSM6, shader.Hashcode );
 
                     RuntimeShaderCompiler::GeneratedBytecode compiledShaderSpirv = runtimeShaderCompiler->compileShaderModel6Spirv( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
                     RuntimeShaderCompiler::SaveToDisk( virtualFileSystem, DUSK_STRING( "EditorAssets/shaders/spirv/" ), compiledShaderSpirv, shader.Hashcode );
+ #endif
                 }
             } break;
             default:

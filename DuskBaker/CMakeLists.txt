@@ -2,7 +2,7 @@ file(GLOB_RECURSE SRC "Baker.cpp" "EntryPointWin64.cpp" "EntryPointUnix.cpp" "Ba
 file(GLOB_RECURSE INC "Baker.h" "BakerCache.h" )
 
 if ( ${DUSK_USE_UNITY_BUILD} )
-	enable_unity_build( DuskBaker SRC 16 cpp)
+        enable_unity_build( DuskBaker SRC 16 cpp )
 endif ( ${DUSK_USE_UNITY_BUILD} )
 
 set( SOURCES ${SRC} ${INC} )
@@ -13,7 +13,7 @@ set_property(TARGET DuskBaker PROPERTY FOLDER "Projects")
 
 target_link_libraries( DuskBaker debug Dusk_Debug optimized Dusk )
 
-include_directories( "${DUSK_BASE_FOLDER}DuskBaker/ThirdParty" )
+include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty" )
 include_directories( "${DUSK_BASE_FOLDER}DuskBaker" )
 include_directories( "${DUSK_BASE_FOLDER}Dusk" )
 
@@ -30,12 +30,13 @@ if ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
     target_link_libraries( DuskBaker dxguid )
 endif ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
 
-if ( WIN32 )
-    target_link_libraries( DuskBaker d3dcompiler )
-endif( WIN32 )
- 
-# Required by dxc.use header.
-include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty" )
+if ( ${DUSK_USE_DIRECTX_COMPILER} )
+    if ( WIN32 )
+        target_link_libraries( DuskBaker d3dcompiler )
+    else()
+        target_link_libraries( DuskBaker "${DUSK_BASE_FOLDER}Dusk/ThirdParty/dxc/lib/libdxcompiler.so" )
+    endif( WIN32 )
+endif ( ${DUSK_USE_DIRECTX_COMPILER} )
 
 if(MSVC)
   target_compile_options(DuskBaker PRIVATE /W3 /WX)

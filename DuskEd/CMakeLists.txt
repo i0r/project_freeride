@@ -86,23 +86,23 @@ target_link_libraries( DuskEd
 endif ( DUSK_USE_AGS )
 
 if ( DUSK_USE_BULLET )
-include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/bullet3/src" )
+    include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/bullet3/src" )
 
-if ( WIN32 )
-target_link_libraries( DuskEd
-                        debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/BulletDynamics_Debug.lib" 
-                        optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/BulletDynamics_RelWithDebugInfo.lib" ) 
-                        
-target_link_libraries( DuskEd 
-                        debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/BulletCollision_Debug.lib" 
-                        optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/BulletCollision_RelWithDebugInfo.lib" ) 
-                        
-target_link_libraries( DuskEd 
-                        debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/LinearMath_Debug.lib" 
-                        optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/LinearMath_RelWithDebugInfo.lib" )
-else()
-target_link_libraries( DuskEd ${BULLET_LIBRARIES} )
-endif( WIN32 )
+    if ( WIN32 )
+        target_link_libraries( DuskEd
+                                debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/BulletDynamics_Debug.lib"
+                                optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/BulletDynamics_RelWithDebugInfo.lib" )
+
+        target_link_libraries( DuskEd
+                                debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/BulletCollision_Debug.lib"
+                                optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/BulletCollision_RelWithDebugInfo.lib" )
+
+        target_link_libraries( DuskEd
+                                debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/LinearMath_Debug.lib"
+                                optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/LinearMath_RelWithDebugInfo.lib" )
+    else()
+        target_link_libraries( DuskEd ${BULLET_LIBRARIES} )
+    endif( WIN32 )
 endif ( DUSK_USE_BULLET )
 
 include_directories( "${DUSK_BASE_FOLDER}DuskEd" )
@@ -122,6 +122,23 @@ if(MSVC)
 else()
   target_compile_options(DuskEd PRIVATE -Wall -Wextra)
 endif()
+
+if ( UNIX )
+    find_package(PkgConfig REQUIRED)
+    find_package(Threads REQUIRED)
+
+    PKG_CHECK_MODULES(GTK3 REQUIRED gtk+-3.0)
+
+    include_directories(${GTK3_INCLUDE_DIRS})
+    link_directories(${GTK3_LIBRARY_DIRS})
+
+    add_definitions(${GTK3_CFLAGS_OTHER})
+
+    set(THREADS_PREFER_PTHREAD_FLAG ON)
+
+    target_link_libraries(DuskEd Threads::Threads)
+    target_link_libraries(DuskEd ${GTK3_LIBRARIES})
+endif( UNIX )
 
 if ( DUSK_USE_UNITY_BUILD )
     if(MSVC)
