@@ -41,8 +41,6 @@ file(GLOB_RECURSE SRC_THIRD_PARTY
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/SPIRV-Cross/*.c"
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/SPIRV-Cross/*.hpp"
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/SPIRV-Cross/*.h"
-    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/dxc/*.hpp"
-    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/dxc/*.h"
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/stb_image.h"
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/stb_image_write.h"
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/miniz/*.c"
@@ -63,6 +61,11 @@ set_property(TARGET Dusk PROPERTY FOLDER "DuskEngine")
 
 include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty" )
 include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/miniz" )
+
+if ( ${DUSK_USE_DIRECTX_COMPILER} )
+    include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/dxc/include" )
+endif( ${DUSK_USE_DIRECTX_COMPILER} )
+
 include_directories( "${DUSK_BASE_FOLDER}Dusk" )
 
 if(MSVC)
@@ -73,9 +76,13 @@ endif()
 
 add_msvc_filters( "${SOURCES}" )
 
-if ( WIN32 )
-    target_link_libraries( Dusk d3dcompiler )
-endif( WIN32 )
+if ( ${DUSK_USE_DIRECTX_COMPILER} )
+    if ( WIN32 )
+        target_link_libraries( Dusk d3dcompiler )
+    elseif( UNIX )
+        target_link_libraries( Dusk "${DUSK_BASE_FOLDER}Dusk/ThirdParty/dxc/lib/libdxcompiler.so" )
+    endif( WIN32 )
+endif ( ${DUSK_USE_DIRECTX_COMPILER} )
   
 if ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D12" )
     find_package( DirectX REQUIRED )
