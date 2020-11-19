@@ -27,6 +27,7 @@ struct NativeDisplaySurface
         u32     IsMouseVisible  : 1;
         u32     HasFocus        : 1;
         u32     HasLostFocus    : 1;
+        u32     IsResizing      : 1;
     } Flags;
 
     ~NativeDisplaySurface()

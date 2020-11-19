@@ -167,6 +167,17 @@ void DisplaySurface::pollSystemEvents( InputReader* inputReader )
 
     while ( event != nullptr ) {
         switch ( event->response_type & 0x7F ) {
+        case XCB_CONFIGURE_NOTIFY: {
+            xcb_configure_notify_event_t* configureEvent = reinterpret_cast<xcb_configure_notify_event_t*>( event );
+            displaySurface->Flags.IsResizing = true;
+
+            displaySurface->WindowWidth = configureEvent->width;
+            displaySurface->WindowHeight = configureEvent->height;
+
+            width = displaySurface->WindowWidth;
+            height = displaySurface->WindowHeight;
+        } break;
+
         case XCB_CLIENT_MESSAGE: {
             xcb_client_message_event_t* clientMessage = reinterpret_cast<xcb_client_message_event_t *>( event );
 
@@ -220,6 +231,25 @@ void DisplaySurface::pollSystemEvents( InputReader* inputReader )
 
 bool DisplaySurface::hasReceivedResizeEvent() const
 {
-    return false;
+    return displaySurface->Flags.IsResizing;
+}
+
+void DisplaySurface::acknowledgeResizeEvent()
+{
+    displaySurface->Flags.IsResizing = false;
+}
+
+void DisplaySurface::setWindowedDisplayMode()
+{
+    //width = displaySurface->ClientWidth;
+    //height = displaySurface->ClientHeight;
+}
+
+void DisplaySurface::setFullscreenDisplayMode()
+{
+}
+
+void DisplaySurface::setFullscreenBorderlessDisplayMode()
+{
 }
 #endif
