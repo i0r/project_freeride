@@ -9,6 +9,15 @@
 
 #include "ThirdParty/bullet3/src/btBulletDynamicsCommon.h"
 
+static constexpr dkVec3f WHEEL_POSITION_OFFSET[MotorizedVehiclePhysics::MAX_WHEEL_COUNT] = {
+    dkVec3f( -0.5f, 1.0f, -0.5f ), // Front Left
+    dkVec3f( +0.5f, 1.0f, -0.5f ), // Front Right
+    dkVec3f( -0.5f, 1.0f, +0.5f ), // Rear  Left
+    dkVec3f( +0.5f, 1.0f, +0.5f ), // Rear  Right
+    dkVec3f( -0.5f, 1.0f, +0.5f ), // Rear  Left    (Custom)
+    dkVec3f( +0.5f, 1.0f, +0.5f ), // Rear  Right   (Custom)
+};
+
 MotorizedVehiclePhysics::MotorizedVehiclePhysics( BaseAllocator* allocator )
     : memoryAllocator( allocator )
     , velocity( 0, 0, 0 )

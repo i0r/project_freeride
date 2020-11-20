@@ -43,6 +43,7 @@ file(GLOB_RECURSE SRC_THIRD_PARTY
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/SPIRV-Cross/*.h"
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/stb_image.h"
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/stb_image_write.h"
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/dxc/include/*.h"
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/miniz/*.c"
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/miniz/*.h" )
     

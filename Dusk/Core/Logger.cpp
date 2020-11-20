@@ -33,7 +33,11 @@ DUSK_INLINE void DebuggerOutput( const dkChar_t* stringOutput )
 // output to the console stream (safest way to print stuff)
 DUSK_INLINE void DebuggerOutput( const char* stringOutput )
 {
+// If we already use console output ignore debugger output (this
+// is the same stream on Unix platforms).
+#ifndef DUSK_LOGGING_USE_CONSOLE_OUTPUT
     printf( "%s", stringOutput );
+#endif
 }
 #endif
 #endif

@@ -141,15 +141,6 @@ public:
 public:
     static constexpr i32 MAX_WHEEL_COUNT = 6;
 
-    static constexpr dkVec3f WHEEL_POSITION_OFFSET[MAX_WHEEL_COUNT] = {
-        dkVec3f( -0.5f, 1.0f, -0.5f ), // Front Left
-        dkVec3f( +0.5f, 1.0f, -0.5f ), // Front Right
-        dkVec3f( -0.5f, 1.0f, +0.5f ), // Rear  Left
-        dkVec3f( +0.5f, 1.0f, +0.5f ), // Rear  Right
-        dkVec3f( -0.5f, 1.0f, +0.5f ), // Rear  Left    (Custom)
-        dkVec3f( +0.5f, 1.0f, +0.5f ), // Rear  Right   (Custom)
-    };
-
 public:
                     MotorizedVehiclePhysics( BaseAllocator* allocator );
                     MotorizedVehiclePhysics( MotorizedVehiclePhysics& vehicle ) = default;

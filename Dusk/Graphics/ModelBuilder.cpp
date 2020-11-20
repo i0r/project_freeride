@@ -7,10 +7,21 @@
 
 #include <Rendering/RenderDevice.h>
 
-#include <Graphics/Model.h>
+#include "Graphics/Model.h"
 #include <Graphics/Mesh.h>
 
 #include <vector>
+
+// LOD Max distance lookup table.
+// TODO Might need to be assigned per model type (e.g. you don't necessary need the same detail granularity for all
+// model type).
+static constexpr f32    LOD_DISTANCE_LUT[Model::MAX_LOD_COUNT] =
+{
+    500.0f,
+    2500.0f,
+    5000.0f,
+    10000.0f
+};
 
 template<typename T = f32, eResourceBind bindType = RESOURCE_BIND_VERTEX_BUFFER>
 static Buffer* CreateIfNonEmpty( RenderDevice* renderDevice, const std::vector<T>& dataArray, const u32 strideInBytes )
@@ -57,7 +68,7 @@ void dk::graphics::BuildParsedModel( Model* builtModel, BaseAllocator* memoryAll
     // Build model LODs.
     for ( u32 lodIdx = 0; lodIdx < lodCount; lodIdx++ ) {
         Model::LevelOfDetail& lod = builtModel->getLevelOfDetailForEditor( lodIdx );
-        lod.EndDistance = Model::LOD_DISTANCE_LUT[lodIdx];
+        lod.EndDistance = LOD_DISTANCE_LUT[lodIdx];
         lod.LodIndex = lodIdx;
         lod.GroupName = lodGroupName[lodIdx];
         lod.MeshCount = static_cast<i32>( meshPerLod[lodIdx].size() );

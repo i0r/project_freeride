@@ -64,6 +64,12 @@ if ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
     target_link_libraries( DuskEd dxgi )
     target_link_libraries( DuskEd d3dcompiler )
     target_link_libraries( DuskEd dxguid )
+
+elseif ( "${DUSK_GFX_API}" MATCHES "DUSK_VULKAN" )
+    find_package( Vulkan REQUIRED )
+    include_directories( ${Vulkan_INCLUDE_DIR} )
+
+    target_link_libraries( DuskEd Vulkan::Vulkan )
 endif ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
 
 if ( DUSK_USE_FBXSDK )

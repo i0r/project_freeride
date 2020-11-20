@@ -57,17 +57,6 @@ public:
     // Maximum level of detail per model. Might need to be raised in the future.
     static constexpr i32    MAX_LOD_COUNT = 4;
 
-    // LOD Max distance lookup table.
-    // TODO Might need to be assigned per model type (e.g. you don't necessary need the same detail granularity for all
-    // model type).
-    static constexpr f32    LOD_DISTANCE_LUT[MAX_LOD_COUNT] =
-    {
-        500.0f,
-        2500.0f,
-        5000.0f,
-        10000.0f
-    };
-
 public:
                             Model( BaseAllocator* allocator, const dkChar_t* name = DUSK_STRING( "DefaultModel" ) );
                             ~Model();

@@ -28,7 +28,33 @@ if ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
     target_link_libraries( DuskBaker d3d11 )
     target_link_libraries( DuskBaker dxgi )
     target_link_libraries( DuskBaker dxguid )
+
+elseif ( "${DUSK_GFX_API}" MATCHES "DUSK_VULKAN" )
+    find_package( Vulkan REQUIRED )
+    include_directories( ${Vulkan_INCLUDE_DIR} )
+
+    target_link_libraries( DuskBaker Vulkan::Vulkan )
 endif ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
+
+if ( DUSK_USE_BULLET )
+    include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/bullet3/src" )
+
+    if ( WIN32 )
+        target_link_libraries( DuskBaker
+                                debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/BulletDynamics_Debug.lib"
+                                optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/BulletDynamics_RelWithDebugInfo.lib" )
+
+        target_link_libraries( DuskBaker
+                                debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/BulletCollision_Debug.lib"
+                                optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/BulletCollision_RelWithDebugInfo.lib" )
+
+        target_link_libraries( DuskBaker
+                                debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/LinearMath_Debug.lib"
+                                optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/LinearMath_RelWithDebugInfo.lib" )
+    else()
+        target_link_libraries( DuskBaker ${BULLET_LIBRARIES} )
+    endif( WIN32 )
+endif ( DUSK_USE_BULLET )
 
 if ( ${DUSK_USE_DIRECTX_COMPILER} )
     if ( WIN32 )
@@ -43,6 +69,23 @@ if(MSVC)
 else()
   target_compile_options(DuskBaker PRIVATE -Wall -Wextra)
 endif()
+
+if ( UNIX )
+    find_package(PkgConfig REQUIRED)
+    find_package(Threads REQUIRED)
+
+    PKG_CHECK_MODULES(GTK3 REQUIRED gtk+-3.0)
+
+    include_directories(${GTK3_INCLUDE_DIRS})
+    link_directories(${GTK3_LIBRARY_DIRS})
+
+    add_definitions(${GTK3_CFLAGS_OTHER})
+
+    set(THREADS_PREFER_PTHREAD_FLAG ON)
+
+    target_link_libraries(DuskBaker Threads::Threads)
+    target_link_libraries(DuskBaker ${GTK3_LIBRARIES})
+endif( UNIX )
 
 add_msvc_filters( "${SOURCES}" )
 
