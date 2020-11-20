@@ -47,13 +47,6 @@ struct PerPassData
 	u32         __PADDING__[3];
 };
 
-static u32 DispatchSize( const u32 tgSize, const u32 numElements )
-{
-	u32 dispatchSize = numElements / tgSize;
-    dispatchSize += numElements % tgSize > 0 ? 1 : 0;
-    return dispatchSize;
-}
-
 static dkMat4x4f CreateGlobalShadowMatrix( const dkVec3f& lightDirNormalized, const dkMat4x4f& viewProjection )
 {
     // Get the 8 points of the view frustum in world space

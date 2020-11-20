@@ -132,8 +132,8 @@ FGHandle AddResolveDepthMSAARenderPass( FrameGraph& frameGraph,
             u32 dispatchX, dispatchY, dispatchZ;
             GetDepthThreadCount<SamplerCount>( dispatchX, dispatchY, dispatchZ );
 
-            u32 threadCountX = static_cast< u32 >( ( vp->Width * cameraData->imageQuality ) / dispatchX );
-            u32 threadCountY = static_cast< u32 >( ( vp->Height * cameraData->imageQuality ) / dispatchY );
+            u32 threadCountX = DispatchSize( dispatchX, static_cast< u32 >( vp->Width * cameraData->imageQuality ) );
+            u32 threadCountY = DispatchSize( dispatchY, static_cast< u32 >( vp->Width * cameraData->imageQuality ) );
             cmdList->dispatchCompute( threadCountX, threadCountY, dispatchZ );
             cmdList->popEventMarker();
         }
@@ -321,8 +321,8 @@ FGHandle AddResolveMSAARenderPass( FrameGraph& frameGraph,
             u32 dispatchX, dispatchY, dispatchZ;
             GetThreadCount<SamplerCount, UseTemporalAA>( dispatchX, dispatchY, dispatchZ );
 
-            u32 threadCountX = static_cast< u32 >( ( vp->Width * cameraData->imageQuality ) / dispatchX );
-            u32 threadCountY = static_cast< u32 >( ( vp->Height * cameraData->imageQuality ) / dispatchY );
+            u32 threadCountX = DispatchSize( dispatchX, static_cast< u32 >( vp->Width * cameraData->imageQuality ) );
+            u32 threadCountY = DispatchSize( dispatchY, static_cast< u32 >( vp->Height * cameraData->imageQuality ) );
             cmdList->dispatchCompute( threadCountX, threadCountY, dispatchZ );
             cmdList->insertComputeBarrier( *outputTarget );
             cmdList->popEventMarker();

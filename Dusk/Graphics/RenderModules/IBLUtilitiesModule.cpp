@@ -65,8 +65,8 @@ void AddCubeFaceIrradianceComputePass( FrameGraph& frameGraph, Image* cubemap, I
 
 			cmdList->updateBuffer( *passBuffer, &IBL::ComputeIrradianceMapProperties, sizeof( IBL::ComputeIrradianceMapRuntimeProperties ) );
 
-			constexpr u32 ThreadCountX = 64 / IBL::ComputeIrradianceMap_DispatchX;
-			constexpr u32 ThreadCountY = 64 / IBL::ComputeIrradianceMap_DispatchY;
+			constexpr u32 ThreadCountX = DispatchSize( IBL::ComputeIrradianceMap_DispatchX, 64 );
+			constexpr u32 ThreadCountY = DispatchSize( IBL::ComputeIrradianceMap_DispatchY, 64 );
 
 			cmdList->dispatchCompute( ThreadCountX, ThreadCountY, IBL::ComputeIrradianceMap_DispatchZ );
 
@@ -129,8 +129,8 @@ void AddCubeFaceFilteringPass( FrameGraph& frameGraph, Image* cubemap, Image* fi
 
 			cmdList->updateBuffer( *passBuffer, &IBL::FilterCubeFaceProperties, sizeof( IBL::FilterCubeFaceRuntimeProperties ) );
 
-			const u32 ThreadCountX = currentFaceSize / IBL::FilterCubeFace_DispatchX;
-			const u32 ThreadCountY = currentFaceSize / IBL::FilterCubeFace_DispatchY;
+			const u32 ThreadCountX = DispatchSize( IBL::FilterCubeFace_DispatchX, currentFaceSize );
+			const u32 ThreadCountY = DispatchSize( IBL::FilterCubeFace_DispatchY, currentFaceSize );
 
 			cmdList->dispatchCompute( ThreadCountX, ThreadCountY, IBL::FilterCubeFace_DispatchZ );
 
@@ -157,8 +157,9 @@ void AddBrdfDfgLutComputePass( FrameGraph& frameGraph, Image* brdfDfgLut )
             cmdList->bindImage( BrdfLut::ComputeBRDFLut_ComputedLUT_Hashcode, brdfDfgLut );
             cmdList->prepareAndBindResourceList();
 
-            u32 dispatchX = BRDF_LUT_SIZE / BrdfLut::ComputeBRDFLut_DispatchX;
-            u32 dispatchY = BRDF_LUT_SIZE / BrdfLut::ComputeBRDFLut_DispatchY;
+            u32 dispatchX = DispatchSize( BrdfLut::ComputeBRDFLut_DispatchX, BRDF_LUT_SIZE );
+            u32 dispatchY = DispatchSize( BrdfLut::ComputeBRDFLut_DispatchY, BRDF_LUT_SIZE );
+
             cmdList->dispatchCompute( dispatchX, dispatchY, 1 );
 
             cmdList->popEventMarker();

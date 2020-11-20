@@ -1016,9 +1016,9 @@ void AtmosphereLUTComputeModule::precomputeIteration( FrameGraph& frameGraph, co
 
 			    cmdList->prepareAndBindResourceList();
 
-			    constexpr u32 ThreadCountX = SCATTERING_TEXTURE_WIDTH / AtmosphereLUTCompute::ComputeMultipleScattering_DispatchX;
-			    constexpr u32 ThreadCountY = SCATTERING_TEXTURE_HEIGHT / AtmosphereLUTCompute::ComputeMultipleScattering_DispatchY;
-			    constexpr u32 ThreadCountZ = SCATTERING_TEXTURE_DEPTH / AtmosphereLUTCompute::ComputeMultipleScattering_DispatchZ;
+                const u32 ThreadCountX = DispatchSize( AtmosphereLUTCompute::ComputeMultipleScattering_DispatchX, SCATTERING_TEXTURE_WIDTH );
+                const u32 ThreadCountY = DispatchSize( AtmosphereLUTCompute::ComputeMultipleScattering_DispatchY, SCATTERING_TEXTURE_HEIGHT );
+                const u32 ThreadCountZ = DispatchSize( AtmosphereLUTCompute::ComputeMultipleScattering_DispatchZ, SCATTERING_TEXTURE_DEPTH );
 
 			    cmdList->dispatchCompute( ThreadCountX, ThreadCountY, ThreadCountZ );
 

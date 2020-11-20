@@ -92,8 +92,10 @@ endif ( DUSK_ENABLE_GPU_DEBUG_MARKER )
 
 if ( DUSK_USE_BULLET )
     add_definitions( -DDUSK_USE_BULLET )
-    find_package(Bullet REQUIRED)
-    include_directories(${BULLET_INCLUDE_DIR})
+    if ( UNIX )
+        find_package(Bullet REQUIRED)
+        include_directories(${BULLET_INCLUDE_DIR})
+    endif ( UNIX )
 endif ( DUSK_USE_BULLET )
 
 if ( DUSK_USE_NVAPI )

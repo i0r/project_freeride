@@ -78,7 +78,9 @@ FFTPassOutput GlareRenderModule::addGlareComputePass( FrameGraph& frameGraph, FF
 
             cmdList->prepareAndBindResourceList();
 
-            cmdList->dispatchCompute( FFT_TEXTURE_DIMENSION / FFT::FrequencyDomainMul_DispatchX, FFT_TEXTURE_DIMENSION / FFT::FrequencyDomainMul_DispatchY, FFT::FrequencyDomainMul_DispatchZ);
+            u32 threadGroupX = DispatchSize( FFT::FrequencyDomainMul_DispatchX, FFT_TEXTURE_DIMENSION );
+            u32 threadGroupY = DispatchSize( FFT::FrequencyDomainMul_DispatchY, FFT_TEXTURE_DIMENSION );
+            cmdList->dispatchCompute( threadGroupX, threadGroupY, FFT::FrequencyDomainMul_DispatchZ );
 
             cmdList->popEventMarker();
         }

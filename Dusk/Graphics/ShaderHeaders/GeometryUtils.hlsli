@@ -56,14 +56,9 @@ float4 TangentToWorld(float3 N, float4 H)
 	return float4((T * H.x) + (B * H.y) + (N * H.z), H.w);
 }
 
-// Return linearized depth (projection does not matter).
 inline float Linear01Depth( float z, float far, float near)
 {
 	return (z * near) / (far - z * (far - near));
-    
-    // float zc0 = 1.0 - far / near;
-    // float zc1 = far / near;
-    // return 1.0 / ( zc0 * z + zc1 );
 }
 
 float ViewDepth(float depth, float far, float near)

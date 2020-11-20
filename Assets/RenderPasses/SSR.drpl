@@ -257,7 +257,7 @@ lib SSR {
         }
 
         // Rebuild pixel position from this pixel uvs.
-        float3 screenPos = GetScreenPos(uv, depth);
+        float3 screenPos = GetScreenPos(uv, depth).xyz;
         float3 P = ReconstructPosition(uv, depth, g_InverseViewProjectionMatrix);
 
         float roughness = thinGbuffer.a;      

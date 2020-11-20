@@ -128,13 +128,17 @@ PipelineState* PipelineStateCache::getOrCreatePipelineState( const PipelineState
     }
 
     // TODO Critical section / synchronized section
-    i32& psoCacheIndex = ( cachedPsoIndex == -1 ) ? cachedPipelineStateCount : cachedPsoIndex;
+    const i32 psoCacheIndex = ( cachedPsoIndex == -1 ) ? cachedPipelineStateCount.load() : cachedPsoIndex;
 
     pipelineHashes[psoCacheIndex] = psoDescHashcode;
     pipelineStates[psoCacheIndex] = pipelineState;
 
     PipelineState* cachedPipelineState = pipelineStates[psoCacheIndex];
-    psoCacheIndex++;
+
+    // Update cache entry count if the entry has just been added.
+    if ( cachedPsoIndex == -1 ) {
+        cachedPipelineStateCount++;
+    }
 
     return cachedPipelineState;
 }

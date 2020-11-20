@@ -68,7 +68,7 @@ private:
 private:
     Hash128                 pipelineHashes[MAX_CACHE_ELEMENT_COUNT];
     PipelineState*          pipelineStates[MAX_CACHE_ELEMENT_COUNT];
-    i32                     cachedPipelineStateCount;
+    std::atomic_int32_t     cachedPipelineStateCount;
     BaseAllocator*          memoryAllocator;
     RenderDevice*           renderDevice;
     VirtualFileSystem*      virtualFs;

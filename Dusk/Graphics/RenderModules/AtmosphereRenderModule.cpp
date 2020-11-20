@@ -232,9 +232,9 @@ void AtmosphereRenderModule::renderSkyForProbeCapture( FrameGraph& frameGraph, I
             cmdList->updateBuffer( *passBuffer, &AtmosphereBruneton::BrunetonSkyProperties, sizeof( AtmosphereBruneton::BrunetonSkyRuntimeProperties ) );
 
             const dkVec2f rtSize = cameraData.viewportSize;
-			const u32 ThreadCountX = static_cast< u32 >( rtSize.x ) / AtmosphereBruneton::BrunetonSkyProbeCapture_DispatchX;
-			const u32 ThreadCountY = static_cast< u32 >( rtSize.y ) / AtmosphereBruneton::BrunetonSkyProbeCapture_DispatchY;
-            
+            const u32 ThreadCountX = DispatchSize( AtmosphereBruneton::BrunetonSkyProbeCapture_DispatchX, static_cast< u32 >( rtSize.x ) );
+            const u32 ThreadCountY = DispatchSize( AtmosphereBruneton::BrunetonSkyProbeCapture_DispatchY, static_cast< u32 >( rtSize.y ) );
+
             cmdList->dispatchCompute( ThreadCountX, ThreadCountY, 1u );
 
             cmdList->popEventMarker();
