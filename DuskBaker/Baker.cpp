@@ -148,9 +148,13 @@ void dk::baker::Start( const char* cmdLineArgs )
 
 	// Build renderlibs list.
 	std::vector<dkString_t> renderLibs;
-	dk::core::GetFilesByExtension( assetsPath, DUSK_STRING( "*.drpl*" ), renderLibs );
+    dk::core::GetFilesByExtension( assetsPath, DUSK_STRING( "drpl" ), renderLibs );
     for ( dkString_t& renderLib : renderLibs ) {
         FileSystemObject* file = dataFS->openFile( renderLib.c_str() );
+        if ( file == nullptr ) {
+            DUSK_LOG_ERROR( "'%s': file does not exist! (check mounted fs)\n", renderLib.c_str() );
+            continue;
+        }
 
         std::string assetStr;
         dk::io::LoadTextFile( file, assetStr );
@@ -166,7 +170,7 @@ void dk::baker::Start( const char* cmdLineArgs )
 
 		bool isLibraryValid = true;
 
-		DUSK_LOG_INFO( "%s\n", renderLib.c_str() );
+        DUSK_LOG_INFO( "%hs\n", renderLib.c_str() );
 
         Parser parser( assetStr.c_str() );
         parser.generateAST();

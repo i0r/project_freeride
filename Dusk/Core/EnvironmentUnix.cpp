@@ -7,6 +7,8 @@
 #ifdef DUSK_UNIX
 #include "Environment.h"
 
+#include "Core/StringHelpers.h"
+
 #include <cpuid.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -24,13 +26,28 @@ void dk::core::DeleteFile( const dkString_t& filePath )
 
 void dk::core::GetFilesByExtension( const dkString_t& filePath, const dkString_t& extension, std::vector<dkString_t>& filesFound )
 {
-    dkString_t fullPath = filePath + extension;
+    dkString_t fullPath = filePath;
 
-    DIR* workingDirectory = opendir( "." );
+    DIR* workingDirectory = opendir( fullPath.c_str() );
+    if ( workingDirectory == nullptr ) {
+        DUSK_LOG_WARN( "Failed to open dir '%s' (either malformated string or invalid path)\n", filePath.c_str() );
+        return;
+    }
 
     struct dirent* dirEntry = readdir( workingDirectory );
     while ( dirEntry != nullptr ) {
-        filesFound.push_back( dirEntry->d_name );
+        dkString_t fileEntryExtension = GetFileExtensionFromPath( dirEntry->d_name );
+        if ( fileEntryExtension != extension ) {
+            DUSK_LOG_DEBUG( "Skipping; extension not matching (%s : %s)\n", fileEntryExtension.c_str(), extension.c_str() );
+            dirEntry = readdir( workingDirectory );
+            continue;
+        }
+
+        dkString_t path = filePath;
+        if ( path.back() != '/' ) path.push_back( '/' );
+        path.append( dirEntry->d_name );
+
+        filesFound.push_back( path );
         dirEntry = readdir( workingDirectory );
     }
 

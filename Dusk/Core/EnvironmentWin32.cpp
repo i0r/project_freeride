@@ -23,7 +23,7 @@ void dk::core::GetFilesByExtension( const dkString_t& filePath, const dkString_t
 {
     WIN32_FIND_DATA fileInfo;
     HANDLE hFind;
-    dkString_t fullPath = filePath + extension;
+    dkString_t fullPath = filePath + DUSK_STRING( "*.*" ) + extension;
     hFind = FindFirstFile( fullPath.c_str(), &fileInfo );
     if ( hFind != INVALID_HANDLE_VALUE ) {
         filesFound.push_back( filePath + fileInfo.cFileName );
