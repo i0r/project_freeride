@@ -20,7 +20,7 @@
 
 #include <d3d12.h>
 
-#include <ThirdParty/dxc/dxcapi.use.h>
+#include <ThirdParty/dxc/include/dxc/dxcapi.use.h>
 
 static constexpr D3D12_PRIMITIVE_TOPOLOGY_TYPE PRIMITIVE_TOPOLOGY_TYPE_LUT[ePrimitiveTopology::PRIMITIVE_TOPOLOGY_COUNT] = 
 {

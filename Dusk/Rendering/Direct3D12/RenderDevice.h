@@ -20,7 +20,7 @@ struct ID3D12Resource;
 #include <Rendering/RenderDevice.h>
 
 #include <d3dcompiler.h>
-#include <ThirdParty/dxc/dxcapi.use.h>
+#include <ThirdParty/dxc/include/dxc/dxcapi.use.h>
 
 struct RenderMemoryHeap 
 {

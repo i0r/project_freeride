@@ -230,9 +230,6 @@ FGHandle WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, FGHan
             sr.Right = static_cast< i32 >( scaledViewportSize.x );
             sr.Bottom = static_cast< i32 >( scaledViewportSize.y );
 
-            cmdList->setViewport( vp );
-            cmdList->setScissor( sr );
-
             const u32 samplerCount = camera->msaaSamplerCount;
             const bool isInMaterialEdition = ( scenario == Material::RenderScenario::Default_Editor
                                             || scenario == Material::RenderScenario::Default_Picking_Editor );
@@ -257,7 +254,10 @@ FGHandle WorldRenderModule::addPrimitiveLightPass( FrameGraph& frameGraph, FGHan
                 // TODO We need to make material mutable (since the scenario bind updates the streaming/caching).
                 //      It simply require some refactoring at higher level (Mesh struct; gfx cache; etc.)
                 const_cast<Material*>( material )->bindForScenario( scenario, cmdList, psoCache, samplerCount );
-                
+
+                cmdList->setViewport( vp );
+                cmdList->setScissor( sr );
+
                 // NOTE Since buffer registers are cached those calls have a low cost on the CPU side.
 				cmdList->bindBuffer( InstanceVectorBufferHashcode, vectorBuffer );
                 cmdList->bindConstantBuffer( PerViewBufferHashcode, perViewBuffer );

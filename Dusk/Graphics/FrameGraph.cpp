@@ -1306,7 +1306,7 @@ void FrameGraphScheduler::jobDispatcherThread()
         // TODO Have a dedicated worker for compute render pass? (so that we can schedule stuff asynchronously?)
 
         // Super basic load-balancing, we should get some kind of metric to make this more efficient (instruction count? expected run time?)
-#ifndef DUSK_ASYNC_COMPUTE_AVAILABLE
+//#ifndef DUSK_ASYNC_COMPUTE_AVAILABLE
         i32 renderPassPerWorker = ( enqueuedRenderPassCount / RENDER_THREAD_COUNT ) + 1;
 
         // TODO For testing purposes, we do a FIFO scheduling.
@@ -1321,7 +1321,7 @@ void FrameGraphScheduler::jobDispatcherThread()
         enqueuedRenderPassCount = 0u;
 //#else
 //#pragma error "Async Compute needs to be implemented!"
-#endif
+//#endif
 
         // Update shared resources at the beginning of the frame (e.g. PerViewBuffer).
         // Flush the command list as soon as possible.

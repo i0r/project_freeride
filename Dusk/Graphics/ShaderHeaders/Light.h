@@ -36,7 +36,12 @@
 
 #define BRDF_LUT_SIZE 128
 #define PROBE_FACE_SIZE 256
+#if DUSK_D3D12
+// Temporary hack because of D3D12 retardness with tiled resources dimensions...
+#define PROBE_FILTERED_MIP_COUNT 1
+#else
 #define PROBE_FILTERED_MIP_COUNT 5
+#endif
 
 #define CSM_MAX_DEPTH 250.0f
 #define CSM_SLICE_DIMENSION 2048
