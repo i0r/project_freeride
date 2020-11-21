@@ -8,6 +8,7 @@ file(GLOB_RECURSE SRC "${DUSK_BASE_FOLDER}Dusk/Core/*.cpp"
     "${DUSK_BASE_FOLDER}Dusk/Graphics/*.cpp"
     "${DUSK_BASE_FOLDER}Dusk/Rendering/*.cpp"
     "${DUSK_BASE_FOLDER}Dusk/Physics/*.cpp")
+    
 file(GLOB_RECURSE INC "${DUSK_BASE_FOLDER}Dusk/Core/*.h"
     "${DUSK_BASE_FOLDER}Dusk/Core/*.inl"
     "${DUSK_BASE_FOLDER}Dusk/FileSystem/*.h"
@@ -21,31 +22,13 @@ file(GLOB_RECURSE INC "${DUSK_BASE_FOLDER}Dusk/Core/*.h"
     "${DUSK_BASE_FOLDER}Dusk/Graphics/*.h"
     "${DUSK_BASE_FOLDER}Dusk/Physics/*.h")
     
-if ( DUSK_USE_BULLET )
-file(GLOB_RECURSE BULLET_HEADERS 
-    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/bullet3/*.hpp"
-    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/bullet3/*.h" )
-endif ( DUSK_USE_BULLET )
-
-if ( DUSK_USE_NVAPI )
-    file(GLOB_RECURSE NVAPI_HEADERS 
-        "${DUSK_BASE_FOLDER}Dusk/ThirdParty/nvapi/*.h" )
-endif ( DUSK_USE_NVAPI )
-
-if ( DUSK_USE_AGS )
-    file(GLOB AGS_HEADERS "${DUSK_BASE_FOLDER}Dusk/ThirdParty/ags/amd_ags.h" )
-endif ( DUSK_USE_AGS )
-
 file(GLOB_RECURSE SRC_THIRD_PARTY 
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/SPIRV-Cross/*.cpp"
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/SPIRV-Cross/*.c"
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/SPIRV-Cross/*.hpp"
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/SPIRV-Cross/*.h"
-    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/stb_image.h"
-    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/stb_image_write.h"
-    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/dxc/include/*.h"
-    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/miniz/*.c"
-    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/miniz/*.h" )
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/miniz/src/*.c"
+    "${DUSK_BASE_FOLDER}Dusk/ThirdParty/miniz/src/*.h")
     
 set( SOURCES ${SRC} ${INC} "${DUSK_BASE_FOLDER}Dusk/Shared.cpp" "${DUSK_BASE_FOLDER}Dusk/Shared.h" )
 add_precompiled_header( "${SOURCES}" Shared.h )
@@ -54,7 +37,7 @@ if ( ${DUSK_USE_UNITY_BUILD} )
 	enable_unity_build( Dusk SRC 16 cpp)
 endif ( ${DUSK_USE_UNITY_BUILD} )
 
-set( SOURCES ${SRC} ${INC} ${AGS_HEADERS} ${BULLET_HEADERS} ${SRC_THIRD_PARTY} ${NVAPI_HEADERS} "${DUSK_BASE_FOLDER}Dusk/Shared.cpp" "${DUSK_BASE_FOLDER}Dusk/Shared.h" )
+set( SOURCES ${SRC} ${INC} ${SRC_THIRD_PARTY} "${DUSK_BASE_FOLDER}Dusk/Shared.cpp" "${DUSK_BASE_FOLDER}Dusk/Shared.h" )
 
 add_library( Dusk STATIC ${SOURCES} )
 
@@ -144,7 +127,7 @@ endif ( DUSK_USE_BULLET )
 
 if ( DUSK_USE_NVAPI )
     include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/nvapi" )
-    target_link_libraries( Dusk "${DUSK_BASE_FOLDER}Dusk/ThirdParty/nvapi/amd64/nvapi64.lib" ) 
+    target_link_libraries( Dusk "${DUSK_BASE_FOLDER}Dusk/ThirdParty/nvapi/lib/nvapi64.lib" ) 
 endif ( DUSK_USE_NVAPI )
 
 if ( DUSK_USE_AGS )

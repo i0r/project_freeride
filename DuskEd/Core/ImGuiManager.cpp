@@ -4,7 +4,7 @@
 */
 #include <Shared.h>
 
-#if DUSK_DEVBUILD
+#if DUSK_USE_IMGUI
 #include "ImGuiManager.h"
 
 #include <Core/Display/DisplaySurface.h>
@@ -26,7 +26,7 @@
 #include "ThirdParty/Google/IconsMaterialDesign.h"
 #endif
 
-#include "ThirdParty/imgui/imgui.h"
+#include "imgui.h"
 
 ImGuiManager::ImGuiManager()
     : memoryAllocator( nullptr )

@@ -36,6 +36,7 @@ set( CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${DUSK_BIN_FOLDER} )
 
 # Include CMake Modules
 set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${DUSK_BASE_FOLDER}/CMakeModules" )
+
 include( ${CMAKE_MODULE_PATH}/PrecompiledHeader.cmake )
 include( ${CMAKE_MODULE_PATH}/MSVCFilters.cmake )
 include( ${CMAKE_MODULE_PATH}/UnityBuild.cmake )
@@ -44,9 +45,8 @@ include( ${CMAKE_MODULE_PATH}/FindFBXSDK.cmake )
 # Build Parameters
 set( DUSK_GFX_API "DUSK_D3D12" CACHE STRING "Graphics Backend" )
 set( DUSK_DEVBUILD TRUE CACHE BOOL "Build with developper features" )
-set( DUSK_USE_IMGUI TRUE CACHE BOOL "Use imgui as debug GUI middleware" )
 set( DUSK_USE_FBXSDK FALSE CACHE BOOL "Use FBX SDK for geometry baking" )
-set( DUSK_USE_RENDERDOC TRUE CACHE BOOL "Use RenderDoc API for graphics debugging" )
+set( DUSK_USE_STB_IMAGE TRUE CACHE BOOL "Use stb_image headers for bitmap parsing/writing." )
 set( DUSK_USE_BULLET TRUE CACHE BOOL "Use Bullet Physics as physics library" )
 set( DUSK_USE_NVAPI TRUE CACHE BOOL "Build with Nvidia API (NVAPI)" )
 set( DUSK_USE_AGS TRUE CACHE BOOL "Build with AMD GPU Services (AGS)" )
@@ -92,6 +92,7 @@ endif ( DUSK_ENABLE_GPU_DEBUG_MARKER )
 
 if ( DUSK_USE_BULLET )
     add_definitions( -DDUSK_USE_BULLET )
+    
     if ( UNIX )
         find_package(Bullet REQUIRED)
         include_directories(${BULLET_INCLUDE_DIR})
@@ -110,11 +111,15 @@ if ( DUSK_USE_DIRECTX_COMPILER )
     add_definitions( -DDUSK_USE_DIRECTX_COMPILER )
 endif ( DUSK_USE_DIRECTX_COMPILER )
 
+if ( DUSK_USE_STB_IMAGE )
+    add_definitions( -DDUSK_USE_STB_IMAGE )
+endif( DUSK_USE_STB_IMAGE )
+
+add_definitions( -D${DUSK_GFX_API} )
+
 # Add shared include directories (add paths here only if needed)
 include_directories( "${DUSK_BASE_FOLDER}/" )
 link_directories( "${DUSK_BASE_FOLDER}/build/lib" )
-
-add_definitions( -D${DUSK_GFX_API} )
 
 # Add stuff to build below
 add_subdirectory( Dusk )

@@ -6,8 +6,8 @@
 #include "EntityEditor.h"
 
 #if DUSK_USE_IMGUI
-#include <imgui/imgui.h>
-#include <imgui/imgui_internal.h>
+#include "imgui.h"
+#include "imgui_internal.h"
 #include <ImGuizmo/ImGuizmo.h>
 
 #include "ThirdParty/Google/IconsMaterialDesign.h"

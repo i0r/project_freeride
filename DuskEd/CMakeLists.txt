@@ -27,6 +27,10 @@ file(GLOB INC 	"${DUSK_BASE_FOLDER}DuskEd/*.h"
                 "${DUSK_BASE_FOLDER}DuskEd/*.rc"
                 "${DUSK_BASE_FOLDER}DuskEd/*.manifest" )
 
+# DuskEd specific options.
+set( DUSK_USE_IMGUI TRUE CACHE BOOL "(DuskEd) Use imgui as debug GUI middleware" )
+set( DUSK_USE_RENDERDOC TRUE CACHE BOOL "(DuskEd) Use RenderDoc API for graphics debugging" )
+
 if ( DUSK_USE_IMGUI )
 	add_definitions( -DDUSK_USE_IMGUI )
     file(GLOB_RECURSE IMGUI "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/imgui/*.cpp"
@@ -34,12 +38,13 @@ if ( DUSK_USE_IMGUI )
                             "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/ImGuizmo/*.cpp"
                             "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/ImGuizmo/*.h" )
 							
-    include_directories( "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/imgui" ) #ImGuizmo expects imgui to be in the include path
+    include_directories( "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/imgui/src/" )
 endif()
 
 if ( DUSK_USE_RENDERDOC )
 	add_definitions( -DDUSK_USE_RENDERDOC )
-    file(GLOB_RECURSE RENDERDOC "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/RenderDoc/*.h" )
+    
+    include_directories( "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/RenderDoc/include/" )
 endif()
 
 if ( DUSK_USE_UNITY_BUILD )
@@ -82,13 +87,13 @@ if ( DUSK_USE_FBXSDK )
 endif( DUSK_USE_FBXSDK )
 
 if ( DUSK_USE_NVAPI )
-    target_link_libraries( DuskEd "${DUSK_BASE_FOLDER}Dusk/ThirdParty/nvapi/amd64/nvapi64.lib" ) 
+    target_link_libraries( DuskEd "${DUSK_BASE_FOLDER}Dusk/ThirdParty/nvapi/lib/nvapi64.lib" ) 
 endif ( DUSK_USE_NVAPI )
 
 if ( DUSK_USE_AGS )
 target_link_libraries( DuskEd 
-                        debug "${DUSK_BASE_FOLDER}Dusk/ThirdParty/ags/lib/amd_ags_x64_2019_MDd.lib" 
-                        optimized "${DUSK_BASE_FOLDER}Dusk/ThirdParty/ags/lib/amd_ags_x64_2019_MD.lib" ) 
+                       debug "${DUSK_BASE_FOLDER}Dusk/ThirdParty/ags/lib/amd_ags_x64_2019_MDd.lib" 
+                       optimized "${DUSK_BASE_FOLDER}Dusk/ThirdParty/ags/lib/amd_ags_x64_2019_MD.lib" ) 
 endif ( DUSK_USE_AGS )
 
 if ( DUSK_USE_BULLET )

@@ -8,8 +8,8 @@
 #include "MaterialGenerator.h"
 
 #if DUSK_USE_IMGUI
-#include <imgui/imgui.h>
-#include <imgui/imgui_internal.h>
+#include "imgui.h"
+#include "imgui_internal.h"
 #endif
 
 #include <Core/FileSystemIOHelpers.h>

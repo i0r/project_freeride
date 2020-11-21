@@ -4,7 +4,7 @@
 */
 #pragma once
 
-#if DUSK_DEVBUILD
+#if DUSK_USE_IMGUI
 class DisplaySurface;
 class VirtualFileSystem;
 

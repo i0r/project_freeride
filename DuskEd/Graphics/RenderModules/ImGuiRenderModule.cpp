@@ -18,7 +18,7 @@
 
 #include <Graphics/RenderModules/Generated/dkImGui.generated.h>
 
-#include <imgui/imgui.h>
+#include "imgui.h"
 
 enum eImGuiLockType : i32
 {

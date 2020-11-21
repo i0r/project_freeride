@@ -6,7 +6,7 @@
 
 #include "FileSystem.h"
 #include "FileSystemObjectArchive.h"
-#include "ThirdParty/miniz/miniz.h"
+#include "ThirdParty/miniz/src/miniz.h"
 
 #include <unordered_map>
 #include <list>

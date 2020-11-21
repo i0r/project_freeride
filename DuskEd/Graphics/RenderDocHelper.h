@@ -6,7 +6,7 @@
 
 #if DUSK_DEVBUILD
 #if DUSK_USE_RENDERDOC
-#include <RenderDoc/renderdoc_app.h>
+#include "RenderDoc/include/renderdoc_app.h"
 
 class DisplaySurface;
 class RenderDevice;

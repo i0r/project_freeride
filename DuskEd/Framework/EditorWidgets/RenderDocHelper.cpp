@@ -6,8 +6,8 @@
 #include "RenderDocHelper.h"
 
 #if DUSK_USE_IMGUI
-#include "ThirdParty/imgui/imgui.h"
-#include "ThirdParty/imgui/imgui_internal.h"
+#include "imgui.h"
+#include "imgui_internal.h"
 #endif
 
 #include "Graphics/RenderDocHelper.h"

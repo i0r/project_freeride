@@ -8,8 +8,8 @@
 #include <Maths/Vector.h>
 #include "Graphics/LightingConstants.h"
 
-#include <imgui/imgui.h>
-#include <imgui/imgui_internal.h>
+#include "imgui.h"
+#include "imgui_internal.h"
 
 namespace dk
 {

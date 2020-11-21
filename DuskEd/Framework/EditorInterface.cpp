@@ -28,8 +28,8 @@
 #include "Framework/EditorWidgets/LoggingConsole.h"
 #include "Framework/ImGuiUtilities.h"
 
-#include "ThirdParty/imgui/imgui.h"
-#include "ThirdParty/imgui/imgui_internal.h"
+#include "imgui.h"
+#include "imgui_internal.h"
 
 #include "ThirdParty/ImGuizmo/ImGuizmo.h"
 
