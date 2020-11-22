@@ -47,6 +47,7 @@ DynamicsWorld::~DynamicsWorld()
     dk::core::free( memoryAllocator, nativeObject->dispatcher );
     dk::core::free( memoryAllocator, nativeObject->solver );
     dk::core::free( memoryAllocator, nativeObject->dynamicsWorld );
+    dk::core::free( memoryAllocator, nativeObject );
 }
 
 void DynamicsWorld::tick( const f32 deltaTime )

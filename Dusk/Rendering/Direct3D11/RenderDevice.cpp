@@ -22,11 +22,11 @@
 #include <d3d11_1.h>
 
 #if DUSK_USE_NVAPI
-#include "ThirdParty/nvapi/nvapi.h"
+#include "nvapi.h"
 #endif
 
 #if DUSK_USE_AGS
-#include "ThirdParty/ags/amd_ags.h"
+#include "amd_ags.h"
 #endif
 
 RenderContext::RenderContext()
@@ -173,14 +173,10 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
 
     DUSK_LOG_INFO( "Selected Adapter >> Adapter %u\n", bestAdapterIndex );
 
-    constexpr i32 NVIDIA_VENDOR_ID = 0x10DE;
-    constexpr i32 AMD_VENDOR_ID = 0x1002;
-    constexpr i32 INTEL_VENDOR_ID = 0x8086;
-
-#if DUSK_USE_NVAPI
     bool DisableVendorExtensions = *EnvironmentVariables::getVariable<bool>( DUSK_STRING_HASH( "DisableVendorExtensions" ) );
 
-    if ( !DisableVendorExtensions && bestVendorId == NVIDIA_VENDOR_ID ) {
+#if DUSK_USE_NVAPI
+    if ( !DisableVendorExtensions && bestVendorId == dk::render::NVIDIA_VENDOR_ID ) {
         _NvAPI_Status initializationResult = NvAPI_Initialize();
 
         const bool isInitSuccessful = initializationResult == NVAPI_OK;
@@ -192,7 +188,7 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
 #endif
 
 #if DUSK_USE_AGS
-    if ( !DisableVendorExtensions && bestVendorId == AMD_VENDOR_ID ) {
+    if ( !DisableVendorExtensions && bestVendorId == dk::render::AMD_VENDOR_ID ) {
 		AGSGPUInfo gpuInfo;
 		AGSConfiguration config = {};
         AGSReturnCode initializationResult = agsInit( &renderContext->AgsContext, &config, &gpuInfo );

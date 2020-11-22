@@ -20,7 +20,7 @@ PipelineState* RenderDevice::createPipelineState( const PipelineStateDesc& descr
     return nullptr;
 }
 
-void RenderDevice::prepareAndBindResourceList( CommandList& commandList, const PipelineState& pipelineState, const ResourceList& resourceList )
+void CommandList::prepareAndBindResourceList()
 {
 
 }
@@ -40,7 +40,32 @@ void RenderDevice::destroyPipelineStateCache( PipelineState* pipelineState )
 
 }
 
-void CommandList::begin( PipelineState* pipelineState )
+void CommandList::bindPipelineState( PipelineState* pipelineState )
+{
+
+}
+
+void CommandList::begin()
+{
+
+}
+
+void CommandList::bindConstantBuffer( const dkStringHash_t hashcode, Buffer* buffer )
+{
+
+}
+
+void CommandList::bindImage( const dkStringHash_t hashcode, Image* image, const ImageViewDesc viewDescription )
+{
+
+}
+
+void CommandList::bindBuffer( const dkStringHash_t hashcode, Buffer* buffer, const eViewFormat viewFormat )
+{
+
+}
+
+void CommandList::bindSampler( const dkStringHash_t hashcode, Sampler* sampler )
 {
 
 }

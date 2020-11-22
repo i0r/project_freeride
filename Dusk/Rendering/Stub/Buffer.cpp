@@ -5,6 +5,9 @@
 #include <Shared.h>
 
 #if DUSK_STUB
+#include "Rendering/CommandList.h"
+#include "Rendering/RenderDevice.h"
+
 Buffer* RenderDevice::createBuffer( const BufferDesc& description, const void* initialData )
 {
     return nullptr;
@@ -20,7 +23,7 @@ void RenderDevice::setDebugMarker( Buffer& buffer, const dkChar_t* objectName )
 
 }
 
-void CommandList::bindVertexBuffer( const Buffer** buffers, const u32 bufferCount, const u32 startBindIndex )
+void CommandList::bindVertexBuffer( const Buffer** buffers, const u32* offsets, const u32 bufferCount, const u32 startBindIndex )
 {
 
 }
@@ -46,6 +49,11 @@ void CommandList::unmapBuffer( Buffer& buffer )
 }
 
 void CommandList::transitionBuffer( Buffer& buffer, const eResourceState state )
+{
+
+}
+
+void CommandList::copyBuffer( Buffer* sourceBuffer, Buffer* destBuffer )
 {
 
 }

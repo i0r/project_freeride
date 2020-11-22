@@ -38,6 +38,14 @@
 #define DUSK_BUILD_PLATFORM DUSK_STRING( "UNKNOWN" )
 #endif
 
+#if DUSK_USE_BULLET
+#define DUSK_USE_PHYSICS 1
+#endif
+
+#if !defined( DUSK_D3D12 ) || !defined( DUSK_VULKAN ) || !defined( DUSK_D3D11 )
+#define DUSK_STUB 1
+#endif
+
 #if DUSK_D3D12
 #define DUSK_GFX_BACKEND DUSK_STRING( "D3D12" )
 #elif DUSK_VULKAN
@@ -45,7 +53,7 @@
 #elif DUSK_D3D11
 #define DUSK_GFX_BACKEND DUSK_STRING( "D3D11" )
 #elif DUSK_STUB
-#define DUSK_GFX_BACKEND DUSK_STRING( "STUB" )
+#define DUSK_GFX_BACKEND DUSK_STRING( "HEADLESS" )
 #endif
 
 #if DUSK_MSVC

@@ -5,6 +5,8 @@
 #include <Shared.h>
 
 #if DUSK_STUB
+#include "Rendering/CommandList.h"
+
 CommandList::CommandList( const CommandList::Type cmdListType )
     : memoryAllocator( nullptr )
     , nativeCommandList( nullptr )
@@ -61,6 +63,11 @@ void CommandList::pushEventMarker( const dkChar_t* eventName )
 }
 
 void CommandList::popEventMarker()
+{
+
+}
+
+void CommandList::multiDrawIndexedInstancedIndirect( const u32 instanceCount, Buffer* argsBuffer, const u32 bufferAlignmentInBytes /* = 0u */, const u32 argumentsSizeInBytes /* = 0u */ )
 {
 
 }

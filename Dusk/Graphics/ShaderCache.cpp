@@ -59,6 +59,8 @@ Shader* ShaderCache::getOrUploadStage( const dkChar_t* shaderHashcode, const boo
     constexpr const dkChar_t* SHADER_MODEL_PATH = DUSK_STRING( "GameData/shaders/sm5/" );
 #elif DUSK_D3D12
     constexpr const dkChar_t* SHADER_MODEL_PATH = DUSK_STRING( "GameData/shaders/sm6/" );
+#else
+    constexpr const dkChar_t* SHADER_MODEL_PATH = DUSK_STRING( "" );
 #endif
 
     dkString_t filePath = SHADER_MODEL_PATH;

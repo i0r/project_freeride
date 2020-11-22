@@ -1023,3 +1023,19 @@ private:
     LinearAllocator*            graphicsCmdListAllocator[PENDING_FRAME_COUNT];
     LinearAllocator*            computeCmdListAllocator[PENDING_FRAME_COUNT];
 };
+
+// TODO Might worth moving this stuff somewhere else since it doesn't belong here...
+namespace dk
+{
+    namespace render
+    {
+        // Nvidia Vendor ID.
+        static constexpr i32 NVIDIA_VENDOR_ID = 0x10DE;
+
+        // AMD/ATI Vendor ID.
+        static constexpr i32 AMD_VENDOR_ID = 0x1002;
+        
+        // Intel Integrated Graphics Vendor ID.
+        static constexpr i32 INTEL_VENDOR_ID = 0x8086;
+    }
+}

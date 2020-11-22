@@ -17,30 +17,8 @@ add_executable( DuskTestGraphics ${GUI_TYPE} ${SOURCES})
 
 set_property(TARGET DuskTestGraphics PROPERTY FOLDER "Projects")
 
+Dusk_UseRendering( DuskTestGraphics )
 target_link_libraries( DuskTestGraphics debug Dusk_Debug optimized Dusk )
-
-if ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
-    target_link_libraries( DuskTestGraphics d3d11 )
-    target_link_libraries( DuskTestGraphics dxgi )
-    target_link_libraries( DuskTestGraphics d3dcompiler )
-    target_link_libraries( DuskTestGraphics dxguid )
-
-elseif ( "${DUSK_GFX_API}" MATCHES "DUSK_VULKAN" )
-    find_package( Vulkan REQUIRED )
-    include_directories( ${Vulkan_INCLUDE_DIR} )
-
-    target_link_libraries( DuskTestGraphics Vulkan::Vulkan )
-endif ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
-
-if ( DUSK_USE_NVAPI )
-    target_link_libraries( DuskTestGraphics "${DUSK_BASE_FOLDER}Dusk/ThirdParty/nvapi/amd64/nvapi64.lib" ) 
-endif ( DUSK_USE_NVAPI )
-
-if ( DUSK_USE_AGS )
-target_link_libraries( DuskTestGraphics 
-                        debug "${DUSK_BASE_FOLDER}Dusk/ThirdParty/ags/lib/amd_ags_x64_2019_MDd.lib" 
-                        optimized "${DUSK_BASE_FOLDER}Dusk/ThirdParty/ags/lib/amd_ags_x64_2019_MD.lib" ) 
-endif ( DUSK_USE_AGS )
 
 include_directories( "${DUSK_BASE_FOLDER}DuskTestGraphics" )
 include_directories( "${DUSK_BASE_FOLDER}Dusk" )

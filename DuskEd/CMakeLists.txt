@@ -51,31 +51,21 @@ if ( DUSK_USE_UNITY_BUILD )
 	enable_unity_build( DuskEd SRC 16 cpp)
 endif()
 
-set( SOURCES ${SRC} ${INC} ${IMGUI} ${RENDERDOC} )
+set( SOURCES ${SRC} ${INC} ${IMGUI} )
 
 add_msvc_filters( "${SOURCES}" )
 
-add_executable( DuskEd ${GUI_TYPE} ${SOURCES})
+add_executable( DuskEd ${GUI_TYPE} ${SOURCES} )
 
 target_compile_definitions( Dusk PRIVATE DUSKED )
 target_compile_definitions( DuskEd PRIVATE DUSKED )
 
 set_property(TARGET DuskEd PROPERTY FOLDER "Projects")
 
+Dusk_UsePhysics( DuskEd )
+Dusk_UseRendering( DuskEd )
+
 target_link_libraries( DuskEd debug Dusk_Debug optimized Dusk )
-
-if ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
-    target_link_libraries( DuskEd d3d11 )
-    target_link_libraries( DuskEd dxgi )
-    target_link_libraries( DuskEd d3dcompiler )
-    target_link_libraries( DuskEd dxguid )
-
-elseif ( "${DUSK_GFX_API}" MATCHES "DUSK_VULKAN" )
-    find_package( Vulkan REQUIRED )
-    include_directories( ${Vulkan_INCLUDE_DIR} )
-
-    target_link_libraries( DuskEd Vulkan::Vulkan )
-endif ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
 
 if ( DUSK_USE_FBXSDK )
     find_package( FBXSDK REQUIRED )
@@ -85,36 +75,6 @@ if ( DUSK_USE_FBXSDK )
     target_link_libraries( DuskEd debug ${LIBXML2_LIBRARY_DEBUG} optimized ${LIBXML2_LIBRARY} )
     target_link_libraries( DuskEd debug ${ZLIB_LIBRARY_DEBUG} optimized ${ZLIB_LIBRARY} )
 endif( DUSK_USE_FBXSDK )
-
-if ( DUSK_USE_NVAPI )
-    target_link_libraries( DuskEd "${DUSK_BASE_FOLDER}Dusk/ThirdParty/nvapi/lib/nvapi64.lib" ) 
-endif ( DUSK_USE_NVAPI )
-
-if ( DUSK_USE_AGS )
-target_link_libraries( DuskEd 
-                       debug "${DUSK_BASE_FOLDER}Dusk/ThirdParty/ags/lib/amd_ags_x64_2019_MDd.lib" 
-                       optimized "${DUSK_BASE_FOLDER}Dusk/ThirdParty/ags/lib/amd_ags_x64_2019_MD.lib" ) 
-endif ( DUSK_USE_AGS )
-
-if ( DUSK_USE_BULLET )
-    include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/bullet3/src" )
-
-    if ( WIN32 )
-        target_link_libraries( DuskEd
-                                debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/BulletDynamics_Debug.lib"
-                                optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/BulletDynamics_RelWithDebugInfo.lib" )
-
-        target_link_libraries( DuskEd
-                                debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/BulletCollision_Debug.lib"
-                                optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/BulletCollision_RelWithDebugInfo.lib" )
-
-        target_link_libraries( DuskEd
-                                debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/LinearMath_Debug.lib"
-                                optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/LinearMath_RelWithDebugInfo.lib" )
-    else()
-        target_link_libraries( DuskEd ${BULLET_LIBRARIES} )
-    endif( WIN32 )
-endif ( DUSK_USE_BULLET )
 
 include_directories( "${DUSK_BASE_FOLDER}DuskEd" )
 include_directories( "${DUSK_BASE_FOLDER}Dusk" )

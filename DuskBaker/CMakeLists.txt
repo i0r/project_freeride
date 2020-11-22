@@ -24,38 +24,6 @@ elseif( UNIX )
     target_link_libraries( DuskBaker dl X11 xcb xcb-keysyms X11-xcb ${X11_LIBRARIES} )
 endif ( WIN32 )
 
-if ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
-    target_link_libraries( DuskBaker d3d11 )
-    target_link_libraries( DuskBaker dxgi )
-    target_link_libraries( DuskBaker dxguid )
-
-elseif ( "${DUSK_GFX_API}" MATCHES "DUSK_VULKAN" )
-    find_package( Vulkan REQUIRED )
-    include_directories( ${Vulkan_INCLUDE_DIR} )
-
-    target_link_libraries( DuskBaker Vulkan::Vulkan )
-endif ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
-
-if ( DUSK_USE_BULLET )
-    include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/bullet3/src" )
-
-    if ( WIN32 )
-        target_link_libraries( DuskBaker
-                                debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/BulletDynamics_Debug.lib"
-                                optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/BulletDynamics_RelWithDebugInfo.lib" )
-
-        target_link_libraries( DuskBaker
-                                debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/BulletCollision_Debug.lib"
-                                optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/BulletCollision_RelWithDebugInfo.lib" )
-
-        target_link_libraries( DuskBaker
-                                debug "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/Debug/LinearMath_Debug.lib"
-                                optimized "${DUSK_BASE_FOLDER}build/lib/bullet3/lib/RelWithDebInfo/LinearMath_RelWithDebugInfo.lib" )
-    else()
-        target_link_libraries( DuskBaker ${BULLET_LIBRARIES} )
-    endif( WIN32 )
-endif ( DUSK_USE_BULLET )
-
 if ( ${DUSK_USE_DIRECTX_COMPILER} )
     if ( WIN32 )
         target_link_libraries( DuskBaker d3dcompiler )

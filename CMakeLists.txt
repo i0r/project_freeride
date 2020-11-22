@@ -41,6 +41,7 @@ include( ${CMAKE_MODULE_PATH}/PrecompiledHeader.cmake )
 include( ${CMAKE_MODULE_PATH}/MSVCFilters.cmake )
 include( ${CMAKE_MODULE_PATH}/UnityBuild.cmake )
 include( ${CMAKE_MODULE_PATH}/FindFBXSDK.cmake )
+include( ${CMAKE_MODULE_PATH}/DuskFeatureSwitch.cmake )
 
 # Build Parameters
 set( DUSK_GFX_API "DUSK_D3D12" CACHE STRING "Graphics Backend" )
@@ -90,23 +91,6 @@ if ( DUSK_ENABLE_GPU_DEBUG_MARKER )
     add_definitions( -DDUSK_ENABLE_GPU_DEBUG_MARKER )
 endif ( DUSK_ENABLE_GPU_DEBUG_MARKER )
 
-if ( DUSK_USE_BULLET )
-    add_definitions( -DDUSK_USE_BULLET )
-    
-    if ( UNIX )
-        find_package(Bullet REQUIRED)
-        include_directories(${BULLET_INCLUDE_DIR})
-    endif ( UNIX )
-endif ( DUSK_USE_BULLET )
-
-if ( DUSK_USE_NVAPI )
-    add_definitions( -DDUSK_USE_NVAPI )
-endif ( DUSK_USE_NVAPI )
-
-if ( DUSK_USE_AGS )
-    add_definitions( -DDUSK_USE_AGS )
-endif ( DUSK_USE_AGS )
-
 if ( DUSK_USE_DIRECTX_COMPILER )
     add_definitions( -DDUSK_USE_DIRECTX_COMPILER )
 endif ( DUSK_USE_DIRECTX_COMPILER )
@@ -114,8 +98,6 @@ endif ( DUSK_USE_DIRECTX_COMPILER )
 if ( DUSK_USE_STB_IMAGE )
     add_definitions( -DDUSK_USE_STB_IMAGE )
 endif( DUSK_USE_STB_IMAGE )
-
-add_definitions( -D${DUSK_GFX_API} )
 
 # Add shared include directories (add paths here only if needed)
 include_directories( "${DUSK_BASE_FOLDER}/" )

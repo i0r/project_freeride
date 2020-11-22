@@ -26,7 +26,13 @@
 #include <dxgidebug.h>
 #endif
 
-DUSK_DEV_VAR_PERSISTENT( UseWarpAdapter, false, bool ) // Force WARP adapter usage (in case no D3D12 compatible adapter is available)
+#if DUSK_USE_NVAPI
+#include "nvapi.h"
+#endif
+
+#if DUSK_USE_AGS
+#include "amd_ags.h"
+#endif
 
 RenderContext::RenderContext()
     : device( nullptr )
@@ -208,6 +214,7 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
     UINT bestAdapterIndex = UINT32_MAX;
     UINT bestOutputCount = 0;
     SIZE_T bestVRAM = 0;
+    UINT bestVendorId = 0;
 
     IDXGIAdapter1* adapter = nullptr;
     IDXGIOutput* output = nullptr;
@@ -228,6 +235,7 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
             bestVRAM = adapterVRAM;
             bestAdapterIndex = i;
             bestOutputCount = outputCount;
+            bestVendorId = adapterDescription.VendorId;
         }
 
         DUSK_LOG_RAW( "-Adapter %i '%s' VRAM: %uMB (%u output(s) found)\n",
@@ -239,6 +247,38 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
     factory->EnumAdapters1( bestAdapterIndex, &adapter );
 
     DUSK_LOG_INFO( "Selected Adapter >> Adapter %u\n", bestAdapterIndex );
+
+    bool DisableVendorExtensions = *EnvironmentVariables::getVariable<bool>( DUSK_STRING_HASH( "DisableVendorExtensions" ) );
+
+#if DUSK_USE_NVAPI
+    if ( !DisableVendorExtensions && bestVendorId == dk::render::NVIDIA_VENDOR_ID ) {
+        _NvAPI_Status initializationResult = NvAPI_Initialize();
+
+        const bool isInitSuccessful = initializationResult == NVAPI_OK;
+        DUSK_ASSERT( isInitSuccessful, "Failed to initialize NvAPI (error code %i)\n", initializationResult );
+
+        DUSK_LOG_INFO( "NvAPI succesfully initialized!\n" );
+        renderContext->IsNvApiLoaded = isInitSuccessful;
+    }
+#endif
+
+#if DUSK_USE_AGS
+    if ( !DisableVendorExtensions && bestVendorId == dk::render::AMD_VENDOR_ID ) {
+        AGSGPUInfo gpuInfo;
+        AGSConfiguration config = {};
+        AGSReturnCode initializationResult = agsInit( &renderContext->AgsContext, &config, &gpuInfo );
+
+        const bool isInitSuccessful = initializationResult == AGS_SUCCESS;
+        DUSK_ASSERT( isInitSuccessful, "Failed to initialize AMD AGS (error code %i)\n", initializationResult );
+
+        DUSK_LOG_INFO( "AGS Library initialized: v%d.%d.%d\n", gpuInfo.agsVersionMajor, gpuInfo.agsVersionMinor, gpuInfo.agsVersionPatch );
+        DUSK_LOG_INFO( "Radeon Software Version:   %hs\n", gpuInfo.radeonSoftwareVersion );
+        DUSK_LOG_INFO( "Driver Version:            %hs\n", gpuInfo.driverVersion );
+
+        renderContext->IsAmdAgsLoaded = true;
+    }
+#endif
+
     DUSK_LOG_INFO( "Enumerating Outputs...\n" );
 
     for ( UINT outputIdx = 0; outputIdx < bestOutputCount; outputIdx++ ) {
@@ -280,7 +320,8 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
 
     output->Release();
 
-    if ( UseWarpAdapter ) {
+    bool useWarpAdapter = *EnvironmentVariables::getVariable<bool>( DUSK_STRING_HASH( "UseSoftwareRasterization" ) );
+    if ( useWarpAdapter ) {
         DUSK_LOG_INFO( "FORCE_WRAP_DEVICE is enabled. RenderDevice will use WARP adapter (expect slow as fuck rendering)\n" );
 
         IDXGIAdapter* warpAdapter = nullptr;

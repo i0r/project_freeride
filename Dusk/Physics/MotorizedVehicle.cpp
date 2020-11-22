@@ -7,7 +7,9 @@
 
 #include "RigidBody.h"
 
+#if DUSK_USE_BULLET
 #include "ThirdParty/bullet3/src/btBulletDynamicsCommon.h"
+#endif
 
 static constexpr dkVec3f WHEEL_POSITION_OFFSET[MotorizedVehiclePhysics::MAX_WHEEL_COUNT] = {
     dkVec3f( -0.5f, 1.0f, -0.5f ), // Front Left
@@ -208,6 +210,7 @@ void MotorizedVehiclePhysics::preStepUpdate( const f32 frameTime, btDynamicsWorl
 
     //engineTorque = torqueCurve.GetTorque( glm::max( engineSoeed, vehicleParameters.EngineParameters.IdleSpeed ) );
 
+#if DUSK_USE_BULLET
     for ( auto& wheel : wheels ) {
         // Do steering
         wheel.SteerAngle = Towards( wheel.SteerAngle, wheel.SteerLock * steer, wheel.SteerRate * frameTime );
@@ -352,7 +355,8 @@ void MotorizedVehiclePhysics::preStepUpdate( const f32 frameTime, btDynamicsWorl
     for ( auto& wheel : wheels ) {
         wheel.FinalTorque = torque * ( wheel.MomentOfInertia / momenSum );
     }
-    
+#endif
+
  /*   f32 liftForce = 0.0f;
     f32 weight = vehicleParameters.TotalMass - 9.80665f;
     f32 verticalForce = weight - liftForce;

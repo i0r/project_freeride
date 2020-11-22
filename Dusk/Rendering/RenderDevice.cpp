@@ -7,6 +7,7 @@
 
 DUSK_ENV_VAR( DisableVendorExtensions, false, bool ); // If true, disable the usage of graphics vendor extension (AMD/Nvidia/Intel/etc.).
 DUSK_ENV_VAR( AutomaticOutputSelection, false, bool ); // If true, automatically chose the output for swapchain creation (overrides user's monitor request).
+DUSK_DEV_VAR_PERSISTENT( UseSoftwareRasterization, false, bool ) // Force WARP adapter/Software rasterizer usage (e.g. in case no D3D12 compatible adapter is available)
 
 RenderDevice::RenderDevice( BaseAllocator* allocator )
     : memoryAllocator( allocator )

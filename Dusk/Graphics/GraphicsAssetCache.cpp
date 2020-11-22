@@ -13,9 +13,11 @@
 #include <Io/DirectDrawSurface.h>
 #include <Io/FontDescriptor.h>
 
+#if DUSK_USE_STB_IMAGE
 #ifndef STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
+#include "stb_image.h"
+#endif
 #endif
 
 #include <Core/Allocators/BaseAllocator.h>
@@ -32,24 +34,30 @@
 using namespace dk::core;
 using namespace dk::io;
 
-int stbi_readcallback( void* user, char* data, int size )
+#if DUSK_USE_STB_IMAGE
+// Callbacks for stb_image implementation (see stb_image.h).
+namespace
 {
-    FileSystemObject* f = ( FileSystemObject* )user;
-    f->read( ( uint8_t* )data, size );
-    return size;
-}
+    int stbi_readcallback( void* user, char* data, int size )
+    {
+        FileSystemObject* file = static_cast< FileSystemObject* >( user );
+        file->read( reinterpret_cast< u8* >( data ), size );
+        return size;
+    }
 
-int stbi_eofcallback( void* user )
-{
-    FileSystemObject* f = ( FileSystemObject* )user;
-    return ( int )f->isGood();
-}
+    int stbi_eofcallback( void* user )
+    {
+        FileSystemObject* file = static_cast< FileSystemObject* >( user );
+        return static_cast< int >( file->isGood() );
+    }
 
-void stbi_skipcallback( void* user, int n )
-{
-    auto f = ( FileSystemObject* )user;
-    f->skip( n );
+    void stbi_skipcallback( void* user, int n )
+    {
+        FileSystemObject* file = static_cast< FileSystemObject* >( user );
+        file->skip( n );
+    }
 }
+#endif
 
 GraphicsAssetCache::GraphicsAssetCache( BaseAllocator* allocator, RenderDevice* renderDevice, ShaderCache* shaderCache, VirtualFileSystem* virtualFileSystem )
     : assetStreamingHeap( dk::core::allocate<FreeListAllocator>( allocator, 32 * 1024 * 1024, allocator->allocate( 32 * 1024 * 1024 ) ) )
@@ -96,9 +104,9 @@ Image* GraphicsAssetCache::getImage( const dkChar_t* assetName, const bool force
         return mapIterator->second;
     }
 
-    auto texFileFormat = GetFileExtensionFromPath( assetName );
+    dkString_t texFileFormat = GetFileExtensionFromPath( assetName );
     StringToLower( texFileFormat );
-    auto texFileFormatHashcode = CRC32( texFileFormat );
+    u32 texFileFormatHashcode = CRC32( texFileFormat );
 
     switch ( texFileFormatHashcode ) {
     case DUSK_STRING_HASH( "dds" ): {
@@ -140,52 +148,7 @@ Image* GraphicsAssetCache::getImage( const dkChar_t* assetName, const bool force
         imageDescMap[assetHashcode] = desc;
     } break;
 
-    case DUSK_STRING_HASH( "png16" ):
-    case DUSK_STRING_HASH( "hmap" ): {
-        stbi_io_callbacks callbacks;
-        callbacks.read = stbi_readcallback;
-        callbacks.skip = stbi_skipcallback;
-        callbacks.eof = stbi_eofcallback;
-
-        int w;
-        int h;
-        int comp;
-        auto* image = stbi_load_16_from_callbacks( &callbacks, file, &w, &h, &comp, STBI_default );
-
-        if ( alreadyExists ) {
-            renderDevice->destroyImage( imageMap[assetHashcode] );
-        }
-
-        ImageDesc desc;
-        desc.width = w;
-        desc.height = h;
-        desc.dimension = ImageDesc::DIMENSION_2D;
-        desc.arraySize = 1;
-        desc.mipCount = 1;
-        desc.samplerCount = 1;
-        desc.depth = 0;
-        desc.bindFlags = RESOURCE_BIND_SHADER_RESOURCE;
-        desc.usage = RESOURCE_USAGE_STATIC;
-
-        switch ( comp ) {
-        case 1:
-            desc.format = eViewFormat::VIEW_FORMAT_R16_UINT;
-            break;
-        case 2:
-            desc.format = eViewFormat::VIEW_FORMAT_R16G16_UINT;
-            break;  
-        case 3:
-        case 4:
-            desc.format = eViewFormat::VIEW_FORMAT_R16G16B16A16_UINT;
-            break;
-        }
-
-        imageMap[assetHashcode] = renderDevice->createImage( desc, image, w * comp );
-        imageDescMap[assetHashcode] = desc;
-
-        stbi_image_free( image );
-    } break;
-    
+#if DUSK_USE_STB_IMAGE
     case DUSK_STRING_HASH( "jpg" ):
     case DUSK_STRING_HASH( "jpeg" ):
     case DUSK_STRING_HASH( "png" ):
@@ -240,6 +203,7 @@ Image* GraphicsAssetCache::getImage( const dkChar_t* assetName, const bool force
 
         stbi_image_free( image );
     } break;
+#endif
 
     default:
         DUSK_RAISE_FATAL_ERROR( false, "Unsupported fileformat with extension %s\n", texFileFormat.c_str() );
@@ -250,7 +214,6 @@ Image* GraphicsAssetCache::getImage( const dkChar_t* assetName, const bool force
 
 #if DUSK_DEVBUILD
     renderDevice->setDebugMarker( *imageMap[assetHashcode], assetName );
-
     hashResolveMap[assetHashcode] = assetName;
 #endif
 
@@ -259,7 +222,7 @@ Image* GraphicsAssetCache::getImage( const dkChar_t* assetName, const bool force
 
 FontDescriptor* GraphicsAssetCache::getFont( const dkChar_t* assetName, const bool forceReload )
 {
-    auto file = virtualFileSystem->openFile( assetName, eFileOpenMode::FILE_OPEN_MODE_READ );
+    FileSystemObject* file = virtualFileSystem->openFile( assetName, eFileOpenMode::FILE_OPEN_MODE_READ );
     if ( file == nullptr ) {
         DUSK_LOG_ERROR( "'%hs' does not exist!\n", assetName );
         return nullptr;
@@ -288,13 +251,13 @@ FontDescriptor* GraphicsAssetCache::getFont( const dkChar_t* assetName, const bo
 
 Material* GraphicsAssetCache::getMaterial( const dkChar_t* assetName, const bool forceReload )
 {
-    auto file = virtualFileSystem->openFile( assetName, eFileOpenMode::FILE_OPEN_MODE_READ );
+    FileSystemObject* file = virtualFileSystem->openFile( assetName, eFileOpenMode::FILE_OPEN_MODE_READ );
     if ( file == nullptr ) {
         DUSK_LOG_ERROR( "'%s' does not exist!\n", assetName );
         return defaultMaterial;
     }
 
-    auto assetHashcode = file->getHashcode();
+    dkStringHash_t assetHashcode = file->getHashcode();
     auto mapIterator = materialMap.find( assetHashcode );
     const bool alreadyExists = ( mapIterator != materialMap.end() );
 
@@ -306,7 +269,7 @@ Material* GraphicsAssetCache::getMaterial( const dkChar_t* assetName, const bool
         materialMap[assetHashcode] = dk::core::allocate<Material>( assetStreamingHeap, assetStreamingHeap );
     }
 
-    auto materialInstance = materialMap[assetHashcode];
+    Material* materialInstance = materialMap[assetHashcode];
     materialInstance->deserialize( file );
     materialInstance->updateResourceStreaming( this );
 

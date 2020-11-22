@@ -50,7 +50,7 @@ RigidBody::RigidBody( BaseAllocator* allocator, const f32 massInKg )
 
 RigidBody::~RigidBody()
 {
-
+    dk::core::free( memoryAllocator, nativeObject );
 }
 
 void RigidBody::createWithBoxCollider( const dkVec3f& positionWorldSpace, const dkQuatf& orientation, const dkVec3f& boxHalfExtents )

@@ -37,7 +37,6 @@ struct RenderMemoryHeap
     // Total size (in bytes) of the heap (should be = PerFrameCapacity * NumberOfFrameBuffered).
     size_t          Size;
 
-
     RenderMemoryHeap( ID3D12Heap* allocatedHeap, const size_t perFrameCapacity, const bool isUsingMultipleFrameBuffering )
         : Heap( allocatedHeap )
         , Offset( 0ull )
@@ -127,8 +126,21 @@ struct RenderContext
     ID3D12Resource*             volatileBuffers[RenderDevice::PENDING_FRAME_COUNT];
 
     // Class helper to load DXC library (used for shader reflection)
+    // TODO We might want to deprecate this since we already have reflection infos available
+    // with the renderlib framework... (we could remove spirvcross dep. too)
     dxc::DxcDllSupport          dxcHelper;
     IDxcLibrary*                dxcLibrary;
     IDxcContainerReflection*    dxcContainerReflection;
+
+    // True if NvAPI is loaded and available; false otherwise.
+    bool                        IsNvApiLoaded;
+
+    // True if AMD AGS is loaded and available; false otherwise.
+    bool                        IsAmdAgsLoaded;
+
+#if DUSK_USE_AGS
+    // Pointer to the active AMD AGS context (if loaded).
+    struct AGSContext*          AgsContext;
+#endif
 };
 #endif
