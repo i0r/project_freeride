@@ -49,8 +49,7 @@ if ( DUSK_DEVBUILD )
     target_link_libraries( ${TargetName} dxguid )
 endif( DUSK_DEVBUILD )
 elseif ( "${DUSK_GFX_API}" MATCHES "DUSK_VULKAN" )
-    find_package( Vulkan REQUIRED )
-    include_directories( ${Vulkan_INCLUDE_DIR} )
+    include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/vulkan/include" )
         
     set_target_properties( ${TargetName} PROPERTIES DEBUG_OUTPUT_NAME "${TargetName}" )
     set_target_properties( ${TargetName} PROPERTIES RELEASE_OUTPUT_NAME "${TargetName}" )
@@ -58,7 +57,7 @@ elseif ( "${DUSK_GFX_API}" MATCHES "DUSK_VULKAN" )
 
     add_definitions( -DDUSK_ASYNC_COMPUTE_AVAILABLE )
 
-    target_link_libraries( ${TargetName} Vulkan::Vulkan )
+    target_link_libraries( ${TargetName} "${DUSK_BASE_FOLDER}Dusk/ThirdParty/vulkan/lib/vulkan-1.lib" )
 elseif ( "${DUSK_GFX_API}" MATCHES "DUSK_D3D11" )
     find_package( DirectX REQUIRED )
 
