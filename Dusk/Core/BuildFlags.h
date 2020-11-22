@@ -42,7 +42,8 @@
 #define DUSK_USE_PHYSICS 1
 #endif
 
-#if !defined( DUSK_D3D12 ) || !defined( DUSK_VULKAN ) || !defined( DUSK_D3D11 )
+// Automatically use the stub renderer if we are building an headless application.
+#if !defined( DUSK_D3D12 ) && !defined( DUSK_VULKAN ) && !defined( DUSK_D3D11 )
 #define DUSK_STUB 1
 #endif
 
@@ -57,14 +58,16 @@
 #endif
 
 #if DUSK_MSVC
-#if _MSC_VER >= 1910
+#if _MSC_VER >= 1920
+#define DUSK_COMPILER DUSK_STRING( "Visual Studio 2019 (16.0)" )
+#elif _MSC_VER >= 1910
 #define DUSK_COMPILER DUSK_STRING( "Visual Studio 2017 (15.0)" )
 #elif _MSC_VER >= 1900
 #define DUSK_COMPILER DUSK_STRING( "Visual Studio 2015 (14.0)" )
 #elif _MSC_VER >= 1800
 #define DUSK_COMPILER DUSK_STRING( "Visual Studio 2013 (12.0)" )
 #else
-#define DUSK_COMPILER DUSK_STRING( "Visual Studio 2012 (11.0)" )
+#define DUSK_COMPILER DUSK_STRING( "Unsupported Visual Studio" )
 #endif
 #elif DUSK_GCC
 #if defined(__GNUC__)

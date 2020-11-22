@@ -6,7 +6,7 @@
 
 #if DUSK_VULKAN
 #include <Rendering/RenderDevice.h>
-#include <vulkan/vulkan.h>
+#include "vulkan.h"
 
 static constexpr VkCompareOp COMPARISON_FUNCTION_LUT[eComparisonFunction::COMPARISON_FUNCTION_COUNT] = {
     VkCompareOp::VK_COMPARE_OP_NEVER,

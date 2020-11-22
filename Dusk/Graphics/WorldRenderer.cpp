@@ -323,7 +323,9 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
     // Do a depth prepass (and capture normals/roughness at the same time).
     WorldRenderModule::PrePassOutput prepass = WorldRendering->addGeometryPrepass( frameGraph );
 
-	FGHandle resolvedGbuffer = prepass.OutputThinGBufferTarget;	
+    FGHandle resolvedGbuffer = prepass.OutputThinGBufferTarget;
+    resolvedDepth = prepass.OutputDepthTarget;
+
     if ( msaaSamplerCount > 1 ) {
 		resolvedGbuffer = AddCheapMSAAResolveRenderPass( frameGraph, prepass.OutputThinGBufferTarget, msaaSamplerCount );
 	}
@@ -349,7 +351,7 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
     cascadedShadowMapRendering->captureShadowMap( frameGraph, resolvedDepth, viewportSize, *lightGrid->getDirectionalLightData(), renderWorld );
 
     // Compute Hi-Z as early as possible (we can fire it asynchronously while the geometry is rendering).
-    SSRModule::HiZResult hiZMips = screenSpaceReflections->computeHiZMips( frameGraph, resolvedDepth, viewportWidth, viewportHeight );
+    //SSRModule::HiZResult hiZMips = screenSpaceReflections->computeHiZMips( frameGraph, resolvedDepth, viewportWidth, viewportHeight );
 
     // LightPass.
     FGHandle OutputRenderTarget = WorldRendering->addPrimitiveLightPass( frameGraph, lightGridData.PerSceneBuffer, lightGridData.LightClusters, lightGridData.ItemList, prepass.OutputDepthTarget, scenario, environmentProbeStreaming->getReadDistantProbeIrradiance(), environmentProbeStreaming->getReadDistantProbeRadiance(), cascadedShadowMapRendering->getGlobalShadowMatrix() );
@@ -375,9 +377,9 @@ FGHandle WorldRenderer::buildDefaultGraph( FrameGraph& frameGraph, const Materia
     FGHandle presentRt = resolvedColor;
 
     // SSR Rendering.
-    SSRModule::TraceResult ssrTrace = screenSpaceReflections->rayTraceHiZ( frameGraph, resolvedGbuffer, resolvedColor, hiZMips, viewportWidth, viewportHeight );
+   /* SSRModule::TraceResult ssrTrace = screenSpaceReflections->rayTraceHiZ( frameGraph, resolvedGbuffer, resolvedColor, hiZMips, viewportWidth, viewportHeight );
     presentRt = screenSpaceReflections->resolveRaytrace( frameGraph, ssrTrace, resolvedColor, resolvedGbuffer, hiZMips, viewportWidth, viewportHeight );
-    
+    */
       /*  FGHandle ssrTemporalResolved = screenSpaceReflections->temporalRebuild( frameGraph, ssrTrace.TraceBuffer, ssrResolved, viewportWidth, viewportHeight );
 	 frameGraph.saveLastFrameSSRRenderTarget( ssrResolved );
 

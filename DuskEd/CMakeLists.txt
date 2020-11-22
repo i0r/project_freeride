@@ -33,12 +33,13 @@ set( DUSK_USE_RENDERDOC TRUE CACHE BOOL "(DuskEd) Use RenderDoc API for graphics
 
 if ( DUSK_USE_IMGUI )
 	add_definitions( -DDUSK_USE_IMGUI )
-    file(GLOB_RECURSE IMGUI "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/imgui/*.cpp"
-                            "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/imgui/*.h"
-                            "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/ImGuizmo/*.cpp"
-                            "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/ImGuizmo/*.h" )
+    file(GLOB_RECURSE IMGUI "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/imgui/src/*.cpp"
+                            "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/imgui/src/*.h"
+                            "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/ImGuizmo/src/*.cpp"
+                            "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/ImGuizmo/src/*.h" )
 							
     include_directories( "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/imgui/src/" )
+    include_directories( "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/ImGuizmo/src/" )
 endif()
 
 if ( DUSK_USE_RENDERDOC )

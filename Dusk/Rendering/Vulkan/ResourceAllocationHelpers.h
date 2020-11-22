@@ -6,7 +6,7 @@
 
 #if DUSK_VULKAN
 #include <Rendering/RenderDevice.h>
-#include <vulkan/vulkan.h>
+#include "vulkan.h"
 
 DUSK_INLINE static VkBufferUsageFlags GetResourceUsageFlags( const u32 bindFlags )
 {

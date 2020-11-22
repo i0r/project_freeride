@@ -22,9 +22,9 @@
 #include <Maths/Helpers.h>
 
 #define SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS 1
-#include <ThirdParty/SPIRV-Cross/spirv_cross.hpp>
+#include "ThirdParty/SPIRV-Cross/src/spirv_cross.hpp"
 
-#include <vulkan/vulkan.h>
+#include "vulkan.h"
 
 static constexpr VkPrimitiveTopology VK_PRIMITIVE_TOPOLOGY[ePrimitiveTopology::PRIMITIVE_TOPOLOGY_COUNT] =
 {

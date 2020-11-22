@@ -23,7 +23,7 @@
 #define DUSKED_USE_MATERIAL_DESIGN_FONT 1
 
 #if DUSKED_USE_MATERIAL_DESIGN_FONT
-#include "ThirdParty/Google/IconsMaterialDesign.h"
+#include "ThirdParty/Google/include/IconsMaterialDesign.h"
 #endif
 
 #include "imgui.h"

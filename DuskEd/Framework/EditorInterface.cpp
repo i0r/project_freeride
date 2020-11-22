@@ -30,10 +30,9 @@
 
 #include "imgui.h"
 #include "imgui_internal.h"
+#include "ImGuizmo.h"
 
-#include "ThirdParty/ImGuizmo/ImGuizmo.h"
-
-#include "ThirdParty/Google/IconsMaterialDesign.h"
+#include "ThirdParty/Google/include/IconsMaterialDesign.h"
 #endif
 
 #if DUSK_USE_RENDERDOC

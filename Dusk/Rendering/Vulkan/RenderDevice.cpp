@@ -20,21 +20,21 @@
 #if DUSK_WINAPI
 #include <Core/Display/DisplaySurfaceWin32.h>
 
-#include <vulkan/vulkan_win32.h>
+#include "vulkan_win32.h"
 #define VK_USE_PLATFORM_WIN32_KHR 1
 #define DUSK_VK_SURF_EXT VK_KHR_WIN32_SURFACE_EXTENSION_NAME
 #elif DUSK_XCB
 #include <Core/Display/DisplaySurfaceXcb.h>
 
-#include <vulkan/vulkan_xcb.h>
+#include "vulkan_xcb.h"
 #define VK_USE_PLATFORM_XCB_KHR 1
 #define DUSK_VK_SURF_EXT VK_KHR_XCB_SURFACE_EXTENSION_NAME
 #else
 #define DUSK_VK_SURF_EXT
 #endif
 
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
+#include "vulkan.h"
+#include "vulkan_core.h"
 
 #define DUSK_GET_INSTANCE_PROC_ADDR( inst, entrypoint )\
         PFN_vk##entrypoint vk##entrypoint = reinterpret_cast<PFN_vk##entrypoint>( vkGetInstanceProcAddr( inst, "vk"#entrypoint ) );\

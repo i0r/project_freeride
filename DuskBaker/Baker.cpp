@@ -131,6 +131,9 @@ void dk::baker::Start( const char* cmdLineArgs )
 	dk::core::CreateFolderImpl( compiledShadersPath + DUSK_STRING( "/spirv/" ) );
 	dk::core::CreateFolderImpl( DUSK_STRING( "./failed_shaders/" ) );
 
+    FileSystemNative* shaderOutputFS = dk::core::allocate<FileSystemNative>( globalAllocator, compiledShadersPath );
+    virtualFileSystem->mount( shaderOutputFS, DUSK_STRING( "ShaderBinOutput" ), 2 );
+
     // This filesystem is required for logging/shader source code dumping.
     dkString_t workingDir;
     dk::core::RetrieveWorkingDirectory( workingDir );
@@ -204,15 +207,15 @@ void dk::baker::Start( const char* cmdLineArgs )
 
 #ifdef DUSK_SUPPORT_SM5_COMPILATION
                     RuntimeShaderCompiler::GeneratedBytecode compiledShaderSM5 = runtimeShaderCompiler->compileShaderModel5( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
-                    RuntimeShaderCompiler::SaveToDisk( virtualFileSystem, DUSK_STRING( "EditorAssets/shaders/sm5/" ), compiledShaderSM5, shader.Hashcode );
+                    RuntimeShaderCompiler::SaveToDisk( virtualFileSystem, DUSK_STRING( "ShaderBinOutput/sm5/" ), compiledShaderSM5, shader.Hashcode ); 
 #endif
 
 #ifdef DUSK_SUPPORT_SM6_COMPILATION
                     RuntimeShaderCompiler::GeneratedBytecode compiledShaderSM6 = runtimeShaderCompiler->compileShaderModel6( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
-                    RuntimeShaderCompiler::SaveToDisk( virtualFileSystem, DUSK_STRING( "EditorAssets/shaders/sm6/" ), compiledShaderSM6, shader.Hashcode );
+                    RuntimeShaderCompiler::SaveToDisk( virtualFileSystem, DUSK_STRING( "ShaderBinOutput/shaders/sm6/" ), compiledShaderSM6, shader.Hashcode );
 
                     RuntimeShaderCompiler::GeneratedBytecode compiledShaderSpirv = runtimeShaderCompiler->compileShaderModel6Spirv( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
-                    RuntimeShaderCompiler::SaveToDisk( virtualFileSystem, DUSK_STRING( "EditorAssets/shaders/spirv/" ), compiledShaderSpirv, shader.Hashcode );
+                    RuntimeShaderCompiler::SaveToDisk( virtualFileSystem, DUSK_STRING( "ShaderBinOutput/shaders/spirv/" ), compiledShaderSpirv, shader.Hashcode );
  #endif
                 }
             } break;

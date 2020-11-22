@@ -43,6 +43,8 @@ add_library( Dusk STATIC ${SOURCES} )
 
 set_property(TARGET Dusk PROPERTY FOLDER "DuskEngine")
 
+Dusk_UseRendering( Dusk )
+
 include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty" )
 include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/miniz" )
 

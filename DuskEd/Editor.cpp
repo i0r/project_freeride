@@ -52,7 +52,7 @@
 #include "Framework/ImGuiUtilities.h"
 #include "Framework/EditorWidgets/LoggingConsole.h"
 
-#include "ThirdParty/Google/IconsMaterialDesign.h"
+#include "ThirdParty/Google/include/IconsMaterialDesign.h"
 #endif
 
 #include "Physics/DynamicsWorld.h"
@@ -144,7 +144,7 @@ DUSK_ENV_VAR( EnableVSync, true, bool ); // "Enable Vertical Synchronisation [fa
 DUSK_ENV_VAR( ScreenSize, dkVec2u( 1280, 720 ), dkVec2u ); // "Defines application screen size [0..N]"
 DUSK_ENV_VAR( MSAASamplerCount, 1, u32 ) // "MSAA sampler count [1..N]"
 DUSK_ENV_VAR( ImageQuality, 1.0f, f32 ) // "Image Quality factor [0.1..N]"
-DUSK_ENV_VAR( RefreshRate, -1, u32 ) // "Refresh rate. If -1, the application will find the highest refresh rate possible and use it"
+DUSK_ENV_VAR( RefreshRate, -1, i32 ) // "Refresh rate. If -1, the application will find the highest refresh rate possible and use it"
 DUSK_ENV_VAR( DefaultCameraFov, 90.0f, f32 ) // "Default Field Of View set to a new Camera"
 DUSK_ENV_VAR_TRANSIENT( IsFirstLaunch, false, bool ) // "True if this is the first time the editor is launched" [false/true]
 DUSK_DEV_VAR_PERSISTENT( UseDebugLayer, false, bool ); // "Enable render debug context/layers" [false/true]
@@ -335,7 +335,7 @@ void InitializeIOSubsystems()
     g_VirtualFileSystem->mount( g_DataFileSystem, DUSK_STRING( "GameData" ), 1 );
 
     g_GameFileSystem = dk::core::allocate<FileSystemArchive>( g_GlobalAllocator, g_GlobalAllocator, DUSK_STRING( "./Game.zip" ) );
-    g_VirtualFileSystem->mount( g_GameFileSystem, DUSK_STRING( "GameData/" ), 0 );
+   // g_VirtualFileSystem->mount( g_GameFileSystem, DUSK_STRING( "GameData/" ), 0 );
 
 #if DUSK_DEVBUILD
     DUSK_LOG_INFO( "Mounting devbuild filesystems...\n" );

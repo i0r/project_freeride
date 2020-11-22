@@ -6,7 +6,7 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 
-#include "ThirdParty/Google/IconsMaterialDesign.h"
+#include "ThirdParty/Google/include/IconsMaterialDesign.h"
 
 #if DUSK_USE_IMGUI
 #if DUSK_UNICODE

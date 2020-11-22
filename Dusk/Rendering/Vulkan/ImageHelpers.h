@@ -7,7 +7,7 @@
 #include <Core/ViewFormat.h>
 
 #if DUSK_VULKAN
-#include <vulkan/vulkan.h>
+#include "vulkan.h"
 
 #include <Rendering/RenderDevice.h>
 

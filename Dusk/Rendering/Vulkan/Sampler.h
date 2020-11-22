@@ -6,7 +6,7 @@
 
 #if DUSK_VULKAN
 #include <Rendering/RenderDevice.h>
-#include <vulkan/vulkan.h>
+#include "vulkan.h"
 
 static constexpr VkSamplerAddressMode VK_SAMPLER_ADDRESS[eSamplerAddress::SAMPLER_ADDRESS_COUNT] = {
     VK_SAMPLER_ADDRESS_MODE_REPEAT,

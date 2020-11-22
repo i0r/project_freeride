@@ -5,7 +5,7 @@
 #pragma once
 
 #if DUSK_VULKAN
-#include <vulkan/vulkan.h>
+#include "vulkan.h"
 
 #include <Core/ViewFormat.h>
 #include <Rendering/RenderDevice.h>

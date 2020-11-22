@@ -15,7 +15,7 @@
 #include "Buffer.h"
 #include "ResourceAllocationHelpers.h"
 
-#include <vulkan/vulkan.h>
+#include "vulkan.h"
 
 Buffer* RenderDevice::createBuffer( const BufferDesc& description, const void* initialData )
 {
