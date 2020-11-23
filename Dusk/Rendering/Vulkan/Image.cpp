@@ -15,6 +15,8 @@
 
 #include "Core/StringHelpers.h"
 
+#include "vulkan.h"
+
 static VkImageCreateFlags GetTextureCreateFlags( const ImageDesc& description )
 {
     VkImageCreateFlags flagset = 0;
@@ -91,8 +93,11 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
     imageInfo.flags = GetTextureCreateFlags( description );
 
     VkImageType imageType = VK_IMAGE_TYPE_LUT[description.dimension];
+    
     const bool isCubemap = ( description.miscFlags & ImageDesc::IS_CUBE_MAP );
-    if ( imageType == VK_IMAGE_TYPE_2D && description.arraySize > 1 && !isCubemap ) {
+    const bool isArray = ( description.arraySize > 1 );
+
+    if ( imageType == VK_IMAGE_TYPE_2D && isArray && !isCubemap ) {
         imageInfo.imageType = VK_IMAGE_TYPE_3D;
         imageInfo.arrayLayers = description.arraySize * description.depth;
         imageInfo.extent.depth = 1u;
@@ -123,7 +128,7 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
     }
 
     Image* image = dk::core::allocate<Image>( memoryAllocator );
-    image->viewType = GetViewType( description );
+    image->viewType = GetViewType( description.dimension, isCubemap, isArray );
     image->defaultFormat = VK_IMAGE_FORMAT[description.format];
     image->aspectFlag = ( ( description.bindFlags & RESOURCE_BIND_DEPTH_STENCIL ) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT );
     image->mipCount = description.mipCount;
@@ -158,22 +163,13 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
 
             vkBindImageMemory( renderContext->device, imageObject, deviceMemory, 0ull );
 
-            image->renderTargetView[description.format][i] = CreateImageView(
-                        renderContext->device,
-                        imageObject,
-                        image->viewType,
-                        image->defaultFormat,
-                        image->aspectFlag,
-                        0,
-                        description.arraySize,
-                        0,
-                        description.mipCount
-            );
-
             image->resource[i] = imageObject;
             image->currentStage[i]= VK_PIPELINE_STAGE_HOST_BIT;
             image->deviceMemory[i] = deviceMemory;
         }
+
+        // Create default view for static resources (since it'll most likely be bind as a SRV at some point).
+        createImageView( *image, RenderingHelpers::IV_WholeArrayAndMipchain, 0u );
 
         for ( i32 i = 1; i < RenderDevice::PENDING_FRAME_COUNT; i++ ) {
             image->currentStage[i]= VK_PIPELINE_STAGE_HOST_BIT;
@@ -212,18 +208,10 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
             image->currentStage[i]= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
             image->resource[i] = imageObject;
             image->deviceMemory[i] = deviceMemory;
-            image->renderTargetView[description.format][i] = CreateImageView(
-                        renderContext->device,
-                        imageObject,
-                        image->viewType,
-                        image->defaultFormat,
-                        image->aspectFlag,
-                        0,
-                        description.arraySize,
-                        0,
-                        description.mipCount
-            );
         }
+
+        // Create default view for static resources (since it'll most likely be bind as a SRV at some point).
+        createImageView( *image, RenderingHelpers::IV_WholeArrayAndMipchain, 0u );
     } break;
     }
 
@@ -523,9 +511,59 @@ void CommandList::insertComputeBarrier( Image& image )
 
 }
 
+void CreateImageView( VkDevice device, const ImageViewDesc& viewDescription, Image& image )
+{
+    const bool isArrayView = ( viewDescription.ImageCount > 1 );
+    const u32 mipCount = ( viewDescription.MipCount <= 0 ) ? image.mipCount : viewDescription.MipCount;
+    const u32 imgCount = ( viewDescription.ImageCount <= 0 ) ? image.arraySize : viewDescription.ImageCount;
+    const i32 resCount = ( image.resourceUsage == eResourceUsage::RESOURCE_USAGE_STATIC ) ? 1 : RenderDevice::PENDING_FRAME_COUNT;
+
+    VkImageViewCreateInfo imageViewDesc;
+    imageViewDesc.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    imageViewDesc.pNext = nullptr;
+    imageViewDesc.flags = 0u;
+    imageViewDesc.viewType = ( isArrayView ) ? image.viewType : GetPerSliceViewType( image.viewType );
+    imageViewDesc.format = VK_IMAGE_FORMAT[viewDescription.ViewFormat];
+
+    imageViewDesc.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+    imageViewDesc.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+    imageViewDesc.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+    imageViewDesc.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+    imageViewDesc.subresourceRange.baseMipLevel = viewDescription.StartMipIndex;
+    imageViewDesc.subresourceRange.levelCount = mipCount;
+    imageViewDesc.subresourceRange.baseArrayLayer = viewDescription.StartImageIndex;
+    imageViewDesc.subresourceRange.layerCount = imgCount;
+
+    // Create the view for each internally buffered resource.
+    for ( i32 i = 0; i < resCount; i++ ) {
+        imageViewDesc.image = image.resource[i];
+
+        VkImageView imageView;
+        VkResult creationResult = vkCreateImageView( device, &imageViewDesc, VK_NULL_HANDLE, &imageView );
+        DUSK_RAISE_FATAL_ERROR( creationResult == VK_SUCCESS, "Image view creation failed! (error code %i)", creationResult );
+
+        image.renderTargetView[viewDescription.SortKey][i] = imageView;
+    }
+}
+
 void RenderDevice::createImageView( Image& image, const ImageViewDesc& viewDescription, const u32 creationFlags )
 {
-    DUSK_DEV_ASSERT( false, "TODO IMPLEMENTATION MISSING" );
+    //if ( creationFlags & IMAGE_VIEW_COVER_WHOLE_MIPCHAIN ) {
+    //    ImageViewDesc perMipViewDescription = viewDescription;
+    //    for ( u32 i = 0; i < image.Description.mipCount; i++ ) {
+    //        perMipViewDescription.StartMipIndex = i;
+    //        perMipViewDescription.MipCount = 1;
+
+    //        image.RTVs[perMipViewDescription.SortKey].DepthStencilView = CreateImageDepthStencilView( renderContext->PhysicalDevice, image, perMipViewDescription );
+    //    }
+    //} else {
+    //    u32 mipEndIdx = viewDescription.StartMipIndex + mipCount;
+
+    //    for ( u32 mipIdx = viewDescription.StartMipIndex; mipIdx < mipEndIdx; mipIdx++ ) {
+
+    //    }
+    //}
 }
 
 void CommandList::setupFramebuffer( FramebufferAttachment* renderTargetViews, FramebufferAttachment depthStencilView )

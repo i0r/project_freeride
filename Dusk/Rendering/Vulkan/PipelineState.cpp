@@ -1099,7 +1099,7 @@ void CommandList::bindImage( const dkStringHash_t hashcode, Image* image, const 
 
     eViewFormat viewFormat = viewDescription.ViewFormat;
 
-    if ( image->renderTargetView[viewFormat][resourceFrameIndex] == VK_NULL_HANDLE ) {
+  /*  if ( image->renderTargetView[viewFormat][resourceFrameIndex] == VK_NULL_HANDLE ) {
         image->renderTargetView[viewFormat][resourceFrameIndex] = CreateImageView(
                     nativeCommandList->device,
                     image->resource[resourceFrameIndex],
@@ -1111,7 +1111,7 @@ void CommandList::bindImage( const dkStringHash_t hashcode, Image* image, const 
                     0,
                     image->mipCount
         );
-    }
+    }*/
 
     VkDescriptorImageInfo& imageInfos = nativeCommandList->imageInfos[nativeCommandList->imageInfosCount++];
     imageInfos.imageView = image->renderTargetView[viewFormat][resourceFrameIndex];

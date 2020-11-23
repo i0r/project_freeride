@@ -24,7 +24,7 @@ struct Image
     eResourceState currentState[RenderDevice::PENDING_FRAME_COUNT];
     VkImageLayout currentLayout[RenderDevice::PENDING_FRAME_COUNT];
     VkPipelineStageFlags currentStage[RenderDevice::PENDING_FRAME_COUNT];
-
+    
     Image() {
         memset( resource, 0, sizeof( VkImage ) * RenderDevice::PENDING_FRAME_COUNT );
         memset( deviceMemory, 0, sizeof( VkDeviceMemory ) * RenderDevice::PENDING_FRAME_COUNT );

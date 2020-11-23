@@ -4,16 +4,16 @@
 */
 #pragma once
 
-#include <Core/ViewFormat.h>
-
 #if DUSK_VULKAN
 #include "vulkan.h"
 
-#include <Rendering/RenderDevice.h>
+#include "Core/ViewFormat.h"
 
+#include "Rendering/RenderDevice.h"
 #include "RenderDevice.h"
 
-// Channel * PerChannelSize
+// Look Up Table to retrieve the number of bytes used for a single pixel with a given format.
+// (ChannelCount * PerChannelPrecisionSize). Will return 0 if the format is invalid/unavailable.
 static constexpr size_t VK_VIEW_FORMAT_SIZE[VIEW_FORMAT_COUNT] =
 {
     0ull,
@@ -135,6 +135,8 @@ static constexpr size_t VK_VIEW_FORMAT_SIZE[VIEW_FORMAT_COUNT] =
     16ull
 };
 
+// Look up table to convert an abstract eViewFormat to a VkFormat.
+// If there is no matching VkFormat, VK_FORMAT_UNDEFINED will be used.
 static constexpr VkFormat VK_IMAGE_FORMAT[VIEW_FORMAT_COUNT] =
 {
     VK_FORMAT_UNDEFINED,
@@ -256,31 +258,64 @@ static constexpr VkFormat VK_IMAGE_FORMAT[VIEW_FORMAT_COUNT] =
     VK_FORMAT_BC7_SRGB_BLOCK
 };
 
-static VkImageViewType GetViewType( const ImageDesc& description, const bool perSliceView = false )
+// Return the matching single-layered view type for an array view type.
+// If the given imageViewType is a single layered view type (e.g. 2D) the same view type will be returned by the function.
+static VkImageViewType GetPerSliceViewType( const VkImageViewType imageViewType )
 {
-    switch ( description.dimension ) {
-    case ImageDesc::DIMENSION_1D:
-        return ( ( description.arraySize > 1 && !perSliceView ) ? VkImageViewType::VK_IMAGE_VIEW_TYPE_1D_ARRAY : VkImageViewType::VK_IMAGE_VIEW_TYPE_1D );
+    switch ( imageViewType ) {
+    case VkImageViewType::VK_IMAGE_VIEW_TYPE_1D:
+    case VkImageViewType::VK_IMAGE_VIEW_TYPE_1D_ARRAY:
+        return VkImageViewType::VK_IMAGE_VIEW_TYPE_1D;
 
-    case ImageDesc::DIMENSION_2D:
-    {
-        if ( description.miscFlags & ImageDesc::IS_CUBE_MAP && !perSliceView ) {
-            return ( ( description.arraySize > 1 ) ? VkImageViewType::VK_IMAGE_VIEW_TYPE_CUBE_ARRAY : VkImageViewType::VK_IMAGE_VIEW_TYPE_CUBE );
-        } else {
-            return ( ( description.arraySize > 1 && !perSliceView ) ? VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY : VkImageViewType::VK_IMAGE_VIEW_TYPE_2D );
-        }
-    } break;
+    case VkImageViewType::VK_IMAGE_VIEW_TYPE_2D:
+    case VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY:
+        return VkImageViewType::VK_IMAGE_VIEW_TYPE_2D;
 
-    case ImageDesc::DIMENSION_3D:
-    {
-        return  VkImageViewType::VK_IMAGE_VIEW_TYPE_3D;
-    }
+    case VkImageViewType::VK_IMAGE_VIEW_TYPE_3D:
+        return VkImageViewType::VK_IMAGE_VIEW_TYPE_3D;
+
+    case VkImageViewType::VK_IMAGE_VIEW_TYPE_CUBE:
+    case VkImageViewType::VK_IMAGE_VIEW_TYPE_CUBE_ARRAY:
+        return VkImageViewType::VK_IMAGE_VIEW_TYPE_CUBE;
 
     default:
         return VkImageViewType::VK_IMAGE_VIEW_TYPE_2D;
     }
 }
 
+// Return the matching view type for a given abstract image dimension. If isArrayImage is true, the function will return
+// the array view type matching the dimension provided (e.g. 2D_ARRAY for a 2D dimension with isArrayImage=true).
+static VkImageViewType GetViewType( const decltype( ImageDesc::dimension ) dimension, const bool isArrayImage = false, const bool isCubemap = false )
+{
+    switch ( dimension ) {
+    case ImageDesc::DIMENSION_1D:
+    {
+        return ( ( isArrayImage ) ? VkImageViewType::VK_IMAGE_VIEW_TYPE_1D_ARRAY : VkImageViewType::VK_IMAGE_VIEW_TYPE_1D );
+    } break;
+
+    case ImageDesc::DIMENSION_2D:
+    {
+        if ( isCubemap ) {
+            return ( ( isArrayImage ) ? VkImageViewType::VK_IMAGE_VIEW_TYPE_CUBE_ARRAY : VkImageViewType::VK_IMAGE_VIEW_TYPE_CUBE );
+        } else {
+            return ( ( isArrayImage ) ? VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY : VkImageViewType::VK_IMAGE_VIEW_TYPE_2D );
+        }
+    } break;
+
+    case ImageDesc::DIMENSION_3D:
+    {
+        return VkImageViewType::VK_IMAGE_VIEW_TYPE_3D;
+    } break;
+
+    default:
+    {
+        return VkImageViewType::VK_IMAGE_VIEW_TYPE_2D;
+    } break;
+    };
+}
+
+// Return the matching VkSampleCountFlagBits for a given integer sample count. If the given sampleCount is invalid
+// (e.g. exceed the maximum sample count defined by the standard), the function will return VK_SAMPLE_COUNT_1_BIT.
 static VkSampleCountFlagBits GetVkSampleCount( const u32 sampleCount )
 {
     switch ( sampleCount ) {
@@ -301,32 +336,5 @@ static VkSampleCountFlagBits GetVkSampleCount( const u32 sampleCount )
     default:
         return VK_SAMPLE_COUNT_1_BIT;
     }
-}
-
-static VkImageView CreateImageView( VkDevice device, const VkImage image, const VkImageViewType viewType, const VkFormat format, const VkImageAspectFlagBits aspect, const u32 sliceIndex = 0u, const u32 sliceCount = ~0u, const u32 mipIndex = 0u, const u32 mipCount = ~0u )
-{
-    const bool isPerSliceView = ( sliceIndex != 0 );
-
-    VkImageViewCreateInfo createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    createInfo.pNext = nullptr;
-    createInfo.flags = 0u;
-    createInfo.image = image;
-    createInfo.viewType = viewType;
-    createInfo.format = format;
-    createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-    createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-    createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-    createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-    createInfo.subresourceRange.aspectMask = aspect;
-    createInfo.subresourceRange.baseMipLevel = mipIndex;
-    createInfo.subresourceRange.levelCount = mipCount;
-    createInfo.subresourceRange.baseArrayLayer = sliceIndex;
-    createInfo.subresourceRange.layerCount = sliceCount;
-
-    VkImageView imageView;
-    vkCreateImageView( device, &createInfo, nullptr, &imageView );
-
-    return imageView;
 }
 #endif
