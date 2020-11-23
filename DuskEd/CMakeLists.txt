@@ -69,12 +69,12 @@ Dusk_UseRendering( DuskEd )
 target_link_libraries( DuskEd debug Dusk_Debug optimized Dusk )
 
 if ( DUSK_USE_FBXSDK )
-    find_package( FBXSDK REQUIRED )
-    include_directories( ${FBXSDK_INCLUDE_DIR} )
-    
-    target_link_libraries( DuskEd debug ${FBXSDK_LIBRARY_DEBUG} optimized ${FBXSDK_LIBRARY} )
-    target_link_libraries( DuskEd debug ${LIBXML2_LIBRARY_DEBUG} optimized ${LIBXML2_LIBRARY} )
-    target_link_libraries( DuskEd debug ${ZLIB_LIBRARY_DEBUG} optimized ${ZLIB_LIBRARY} )
+    include_directories( "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/fbxsdk/include/" )
+	add_definitions( -DFBXSDK_SHARED )
+
+    target_link_libraries( DuskEd 
+                        debug "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/fbxsdk/lib/debug/libfbxsdk.lib" 
+                        optimized "${DUSK_BASE_FOLDER}DuskEd/ThirdParty/fbxsdk/lib/release/libfbxsdk.lib" )
 endif( DUSK_USE_FBXSDK )
 
 include_directories( "${DUSK_BASE_FOLDER}DuskEd" )
