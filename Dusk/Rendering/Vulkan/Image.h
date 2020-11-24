@@ -12,9 +12,11 @@
 
 struct Image
 {
-    VkImage         resource[RenderDevice::PENDING_FRAME_COUNT];
-    VkDeviceMemory     deviceMemory[RenderDevice::PENDING_FRAME_COUNT];
-    VkImageView     renderTargetView[eViewFormat::VIEW_FORMAT_COUNT][RenderDevice::PENDING_FRAME_COUNT];
+    VkImage             resource[RenderDevice::PENDING_FRAME_COUNT];
+    VkDeviceMemory      deviceMemory[RenderDevice::PENDING_FRAME_COUNT];
+
+    std::unordered_map<u64, VkImageView> renderTargetView[RenderDevice::PENDING_FRAME_COUNT];
+
     VkImageViewType viewType;
     VkFormat                defaultFormat;
     VkImageAspectFlagBits aspectFlag;
@@ -28,7 +30,6 @@ struct Image
     Image() {
         memset( resource, 0, sizeof( VkImage ) * RenderDevice::PENDING_FRAME_COUNT );
         memset( deviceMemory, 0, sizeof( VkDeviceMemory ) * RenderDevice::PENDING_FRAME_COUNT );
-        memset( renderTargetView, 0, sizeof( VkImageView ) * eViewFormat::VIEW_FORMAT_COUNT * RenderDevice::PENDING_FRAME_COUNT );
         memset( currentState, 0, sizeof( eResourceState ) * RenderDevice::PENDING_FRAME_COUNT );
         memset( currentLayout, 0, sizeof( VkImageLayout ) * RenderDevice::PENDING_FRAME_COUNT );
         memset( currentStage, 0, sizeof( VkPipelineStageFlagBits ) * RenderDevice::PENDING_FRAME_COUNT );

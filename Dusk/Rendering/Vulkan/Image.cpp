@@ -543,27 +543,25 @@ void CreateImageView( VkDevice device, const ImageViewDesc& viewDescription, Ima
         VkResult creationResult = vkCreateImageView( device, &imageViewDesc, VK_NULL_HANDLE, &imageView );
         DUSK_RAISE_FATAL_ERROR( creationResult == VK_SUCCESS, "Image view creation failed! (error code %i)", creationResult );
 
-        image.renderTargetView[viewDescription.SortKey][i] = imageView;
+        image.renderTargetView[i][viewDescription.SortKey] = imageView;
     }
 }
 
 void RenderDevice::createImageView( Image& image, const ImageViewDesc& viewDescription, const u32 creationFlags )
 {
-    //if ( creationFlags & IMAGE_VIEW_COVER_WHOLE_MIPCHAIN ) {
-    //    ImageViewDesc perMipViewDescription = viewDescription;
-    //    for ( u32 i = 0; i < image.Description.mipCount; i++ ) {
-    //        perMipViewDescription.StartMipIndex = i;
-    //        perMipViewDescription.MipCount = 1;
+    // NOTE We do not need to take in account IMAGE_VIEW_CREATE_* flags (this is only required for older gen. API like
+    // D3D11, GNM, etc.).
+    if ( creationFlags & IMAGE_VIEW_COVER_WHOLE_MIPCHAIN ) {
+        ImageViewDesc perMipViewDescription = viewDescription;
+        for ( u32 i = 0; i < image.mipCount; i++ ) {
+            perMipViewDescription.StartMipIndex = i;
+            perMipViewDescription.MipCount = 1;
 
-    //        image.RTVs[perMipViewDescription.SortKey].DepthStencilView = CreateImageDepthStencilView( renderContext->PhysicalDevice, image, perMipViewDescription );
-    //    }
-    //} else {
-    //    u32 mipEndIdx = viewDescription.StartMipIndex + mipCount;
-
-    //    for ( u32 mipIdx = viewDescription.StartMipIndex; mipIdx < mipEndIdx; mipIdx++ ) {
-
-    //    }
-    //}
+            CreateImageView( renderContext->device, perMipViewDescription, image );
+        }
+    } else {
+        CreateImageView( renderContext->device, viewDescription, image );
+    }
 }
 
 void CommandList::setupFramebuffer( FramebufferAttachment* renderTargetViews, FramebufferAttachment depthStencilView )
