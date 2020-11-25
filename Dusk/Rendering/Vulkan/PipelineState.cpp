@@ -250,30 +250,25 @@ void CreateShaderStageDescriptor( VkPipelineShaderStageCreateInfo& shaderStageIn
     shaderStageInfos.pNext = nullptr;
     shaderStageInfos.flags = 0u;
     shaderStageInfos.module = shader->shaderModule;
+    shaderStageInfos.pName = "EntryPoint";
 
     switch ( shaderStage ) {
     case eShaderStage::SHADER_STAGE_VERTEX:
         shaderStageInfos.stage = VK_SHADER_STAGE_VERTEX_BIT;
-        shaderStageInfos.pName = "EntryPointVS";
         break;
     case eShaderStage::SHADER_STAGE_COMPUTE:
         shaderStageInfos.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-        shaderStageInfos.pName = "EntryPointCS";
         break;
     case eShaderStage::SHADER_STAGE_PIXEL:
         shaderStageInfos.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-        shaderStageInfos.pName = "EntryPointPS";
         break;
     case eShaderStage::SHADER_STAGE_TESSELATION_CONTROL:
         shaderStageInfos.stage = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
-        shaderStageInfos.pName = "EntryPointDS";
         break;
     case eShaderStage::SHADER_STAGE_TESSELATION_EVALUATION:
         shaderStageInfos.stage = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
-        shaderStageInfos.pName = "EntryPointHS";
         break;
     default:
-        shaderStageInfos.pName = "main";
         break;
     }
 
@@ -682,7 +677,7 @@ DUSK_INLINE PipelineState* CreateComputePso( VkDevice device, BaseAllocator* mem
     shaderStageInfos.flags = 0u;
     shaderStageInfos.stage = VK_SHADER_STAGE_COMPUTE_BIT;
     shaderStageInfos.module = description.computeShader->shaderModule;
-    shaderStageInfos.pName = "EntryPointCS";
+    shaderStageInfos.pName = "EntryPoint";
     shaderStageInfos.pSpecializationInfo = nullptr;
 
     // Fill PSO description
