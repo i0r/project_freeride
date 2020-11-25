@@ -160,11 +160,24 @@ void CommandList::updateBuffer( Buffer& buffer, const void* data, const size_t d
 
 void* CommandList::mapBuffer( Buffer& buffer, const u32 startOffsetInBytes, const u32 sizeInBytes )
 {
-    return nullptr;
+    void* mappedMemoryAddress = nullptr;
+
+    VkDeviceSize bufferSize = ( sizeInBytes == BUFFER_MAP_WHOLE_MEMORY ) ? VK_WHOLE_SIZE : sizeInBytes;
+    VkResult mapResult = vkMapMemory( nativeCommandList->device,
+                                        buffer.deviceMemory[resourceFrameIndex],
+                                        static_cast< VkDeviceSize >( startOffsetInBytes ),
+                                        bufferSize,
+                                        0,
+                                        &mappedMemoryAddress );
+
+    DUSK_DEV_ASSERT( mapResult == VK_SUCCESS && mappedMemoryAddress != nullptr, "Failed to map buffer memory on CPU!" );
+
+    return mappedMemoryAddress;
 }
 
 void CommandList::unmapBuffer( Buffer& buffer )
 {
+    vkUnmapMemory( nativeCommandList->device, buffer.deviceMemory[resourceFrameIndex] );
 }
 
 void CommandList::transitionBuffer( Buffer& buffer, const eResourceState state )
