@@ -260,7 +260,7 @@ static constexpr VkFormat VK_IMAGE_FORMAT[VIEW_FORMAT_COUNT] =
 
 // Return the matching single-layered view type for an array view type.
 // If the given imageViewType is a single layered view type (e.g. 2D) the same view type will be returned by the function.
-static VkImageViewType GetPerSliceViewType( const VkImageViewType imageViewType )
+static VkImageViewType GetPerSliceViewType( const VkImageViewType imageViewType, const u32 sliceCount = 1u )
 {
     switch ( imageViewType ) {
     case VkImageViewType::VK_IMAGE_VIEW_TYPE_1D:
@@ -269,14 +269,12 @@ static VkImageViewType GetPerSliceViewType( const VkImageViewType imageViewType 
 
     case VkImageViewType::VK_IMAGE_VIEW_TYPE_2D:
     case VkImageViewType::VK_IMAGE_VIEW_TYPE_2D_ARRAY:
+    case VkImageViewType::VK_IMAGE_VIEW_TYPE_3D:
+    case VkImageViewType::VK_IMAGE_VIEW_TYPE_CUBE:
         return VkImageViewType::VK_IMAGE_VIEW_TYPE_2D;
 
-    case VkImageViewType::VK_IMAGE_VIEW_TYPE_3D:
-        return VkImageViewType::VK_IMAGE_VIEW_TYPE_3D;
-
-    case VkImageViewType::VK_IMAGE_VIEW_TYPE_CUBE:
     case VkImageViewType::VK_IMAGE_VIEW_TYPE_CUBE_ARRAY:
-        return VkImageViewType::VK_IMAGE_VIEW_TYPE_CUBE;
+        return ( ( sliceCount % 6 ) == 0 ) ? VkImageViewType::VK_IMAGE_VIEW_TYPE_CUBE : VkImageViewType::VK_IMAGE_VIEW_TYPE_2D;
 
     default:
         return VkImageViewType::VK_IMAGE_VIEW_TYPE_2D;

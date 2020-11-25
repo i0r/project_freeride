@@ -13,18 +13,18 @@
 
 #include "Generated/BuiltIn.generated.h"
 
+#if DUSK_VULKAN
+constexpr eViewFormat SWAPCHAIN_VIEW_FORMAT = VIEW_FORMAT_B8G8R8A8_UNORM;
+#else
+constexpr eViewFormat SWAPCHAIN_VIEW_FORMAT = VIEW_FORMAT_R8G8B8A8_UNORM;
+#endif
+
 void AddPresentRenderPass( FrameGraph& frameGraph, FGHandle imageToPresent )
 {
     struct PassData {
         FGHandle input;
         FGHandle swapchain;
     };
-
-#if DUSK_VULKAN
-    constexpr eViewFormat SWAPCHAIN_VIEW_FORMAT = VIEW_FORMAT_B8G8R8A8_UNORM;
-#else
-    constexpr eViewFormat SWAPCHAIN_VIEW_FORMAT = VIEW_FORMAT_R8G8B8A8_UNORM;
-#endif
 
     constexpr PipelineStateDesc DefaultPipelineState = PipelineStateDesc(
         PipelineStateDesc::GRAPHICS,
@@ -83,6 +83,27 @@ void AddPresentRenderPass( FrameGraph& frameGraph, FGHandle imageToPresent )
 
             cmdList->draw( 3, 1 );
 
+            cmdList->popEventMarker();
+        }
+    );
+}
+
+void AddSwapchainStateTransition( FrameGraph& frameGraph )
+{
+    struct PassData {
+        FGHandle swapchain;
+    };
+
+    frameGraph.addRenderPass<PassData>(
+        BuiltIn::PresentPass_Name,
+        [&]( FrameGraphBuilder& builder, PassData& passData ) {
+            passData.swapchain = builder.retrieveSwapchainBuffer();
+        },
+        [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
+            Image* outputTarget = resources->getPersitentImage( passData.swapchain );
+            
+            cmdList->pushEventMarker( BuiltIn::PresentPass_EventName );
+            cmdList->transitionImage( *outputTarget, eResourceState::RESOURCE_STATE_SWAPCHAIN_BUFFER );
             cmdList->popEventMarker();
         }
     );

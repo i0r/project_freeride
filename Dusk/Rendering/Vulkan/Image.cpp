@@ -23,7 +23,7 @@ static VkImageCreateFlags GetTextureCreateFlags( const ImageDesc& description )
 
     if ( description.miscFlags & ImageDesc::IS_CUBE_MAP ) {
         flagset |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
-    } else if ( description.arraySize > 1 ) {
+    } else if ( description.arraySize > 1 || description.dimension == ImageDesc::DIMENSION_3D ) {
         // NOTE Do not set VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT when VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT is set (not allowed by the specs.)
         flagset |= VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT;
     }
@@ -245,7 +245,7 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
 
         void* data;
         vkMapMemory( renderContext->device, stagingBufferMemory, 0, initialDataSize, 0, &data);
-            memcpy( data, initialData, initialDataSize );
+        memcpy( data, initialData, initialDataSize );
         vkUnmapMemory(renderContext->device, stagingBufferMemory);
 
         CommandList& cmdList = allocateCopyCommandList();
@@ -516,14 +516,16 @@ void CreateImageView( VkDevice device, const ImageViewDesc& viewDescription, Ima
     const bool isArrayView = ( viewDescription.ImageCount > 1 );
     const u32 mipCount = ( viewDescription.MipCount <= 0 ) ? image.mipCount : viewDescription.MipCount;
     const u32 imgCount = ( viewDescription.ImageCount <= 0 ) ? image.arraySize : viewDescription.ImageCount;
-    const i32 resCount = ( image.resourceUsage == eResourceUsage::RESOURCE_USAGE_STATIC ) ? 1 : RenderDevice::PENDING_FRAME_COUNT;
+    const VkFormat viewFormat = ( viewDescription.ViewFormat == eViewFormat::VIEW_FORMAT_UNKNOWN ) ? image.defaultFormat : VK_IMAGE_FORMAT[viewDescription.ViewFormat];
+    const VkImageViewType viewType = ( isArrayView ) ? image.viewType : GetPerSliceViewType( image.viewType );
+    const bool isCubemap = ( viewType == VkImageViewType::VK_IMAGE_VIEW_TYPE_CUBE || viewType == VkImageViewType::VK_IMAGE_VIEW_TYPE_CUBE_ARRAY );
 
     VkImageViewCreateInfo imageViewDesc;
     imageViewDesc.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     imageViewDesc.pNext = nullptr;
     imageViewDesc.flags = 0u;
-    imageViewDesc.viewType = ( isArrayView ) ? image.viewType : GetPerSliceViewType( image.viewType );
-    imageViewDesc.format = VK_IMAGE_FORMAT[viewDescription.ViewFormat];
+    imageViewDesc.viewType = viewType;
+    imageViewDesc.format = viewFormat;
 
     imageViewDesc.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
     imageViewDesc.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -533,9 +535,11 @@ void CreateImageView( VkDevice device, const ImageViewDesc& viewDescription, Ima
     imageViewDesc.subresourceRange.baseMipLevel = viewDescription.StartMipIndex;
     imageViewDesc.subresourceRange.levelCount = mipCount;
     imageViewDesc.subresourceRange.baseArrayLayer = viewDescription.StartImageIndex;
-    imageViewDesc.subresourceRange.layerCount = imgCount;
+    imageViewDesc.subresourceRange.layerCount = ( isCubemap && ( ( imgCount % 6 ) == 0 ) ) ? 6 : imgCount; // The view must cover all the faces of the cubemap.
+    imageViewDesc.subresourceRange.aspectMask = image.aspectFlag;
 
     // Create the view for each internally buffered resource.
+    const i32 resCount = ( image.resourceUsage == eResourceUsage::RESOURCE_USAGE_STATIC ) ? 1 : RenderDevice::PENDING_FRAME_COUNT;
     for ( i32 i = 0; i < resCount; i++ ) {
         imageViewDesc.image = image.resource[i];
 

@@ -217,6 +217,9 @@ void WorldRenderer::loadCachedResources( RenderDevice* renderDevice, ShaderCache
         AddBrdfDfgLutComputePass( graph, brdfDfgLut );
     }
 
+    // Add explicit swapchain transition.
+    AddSwapchainStateTransition( graph );
+
     // Execute precompute step.
     graph.execute( renderDevice, 0.0f );
 

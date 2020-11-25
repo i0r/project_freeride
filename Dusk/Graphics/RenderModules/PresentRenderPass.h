@@ -10,3 +10,4 @@ class ShaderCache;
 struct FGHandle;
 
 void AddPresentRenderPass( FrameGraph& frameGraph, FGHandle imageToPresent );
+void AddSwapchainStateTransition( FrameGraph& frameGraph );

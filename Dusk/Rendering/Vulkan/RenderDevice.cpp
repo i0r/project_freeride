@@ -72,7 +72,7 @@ VkResult CreateVkInstance( VkInstance& instance )
 
 #if DUSK_DEVBUILD
     constexpr const char* validationLayers[1] = {
-        "VK_LAYER_LUNARG_standard_validation"
+        "VK_LAYER_KHRONOS_validation"
     };
 
     instanceInfo.enabledLayerCount = 1u;
@@ -552,7 +552,7 @@ void RenderDevice::create( DisplaySurface& displaySurface, const u32 desiredRefr
         createInfo.subresourceRange.baseArrayLayer = 0;
         createInfo.subresourceRange.layerCount = 1;
 
-        vkCreateImageView( device, &createInfo, nullptr, &swapChainImage->renderTargetView[VIEW_FORMAT_B8G8R8A8_UNORM][internalBufferIdx] );
+        vkCreateImageView( device, &createInfo, nullptr, &swapChainImage->renderTargetView[internalBufferIdx][VIEW_FORMAT_B8G8R8A8_UNORM] );
 
         swapChainImage->currentStage[internalBufferIdx] = VK_PIPELINE_STAGE_HOST_BIT;
 
