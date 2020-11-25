@@ -134,8 +134,10 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
     image->mipCount = description.mipCount;
     image->arraySize = description.arraySize;
     image->resourceUsage = description.usage;
+    
+    size_t memorySize = initialDataSize;
 
-    switch( description.usage) {
+    switch ( description.usage ) {
     case eResourceUsage::RESOURCE_USAGE_STATIC: {
         for ( i32 i = 0; i < 1; i ++) {
             VkImage imageObject;
@@ -147,6 +149,9 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
 
             VkMemoryRequirements imageMemoryRequirements;
             vkGetImageMemoryRequirements( renderContext->device, imageObject, &imageMemoryRequirements );
+
+            // Update memory size with proper size on the GPU side.
+            memorySize = imageMemoryRequirements.size;
 
             VkMemoryAllocateInfo allocInfo;
             allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -223,7 +228,7 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
         stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         stagingBufferInfo.flags = 0;
         stagingBufferInfo.pNext = VK_NULL_HANDLE;
-        stagingBufferInfo.size = initialDataSize;
+        stagingBufferInfo.size = memorySize;
         stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
         stagingBufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
@@ -441,7 +446,7 @@ static DUSK_INLINE VkPipelineStageFlags GetStageFlags( const VkAccessFlags acces
 
 void CommandList::transitionImage( Image& image, const eResourceState state, const u32 mipIndex, const TransitionType transitionType )
 {
-     const eResourceState previousState = image.currentState[resourceFrameIndex];
+    const eResourceState previousState = image.currentState[resourceFrameIndex];
 
     VkImageLayout oldLayout = GetLayout( previousState );
     VkImageLayout newLayout = GetLayout( state );
