@@ -10,6 +10,7 @@
 
 #include "RenderDevice.h"
 #include "CommandList.h"
+#include "Buffer.h"
 
 #include "vulkan.h"
 
@@ -41,7 +42,7 @@ QueryPool* RenderDevice::createQueryPool( const eQueryType type, const u32 poolC
     // Create staging buffer to retrieve query results.
     BufferDesc statingBufferDesc;
     statingBufferDesc.Usage = RESOURCE_USAGE_STAGING;
-    statingBufferDesc.Size = poolCapacity;
+    statingBufferDesc.SizeInBytes = poolCapacity;
     statingBufferDesc.StrideInBytes = sizeof( u64 );
     statingBufferDesc.BindFlags = RESOURCE_BIND_UNBINDABLE;
 
@@ -71,7 +72,7 @@ void CommandList::retrieveQueryResults( QueryPool& queryPool, const u32 startQue
     vkCmdCopyQueryPoolResults( 
         nativeCommandList->cmdList, 
         queryPool.queryPool, 
-        startQueryIndex, 
+        startQueryIndex,
         queryCount, 
         queryPool.ResultsStagingBuffer->resource[resourceFrameIndex],
         0, 
@@ -82,14 +83,14 @@ void CommandList::retrieveQueryResults( QueryPool& queryPool, const u32 startQue
 
 void CommandList::getQueryResult( QueryPool& queryPool, u64* resultsArray, const u32 startQueryIndex, const u32 queryCount )
 {
-    void* mappedResultBuffer = mapBuffer( queryPool.ResultsStagingBuffer, startQueryIndex * sizeof( u64 ), queryCount * sizeof( u64 ) );
+    void* mappedResultBuffer = mapBuffer( *queryPool.ResultsStagingBuffer, startQueryIndex * sizeof( u64 ), queryCount * sizeof( u64 ) );
     if ( mappedResultBuffer == nullptr ) {
         return;
     }
 
     memcpy( resultsArray, mappedResultBuffer, sizeof( u64 ) * queryCount );
 
-    unmapBuffer( queryPool.ResultsStagingBuffer );
+    unmapBuffer( *queryPool.ResultsStagingBuffer );
 }
 
 u32 CommandList::allocateQuery( QueryPool& queryPool )

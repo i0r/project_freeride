@@ -53,5 +53,7 @@ struct RenderContext
 
     VkSemaphore frameSemaphores[RenderDevice::PENDING_FRAME_COUNT][33];
     u32 frameSemaphoresCount[RenderDevice::PENDING_FRAME_COUNT];
+
+    bool                            waitForSwapchain;
 };
 #endif

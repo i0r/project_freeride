@@ -833,6 +833,8 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
 
         size_t nextFrameIdx = frameIndex + 1;
         waitFence = renderContext->swapChainFence[nextFrameIdx % PENDING_FRAME_COUNT];
+
+        renderContext->waitForSwapchain = true;
     }
 
     VkQueue submitQueue = ( cmdList.getCommandListType() == CommandList::Type::GRAPHICS ) ? renderContext->graphicsQueue : renderContext->computeQueue;
@@ -842,6 +844,17 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
 void RenderDevice::present()
 {
     u32 bufferIdx = frameIndex % PENDING_FRAME_COUNT;
+
+    if ( !renderContext->waitForSwapchain ) {
+        // Prepare device state/resources for the next frame
+        frameIndex++;
+
+        bufferIdx = frameIndex % PENDING_FRAME_COUNT;
+        vkResetDescriptorPool( renderContext->device, renderContext->descriptorPool[bufferIdx], 0 );
+        renderContext->frameSemaphoresCount[bufferIdx] = 1;
+    
+        return;
+    }
 
     VkPresentInfoKHR presentInfo = {};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -870,6 +883,8 @@ void RenderDevice::present()
     u32 nextImageIdx = 0;
     VkResult opResult = vkAcquireNextImageKHR( renderContext->device, renderContext->swapChain, UINT64_MAX, renderContext->frameSemaphores[bufferIdx][0], VK_NULL_HANDLE, &nextImageIdx );
     DUSK_RAISE_FATAL_ERROR( opResult == VkResult::VK_SUCCESS, "Failed to acquire next image! (error code: 0x%x)", opResult );
+
+    renderContext->waitForSwapchain = false;
 }
 
 void RenderDevice::waitForPendingFrameCompletion()
