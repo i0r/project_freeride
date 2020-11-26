@@ -82,6 +82,8 @@ include_directories( "${DUSK_BASE_FOLDER}Dusk" )
 include_directories( "${DUSK_BASE_FOLDER}Dusk/ThirdParty/" )
 include_directories( "${DUSK_BASE_FOLDER}DuskEd/ThirdParty" )
 
+target_link_libraries( DuskEd d3dcompiler )
+
 if ( WIN32 )
     target_link_libraries( DuskEd winmm Pathcch Shlwapi )
     set_target_properties( DuskEd PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS" )
