@@ -15,15 +15,14 @@
 
 struct QueryPool
 {
-    VkQueryPool   queryPool;
+    VkQueryPool     queryPool;
+    Buffer*         ResultsStagingBuffer;
     unsigned int    currentAllocableIndex;
     unsigned int    capacity;
 };
 
 QueryPool* RenderDevice::createQueryPool( const eQueryType type, const u32 poolCapacity )
 {
-    QueryPool* queryPool = dk::core::allocate<QueryPool>( memoryAllocator );
-
     VkQueryPoolCreateInfo queryPoolCreateInfos = {};
     queryPoolCreateInfos.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
     queryPoolCreateInfos.pNext = nullptr;
@@ -39,7 +38,16 @@ QueryPool* RenderDevice::createQueryPool( const eQueryType type, const u32 poolC
     VkQueryPool nativeQueryPool = nullptr;
     vkCreateQueryPool( renderContext->device, &queryPoolCreateInfos, nullptr, &nativeQueryPool );
 
+    // Create staging buffer to retrieve query results.
+    BufferDesc statingBufferDesc;
+    statingBufferDesc.Usage = RESOURCE_USAGE_STAGING;
+    statingBufferDesc.Size = poolCapacity;
+    statingBufferDesc.StrideInBytes = sizeof( u64 );
+    statingBufferDesc.BindFlags = RESOURCE_BIND_UNBINDABLE;
+
+    QueryPool* queryPool = dk::core::allocate<QueryPool>( memoryAllocator );
     queryPool->queryPool = nativeQueryPool;
+    queryPool->ResultsStagingBuffer = createBuffer( statingBufferDesc );
     queryPool->currentAllocableIndex = 0;
     queryPool->capacity = poolCapacity;
 
@@ -49,6 +57,8 @@ QueryPool* RenderDevice::createQueryPool( const eQueryType type, const u32 poolC
 void RenderDevice::destroyQueryPool( QueryPool* queryPool )
 {
     vkDestroyQueryPool( renderContext->device, queryPool->queryPool, nullptr );
+
+    destroyBuffer( queryPool->ResultsStagingBuffer );
 }
 
 f64 RenderDevice::convertTimestampToMs( const u64 timestamp ) const
@@ -58,12 +68,28 @@ f64 RenderDevice::convertTimestampToMs( const u64 timestamp ) const
 
 void CommandList::retrieveQueryResults( QueryPool& queryPool, const u32 startQueryIndex, const u32 queryCount )
 {
-
+    vkCmdCopyQueryPoolResults( 
+        nativeCommandList->cmdList, 
+        queryPool.queryPool, 
+        startQueryIndex, 
+        queryCount, 
+        queryPool.ResultsStagingBuffer->resource[resourceFrameIndex],
+        0, 
+        sizeof( u64 ), 
+        VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT 
+    );
 }
 
 void CommandList::getQueryResult( QueryPool& queryPool, u64* resultsArray, const u32 startQueryIndex, const u32 queryCount )
 {
+    void* mappedResultBuffer = mapBuffer( queryPool.ResultsStagingBuffer, startQueryIndex * sizeof( u64 ), queryCount * sizeof( u64 ) );
+    if ( mappedResultBuffer == nullptr ) {
+        return;
+    }
 
+    memcpy( resultsArray, mappedResultBuffer, sizeof( u64 ) * queryCount );
+
+    unmapBuffer( queryPool.ResultsStagingBuffer );
 }
 
 u32 CommandList::allocateQuery( QueryPool& queryPool )
