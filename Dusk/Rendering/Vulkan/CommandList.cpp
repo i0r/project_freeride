@@ -58,6 +58,8 @@ void CommandList::end()
 
 void CommandList::setViewport( const Viewport& viewport )
 {
+    DUSK_DEV_ASSERT( commandListType == CommandList::Type::GRAPHICS, "Called setViewport on a compute command list! The call will be ignored." );
+
     nativeCommandList->activeViewport = viewport;
 
     VkViewport vkViewport;
@@ -73,6 +75,8 @@ void CommandList::setViewport( const Viewport& viewport )
 
 void CommandList::setScissor( const ScissorRegion& scissorRegion )
 {
+    DUSK_DEV_ASSERT( commandListType == CommandList::Type::GRAPHICS, "Called setScissor on a compute command list! The call will be ignored." );
+
     VkRect2D vkScissor;
     vkScissor.offset.x = scissorRegion.Left;
     vkScissor.offset.y = scissorRegion.Top;

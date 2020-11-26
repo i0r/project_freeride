@@ -96,6 +96,15 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
     
     const bool isCubemap = ( description.miscFlags & ImageDesc::IS_CUBE_MAP );
     const bool isArray = ( description.arraySize > 1 );
+    const bool needUavAccess = ( description.bindFlags & eResourceBind::RESOURCE_BIND_UNORDERED_ACCESS_VIEW );
+
+    const VkFormat imageFormat = VK_IMAGE_FORMAT[description.format];
+    const bool isDepth = ( ( description.bindFlags & RESOURCE_BIND_DEPTH_STENCIL )
+                           || ( imageFormat == VK_FORMAT_D16_UNORM )
+                           || ( imageFormat == VK_FORMAT_D32_SFLOAT )
+                           || ( imageFormat == VK_FORMAT_D16_UNORM_S8_UINT )
+                           || ( imageFormat == VK_FORMAT_D24_UNORM_S8_UINT )
+                           || ( imageFormat == VK_FORMAT_D32_SFLOAT_S8_UINT ) );
 
     if ( imageType == VK_IMAGE_TYPE_2D && isArray && !isCubemap ) {
         imageInfo.imageType = VK_IMAGE_TYPE_3D;
@@ -122,6 +131,7 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
     imageInfo.samples = GetVkSampleCount( description.samplerCount );
     imageInfo.format = VK_IMAGE_FORMAT[description.format];
     imageInfo.usage = GetImageUsageFlags( description );
+    imageInfo.tiling = ( description.miscFlags & ImageDesc::DISABLE_TILING ) ? VkImageTiling::VK_IMAGE_TILING_LINEAR : VkImageTiling::VK_IMAGE_TILING_OPTIMAL;
 
     if ( initialData != nullptr ) {
         imageInfo.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
@@ -129,8 +139,8 @@ Image* RenderDevice::createImage( const ImageDesc& description, const void* init
 
     Image* image = dk::core::allocate<Image>( memoryAllocator );
     image->viewType = GetViewType( description.dimension, isCubemap, isArray );
-    image->defaultFormat = VK_IMAGE_FORMAT[description.format];
-    image->aspectFlag = ( ( description.bindFlags & RESOURCE_BIND_DEPTH_STENCIL ) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT );
+    image->defaultFormat = imageFormat;
+    image->aspectFlag = ( isDepth ) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
     image->mipCount = description.mipCount;
     image->arraySize = description.arraySize;
     image->resourceUsage = description.usage;
