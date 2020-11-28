@@ -235,7 +235,7 @@ static void WriteConstantBufferDecl( const TypeAST* bufferData, const char* buff
     hlslSourceOutput.append( "};\n\n" );
 }
 
-static DUSK_INLINE void WriteResourceList( const TypeAST* resourceList, const TypeAST* properties, const RenderLibraryGenerator::RenderPassInfos& renderPassInfos, std::string& hlslSource )
+static DUSK_INLINE void WriteResourceList( const TypeAST* resourceList, const TypeAST* properties, const RenderLibraryGenerator::RenderPassInfos& renderPassInfos, std::unordered_map < dkStringHash_t, u32 >& referenceMap, std::string& hlslSource )
 {
     if ( resourceList != nullptr ) {
         u32 samplerRegisterIdx = 0;
@@ -248,6 +248,21 @@ static DUSK_INLINE void WriteResourceList( const TypeAST* resourceList, const Ty
 
             const TypeAST::ePrimitiveType primType = resourceList->Types[i]->PrimitiveType;
             const std::string resName( resourceList->Names[i].StreamPointer, resourceList->Names[i].Length );
+            const dkStringHash_t resHash = DUSK_STRING_HASH( resName.c_str() );
+
+            // Skip unreferenced/unused resources.
+            auto it = referenceMap.find( resHash );
+            if ( it == referenceMap.end() ) {
+                DUSK_LOG_DEBUG( "Culling parameter '%hs' (resource not found in the shader source)\n", resName.c_str() );
+                continue;
+            }
+
+            u32 referenceCount = it->second;
+            if ( referenceCount == 0u ) {
+                DUSK_LOG_DEBUG( "Culling parameter '%hs' (reference count is 0)\n", resName.c_str() );
+                continue;
+            }
+
             const bool isReadOnlyRes = IsReadOnlyResourceType( primType );
             bool isMultisampled = false;
             
@@ -534,6 +549,52 @@ static void PreprocessShaderSource( const std::string& bodySource, const i32 sta
                       || token.type == Token::NUMBER
                       || token.type == Token::COMMA
                       || token.type == Token::SEMICOLON );
+    }
+}
+
+static DUSK_INLINE void CheckAndUpdateResourceRef( const std::string& resourceName, std::unordered_map< dkStringHash_t, u32 >& referenceMap )
+{
+    if ( resourceName.empty() ) {
+        return;
+    }
+
+    dkStringHash_t resourceHashcode = DUSK_STRING_HASH( resourceName.c_str() );
+    if ( referenceMap.find( resourceHashcode ) != referenceMap.end() ) {
+        referenceMap[resourceHashcode]++;
+    } 
+}
+
+// Update the resource reference map (to keep track of each resource usage).
+// bodySource should be the preprocessed shader source code and renderPassInfos the processed renderpass.
+// Note that this function assume that the given reference map is already initialized properly (i.e. each resources declared in the drpl has an entry
+// in the hashmap).
+static void UpdateResourceReferenceCount( const std::string& bodySource, const RenderLibraryGenerator::RenderPassInfos& renderPassInfos, const i32 stageIndex, std::unordered_map< dkStringHash_t, u32 >& referenceMap )
+{
+    // Shader source code lexing.
+    Lexer srcCodeLexer( bodySource.c_str() );
+
+    Token token;
+    while ( !srcCodeLexer.equalToken( Token::END_OF_STREAM, token ) ) {
+        switch ( token.type ) {
+        case Token::IDENTIFIER:
+        {
+            std::string tokenName( token.streamReference.StreamPointer, token.streamReference.Length );
+            CheckAndUpdateResourceRef( tokenName, referenceMap );
+        } break;
+        default:
+            break;
+        }
+    };
+
+    // We also need to check the framebuffer declaration for RenderTarget references (Pixel stage only).
+    if ( renderPassInfos.PipelineStateType == PipelineStateDesc::GRAPHICS && stageIndex == 1 ) {
+        // Color Attachments.
+        for ( const std::string& renderTarget : renderPassInfos.ColorRenderTargets ) {
+            CheckAndUpdateResourceRef( renderTarget, referenceMap );
+        }
+
+        // Depth/Stencil Attachment.
+        CheckAndUpdateResourceRef( renderPassInfos.DepthStencilBuffer, referenceMap );
     }
 }
 
@@ -1062,9 +1123,6 @@ void RenderLibraryGenerator::processShaderStage( const i32 stageIndex, const std
     // Write per renderpass/view cbuffers and parse compile-time flags
     WriteConstantBufferDecl( propertiesNode, "PerPassBuffer", 1, constantMap, generatedShader.GeneratedSource );
 
-    // Create resource list
-    WriteResourceList( resourceListNode, propertiesNode, passInfos, generatedShader.GeneratedSource );
-
     // NOTE We want the shared header first in the hlsl source (since it might add includes to the file
     // used by the resource list)
     PreprocessShaderSource( sharedShaderBody, stageIndex, constantMap, generatedShader.GeneratedSource, semanticInput, semanticOutput );
@@ -1073,6 +1131,26 @@ void RenderLibraryGenerator::processShaderStage( const i32 stageIndex, const std
     std::string processedSource;
     std::string bodySource( it->second->StreamPointer, it->second->Length );
     PreprocessShaderSource( bodySource, stageIndex, constantMap, processedSource, semanticInput, semanticOutput );
+
+    // First shader source code pass to remove unused resources in the current permutation.
+    const TypeAST* resourceList = resourceListNode;
+    if ( resourceList != nullptr ) {
+        // Key is the resource hashcode; Value is the reference count for the current shader source.
+        std::unordered_map < dkStringHash_t, u32 > resourcesReferenceMap;
+
+        for ( u32 i = 0; i < resourceList->Names.size(); i++ ) {
+            const std::string resName( resourceList->Names[i].StreamPointer, resourceList->Names[i].Length );
+            const dkStringHash_t resHashcode = DUSK_STRING_HASH( resName.c_str() );
+
+            resourcesReferenceMap[resHashcode] = 0u;
+        }
+
+        // Do a first lexing pass to track the reference count for each resource in the shader body.
+        UpdateResourceReferenceCount( bodySource, passInfos, stageIndex, resourcesReferenceMap );
+
+        // Create resource list
+        WriteResourceList( resourceListNode, propertiesNode, passInfos, resourcesReferenceMap, generatedShader.GeneratedSource);
+    }
 
     // Write Stage input (based on system value semantics used in the source code)
     WritePassInOutData( semanticInput, STAGE_INPUT_NAME_LUT[stageIndex], generatedShader.GeneratedSource );

@@ -382,7 +382,13 @@ RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderMod
     const wchar_t* modelTarget = GetSM6StageTarget( shaderStage );
 
     IDxcBlobEncoding* blob = NULL;
-    dxcLibrary->CreateBlobWithEncodingOnHeapCopy( ( LPBYTE )sourceCode, ( UINT32 )sourceCodeLength, 0, &blob );
+    HRESULT operationResult = dxcLibrary->CreateBlobWithEncodingOnHeapCopy( ( LPBYTE )sourceCode, ( UINT32 )sourceCodeLength, 0, &blob );
+
+    if ( FAILED( operationResult ) ) {
+        DUSK_LOG_ERROR( "'%hs' : Failed to allocate memory (error code 0x%x)!\n", shaderName, operationResult );
+
+        return GeneratedBytecode( memoryAllocator, nullptr, 0ull );
+    }
 
     const wchar_t* pArgs[] =
     {

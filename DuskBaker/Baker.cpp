@@ -41,8 +41,8 @@
 
 static constexpr const char*    FAILED_SHADER_DUMP_FOLDER = "./failed_shaders/";
 
-// Data structure holding output/input paths for the baking process.
-struct BakingPaths
+// Data structure holding parameters (output/input paths, flags, etc.) for the baking process.
+struct BakingArgs
 {
     // Path to the folder storing shader binaries.
 	std::string CompiledShadersPath;
@@ -57,23 +57,37 @@ struct BakingPaths
     // Path to the folder storing user-made assets.
 	std::string AssetsPath;
 
+    // If true, will force the baking of every object queued for baking. The baker_cache will be
+    // deleted and recreated from scratch.
+    bool        IgnoreCache;
+
     // Return true if the given BakingPaths is valid (i.e. can be used to execute the baking),
     // false otherwise. Note that this function is static since we want to keep BakingPaths POD.
-    static bool IsValid( BakingPaths& paths )
+    static bool IsValid( BakingArgs& paths )
     {
         return ( !paths.AssetsPath.empty() 
               && !paths.CompiledShadersPath.empty() 
               && !paths.GeneratedHeadersPath.empty() );
     }
+
+    BakingArgs()
+        : CompiledShadersPath( "" )
+        , GeneratedHeadersPath( "" )
+        , GeneratedReflectionHeadersPath( "" )
+        , AssetsPath( "" )
+        , IgnoreCache( false )
+    {
+
+    }
 };
 
 // Parse arguments for assets baking and return a BakingPaths object
 // holding paths required for the baking process.
-BakingPaths CreateBakingPathsFromCmdLine( const char* cmdLineArgs )
+BakingArgs CreateBakingPathsFromCmdLine( const char* cmdLineArgs )
 {
 	DUSK_LOG_INFO( "Parsing command line arguments ('%hs')\n", cmdLineArgs );
 
-    BakingPaths pathOutput;
+    BakingArgs pathOutput;
 	char* path = strtok( const_cast< char* >( cmdLineArgs ), " " );
 	if ( path != nullptr ) {
         pathOutput.AssetsPath = std::string( path );
@@ -92,7 +106,20 @@ BakingPaths CreateBakingPathsFromCmdLine( const char* cmdLineArgs )
 	path = strtok( nullptr, " " );
 	if ( path != nullptr ) {
         pathOutput.GeneratedReflectionHeadersPath = std::string( path );
-	}
+    }
+
+    path = strtok( nullptr, " " );
+
+    // Lazy cmdline argument parsing (could be more efficient).
+    while ( path != nullptr ) {
+        std::string argStr( path );
+
+        if ( argStr == "--ignore-cache" ) {
+            pathOutput.IgnoreCache = true;
+        }
+
+        path = strtok( nullptr, " " );
+    }
 
     return pathOutput;
 }
@@ -107,16 +134,16 @@ void dk::baker::Start( const char* cmdLineArgs )
     LinearAllocator* globalAllocator = new ( BaseBuffer ) LinearAllocator( 1024 << 20, allocatedTable );
 
     // Parse cmdlist arguments for assets baking
-    BakingPaths bakingPaths = CreateBakingPathsFromCmdLine( cmdLineArgs );
-	if ( !BakingPaths::IsValid( bakingPaths ) ) {
-		DUSK_LOG_ERROR( "Usage: DuskBaker [(IN)DRPL_PATH] [(OUT)PATH_TO_COMPILED_SHADERS] [(OUT)PATH_TO_GENERATED_HEADERS] [(OUT (OPTIONAL))PATH_TO_GENERATED_REFLECTION_HEADERS]" );
+    BakingArgs bakingArgs = CreateBakingPathsFromCmdLine( cmdLineArgs );
+	if ( !BakingArgs::IsValid( bakingArgs ) ) {
+		DUSK_LOG_ERROR( "Usage: DuskBaker [(IN)DRPL_PATH] [(OUT)PATH_TO_COMPILED_SHADERS] [(OUT)PATH_TO_GENERATED_HEADERS] [(OUT (OPTIONAL))PATH_TO_GENERATED_REFLECTION_HEADERS] [(OPTIONAL) --ignore-cache]" );
         return;
     }
 
-    dkString_t assetsPath = StringToDuskString( bakingPaths.AssetsPath.c_str() );
-    dkString_t generatedHeadersPath = StringToDuskString( bakingPaths.GeneratedHeadersPath.c_str() );
+    dkString_t assetsPath = StringToDuskString( bakingArgs.AssetsPath.c_str() );
+    dkString_t generatedHeadersPath = StringToDuskString( bakingArgs.GeneratedHeadersPath.c_str() );
 
-	DUSK_LOG_INFO( "Assets Path: %hs\n Generated Headers Path: %hs\n", bakingPaths.AssetsPath.c_str(), bakingPaths.GeneratedHeadersPath.c_str() );
+	DUSK_LOG_INFO( "Assets Path: %hs\n Generated Headers Path: %hs\n", bakingArgs.AssetsPath.c_str(), bakingArgs.GeneratedHeadersPath.c_str() );
 
     VirtualFileSystem* virtualFileSystem = dk::core::allocate<VirtualFileSystem>( globalAllocator );
     FileSystemNative* dataFS = dk::core::allocate<FileSystemNative>( globalAllocator, generatedHeadersPath + DUSK_STRING( "/../../" ) );
@@ -124,7 +151,7 @@ void dk::baker::Start( const char* cmdLineArgs )
 
     RuntimeShaderCompiler* runtimeShaderCompiler = dk::core::allocate<RuntimeShaderCompiler>( globalAllocator, globalAllocator, virtualFileSystem );
 
-    dkString_t compiledShadersPath = StringToDuskString( bakingPaths.CompiledShadersPath.c_str() );
+    dkString_t compiledShadersPath = StringToDuskString( bakingArgs.CompiledShadersPath.c_str() );
 	dk::core::CreateFolderImpl( compiledShadersPath );
     dk::core::CreateFolderImpl( compiledShadersPath + DUSK_STRING( "/sm5/" ) );
     dk::core::CreateFolderImpl( compiledShadersPath + DUSK_STRING( "/sm6/" ) );
@@ -143,10 +170,13 @@ void dk::baker::Start( const char* cmdLineArgs )
     
     // Key is the library hashcode, value is the hash of its content.
     BakerCache cache;
-    FileSystemObject* storedCacheStream = workingDirFS->openFile( workingDir + DUSK_STRING( "/baker_cache.bin" ), FILE_OPEN_MODE_READ | FILE_OPEN_MODE_BINARY );
-    if ( storedCacheStream != nullptr ) {
-        cache.load( storedCacheStream );
-        storedCacheStream->close();
+
+    if ( !bakingArgs.IgnoreCache ) {
+        FileSystemObject* storedCacheStream = workingDirFS->openFile( workingDir + DUSK_STRING( "/baker_cache.bin" ), FILE_OPEN_MODE_READ | FILE_OPEN_MODE_BINARY );
+        if ( storedCacheStream != nullptr ) {
+            cache.load( storedCacheStream );
+            storedCacheStream->close();
+        }
     }
 
 	// Build renderlibs list.
@@ -167,7 +197,7 @@ void dk::baker::Start( const char* cmdLineArgs )
         MurmurHash3_x86_32( assetStr.c_str(), static_cast< i32 >( assetStr.size() ), dk::core::SeedFileSystemObject, &contentHashcode );
 
         dkStringHash_t fileHashcode = file->getHashcode();
-        if ( !cache.isEntryDirty( fileHashcode, contentHashcode ) ) {
+        if ( !bakingArgs.IgnoreCache && !cache.isEntryDirty( fileHashcode, contentHashcode ) ) {
             continue;
         }
 
@@ -192,12 +222,12 @@ void dk::baker::Start( const char* cmdLineArgs )
                 const std::string& libraryReflection = renderLibGenerator.getGeneratedReflection();
                 const std::vector<RenderLibraryGenerator::GeneratedShader>& libraryShaders = renderLibGenerator.getGeneratedShaders();
 
-                std::ofstream headerStream( bakingPaths.GeneratedHeadersPath + "/" + libraryName + ".generated.h" );
+                std::ofstream headerStream( bakingArgs.GeneratedHeadersPath + "/" + libraryName + ".generated.h" );
                 headerStream << libraryHeader;
                 headerStream.close();
 
-                if ( !bakingPaths.GeneratedReflectionHeadersPath.empty() && !libraryReflection.empty() ) {
-                    std::ofstream reflectionHeaderStream( bakingPaths.GeneratedReflectionHeadersPath + "/" + libraryName + ".reflected.h" );
+                if ( !bakingArgs.GeneratedReflectionHeadersPath.empty() && !libraryReflection.empty() ) {
+                    std::ofstream reflectionHeaderStream( bakingArgs.GeneratedReflectionHeadersPath + "/" + libraryName + ".reflected.h" );
                     reflectionHeaderStream << libraryReflection;
                     reflectionHeaderStream.close();
                 }
@@ -213,6 +243,12 @@ void dk::baker::Start( const char* cmdLineArgs )
 #ifdef DUSK_SUPPORT_SM6_COMPILATION
                     RuntimeShaderCompiler::GeneratedBytecode compiledShaderSM6 = runtimeShaderCompiler->compileShaderModel6( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
                     RuntimeShaderCompiler::SaveToDisk( virtualFileSystem, DUSK_STRING( "ShaderBinOutput/sm6/" ), compiledShaderSM6, shader.Hashcode );
+
+                    // DirectX Shader Compiler might hard crash during SPIR-V bytecode generation (if the source is invalid).
+                    // This is a temporary workaround (we assume that the source is malformed if SM6 compilation failed).
+                    if ( compiledShaderSM6.Length == 0ull || compiledShaderSM6.Bytecode == nullptr ) {
+                        continue;
+                    }
 
                     RuntimeShaderCompiler::GeneratedBytecode compiledShaderSpirv = runtimeShaderCompiler->compileShaderModel6Spirv( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
                     RuntimeShaderCompiler::SaveToDisk( virtualFileSystem, DUSK_STRING( "ShaderBinOutput/spirv/" ), compiledShaderSpirv, shader.Hashcode );
