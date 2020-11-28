@@ -183,61 +183,18 @@ lib AtmosphereBruneton {
           return AtmosphereParams.solar_irradiance /
               (PI * AtmosphereParams.sun_angular_radius * AtmosphereParams.sun_angular_radius);
         }
-        RadianceSpectrum GetSkyRadiance(
-            float3 camera, Direction view_ray, float shadow_length,
-            Direction sun_direction, out DimensionlessSpectrum transmittance) {
-          return GetSkyRadiance(AtmosphereParams, TransmittanceTextureInput,
-              ScatteringTextureInput, MieScatteringTextureInput, DefaultSampler,
-              camera, view_ray, shadow_length, sun_direction, transmittance);
-        }
-        RadianceSpectrum GetSkyRadianceToPoint(
-            float3 camera, float3 point_, float shadow_length,
-            Direction sun_direction, out DimensionlessSpectrum transmittance) {
-          return GetSkyRadianceToPoint(AtmosphereParams, TransmittanceTextureInput,
-              ScatteringTextureInput, MieScatteringTextureInput, DefaultSampler,
-              camera, point_, shadow_length, sun_direction, transmittance);
-        }
-        IrradianceSpectrum GetSunAndSkyIrradiance(
-           float3 p, Direction normal, Direction sun_direction,
-           out IrradianceSpectrum sky_irradiance) {
-          return GetSunAndSkyIrradiance(AtmosphereParams, TransmittanceTextureInput,
-              IrradianceTextureInput, DefaultSampler, p, normal, sun_direction, sky_irradiance);
-        }
-        Luminance3 GetSolarLuminance() {
-          return AtmosphereParams.solar_irradiance /
-              (PI * AtmosphereParams.sun_angular_radius * AtmosphereParams.sun_angular_radius) *
-              SUN_SPECTRAL_RADIANCE_TO_LUMINANCE;
-        }
-        Luminance3 GetSkyLuminance(
-            float3 camera, Direction view_ray, float shadow_length,
-            Direction sun_direction, out DimensionlessSpectrum transmittance) {
-          return GetSkyRadiance(AtmosphereParams, TransmittanceTextureInput,
-              ScatteringTextureInput, MieScatteringTextureInput, DefaultSampler,
-              camera, view_ray, shadow_length, sun_direction, transmittance) *
-              SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
-        }
-        Luminance3 GetSkyLuminanceToPoint(
-            float3 camera, float3 point_, float shadow_length,
-            Direction sun_direction, out DimensionlessSpectrum transmittance) {
-          return GetSkyRadianceToPoint(AtmosphereParams, TransmittanceTextureInput,
-              ScatteringTextureInput, MieScatteringTextureInput, DefaultSampler,
-              camera, point_, shadow_length, sun_direction, transmittance) *
-              SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
-        }
-        Illuminance3 GetSunAndSkyIlluminance(
-           float3 p, Direction normal, Direction sun_direction,
-           out IrradianceSpectrum sky_irradiance) {
-          IrradianceSpectrum sun_irradiance = GetSunAndSkyIrradiance(
-              AtmosphereParams, TransmittanceTextureInput, IrradianceTextureInput, DefaultSampler, p, normal,
-              sun_direction, sky_irradiance);
-          sky_irradiance *= SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
-          return sun_irradiance * SUN_SPECTRAL_RADIANCE_TO_LUMINANCE;
-        }
         
-        float4 GetSkyColor( const float3 worldPosition, const float3 viewDirection )
+        float4 GetSkyColor( 
+            IN_BRUNETON(AtmosphereParameters) atmosphere,
+            IN_BRUNETON(TransmittanceTexture) transmittance_texture,
+            IN_BRUNETON(ReducedScatteringTexture) scattering_texture,
+            IN_BRUNETON(ReducedScatteringTexture) single_mie_scattering_texture,
+            sampler transmittance_sampler,
+            const float3 worldPosition, const float3 viewDirection )
         {
             float3 transmittance;
-            float3 radiance = GetSkyRadiance( float3( worldPosition.xz * 0.05f, 0.05f ) - EarthCenter, viewDirection, 0, SunDirection, transmittance );
+            float3 radiance = GetSkyRadiance( atmosphere, transmittance_texture,
+              scattering_texture, single_mie_scattering_texture, transmittance_sampler, float3( worldPosition.xz * 0.05f, 0.05f ) - EarthCenter, viewDirection, 0, SunDirection, transmittance );
 
             float4 color = float4( radiance, 1 );
             
@@ -263,7 +220,8 @@ lib AtmosphereBruneton {
     
     shader BrunetonSkyPS {
         float3 viewDirection = normalize( $POSITION0.xyz );       
-        $SV_TARGET0 = GetSkyColor( g_WorldPosition, viewDirection );  
+        $SV_TARGET0 = GetSkyColor( AtmosphereParams, TransmittanceTextureInput,
+              ScatteringTextureInput, MieScatteringTextureInput, DefaultSampler, g_WorldPosition, viewDirection );  
     }
     
     // The compute permutation should only be used for distant probe recapture (or anything not relying on
@@ -277,7 +235,8 @@ lib AtmosphereBruneton {
         float3 upShift = yPixelCoordShifted * -UpVector;
         float3 viewDirection =  normalize(ViewDirection + rightShift + upShift).xzy;
 
-        float3 skyColor = GetSkyColor( WorldPosition, viewDirection ).rgb;
+        float3 skyColor = GetSkyColor( AtmosphereParams, TransmittanceTextureInput,
+              ScatteringTextureInput, MieScatteringTextureInput, DefaultSampler, WorldPosition, viewDirection ).rgb;
         OutputRenderTarget[$SV_DispatchThreadId.xy] = EncodeRGBD( skyColor );
     }
     

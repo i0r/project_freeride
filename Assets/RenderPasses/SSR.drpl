@@ -114,9 +114,9 @@ lib SSR {
             return intersection_pos;
         }
         
-        float minimum_depth_plane(float2 ray, float level, float2 cell_count)
+        float minimum_depth_plane(Texture2D<float> hiZBuffer, float2 ray, float level, float2 cell_count)
         {
-            return -HiZDepthBuffer.Load( int3( ( ray * cell_count ), max( level, 0 ) ) ).r;
+            return -hiZBuffer.Load( int3( ( ray * cell_count ), max( level, 0 ) ) ).r;
         }
         
         bool crossed_cell_boundary(float2 cell_id_one, float2 cell_id_two)
@@ -124,7 +124,7 @@ lib SSR {
             return (int)cell_id_one.x != (int)cell_id_two.x || (int)cell_id_one.y != (int)cell_id_two.y;
         }
         
-        float4 RayTrace(int HiZ_Max_Level, int HiZ_Start_Level, int HiZ_Stop_Level, int NumSteps, float Thickness, float2 screenSize, float3 rayOrigin, float3 rayDir)
+        float4 RayTrace(Texture2D<float> hiZBuffer, int HiZ_Max_Level, int HiZ_Start_Level, int HiZ_Stop_Level, int NumSteps, float Thickness, float2 screenSize, float3 rayOrigin, float3 rayDir)
         {
             HiZ_Max_Level = clamp(HiZ_Max_Level, 0, 7);
              rayOrigin = float3(rayOrigin.x, rayOrigin.y, -rayOrigin.z); 
@@ -159,7 +159,7 @@ lib SSR {
                     // return float4(ray.xy, ray.z, mask);
                 // }
 
-                float min_z = minimum_depth_plane(ray.xy, level, current_cell_count);
+                float min_z = minimum_depth_plane(hiZBuffer, ray.xy, level, current_cell_count);
 
                 // if (min_z < 1e-7)
                 // {
@@ -277,7 +277,7 @@ lib SSR {
         float3 rayDir = normalize((rayProj.xyz / rayProj.w) - screenPos);
         rayDir.xy *= 0.5f;
 
-        float4 rayTrace = RayTrace(SSR_MAX_MIP_LEVEL, HIZ_START_LEVEL, HIZ_STOP_LEVEL, NUM_STEPS, THICKNESS, OutputSize, rayStart, rayDir);
+        float4 rayTrace = RayTrace(HiZDepthBuffer, SSR_MAX_MIP_LEVEL, HIZ_START_LEVEL, HIZ_STOP_LEVEL, NUM_STEPS, THICKNESS, OutputSize, rayStart, rayDir);
         
         RayHitTarget[$SV_DispatchThreadId.xy] = float4(rayTrace.xyz, PDF);
         MaskTarget[$SV_DispatchThreadId.xy] = rayTrace.a * rayTrace.a;

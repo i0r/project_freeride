@@ -58,13 +58,13 @@ lib PostEffects {
             return ( 0.3 + 0.7 * pow(16.0 * texCoord.x * texCoord.y * (1.0 - texCoord.x) * (1.0 - texCoord.y), 0.2));
         }
 
-        float3 LUTlookup(in float3 InputColor, in Texture3D LUT) {
+        float3 LUTlookup(in float3 InputColor, in Texture3D LUT, sampler LutSampler) {
             static const float3 Scale = 15.0f / 16.0f;
             static const float3 Offset = 1.0f / 32.0f;
             
             float3 TexCoords = Scale * InputColor + Offset;
             
-            float4 CorrectedColor = LUT.SampleLevel( VolumetricLUTSampler, TexCoords, 0.0f );
+            float4 CorrectedColor = LUT.SampleLevel( LutSampler, TexCoords, 0.0f );
             return CorrectedColor.rgb;
         }
         
@@ -103,7 +103,7 @@ lib PostEffects {
         color = AccurateLinearToSRGB( color );
         
 #ifdef $EnableColorCorrection
-        color = LUTlookup( color, ColorGradingLUT );
+        color = LUTlookup( color, ColorGradingLUT, VolumetricLUTSampler );
 #endif
 
 #ifdef $ApplyDither

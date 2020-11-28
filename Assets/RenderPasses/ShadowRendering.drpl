@@ -18,19 +18,19 @@ lib ShadowRendering {
     }
     
     shared {
-        float4x4 GetSliceViewProjection( const uint sliceIdx )
+        float4x4 GetSliceViewProjection( StructuredBuffer<CSMSliceInfos> infosBuffer, const uint sliceIdx )
         {
-            float4 r0 = SliceInfos[sliceIdx].RenderingMatrix[0];
-            float4 r1 = SliceInfos[sliceIdx].RenderingMatrix[1];
-            float4 r2 = SliceInfos[sliceIdx].RenderingMatrix[2];
-            float4 r3 = SliceInfos[sliceIdx].RenderingMatrix[3];
+            float4 r0 = infosBuffer[sliceIdx].RenderingMatrix[0];
+            float4 r1 = infosBuffer[sliceIdx].RenderingMatrix[1];
+            float4 r2 = infosBuffer[sliceIdx].RenderingMatrix[2];
+            float4 r3 = infosBuffer[sliceIdx].RenderingMatrix[3];
             
             return float4x4( r0, r1, r2, r3 );
         }
     }
     
     shader DepthOnlyVS {
-        float4x4 ViewProjectionMatrix = GetSliceViewProjection( SliceIndex );
+        float4x4 ViewProjectionMatrix = GetSliceViewProjection( SliceInfos, SliceIndex );
         
         float4 positionWS = mul( DrawConstants[$BLENDINDICES].ModelMatrix, float4( $POSITION.xyz, 1.0f ) );
         $SV_POSITION = mul( ViewProjectionMatrix, float4( positionWS.xyz, 1.0f ) );

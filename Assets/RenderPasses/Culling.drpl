@@ -50,8 +50,8 @@ lib Culling {
         groupshared uint g_WorkGroupOutputSlot;
         groupshared uint g_WorkGroupIndexCount;
         
-        float3 LoadVertex(uint index, uint vertexOffset) {
-            return asfloat(VertexBuffer.Load3(vertexOffset + index * 12));
+        float3 LoadVertex(ByteAddressBuffer buffer, uint index, uint vertexOffset) {
+            return asfloat(buffer.Load3(vertexOffset + index * 12));
         }
                 
         bool CullTriangle( uint indices[3], float4 vertices[3] ) {
@@ -203,9 +203,9 @@ lib Culling {
 #endif
           
             float4 vertices[3] = {
-                mul( mul( float4( LoadVertex( indices[0], batchInputVertexOffset ), 1 ), modelMatrix ), ViewProjection ),
-                mul( mul( float4( LoadVertex( indices[1], batchInputVertexOffset ), 1 ), modelMatrix ), ViewProjection ),
-                mul( mul( float4( LoadVertex( indices[2], batchInputVertexOffset ), 1 ), modelMatrix ), ViewProjection )
+                mul( mul( float4( LoadVertex( VertexBuffer, indices[0], batchInputVertexOffset ), 1 ), modelMatrix ), ViewProjection ),
+                mul( mul( float4( LoadVertex( VertexBuffer, indices[1], batchInputVertexOffset ), 1 ), modelMatrix ), ViewProjection ),
+                mul( mul( float4( LoadVertex( VertexBuffer, indices[2], batchInputVertexOffset ), 1 ), modelMatrix ), ViewProjection )
             };
             
             cull = CullTriangle( indices, vertices );
