@@ -106,8 +106,11 @@ FGHandle AddResolveDepthMSAARenderPass( FrameGraph& frameGraph,
             copiedDepthImageDesc->bindFlags |= RESOURCE_BIND_UNORDERED_ACCESS_VIEW;
             copiedDepthImageDesc->bindFlags |= RESOURCE_BIND_SHADER_RESOURCE;
 
+#if DUSK_D3D11
             // Old APIs don't allow both DepthStencil and UAV at the same.
             copiedDepthImageDesc->bindFlags &= ~RESOURCE_BIND_DEPTH_STENCIL;
+#endif
+
             copiedDepthImageDesc->DefaultView.ViewFormat = VIEW_FORMAT_R32_FLOAT;
         },
         [=]( const PassData& passData, const FrameGraphResources* resources, CommandList* cmdList, PipelineStateCache* psoCache ) {
