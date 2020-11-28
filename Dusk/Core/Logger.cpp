@@ -59,6 +59,11 @@ void Logger::Write( const dkStringHash_t categoryHashcode, const dkChar_t* forma
 
     va_end( argList );
 
+    // Bad format/buffer overrun; early exit to avoid hard crash.
+    if ( bufferOutputSize == -1 ) {
+        return;
+    }
+
 #if DUSK_LOGGING_USE_DEBUGGER_OUTPUT
     DebuggerOutput( BUFFER );
 #endif
