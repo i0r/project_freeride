@@ -16,7 +16,7 @@ lib AntiAliasing {
         }
         
         Texture2D VelocityTexture {
-            swizzle = float4;
+            swizzle = float2;
             isMultisampled = true;
         }
         
@@ -106,7 +106,7 @@ lib AntiAliasing {
             return dot( color, float3( 0.299f, 0.587f, 0.114f ) );
         }
         
-        float3 ReprojectMSAA( in float2 pixelPos, in float exposure ) {       
+        float3 ReprojectMSAA( in float2 pixelPos, in float exposure, in Texture2DMS<float2> velocityTex, in Texture2DMS<float> depthTex, in Texture2D<float4> lastFrameInputTex ) {       
             // Find closest depth pixel (assuming input depth buffer is reversed)
             float2 velocity = 0.0f;
             float closestDepth = 0.0f;
@@ -117,8 +117,8 @@ lib AntiAliasing {
                     for(uint vsIdx = 0; vsIdx < $SamplerCount; ++vsIdx) {
                         int2 samplePos = pixelPos + int2( vx, vy );
                         
-                        float2 neighborVelocity = VelocityTexture.Load( samplePos, vsIdx ).rg;
-                        float neighborDepth = Linear01Depth( DepthBuffer.Load( samplePos, vsIdx ).r, g_ClippingPlanes.x, g_ClippingPlanes.y );
+                        float2 neighborVelocity = velocityTex.Load( samplePos, vsIdx ).rg;
+                        float neighborDepth = Linear01Depth( depthTex.Load( samplePos, vsIdx ).r, g_ClippingPlanes.x, g_ClippingPlanes.y );
                         
                         if ( neighborDepth > closestDepth ) {
                             velocity = neighborVelocity;
@@ -136,7 +136,7 @@ lib AntiAliasing {
             for(int ty = -1; ty <= 2; ++ty) {
                 for(int tx = -1; tx <= 2; ++tx) {
                     float2 samplePos = floor(reprojectedPos + float2(tx, ty)) + 0.5f;
-                    float3 reprojectedSample = LastFrameInputTexture[int2(samplePos)].xyz;
+                    float3 reprojectedSample = lastFrameInputTex[int2(samplePos)].xyz;
 
                     float2 sampleDist = abs(samplePos - reprojectedPos);
                     float filterWeight = FilterBlackmanHarris(sampleDist.x) * FilterBlackmanHarris(sampleDist.y);
@@ -241,7 +241,7 @@ lib AntiAliasing {
         
         #ifdef $UseTemporalAA
             float3 currColor = output;         
-            float3 prevColor = ReprojectMSAA( pixelPos, exposure );
+            float3 prevColor = ReprojectMSAA( pixelPos, exposure, VelocityTexture, DepthBuffer, LastFrameInputTexture );
             
             float3 mu = m1 / mWeight;
             float3 sigma = sqrt(abs(m2 / mWeight - mu * mu));
