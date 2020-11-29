@@ -221,6 +221,15 @@ void RuntimeShaderCompiler::SaveToDisk( VirtualFileSystem* virtualFileSystem, co
     }
 }
 
+void RuntimeShaderCompiler::ClearShaderDump( VirtualFileSystem* virtualFileSystem, FileSystemObject* fileSystem, char* shaderName, const dkChar_t* extension )
+{
+    dkString_t dumpFile = DUSK_STRING( "GameData/failed_shaders/" ) + StringToWideString( shaderName ) + extension;
+    if ( virtualFileSystem->fileExists( dumpFile.c_str() ) ) {
+        dkString_t resolvedDumpPath = fileSystem->resolveFilename( DUSK_STRING( "GameData" ), dumpFile );
+        dk::core::DeleteFile( resolvedDumpPath );
+    }
+}
+
 RuntimeShaderCompiler::RuntimeShaderCompiler( BaseAllocator* allocator, VirtualFileSystem* vfs )
     : memoryAllocator( allocator )
 #ifdef DUSK_SUPPORT_SM5_COMPILATION
@@ -267,7 +276,7 @@ RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderMod
         DUSK_LOG_ERROR( "'%hs' : Compilation Failed!\n%hs\n", shaderName, errorBlob->GetBufferPointer() );
        
         if ( DumpFailedShaders ) {
-            dkString_t dumpFile = DUSK_STRING( "GameData/failed_shaders/" ) + StringToWideString( shaderName ) + DUSK_STRING( ".hlsl" );
+            dkString_t dumpFile = DUSK_STRING( "GameData/failed_shaders/" ) + StringToWideString( shaderName ) + SHADER_DUMP_EXT_SM5;
 			FileSystemObject* dumpStream = virtualFileSystem->openFile( dumpFile.c_str(), eFileOpenMode::FILE_OPEN_MODE_WRITE | eFileOpenMode::FILE_OPEN_MODE_BINARY );
 			if ( dumpStream->isGood() ) {
                 dumpStream->writeString( "/***********\n" );
@@ -340,7 +349,7 @@ RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderMod
         DUSK_LOG_ERROR( "'%hs' : Compilation Failed!\n%hs\n", shaderName, printBlob->GetBufferPointer() );
 
         if ( DumpFailedShaders ) {
-            dkString_t dumpFile = DUSK_STRING( "GameData/failed_shaders/" ) + StringToDuskString( shaderName ) + DUSK_STRING( ".sm6.hlsl" );
+            dkString_t dumpFile = DUSK_STRING( "GameData/failed_shaders/" ) + StringToDuskString( shaderName ) + SHADER_DUMP_EXT_SM6;
             FileSystemObject* dumpStream = virtualFileSystem->openFile( dumpFile.c_str(), eFileOpenMode::FILE_OPEN_MODE_WRITE | eFileOpenMode::FILE_OPEN_MODE_BINARY );
             if ( dumpStream->isGood() ) {
                 dumpStream->writeString( "/***********\n" );
@@ -419,7 +428,7 @@ RuntimeShaderCompiler::GeneratedBytecode RuntimeShaderCompiler::compileShaderMod
         DUSK_LOG_ERROR( "'%hs' : Compilation Failed!\n%hs\n", shaderName, printBlob->GetBufferPointer() );
 
         if ( DumpFailedShaders ) {
-            dkString_t dumpFile = DUSK_STRING( "GameData/failed_shaders/" ) + StringToDuskString( shaderName ) + DUSK_STRING( ".sm6.hlsl" );
+            dkString_t dumpFile = DUSK_STRING( "GameData/failed_shaders/" ) + StringToDuskString( shaderName ) + SHADER_DUMP_EXT_SPIRV;
             FileSystemObject* dumpStream = virtualFileSystem->openFile( dumpFile.c_str(), eFileOpenMode::FILE_OPEN_MODE_WRITE | eFileOpenMode::FILE_OPEN_MODE_BINARY );
             if ( dumpStream->isGood() ) {
                 dumpStream->writeString( "/***********\n" );

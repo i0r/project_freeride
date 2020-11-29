@@ -124,6 +124,47 @@ BakingArgs CreateBakingPathsFromCmdLine( const char* cmdLineArgs )
     return pathOutput;
 }
 
+// Object to keep track of the baking process.
+struct BakingStats
+{
+    // Number of library to compile (*.drpl files).
+    u32 LibraryToCompileCount;
+
+    // Number of library failed to compile.
+    u32 FailedLibraryCount;
+
+    // Number of library successfully compiled.
+    u32 CompiledLibraryCount;
+
+    // Number of library skipped (no changes detected).
+    u32 SkippedLibraryCount;
+
+    BakingStats( const u32 libraryToCompileCount )
+        : LibraryToCompileCount( libraryToCompileCount )
+        , FailedLibraryCount( 0u )
+        , CompiledLibraryCount( 0u )
+        , SkippedLibraryCount( 0u )
+    {
+
+    }
+
+    // Return the number of library processed by the Baker (either failed or successfully compiled).
+    u32 getProcessedLibraryCount() const
+    {
+        return ( FailedLibraryCount + CompiledLibraryCount + SkippedLibraryCount );
+    }
+
+    // Return the progression percentage of the baking process (as an integer). This is scaled on 100.
+    u32 getCompilationProgress() const
+    {
+        if ( LibraryToCompileCount == 0u ) {
+            return 100u;
+        }
+
+        return getProcessedLibraryCount() / LibraryToCompileCount * 100;
+    }
+};
+
 void dk::baker::Start( const char* cmdLineArgs )
 {
 	static char BaseBuffer[128];
@@ -182,6 +223,10 @@ void dk::baker::Start( const char* cmdLineArgs )
 	// Build renderlibs list.
 	std::vector<dkString_t> renderLibs;
     dk::core::GetFilesByExtension( assetsPath, DUSK_STRING( "drpl" ), renderLibs );
+
+    BakingStats bakingStats( static_cast<u32>( renderLibs.size() ) );
+    DUSK_LOG_INFO( "Found %u lib(s) (path: '%hs')\n", bakingStats.LibraryToCompileCount, assetsPath );
+
     for ( dkString_t& renderLib : renderLibs ) {
         FileSystemObject* file = dataFS->openFile( renderLib.c_str() );
         if ( file == nullptr ) {
@@ -198,6 +243,7 @@ void dk::baker::Start( const char* cmdLineArgs )
 
         dkStringHash_t fileHashcode = file->getHashcode();
         if ( !bakingArgs.IgnoreCache && !cache.isEntryDirty( fileHashcode, contentHashcode ) ) {
+            bakingStats.SkippedLibraryCount++;
             continue;
         }
 
@@ -232,27 +278,49 @@ void dk::baker::Start( const char* cmdLineArgs )
                     reflectionHeaderStream.close();
                 }
 
+                bool hasBeenSucessfullyCompiled = true;
                 for ( const RenderLibraryGenerator::GeneratedShader& shader : libraryShaders ) {
                     std::string shaderFilename = ( shader.OriginalName + "." + shader.Hashcode );
 
 #ifdef DUSK_SUPPORT_SM5_COMPILATION
                     RuntimeShaderCompiler::GeneratedBytecode compiledShaderSM5 = runtimeShaderCompiler->compileShaderModel5( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
                     RuntimeShaderCompiler::SaveToDisk( virtualFileSystem, DUSK_STRING( "ShaderBinOutput/sm5/" ), compiledShaderSM5, shader.Hashcode ); 
+                    
+                    bool shaderModel5Compiled = ( compiledShaderSM5.Length != 0ull && compiledShaderSM5.Bytecode != nullptr );
+                    if ( shaderModel5Compiled ) {
+                        RuntimeShaderCompiler::ClearShaderDump( virtualFileSystem, workingDirFS, shaderFilename.c_str(), RuntimeShaderCompiler::SHADER_DUMP_EXT_SM5 );
+                    }
+                    hasBeenSucessfullyCompiled &= shaderModel5Compiled;
 #endif
 
 #ifdef DUSK_SUPPORT_SM6_COMPILATION
                     RuntimeShaderCompiler::GeneratedBytecode compiledShaderSM6 = runtimeShaderCompiler->compileShaderModel6( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
                     RuntimeShaderCompiler::SaveToDisk( virtualFileSystem, DUSK_STRING( "ShaderBinOutput/sm6/" ), compiledShaderSM6, shader.Hashcode );
 
-                    // DirectX Shader Compiler might hard crash during SPIR-V bytecode generation (if the source is invalid).
-                    // This is a temporary workaround (we assume that the source is malformed if SM6 compilation failed).
-                    if ( compiledShaderSM6.Length == 0ull || compiledShaderSM6.Bytecode == nullptr ) {
-                        continue;
+                    bool shaderModel6Compiled = ( compiledShaderSM6.Length != 0ull && compiledShaderSM6.Bytecode != nullptr );
+                    if ( shaderModel6Compiled ) {
+                        RuntimeShaderCompiler::ClearShaderDump( virtualFileSystem, workingDirFS, shaderFilename.c_str(), RuntimeShaderCompiler::SHADER_DUMP_EXT_SM6 );
                     }
+                    hasBeenSucessfullyCompiled &= shaderModel6Compiled;
+#endif
 
+#ifdef DUSK_SUPPORT_SPIRV_COMPILATION
                     RuntimeShaderCompiler::GeneratedBytecode compiledShaderSpirv = runtimeShaderCompiler->compileShaderModel6Spirv( shader.ShaderStage, shader.GeneratedSource.c_str(), shader.GeneratedSource.size(), shaderFilename.c_str() );
                     RuntimeShaderCompiler::SaveToDisk( virtualFileSystem, DUSK_STRING( "ShaderBinOutput/spirv/" ), compiledShaderSpirv, shader.Hashcode );
- #endif
+
+                    bool shaderModelSpirvCompiled = ( compiledShaderSpirv.Length != 0ull && compiledShaderSpirv.Bytecode != nullptr );
+                    if ( shaderModelSpirvCompiled ) {
+                        RuntimeShaderCompiler::ClearShaderDump( virtualFileSystem, workingDirFS, shaderFilename.c_str(), RuntimeShaderCompiler::SHADER_DUMP_EXT_SPIRV );
+                    }
+                    hasBeenSucessfullyCompiled &= shaderModelSpirvCompiled;
+#endif
+                }
+
+                // Update stats.
+                if ( hasBeenSucessfullyCompiled ) {
+                    bakingStats.CompiledLibraryCount++;
+                } else {
+                    bakingStats.FailedLibraryCount++;
                 }
             } break;
             default:
@@ -283,4 +351,6 @@ void dk::baker::Start( const char* cmdLineArgs )
     globalAllocator->clear();
     globalAllocator->~LinearAllocator();
     dk::core::free( allocatedTable );
+
+    DUSK_LOG_INFO( "%u lib(s) compiled successfully; %u lib(s) failed to compile; %u lib(s) were skipped (no change detected)\n", bakingStats.CompiledLibraryCount, bakingStats.FailedLibraryCount, bakingStats.SkippedLibraryCount );
 }
