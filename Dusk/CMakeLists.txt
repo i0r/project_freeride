@@ -7,7 +7,8 @@ file(GLOB_RECURSE SRC "${DUSK_BASE_FOLDER}Dusk/Core/*.cpp"
     "${DUSK_BASE_FOLDER}Dusk/Parsing/*.cpp"
     "${DUSK_BASE_FOLDER}Dusk/Graphics/*.cpp"
     "${DUSK_BASE_FOLDER}Dusk/Rendering/*.cpp"
-    "${DUSK_BASE_FOLDER}Dusk/Physics/*.cpp")
+    "${DUSK_BASE_FOLDER}Dusk/Physics/*.cpp"
+    "${DUSK_BASE_FOLDER}DuskEngine.cpp")
     
 file(GLOB_RECURSE INC "${DUSK_BASE_FOLDER}Dusk/Core/*.h"
     "${DUSK_BASE_FOLDER}Dusk/Core/*.inl"
@@ -20,7 +21,8 @@ file(GLOB_RECURSE INC "${DUSK_BASE_FOLDER}Dusk/Core/*.h"
     "${DUSK_BASE_FOLDER}Dusk/Parsing/*.h"
     "${DUSK_BASE_FOLDER}Dusk/Rendering/*.h"
     "${DUSK_BASE_FOLDER}Dusk/Graphics/*.h"
-    "${DUSK_BASE_FOLDER}Dusk/Physics/*.h")
+    "${DUSK_BASE_FOLDER}Dusk/Physics/*.h"
+    "${DUSK_BASE_FOLDER}DuskEngine.h")
     
 file(GLOB_RECURSE SRC_THIRD_PARTY 
     "${DUSK_BASE_FOLDER}Dusk/ThirdParty/SPIRV-Cross/*.cpp"
