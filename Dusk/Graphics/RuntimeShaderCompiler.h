@@ -83,7 +83,7 @@ public:
     static void             SaveToDisk( VirtualFileSystem* virtualFileSystem, const dkString_t& shaderFolder, const RuntimeShaderCompiler::GeneratedBytecode& compiledShader, const std::string& shaderFilename );
 
     // Remove shader dump from previously failed shader compilation. Should be called if the latest compilation result is successful (the previous compilation result does not matter).
-    static void             ClearShaderDump( VirtualFileSystem* virtualFileSystem, FileSystemObject* fileSystem, char* shaderName, const dkChar_t* extension );
+    static void             ClearShaderDump( VirtualFileSystem* virtualFileSystem, FileSystem* fileSystem, const char* shaderName, const dkChar_t* extension );
 
 #ifdef DUSK_SUPPORT_SM5_COMPILATION
     // Compile HLSL code to a blob with SM5.0 bytecode.

@@ -5,10 +5,12 @@
 #include <Shared.h>
 #include "RuntimeShaderCompiler.h"
 
-#include <FileSystem/VirtualFileSystem.h>
+#include "FileSystem/FileSystem.h"
+#include "FileSystem/VirtualFileSystem.h"
 
-#include <Core/StringHelpers.h>
-#include <Io/TextStreamHelpers.h>
+#include "Core/Environment.h"
+#include "Core/StringHelpers.h"
+#include "Io/TextStreamHelpers.h"
 
 DUSK_DEV_VAR( DumpFailedShaders, "If true, dump the shader source code to the working directory in a text file.", true, bool );
 
@@ -221,7 +223,7 @@ void RuntimeShaderCompiler::SaveToDisk( VirtualFileSystem* virtualFileSystem, co
     }
 }
 
-void RuntimeShaderCompiler::ClearShaderDump( VirtualFileSystem* virtualFileSystem, FileSystemObject* fileSystem, char* shaderName, const dkChar_t* extension )
+void RuntimeShaderCompiler::ClearShaderDump( VirtualFileSystem* virtualFileSystem, FileSystem* fileSystem, const char* shaderName, const dkChar_t* extension )
 {
     dkString_t dumpFile = DUSK_STRING( "GameData/failed_shaders/" ) + StringToWideString( shaderName ) + extension;
     if ( virtualFileSystem->fileExists( dumpFile.c_str() ) ) {
