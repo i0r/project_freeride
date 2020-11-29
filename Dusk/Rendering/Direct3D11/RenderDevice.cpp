@@ -614,7 +614,10 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
         case CPI_PUSH_EVENT:
         {
             CommandPacket::PushEvent cmdPacket = *( CommandPacket::PushEvent* )bufferPointer;
+
+#if DUSK_ENABLE_GPU_DEBUG_MARKER
             renderContext->Annotation->BeginEvent( cmdPacket.EventName );
+#endif
 
 #if DUSK_DEVBUILD
             renderContext->ActiveDebugMarker = cmdPacket.EventName;
@@ -623,7 +626,9 @@ void RenderDevice::submitCommandList( CommandList& cmdList )
         }
         case CPI_POP_EVENT:
         {
+#if DUSK_ENABLE_GPU_DEBUG_MARKER
             renderContext->Annotation->EndEvent();
+#endif
 
 #if DUSK_DEVBUILD
             renderContext->ActiveDebugMarker = nullptr;
