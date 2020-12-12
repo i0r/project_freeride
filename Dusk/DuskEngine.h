@@ -4,6 +4,9 @@
 */
 #pragma once
 
+class LinearAllocator;
+class VirtualFileSystem;
+
 // Monolithic class which implements most of the feature available in the Dusk Engine.
 // This class must be used to implement Dusk in an application.
 class DuskEngine
@@ -17,6 +20,9 @@ public:
 
         // If true rendering/display subsystems won't be initialized (unless requested explicitly).
         bool                IsHeadless;
+
+        // Size of the memory allocated for the global memory table (in bytes).
+        size_t              GlobalMemoryTableSize;
     };
 
 public:
@@ -42,7 +48,19 @@ public:
 private:
     // The name of the application which created the instance of the engine.
     // Should be set using either setApplicationName or Parameters::ApplicationName.
-    dkString_t  applicationName;
+    dkString_t          applicationName;
+
+    // Memory chunk preallocated at initialization time. It'll probably require some changes in the future.
+    void*               allocatedTable;
+
+    // Global allocator used for subsystem allocation (this is used to split the allocated memory table for each subsystem).
+    LinearAllocator*    globalAllocator;
+
+    // VirtualFileSystem instance (abstracts logical/physical FileSystem).
+    VirtualFileSystem*  virtualFileSystem;
+
+private:
+    void        initializeIoSubsystems();
 };
 
 // Global pointer to the Dusk GameEngine instance. This pointer is automatically set once an instance
