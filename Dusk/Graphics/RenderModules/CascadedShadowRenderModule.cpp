@@ -41,12 +41,6 @@ enum eCsmLockType : i32
     CSM_LOCK_RENDERING = 2
 };
 
-struct PerPassData
-{
-    u32         SliceIndex;
-	u32         __PADDING__[3];
-};
-
 static dkMat4x4f CreateGlobalShadowMatrix( const dkVec3f& lightDirNormalized, const dkMat4x4f& viewProjection )
 {
     // Get the 8 points of the view frustum in world space
@@ -284,6 +278,12 @@ void CascadedShadowRenderModule::captureShadowMap( FrameGraph& frameGraph, FGHan
     {
 		FGHandle VectorDataBuffer;
 		FGHandle PerPassBuffer;
+    };
+
+    struct PerPassData 
+    {
+        u32         SliceIndex;
+        u32         __PADDING__[3];
     };
 
     PassData& data = frameGraph.addRenderPass<PassData>(
