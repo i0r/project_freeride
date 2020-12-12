@@ -163,12 +163,15 @@ void EntityEditor::displayTransformSection( const dkVec4f& viewportBounds, Camer
 		dkVec3f oldScale = *editorInstance.Scale;
         dkQuatf oldRotation = *editorInstance.Rotation;
 
+        dkMat4x4f projectionMatrix = viewportCamera.projectionMatrix;
+        projectionMatrix[3][3] = viewportCamera.farPlane / ( viewportCamera.farPlane - viewportCamera.nearPlane );
+
         // Draw Manipulation Guizmo.
         ImGuizmo::SetRect( viewportBounds.x, viewportBounds.y, viewportBounds.z, viewportBounds.w );
         ImGuizmo::SetDrawlist();
         ImGuizmo::Manipulate(
             viewportCamera.viewMatrix.toArray(),
-            viewportCamera.projectionMatrix.toArray(),
+            projectionMatrix.toArray(),
             static_cast< ImGuizmo::OPERATION >( activeManipulationMode ),
             ImGuizmo::MODE::LOCAL,
             modelMatrix->toArray(),

@@ -283,7 +283,9 @@ void EditorInterface::placeNewEntityInWorld( const dkVec2f& viewportWinSize )
 {
     CameraData& cameraData = g_FreeCamera->getData();
 
-    const dkMat4x4f& projMat = cameraData.projectionMatrix;
+    dkMat4x4f& projMat = cameraData.projectionMatrix;
+	projMat[3][3] = cameraData.farPlane / ( cameraData.farPlane - cameraData.nearPlane );
+
     const dkMat4x4f& viewMat = cameraData.viewMatrix;
 
     dkMat4x4f inverseViewProj = ( viewMat * projMat ).inverse();
