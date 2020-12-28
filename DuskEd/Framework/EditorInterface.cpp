@@ -5,6 +5,7 @@
 #include <Shared.h>
 #include "EditorInterface.h"
 
+#include "DuskEngine.h"
 #include "Editor.h"
 
 #include "Graphics/RenderDocHelper.h"
@@ -37,8 +38,6 @@
 
 #if DUSK_USE_RENDERDOC
 #include "Framework/EditorWidgets/RenderDocHelper.h"
-
-extern RenderDocHelper* g_RenderDocHelper;
 #endif
 
 #include "Framework/EditorWidgets/FrameGraphDebug.h"
@@ -46,10 +45,7 @@ extern RenderDocHelper* g_RenderDocHelper;
 
 // TODO Refactor this to avoid weird dependencies
 extern MaterialEditor* g_MaterialEditor;
-extern WorldRenderer* g_WorldRenderer;
-extern World* g_World;
 extern Entity g_PickedEntity;
-extern RenderDevice* g_RenderDevice;
 extern FreeCamera* g_FreeCamera;
 extern EntityEditor* g_EntityEditor;
 extern dkVec2u g_ViewportWindowPosition;
@@ -61,7 +57,7 @@ extern bool g_IsMouseOverViewportWindow;
 EditorInterface::EditorInterface( BaseAllocator* allocator )
 	: memoryAllocator( allocator )
 #if DUSK_USE_RENDERDOC
-	, renderDocWidget( dk::core::allocate<RenderDocHelperWidget>( memoryAllocator, g_RenderDocHelper ) )
+	, renderDocWidget( dk::core::allocate<RenderDocHelperWidget>( memoryAllocator, g_DuskEngine->getRenderDocHelper() ) )
 #endif
 	, frameGraphWidget( dk::core::allocate<FrameGraphDebugWidget>( memoryAllocator ) )
 	, cpuProfilerWidget( dk::core::allocate<CpuProfilerWidget>( memoryAllocator ) )
@@ -143,8 +139,10 @@ void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* render
 	ImGui::SetNextWindowDockID( dockspaceID, ImGuiCond_FirstUseEver );
 	if ( ImGui::Begin( ICON_MD_ACCESS_TIME " Time Of Day" ) ) {
 		if ( ImGui::TreeNode( "Atmosphere" ) ) {
-			AtmosphereRenderModule* atmosphereRenderModule = g_WorldRenderer->getAtmosphereRenderingModule();
-			LightGrid* lightGrid = g_WorldRenderer->getLightGrid();
+			WorldRenderer* worldRenderer = g_DuskEngine->getWorldRenderer();
+
+			AtmosphereRenderModule* atmosphereRenderModule = worldRenderer->getAtmosphereRenderingModule();
+			LightGrid* lightGrid = worldRenderer->getLightGrid();
 			DirectionalLightGPU* sunLight = lightGrid->getDirectionalLightData();
 
 			if ( ImGui::Button( "Recompute LUTs" ) ) {
@@ -243,15 +241,17 @@ void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* render
 		if ( g_RightClickMenuOpened = dk::imgui::BeginPopupContextWindowWithCondition( "Viewport Popup", g_IsContextMenuOpened ) ) {
 			g_IsContextMenuOpened = false;
 
+            World* logicWorld = g_DuskEngine->getLogicWorld();
+
 			if ( ImGui::BeginMenu( ICON_MD_CREATE " New Entity..." ) ) {
                 dkVec2f viewportCastingDim( viewportWinSize.x, viewportWinSize.y );
 
 				if ( ImGui::MenuItem( "Static Mesh" ) ) {
-					g_PickedEntity = g_World->createStaticMesh();
+					g_PickedEntity = logicWorld->createStaticMesh();
                     placeNewEntityInWorld( viewportCastingDim );
 				}
                 if ( ImGui::MenuItem( ICON_MD_LIGHTBULB_OUTLINE " Point Light" ) ) {
-                    g_PickedEntity = g_World->createPointLight();
+                    g_PickedEntity = logicWorld->createPointLight();
                     placeNewEntityInWorld( viewportCastingDim );
                 }
 				ImGui::EndMenu();
@@ -259,7 +259,7 @@ void EditorInterface::display( FrameGraph& frameGraph, ImGuiRenderModule* render
 
 			if ( g_PickedEntity.getIdentifier() != Entity::INVALID_ID ) {
 				if ( ImGui::MenuItem( ICON_MD_DELETE " Delete" ) ) {
-					g_World->releaseEntity( g_PickedEntity );
+					logicWorld->releaseEntity( g_PickedEntity );
 					g_PickedEntity.setIdentifier( Entity::INVALID_ID );
 				}
 			}
@@ -314,7 +314,8 @@ void EditorInterface::placeNewEntityInWorld( const dkVec2f& viewportWinSize )
     rayDirection.z = backup;
 
     dkVec3f entityPosition = cameraData.worldPosition + ( g_FreeCamera->getEyeDirection() * 10.0f + rayDirection );
-    TransformDatabase* transformDatabase = g_World->getTransformDatabase();
+    World* logicWorld = g_DuskEngine->getLogicWorld();
+    TransformDatabase* transformDatabase = logicWorld->getTransformDatabase();
 
     TransformDatabase::EdInstanceData instanceData = transformDatabase->getEditorInstanceData( transformDatabase->lookup( g_PickedEntity ) );
     instanceData.Position->x = entityPosition.x;
@@ -340,7 +341,8 @@ void EditorInterface::displayMenuBar()
 		displayGraphicsMenu();
 		displayWindowMenu();
 
-		if ( g_RenderDocHelper->isAvailable() && ImGui::ImageButton( renderDocWidget->getIconBitmap(), ImVec2( menuBarHeight - 2, menuBarHeight - 2 ), ImVec2( 0, 0 ), ImVec2( 1, 1 ), 1 ) ) {
+		RenderDocHelper* renderDocHelper = g_DuskEngine->getRenderDocHelper();
+		if ( renderDocHelper != nullptr && renderDocHelper->isAvailable() && ImGui::ImageButton( renderDocWidget->getIconBitmap(), ImVec2( menuBarHeight - 2, menuBarHeight - 2 ), ImVec2( 0, 0 ), ImVec2( 1, 1 ), 1 ) ) {
 			renderDocWidget->openWindow();
 		}
 	}
@@ -349,8 +351,9 @@ void EditorInterface::displayMenuBar()
 
 void EditorInterface::displayWindowMenu()
 {
-	if ( ImGui::BeginMenu( "Window" ) ) {
-		if ( ImGui::MenuItem( "RenderDoc", nullptr, nullptr, g_RenderDocHelper->isAvailable() ) ) {
+    if ( ImGui::BeginMenu( "Window" ) ) {
+        RenderDocHelper* renderDocHelper = g_DuskEngine->getRenderDocHelper();
+		if ( ImGui::MenuItem( "RenderDoc", nullptr, nullptr, renderDocHelper != nullptr && renderDocHelper->isAvailable() ) ) {
 			renderDocWidget->openWindow();
 		}
 
@@ -384,17 +387,18 @@ void EditorInterface::displayGraphicsMenu()
 		eWindowMode* WindowMode = EnvironmentVariables::getVariable<eWindowMode>( DUSK_STRING_HASH( "WindowMode" ) );
 
         if ( ImGui::BeginMenu( "Display Mode" ) ) {
+			DisplaySurface* displaySurface = g_DuskEngine->getMainDisplaySurface();
             if ( ImGui::MenuItem( "Windowed", nullptr, *WindowMode == eWindowMode::WINDOWED_MODE ) ) {
                 *WindowMode = eWindowMode::WINDOWED_MODE;
-                g_DisplaySurface->changeDisplayMode( eDisplayMode::WINDOWED );
+				displaySurface->changeDisplayMode( eDisplayMode::WINDOWED );
             }
             if ( ImGui::MenuItem( "Fullscreen", nullptr, *WindowMode == eWindowMode::FULLSCREEN_MODE ) ) {
                 *WindowMode = eWindowMode::FULLSCREEN_MODE;
-                g_DisplaySurface->changeDisplayMode( eDisplayMode::FULLSCREEN );
+				displaySurface->changeDisplayMode( eDisplayMode::FULLSCREEN );
             }
             if ( ImGui::MenuItem( "Borderless", nullptr, *WindowMode == eWindowMode::BORDERLESS_MODE ) ) {
                 *WindowMode = eWindowMode::BORDERLESS_MODE;
-                g_DisplaySurface->changeDisplayMode( eDisplayMode::BORDERLESS );
+				displaySurface->changeDisplayMode( eDisplayMode::BORDERLESS );
             }
             ImGui::EndMenu();
         }
@@ -424,7 +428,8 @@ void EditorInterface::displayGraphicsMenu()
 		}
 
 		if ( ImGui::Checkbox( "VSync", &EnableVSync ) ) {
-			g_RenderDevice->enableVerticalSynchronisation( EnableVSync );
+			RenderDevice* renderDevice = g_DuskEngine->getRenderDevice();
+			renderDevice->enableVerticalSynchronisation( EnableVSync );
 		}
 
 		ImGui::Checkbox( "Enable Temporal AntiAliasing", EnableTAA );
@@ -463,8 +468,10 @@ void EditorInterface::displayEditMenu()
 
 		ImGui::Separator();
 
-		if ( ImGui::MenuItem( ICON_MD_DELETE " Delete", nullptr, false, ( g_PickedEntity.getIdentifier() != Entity::INVALID_ID ) ) ) {
-			g_World->releaseEntity( g_PickedEntity );
+        if ( ImGui::MenuItem( ICON_MD_DELETE " Delete", nullptr, false, ( g_PickedEntity.getIdentifier() != Entity::INVALID_ID ) ) ) {
+            World* logicWorld = g_DuskEngine->getLogicWorld();
+			logicWorld->releaseEntity( g_PickedEntity );
+
 			g_PickedEntity.setIdentifier( Entity::INVALID_ID );
 		}
 

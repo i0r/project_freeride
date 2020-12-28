@@ -34,9 +34,6 @@ DuskEngine     __DuskEngine_Instance__;
 
 DuskEngine*    g_DuskEngine = &__DuskEngine_Instance__;
 
-#define WIN_MODE_OPTION_LIST( option ) option( WINDOWED_MODE ) option( FULLSCREEN_MODE ) option( BORDERLESS_MODE )
-DUSK_ENV_OPTION_LIST( WindowMode, WIN_MODE_OPTION_LIST )
-
 DUSK_ENV_VAR( GlobalMemoryTableSize, 1024 << 20, u32 ); // Size of the memory chunk reserved at launch for runtime allocation.
 DUSK_ENV_VAR( WindowMode, WINDOWED_MODE, eWindowMode ) // Defines application window mode [Windowed/Fullscreen/Borderless]
 DUSK_ENV_VAR( EnableVSync, true, bool ); // "Enable Vertical Synchronisation [false/true]"
@@ -101,7 +98,7 @@ void DuskEngine::create( const char* cmdLineArgs )
 
     // Allocate a memory chunk for every subsystem used by the engine.
     allocatedTable = dk::core::malloc( GlobalMemoryTableSize );
-    DUSK_LOG_INFO( "Global memory table allocated at: 0x%x\n", allocatedTable );
+    DUSK_LOG_INFO( "Global memory table allocated at: 0x%x (%ull bytes)\n", allocatedTable, GlobalMemoryTableSize );
     globalAllocator = new ( g_BaseBuffer ) LinearAllocator( GlobalMemoryTableSize, allocatedTable );
 
     initializeIoSubsystems();
@@ -298,14 +295,6 @@ void DuskEngine::initializeIoSubsystems()
         saveFs.createFolder( saveFolder );
     }
 
-    // TODO Store thoses paths somewhere so that we don't hardcode this everywhere...
-    if ( !dataFileSystem->fileExists( DUSK_STRING( "./data/" ) ) ) {
-        dataFileSystem->createFolder( DUSK_STRING( "./data/" ) );
-        dataFileSystem->createFolder( DUSK_STRING( "./data/cache/" ) );
-        dataFileSystem->createFolder( DUSK_STRING( "./data/materials/" ) );
-        dataFileSystem->createFolder( DUSK_STRING( "./data/failed_shaders/" ) );
-    }
-
     Logger::SetLogOutputFile( saveFolder, DUSK_STRING( "DuskEd" ) );
 
     DUSK_LOG_INFO( "SaveData folder at : '%s'\n", saveFolder.c_str() );
@@ -314,6 +303,14 @@ void DuskEngine::initializeIoSubsystems()
 
     dataFileSystem = dk::core::allocate<FileSystemNative>( globalAllocator, DUSK_STRING( "./data/" ) );
     virtualFileSystem->mount( dataFileSystem, DUSK_STRING( "GameData" ), 1 );
+
+    // TODO Store thoses paths somewhere so that we don't hardcode this everywhere...
+    if ( !dataFileSystem->fileExists( DUSK_STRING( "./data/" ) ) ) {
+        dataFileSystem->createFolder( DUSK_STRING( "./data/" ) );
+        dataFileSystem->createFolder( DUSK_STRING( "./data/cache/" ) );
+        dataFileSystem->createFolder( DUSK_STRING( "./data/materials/" ) );
+        dataFileSystem->createFolder( DUSK_STRING( "./data/failed_shaders/" ) );
+    }
 
     gameFileSystem = dk::core::allocate<FileSystemArchive>( globalAllocator, globalAllocator, DUSK_STRING( "./Game.zip" ) );
     // virtualFileSystem->mount( gameFileSystem, DUSK_STRING( "GameData/" ), 0 );

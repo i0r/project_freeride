@@ -43,7 +43,7 @@ ImGuiManager::~ImGuiManager()
     }
 }
 
-void ImGuiManager::create( const DisplaySurface& displaySurface, VirtualFileSystem* virtualFileSystem, BaseAllocator* allocator )
+void ImGuiManager::create( const DisplaySurface* displaySurface, VirtualFileSystem* virtualFileSystem, BaseAllocator* allocator )
 {
     dkString_t saveFolderPath;
     dk::core::RetrieveSavedGamesDirectory( saveFolderPath );
@@ -84,7 +84,7 @@ void ImGuiManager::create( const DisplaySurface& displaySurface, VirtualFileSyst
 
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-    resize( displaySurface.getWidth(), displaySurface.getHeight() );
+    resize( displaySurface->getWidth(), displaySurface->getHeight() );
 
     ImGuiViewport* main_viewport = ImGui::GetMainViewport();
 
@@ -93,10 +93,13 @@ void ImGuiManager::create( const DisplaySurface& displaySurface, VirtualFileSyst
     }
 
 #if DUSK_WIN
-    HWND nativeHandle = displaySurface.getNativeDisplaySurface()->Handle;
+    NativeDisplaySurface* nativeDisplaySurf = displaySurface->getNativeDisplaySurface();
+    if ( nativeDisplaySurf != nullptr ) {
+        HWND nativeHandle = nativeDisplaySurf->Handle;
 
-    main_viewport->PlatformHandle = nativeHandle;
-    main_viewport->PlatformHandleRaw = nativeHandle;
+        main_viewport->PlatformHandle = nativeHandle;
+        main_viewport->PlatformHandleRaw = nativeHandle;
+    }
 #endif
     
     // Setup style

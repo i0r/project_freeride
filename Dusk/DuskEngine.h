@@ -20,8 +20,10 @@ class RenderWorld;
 class DrawCommandBuilder;
 class World;
 class DynamicsWorld;
+class RenderDocHelper;
 
-#include "Core/Listener.h"
+#define WIN_MODE_OPTION_LIST( option ) option( WINDOWED_MODE ) option( FULLSCREEN_MODE ) option( BORDERLESS_MODE )
+DUSK_ENV_OPTION_LIST( WindowMode, WIN_MODE_OPTION_LIST )
 
 // Monolithic class which implements most of the feature available in the Dusk Engine.
 // This class must be used to implement Dusk in an application.
@@ -37,10 +39,11 @@ public:
     DUSK_INLINE DisplaySurface* getMainDisplaySurface() { return mainDisplaySurface; }
     DUSK_INLINE RenderWorld* getRenderWorld() { return renderWorld; }
     DUSK_INLINE World* getLogicWorld() { return world; }
+    DUSK_INLINE WorldRenderer* getWorldRenderer() { return worldRenderer; }
 
-public:
-    // Listener for main display resize events. Disabled if the application is headless.
-    Listener<void( f32, f32 ), 32> OnResize;
+#if DUSK_USE_RENDERDOC
+    DUSK_INLINE RenderDocHelper* getRenderDocHelper() { return renderDocHelper; }
+#endif
 
 public:
                 DuskEngine();

@@ -16,7 +16,7 @@ public:
                                     ImGuiManager& operator = ( ImGuiManager& ) = delete;
                                     ~ImGuiManager();
 
-    void                            create( const DisplaySurface& displaySurface, VirtualFileSystem* virtualFileSystem, BaseAllocator* allocator );
+    void                            create( const DisplaySurface* displaySurface, VirtualFileSystem* virtualFileSystem, BaseAllocator* allocator );
     void                            update( const f32 deltaTime );
 
     void                            setVisible( const bool isVisible );

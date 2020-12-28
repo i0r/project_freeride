@@ -5,6 +5,7 @@
 #include <Shared.h>
 #include "Editor.h"
 
+#include "DuskEngine.h"
 
 #include "Framework/EditorInterface.h"
 
@@ -14,10 +15,14 @@
 #include "Framework/Cameras/FreeCamera.h"
 #include "Framework/MaterialEditor.h"
 #include "Framework/EntityEditor.h"
+#include "Framework/Entity.h"
+#include "Framework/World.h"
 
 #include "Graphics/RenderModules/ImGuiRenderModule.h"
 #include "Graphics/RenderModules/EditorGridRenderModule.h"
 
+#include "Input/InputMapper.h"
+#include "Input/InputReader.h"
 
 FreeCamera* g_FreeCamera;
 MaterialEditor* g_MaterialEditor;
@@ -28,6 +33,8 @@ EntityEditor* g_EntityEditor;
 static ImGuiManager* g_ImGuiManager;
 static ImGuiRenderModule* g_ImGuiRenderModule;
 static EditorInterface* g_EditorInterface;
+
+#include "Framework/ImGuiUtilities.h"
 #endif
 
 TransactionHandler* g_TransactionHandler;
@@ -56,8 +63,8 @@ void UpdateFreeCamera( MappedInput& input, f32 deltaTime )
     }
 
     // Camera Controls
-    auto axisX = input.Ranges[DUSK_STRING_HASH( "CameraMoveHorizontal" )];
-    auto axisY = input.Ranges[DUSK_STRING_HASH( "CameraMoveVertical" )];
+    f64 axisX = input.Ranges[DUSK_STRING_HASH( "CameraMoveHorizontal" )];
+    f64 axisY = input.Ranges[DUSK_STRING_HASH( "CameraMoveVertical" )];
 
     g_FreeCamera->updateMouse( deltaTime, axisX, axisY );
 
@@ -106,9 +113,9 @@ void UpdateEditor( MappedInput& input, f32 deltaTime )
 
     if ( previousCamState != g_CanMoveCamera ) {
         if ( g_CanMoveCamera ) {
-            g_InputMapper->popContext();
+            g_DuskEngine->getInputMapper()->popContext();
         } else {
-            g_InputMapper->pushContext( DUSK_STRING_HASH( "Editor" ) );
+            g_DuskEngine->getInputMapper()->pushContext( DUSK_STRING_HASH( "Editor" ) );
         }
     }
 
@@ -131,14 +138,17 @@ void UpdateEditor( MappedInput& input, f32 deltaTime )
 
     if ( input.States.find( DUSK_STRING_HASH( "KeyDelete" ) ) != input.States.end() ) {
         if ( g_PickedEntity.getIdentifier() != Entity::INVALID_ID ) {
-            g_World->releaseEntity( g_PickedEntity );
+            g_DuskEngine->getLogicWorld()->releaseEntity( g_PickedEntity );
             g_PickedEntity.setIdentifier( Entity::INVALID_ID );
         }
     }
 
-    InputReader* inputReader = g_DuskEngine.getInputReader();
+#if DUSK_USE_IMGUI
+    InputReader* inputReader = g_DuskEngine->getInputReader();
 
     // Forward input states to ImGui
+    dkVec2f ScreenSize = *EnvironmentVariables::getVariable<dkVec2f>( DUSK_STRING_HASH( "ScreenSize" ) );
+
     f32 rawX = dk::maths::clamp( static_cast< f32 >( inputReader->getAbsoluteAxisValue( dk::input::eInputAxis::MOUSE_X ) ), 0.0f, static_cast< f32 >( ScreenSize.x ) );
     f32 rawY = dk::maths::clamp( static_cast< f32 >( inputReader->getAbsoluteAxisValue( dk::input::eInputAxis::MOUSE_Y ) ), 0.0f, static_cast< f32 >( ScreenSize.y ) );
     f32 mouseWheel = static_cast< f32 >( inputReader->getAbsoluteAxisValue( dk::input::eInputAxis::MOUSE_SCROLL_WHEEL ) );
@@ -184,11 +194,12 @@ void UpdateEditor( MappedInput& input, f32 deltaTime )
     for ( dk::input::eInputKey key : keyStrokes ) {
         io.AddInputCharacter( key );
     }
+#endif
 }
 
 void RegisterInputContexts()
 {
-    InputMapper* inputMapper = g_DuskEngine.getInputMapper();
+    InputMapper* inputMapper = g_DuskEngine->getInputMapper();
 
     inputMapper->pushContext( DUSK_STRING_HASH( "Game" ) );
     inputMapper->pushContext( DUSK_STRING_HASH( "Editor" ) );
@@ -201,17 +212,16 @@ void RegisterInputContexts()
 #if DUSK_USE_IMGUI
 void RegisterImguiSubsystem()
 {
-    LinearAllocator* globalAllocator = g_DuskEngine.getGlobalAllocator();
+    BaseAllocator* globalAllocator = g_DuskEngine->getGlobalAllocator();
+    RenderDevice* renderDevice = g_DuskEngine->getRenderDevice();
+    GraphicsAssetCache* graphicsAssetCache = g_DuskEngine->getGraphicsAssetCache();
 
-    RenderDevice* renderDevice = g_DuskEngine.getRenderDevice();
-    GraphicsAssetCache* graphicsAssetCache = g_DuskEngine.getGraphicsAssetCache();
+    //g_ImGuiManager = dk::core::allocate<ImGuiManager>( globalAllocator );
+    //g_ImGuiManager->create( g_DuskEngine->getMainDisplaySurface(), g_DuskEngine->getVirtualFileSystem(), globalAllocator );
+    //g_ImGuiManager->setVisible( true );
 
-    g_ImGuiManager = dk::core::allocate<ImGuiManager>( globalAllocator );
-    g_ImGuiManager->create( *g_DuskEngine.getMainDisplaySurface(), g_DuskEngine.getVirtualFileSystem(), globalAllocator );
-    g_ImGuiManager->setVisible( true );
-
-    g_ImGuiRenderModule = dk::core::allocate<ImGuiRenderModule>( globalAllocator );
-    g_ImGuiRenderModule->loadCachedResources( *renderDevice, *graphicsAssetCache );
+    //g_ImGuiRenderModule = dk::core::allocate<ImGuiRenderModule>( globalAllocator );
+    //g_ImGuiRenderModule->loadCachedResources( *renderDevice, *graphicsAssetCache );
 
     g_EditorInterface = dk::core::allocate<EditorInterface>( globalAllocator, globalAllocator );
     g_EditorInterface->loadCachedResources( graphicsAssetCache );
@@ -220,14 +230,14 @@ void RegisterImguiSubsystem()
 
 void RegisterEditorSubsystems()
 {
-    GraphicsAssetCache* graphicsAssetCache = g_DuskEngine.getGraphicsAssetCache();
-    LinearAllocator* globalAllocator = g_DuskEngine.getGlobalAllocator();
-    VirtualFileSystem* virtualFileSystem = g_DuskEngine.getVirtualFileSystem();
+    GraphicsAssetCache* graphicsAssetCache = g_DuskEngine->getGraphicsAssetCache();
+    LinearAllocator* globalAllocator = g_DuskEngine->getGlobalAllocator();
+    VirtualFileSystem* virtualFileSystem = g_DuskEngine->getVirtualFileSystem();
 
     g_MaterialEditor = dk::core::allocate<MaterialEditor>( globalAllocator, globalAllocator, graphicsAssetCache, virtualFileSystem );
 
-    g_EntityEditor = dk::core::allocate<EntityEditor>( globalAllocator, globalAllocator, graphicsAssetCache, virtualFileSystem, g_DuskEngine.getRenderWorld(), g_DuskEngine.getRenderDevice() );
-    g_EntityEditor->setActiveWorld( g_DuskEngine.getLogicWorld() );
+    g_EntityEditor = dk::core::allocate<EntityEditor>( globalAllocator, globalAllocator, graphicsAssetCache, virtualFileSystem, g_DuskEngine->getRenderWorld(), g_DuskEngine->getRenderDevice() );
+    g_EntityEditor->setActiveWorld( g_DuskEngine->getLogicWorld() );
     g_EntityEditor->setActiveEntity( &g_PickedEntity );
     g_EntityEditor->openEditorWindow();
 
@@ -241,17 +251,18 @@ void RegisterEditorSubsystems()
     u32 msaaSamplerCount = *EnvironmentVariables::getVariable<u32>( DUSK_STRING_HASH( "MSAASamplerCount" ) );
 
     g_FreeCamera = new FreeCamera();
+
+    dkVec2f ScreenSize = *EnvironmentVariables::getVariable<dkVec2f>( DUSK_STRING_HASH( "ScreenSize" ) );
     g_FreeCamera->setProjectionMatrix( defaultCameraFov, static_cast< float >( ScreenSize.x ), static_cast< float >( ScreenSize.y ) );
 
     g_FreeCamera->setImageQuality( imageQuality );
     g_FreeCamera->setMSAASamplerCount( msaaSamplerCount );
-    //ENDTODO
 }
 
 void ShutdownEditor()
 {
-    LinearAllocator* globalAllocator = g_DuskEngine.getGlobalAllocator();
-    RenderDevice* renderDevice = g_DuskEngine.getRenderDevice();
+    LinearAllocator* globalAllocator = g_DuskEngine->getGlobalAllocator();
+    RenderDevice* renderDevice = g_DuskEngine->getRenderDevice();
 
     dk::core::free( globalAllocator, g_TransactionHandler );
     dk::core::free( globalAllocator, g_EditorGridModule );
@@ -269,21 +280,21 @@ void ShutdownEditor()
 
 void dk::editor::Start( const char* cmdLineArgs )
 {
-    g_DuskEngine.setApplicationName( DUSK_STRING( "DuskEd" ) );
-    g_DuskEngine.create( cmdLineArgs );
+    g_DuskEngine->setApplicationName( DUSK_STRING( "DuskEd" ) );
+    g_DuskEngine->create( cmdLineArgs );
 
     RegisterInputContexts();
+
+    RegisterEditorSubsystems();
 
 #if DUSK_USE_IMGUI
     RegisterImguiSubsystem();
 #endif
 
-    RegisterEditorSubsystems();
-
-    g_DuskEngine.mainLoop();
+    g_DuskEngine->mainLoop();
 
     ShutdownEditor();
-    g_DuskEngine.shutdown();
+    g_DuskEngine->shutdown();
 }
 
 //

@@ -15,6 +15,7 @@
 #include "Core/Hashing/CRC32.h"
 
 #include "Core/Allocators/BaseAllocator.h"
+#include "Core/Allocators/LinearAllocator.h"
 
 #if DUSK_MSVC
 // MSVC will flag a macro redefinition as a warning (even though this is
